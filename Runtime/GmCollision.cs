@@ -8,20 +8,128 @@ public readonly record struct GmBounds(double Left,double Top,double Right,doubl
     public bool Overlaps(GmBounds b)=>!Empty&&!b.Empty&&Left<=b.Right&&Right>=b.Left&&Top<=b.Bottom&&Bottom>=b.Top;
 }
 
+internal sealed class GmMask
+{
+    public readonly int Width,Height,OriginX,OriginY;
+    public readonly double Left,Top,Right,Bottom;
+    private readonly JsonElement source;
+    private string? pixels;
+    public string Pixels=>pixels??=source.GetProperty("data").GetString()!;
+    public GmMask(JsonElement source,int originX,int originY)
+    {
+        this.source=source;OriginX=originX;OriginY=originY;
+        Width=source.GetProperty("width").GetInt32();Height=source.GetProperty("height").GetInt32();
+        Left=source.GetProperty("left").GetDouble()-originX;Right=source.GetProperty("right").GetDouble()+1-originX;
+        Top=source.GetProperty("top").GetDouble()-originY;Bottom=source.GetProperty("bottom").GetDouble()+1-originY;
+    }
+}
+
+internal readonly struct GmMaskSampler
+{
+    private readonly string pixels;
+    private readonly int width,height;
+    private readonly double xx,xy,yx,yy,tx,ty;
+    public GmMaskSampler(GmMask mask,GmInstance instance,double? x=null,double? y=null)
+    {
+        pixels=mask.Pixels;width=mask.Width;height=mask.Height;
+        double sx=instance.Scope.ReadOr("image_xscale",1).Number,sy=instance.Scope.ReadOr("image_yscale",1).Number;
+        double angle=instance.Scope.ReadOr("image_angle").Number*Math.PI/180,cs=Math.Cos(angle),sn=Math.Sin(angle);
+        xx=cs/sx;xy=-sn/sx;yx=sn/sy;yy=cs/sy;
+        double px=x??instance.Scope.ReadOr("x").Number,py=y??instance.Scope.ReadOr("y").Number;
+        tx=mask.OriginX-px*xx-py*xy;ty=mask.OriginY-px*yx-py*yy;
+    }
+    public bool Opaque(double x,double y)
+    {
+        double localX=x*xx+y*xy+tx,localY=x*yx+y*yy+ty;
+        if(!(localX>=0&&localY>=0&&localX<width&&localY<height))return false;
+        return pixels[(int)Math.Floor(localY)*width+(int)Math.Floor(localX)]=='1';
+    }
+}
+
 public sealed partial class GmWorld
 {
-    private readonly Dictionary<JsonElement,string> maskData=new();
+    private readonly Dictionary<JsonElement,GmMask[]> collisionMasks=new(GmJsonIdentity.Instance);
+    private readonly Dictionary<(int X,int Y),HashSet<GmInstance>> collisionCells=new();
+    private readonly Dictionary<GmInstance,GmBounds> collisionMembership=new();
+    private readonly HashSet<GmInstance> largeColliders=new();
+    private readonly HashSet<GmInstance> changedColliders=new();
+    private int collisionIndexedCount=-1;
+    private const int CollisionCellSize=128;
+    private static (int Left,int Top,int Right,int Bottom) Cells(GmBounds b)=>((int)Math.Floor(b.Left/CollisionCellSize),(int)Math.Floor(b.Top/CollisionCellSize),(int)Math.Floor(b.Right/CollisionCellSize),(int)Math.Floor(b.Bottom/CollisionCellSize));
+    private static bool Large(GmBounds b)
+    {
+        var cells=Cells(b);return (long)(cells.Right-cells.Left+1)*(cells.Bottom-cells.Top+1)>256;
+    }
+    private void WatchCollider(GmInstance instance)
+    {
+        instance.Scope.Changed=name=>
+        {
+            if(name is "x" or "y" or "sprite_index" or "mask_index" or "image_xscale" or "image_yscale" or "image_angle")changedColliders.Add(instance);
+            else if(name=="image_index"&&Mask(instance,out var mask)&&(!instance.HasBounds||!ReferenceEquals(instance.BoundsKey.Mask,mask)))changedColliders.Add(instance);
+        };
+    }
+    internal void InvalidateCollisionSprites()=>collisionIndexedCount=-1;
+    private void IndexCollider(GmInstance instance)
+    {
+        if(collisionMembership.Remove(instance,out var old))
+        {
+            if(Large(old))largeColliders.Remove(instance);
+            else
+            {
+                var cells=Cells(old);
+                for(int y=cells.Top;y<=cells.Bottom;y++)for(int x=cells.Left;x<=cells.Right;x++)
+                    if(collisionCells.TryGetValue((x,y),out var members)){members.Remove(instance);if(members.Count==0)collisionCells.Remove((x,y));}
+            }
+        }
+        if(instance.Destroyed)return;
+        var bounds=Bounds(instance);if(bounds.Empty)return;
+        collisionMembership[instance]=bounds;
+        if(Large(bounds)){largeColliders.Add(instance);return;}
+        var range=Cells(bounds);
+        for(int y=range.Top;y<=range.Bottom;y++)for(int x=range.Left;x<=range.Right;x++)
+        {
+            if(!collisionCells.TryGetValue((x,y),out var members))collisionCells[(x,y)]=members=new();
+            members.Add(instance);
+        }
+    }
+    private HashSet<GmInstance> Nearby(GmBounds bounds)
+    {
+        if(collisionIndexedCount!=Instances.Count)
+        {
+            collisionCells.Clear();collisionMembership.Clear();largeColliders.Clear();changedColliders.Clear();
+            for(int i=0;i<Instances.Count;i++){var instance=Instances[i];instance.CollisionOrder=i;WatchCollider(instance);IndexCollider(instance);}
+            nextCollisionOrder=Instances.Count;
+            collisionIndexedCount=Instances.Count;
+        }
+        else if(changedColliders.Count>0)
+        {
+            foreach(var instance in changedColliders)IndexCollider(instance);
+            changedColliders.Clear();
+        }
+        var result=new HashSet<GmInstance>();if(bounds.Empty)return result;
+        if(Large(bounds)){foreach(var pair in collisionMembership)if(pair.Value.Overlaps(bounds))result.Add(pair.Key);return result;}
+        var range=Cells(bounds);
+        for(int y=range.Top;y<=range.Bottom;y++)for(int x=range.Left;x<=range.Right;x++)
+            if(collisionCells.TryGetValue((x,y),out var members))foreach(var instance in members)result.Add(instance);
+        foreach(var instance in largeColliders)if(collisionMembership[instance].Overlaps(bounds))result.Add(instance);
+        return result;
+    }
+    private IEnumerable<GmInstance> CollisionCandidates(GmBounds bounds,int target,GmContext context,bool notMe=true)
+    {
+        if(target is -1 or -2 or -4||target>=100000)return Select(target,context).Where(i=>!notMe||i!=context.Self);
+        return Nearby(bounds).Where(i=>!i.Destroyed&&i.Active&&(!notMe||i!=context.Self)&&(target==-3||i.Id==target||IsObject(i.Object,target))).OrderBy(i=>i.CollisionOrder);
+    }
     public bool MouseOver(GmInstance instance,double x,double y)=>Bounds(instance).Overlaps(new(x,y,x,y))&&Opaque(instance,x,y);
 
     private void BoundaryEvents()
     {
         void Dispatch(int sub,double left,double top,double right,double bottom,bool intersect)
         {
-            foreach(var instance in Instances.ToArray())
+            foreach(var instance in EventInstances(7,sub).ToArray())
             {
-                if(instance.Destroyed||!instance.Active||!HasEvent(instance.Object,7,sub))continue;
+                if(instance.Destroyed||!instance.Active)continue;
                 bool hit;
-                if(Mask(instance,out _,out _))
+                if(Mask(instance,out _))
                 {
                     var bounds=Bounds(instance);
                     hit=intersect?bounds.Left<left||bounds.Top<top||bounds.Right>right||bounds.Bottom>bottom:
@@ -44,43 +152,44 @@ public sealed partial class GmWorld
         }
     }
 
-    private bool Mask(GmInstance i,out JsonElement sprite,out JsonElement mask)
+    private bool Mask(GmInstance i,out GmMask mask)
     {
         int id=i.Scope.ReadOr("mask_index",-1).Int;
         if(id<0)id=i.Scope.ReadOr("sprite_index",-1).Int;
-        if(!Sprites.TryGetValue(id,out sprite)||sprite.GetProperty("masks").GetArrayLength()==0){mask=default;return false;}
-        var masks=sprite.GetProperty("masks");
+        if(!Sprites.TryGetValue(id,out var sprite)){mask=null!;return false;}
+        if(!collisionMasks.TryGetValue(sprite,out var masks))
+        {
+            int originX=sprite.GetProperty("originX").GetInt32(),originY=sprite.GetProperty("originY").GetInt32();
+            collisionMasks[sprite]=masks=sprite.GetProperty("masks").EnumerateArray().Select(m=>new GmMask(m,originX,originY)).ToArray();
+        }
+        if(masks.Length==0){mask=null!;return false;}
+        if(masks.Length==1){mask=masks[0];return true;}
         int frame=(int)Math.Floor(i.Scope.ReadOr("image_index").Number);
-        frame=(frame%masks.GetArrayLength()+masks.GetArrayLength())%masks.GetArrayLength();
+        frame=(frame%masks.Length+masks.Length)%masks.Length;
         mask=masks[frame];return true;
     }
 
     public GmBounds Bounds(GmInstance instance,double? x=null,double? y=null)
     {
-        if(!Mask(instance,out var sprite,out var mask))return new(0,0,-1,-1);
+        if(!Mask(instance,out var mask))return new(0,0,-1,-1);
         double px=x??instance.Scope.ReadOr("x").Number,py=y??instance.Scope.ReadOr("y").Number;
         double sx=instance.Scope.ReadOr("image_xscale",1).Number,sy=instance.Scope.ReadOr("image_yscale",1).Number;
-        double angle=instance.Scope.ReadOr("image_angle").Number*Math.PI/180,cs=Math.Cos(angle),sn=Math.Sin(angle);
-        int ox=sprite.GetProperty("originX").GetInt32(),oy=sprite.GetProperty("originY").GetInt32();
-        double left=mask.GetProperty("left").GetDouble()-ox,right=mask.GetProperty("right").GetDouble()+1-ox;
-        double top=mask.GetProperty("top").GetDouble()-oy,bottom=mask.GetProperty("bottom").GetDouble()+1-oy;
-        var corners=new[]{(left,top),(left,bottom),(right,top),(right,bottom)}.Select(p=>(X:px+p.Item1*sx*cs+p.Item2*sy*sn,Y:py-p.Item1*sx*sn+p.Item2*sy*cs)).ToArray();
-        return new(Math.Floor(corners.Min(p=>p.X)),Math.Floor(corners.Min(p=>p.Y)),Math.Ceiling(corners.Max(p=>p.X))-1,Math.Ceiling(corners.Max(p=>p.Y))-1);
+        double degrees=instance.Scope.ReadOr("image_angle").Number;
+        var key=(mask,px,py,sx,sy,degrees);
+        var cached=instance.BoundsKey;
+        if(instance.HasBounds&&cached.X==px&&cached.Y==py&&cached.ScaleX==sx&&cached.ScaleY==sy&&cached.Angle==degrees&&ReferenceEquals(cached.Mask,mask))return instance.CachedBounds;
+        double angle=degrees*Math.PI/180,cs=Math.Cos(angle),sn=Math.Sin(angle);
+        double left=mask.Left,right=mask.Right,top=mask.Top,bottom=mask.Bottom;
+        double x1=px+left*sx*cs+top*sy*sn,x2=px+left*sx*cs+bottom*sy*sn,x3=px+right*sx*cs+top*sy*sn,x4=px+right*sx*cs+bottom*sy*sn;
+        double y1=py-left*sx*sn+top*sy*cs,y2=py-left*sx*sn+bottom*sy*cs,y3=py-right*sx*sn+top*sy*cs,y4=py-right*sx*sn+bottom*sy*cs;
+        instance.BoundsKey=key;instance.HasBounds=true;
+        return instance.CachedBounds=new(Math.Floor(Math.Min(Math.Min(x1,x2),Math.Min(x3,x4))),Math.Floor(Math.Min(Math.Min(y1,y2),Math.Min(y3,y4))),Math.Ceiling(Math.Max(Math.Max(x1,x2),Math.Max(x3,x4)))-1,Math.Ceiling(Math.Max(Math.Max(y1,y2),Math.Max(y3,y4)))-1);
     }
 
     private bool Opaque(GmInstance i,double x,double y,double? atX=null,double? atY=null)
     {
-        if(!Mask(i,out var sprite,out var mask))return false;
-        double sx=i.Scope.ReadOr("image_xscale",1).Number,sy=i.Scope.ReadOr("image_yscale",1).Number;
-        if(sx==0||sy==0)return false;
-        double dx=x-(atX??i.Scope.ReadOr("x").Number),dy=y-(atY??i.Scope.ReadOr("y").Number);
-        double angle=i.Scope.ReadOr("image_angle").Number*Math.PI/180,cs=Math.Cos(angle),sn=Math.Sin(angle);
-        int mx=(int)Math.Floor((dx*cs-dy*sn)/sx+sprite.GetProperty("originX").GetInt32());
-        int my=(int)Math.Floor((dx*sn+dy*cs)/sy+sprite.GetProperty("originY").GetInt32());
-        int w=mask.GetProperty("width").GetInt32(),h=mask.GetProperty("height").GetInt32();
-        if(mx<0||my<0||mx>=w||my>=h)return false;
-        if(!maskData.TryGetValue(mask,out var data))maskData[mask]=data=mask.GetProperty("data").GetString()!;
-        return data[my*w+mx]=='1';
+        if(!Mask(i,out var mask))return false;
+        return new GmMaskSampler(mask,i,atX,atY).Opaque(x,y);
     }
 
     private bool Touches(GmInstance a,GmInstance b,double x,double y,bool precise=true)
@@ -88,9 +197,11 @@ public sealed partial class GmWorld
         var ba=Bounds(a,x,y);var bb=Bounds(b);
         if(!ba.Overlaps(bb))return false;
         if(!precise)return true;
+        if(!Mask(a,out var am)||!Mask(b,out var bm))return false;
+        var first=new GmMaskSampler(am,a,x,y);var second=new GmMaskSampler(bm,b);
         for(double py=Math.Max(ba.Top,bb.Top);py<=Math.Min(ba.Bottom,bb.Bottom);py++)
         for(double px=Math.Max(ba.Left,bb.Left);px<=Math.Min(ba.Right,bb.Right);px++)
-            if(Opaque(a,px+0.5,py+0.5,x,y)&&Opaque(b,px+0.5,py+0.5))return true;
+            if(first.Opaque(px+0.5,py+0.5)&&second.Opaque(px+0.5,py+0.5))return true;
         return false;
     }
 
@@ -100,7 +211,7 @@ public sealed partial class GmWorld
         int I(int i)=>i<a.Length?a[i].Int:0;
         var self=c.Self;
         IEnumerable<GmInstance> Targets(int target,bool notMe=true)=>Select(target,c).Where(i=>!notMe||i!=self);
-        GmInstance? At(double x,double y,int target,bool solids=false)=>Targets(target).FirstOrDefault(i=>(!solids||i.Scope.ReadOr("solid").Truth)&&Touches(self,i,x,y));
+        GmInstance? At(double x,double y,int target,bool solids=false)=>CollisionCandidates(Bounds(self,x,y),target,c).FirstOrDefault(i=>(!solids||i.Scope.ReadOr("solid").Truth)&&Touches(self,i,x,y));
         switch(name)
         {
             case "move_bounce_solid":case "move_bounce_all":
@@ -142,11 +253,11 @@ public sealed partial class GmWorld
             case "action_if_empty":return At(N(0),N(1),-3,I(2)==0)is null;
             case "action_if_object":return At(N(1),N(2),I(0))is not null;
             case "collision_point":
-                return Targets(I(2),N(4)>=0.5).FirstOrDefault(i=>Bounds(i).Overlaps(new(N(0),N(1),N(0),N(1)))&&(N(3)<0.5||Opaque(i,N(0),N(1))))?.Id??-4;
+                return CollisionCandidates(new(N(0),N(1),N(0),N(1)),I(2),c,N(4)>=0.5).FirstOrDefault(i=>Bounds(i).Overlaps(new(N(0),N(1),N(0),N(1)))&&(N(3)<0.5||Opaque(i,N(0),N(1))))?.Id??-4;
             case "collision_rectangle":
             {
                 var bounds=new GmBounds(Math.Min(N(0),N(2)),Math.Min(N(1),N(3)),Math.Max(N(0),N(2)),Math.Max(N(1),N(3)));
-                foreach(var i in Targets(I(4),N(6)>=0.5))
+                foreach(var i in CollisionCandidates(bounds,I(4),c,N(6)>=0.5))
                 {
                     var b=Bounds(i);if(!b.Overlaps(bounds))continue;
                     if(N(5)<0.5)return i.Id;
@@ -157,7 +268,7 @@ public sealed partial class GmWorld
             case "collision_circle":
             {
                 double radius=Math.Abs(N(2));
-                foreach(var i in Targets(I(3),N(5)>=0.5))
+                foreach(var i in CollisionCandidates(new(N(0)-radius,N(1)-radius,N(0)+radius,N(1)+radius),I(3),c,N(5)>=0.5))
                 {
                     var b=Bounds(i);if(b.Empty)continue;
                     double cx=Math.Clamp(N(0),b.Left,b.Right),cy=Math.Clamp(N(1),b.Top,b.Bottom);
@@ -170,7 +281,7 @@ public sealed partial class GmWorld
             case "collision_line":
             {
                 double dx=N(2)-N(0),dy=N(3)-N(1);int steps=Math.Max(1,(int)Math.Ceiling(Math.Max(Math.Abs(dx),Math.Abs(dy))));
-                foreach(var i in Targets(I(4),N(6)>=0.5))
+                foreach(var i in CollisionCandidates(new(Math.Min(N(0),N(2)),Math.Min(N(1),N(3)),Math.Max(N(0),N(2)),Math.Max(N(1),N(3))),I(4),c,N(6)>=0.5))
                 {
                     var b=Bounds(i);if(!b.Overlaps(new(Math.Min(N(0),N(2)),Math.Min(N(1),N(3)),Math.Max(N(0),N(2)),Math.Max(N(1),N(3)))))continue;
                     for(int p=0;p<=steps;p++){double x=N(0)+dx*p/steps,y=N(1)+dy*p/steps;if(b.Overlaps(new(x,y,x,y))&&(N(5)<0.5||Opaque(i,x,y)))return i.Id;}

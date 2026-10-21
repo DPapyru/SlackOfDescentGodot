@@ -40,6 +40,26 @@ public sealed partial class GmWorld
         return resolved.StartsWith(UserRoot+Path.DirectorySeparatorChar,StringComparison.Ordinal)&&File.Exists(resolved)?resolved:null;
     }
 
+    private string[] FindFiles(string pattern)
+    {
+        pattern=pattern.Replace('\\','/');
+        if(Path.IsPathRooted(pattern))pattern=Path.GetRelativePath(SourceRoot,pattern).Replace('\\','/');
+        string parent=Path.GetDirectoryName(pattern)?.Replace('\\','/')??"",search=Path.GetFileName(pattern);
+        var names=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        bool Matches(string name)=>System.IO.Enumeration.FileSystemName.MatchesSimpleExpression(search,name,true);
+        foreach(string root in new[]{SourceRoot,UserRoot})
+        {
+            string directory=CasePath(root,parent);
+            if(Directory.Exists(directory))foreach(string path in Directory.EnumerateFiles(directory))
+            {
+                string name=Path.GetFileName(path);if(Matches(name))names.Add(name);
+            }
+        }
+        foreach(string path in Media.Keys.Concat(External.Keys))
+            if(string.Equals(Path.GetDirectoryName(path)?.Replace('\\','/')??"",parent,StringComparison.OrdinalIgnoreCase)&&Matches(Path.GetFileName(path)))names.Add(Path.GetFileName(path));
+        return names.Order(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
     public string Resolve(string path,bool writing=false)
     {
         path=path.Replace('\\','/');
@@ -62,7 +82,8 @@ public sealed partial class GmWorld
     public string Compile(string source)
     {
         if(dynamicCode.TryGetValue(source,out var existing))return existing;
-        var compiler=Path.Combine(Path.GetDirectoryName(Root)!,"Tools/Extract/target/release/slack-extract");
+        var compiler=Path.Combine(Path.GetDirectoryName(Root)!,"Tools",OperatingSystem.IsWindows()?"slack-extract.exe":"slack-extract");
+        if(!File.Exists(compiler))compiler=Path.Combine(Path.GetDirectoryName(Root)!,"Tools/Extract/target/release/slack-extract");
         if(!File.Exists(compiler))throw new FileNotFoundException("GML compiler unavailable",compiler);
         using var process=Process.Start(new ProcessStartInfo(compiler,"--parse"){RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true,UseShellExecute=false})!;
         process.StandardInput.Write(source);process.StandardInput.Close();
@@ -73,16 +94,23 @@ public sealed partial class GmWorld
         return key;
     }
 
+    internal string FileCode(string path)
+    {
+        path=path.Replace('\\','/');var saved=SavedFile(path);
+        return saved is not null?Compile(File.ReadAllText(saved)):External.TryGetValue(path,out var external)?external:Compile(File.ReadAllText(Resolve(path)));
+    }
+
     public GmValue Call(string name,GmValue[] a,GmContext c)
     {
         Calls[name]=Calls.GetValueOrDefault(name)+1;
+        if(name=="draw_sprite_blur")return DrawSpriteBlur(a,c);
         if(name is "MotionInitialize" or "DoubleMotionInitialize")return InitializeMotion(name,a,c);
         if(name=="setMotionForPlayer")return LoadPlayerMotion(a,c);
         if(name=="addLoadCode"&&External.TryGetValue(a[3].ToString().Replace('\\','/'),out var loadedCode))
         {
             var eventKey=(a[0].Int,a[1].Int,a[2].Int);
             if(!addedEvents.TryGetValue(eventKey,out var events))addedEvents[eventKey]=events=new();
-            events.Add(loadedCode);return 0;
+            events.Add(loadedCode);InvalidateEvents();return 0;
         }
         if(Scripts.TryGetValue(name,out var key))return Evaluator.Run(key,new(c.Self,c.Other,a){EventObject=c.EventObject,EventKind=c.EventKind,EventSub=c.EventSub});
         double N(int i)=>i<a.Length?a[i].Number:0;
@@ -174,7 +202,7 @@ public sealed partial class GmWorld
             case "variable_local_array_get":return Self.Scope.Values.GetValueOrDefault(GmScope.Key(S(0),[I(1)]));case "variable_local_array2_get":return Self.Scope.Values.GetValueOrDefault(GmScope.Key(S(0),[I(1),I(2)]));
             case "instance_create":return Create(I(2),N(0),N(1)).Id;
             case "instance_destroy":Event(Self,1,0);Self.Destroyed=true;return 0;
-            case "instance_exists":return Select(I(0),c).Any();case "instance_number":return Select(I(0),c).Count();
+            case "instance_exists":return Select(I(0),c).Any();case "instance_number":return InstanceCount(I(0),c);
             case "instance_find":return Select(I(0),c).Skip(Math.Max(0,I(1))).FirstOrDefault()?.Id??-4;
             case "instance_nearest":return Select(I(2),c).OrderBy(i=>Math.Pow(i.Scope.ReadOr("x").Number-N(0),2)+Math.Pow(i.Scope.ReadOr("y").Number-N(1),2)).FirstOrDefault()?.Id??-4;
             case "instance_activate_object":foreach(var i in Instances.Where(i=>I(0)==-3||i.Id==I(0)||IsObject(i.Object,I(0))))i.Active=true;return 0;
@@ -182,11 +210,12 @@ public sealed partial class GmWorld
             case "instance_activate_region":case "instance_deactivate_region":
             {
                 var region=new GmBounds(N(0),N(1),N(0)+N(2),N(1)+N(3));
-                foreach(var i in Instances.Where(i=>!i.Destroyed&&!(name=="instance_deactivate_region"&&N(5)>=0.5&&i==Self)))
-                    if(Bounds(i).Overlaps(region)==(N(4)>=0.5))i.Active=name=="instance_activate_region";
+                bool activate=name=="instance_activate_region";
+                foreach(var i in Instances.Where(i=>!i.Destroyed&&i.Active!=activate&&!(name=="instance_deactivate_region"&&N(5)>=0.5&&i==Self)))
+                    if(Bounds(i).Overlaps(region)==(N(4)>=0.5))i.Active=activate;
                 return 0;
             }
-            case "instance_change":{if(N(1)>=0.5)Event(Self,1,0);Self.Object=I(0);if(N(1)>=0.5)Event(Self,0,0);return 0;}
+            case "instance_change":{if(N(1)>=0.5)Event(Self,1,0);ChangeObject(Self,I(0));if(N(1)>=0.5)Event(Self,0,0);return 0;}
             case "object_get_parent":return parents.GetValueOrDefault(I(0),-1);case "object_exists":return Objects.ContainsKey(I(0));
             case "event_user":Event(Self,7,10+I(0),c.Other);return 0;
             case "event_perform":Event(Self,I(0),I(1),c.Other);return 0;
@@ -212,7 +241,7 @@ public sealed partial class GmWorld
             case "room_goto_next":PendingRoom=Call("room_next",[CurrentRoom],c).Int;return 0;
             case "game_end":Ended=true;return 0;
             case "file_exists":{var path=S(0).Replace('\\','/');return path.Equals("bin/bGM/bGM.exe",StringComparison.OrdinalIgnoreCase)||File.Exists(Resolve(path))||External.ContainsKey(path)||Media.ContainsKey(path);}
-            case "file_find_first":{var pattern=S(0).Replace('\\','/');var parent=Path.GetDirectoryName(pattern)??"";var dir=Resolve(parent);foundFiles=Directory.Exists(dir)?Directory.EnumerateFiles(dir,Path.GetFileName(pattern)).Order(StringComparer.Ordinal).Select(Path.GetFileName).Cast<string>().ToArray():[];foundIndex=0;return foundFiles.FirstOrDefault()??"";}
+            case "file_find_first":foundFiles=FindFiles(S(0));foundIndex=0;return foundFiles.FirstOrDefault()??"";
             case "file_find_next":return ++foundIndex<foundFiles.Length?foundFiles[foundIndex]:"";
             case "file_text_open_read":{int id=handle++;var path=S(0).Replace('\\','/');var saved=SavedFile(path);textReads[id]=(saved is not null?File.ReadAllLines(saved):Sources.TryGetValue(path,out var text)?text.Replace("\r","").Split('\n'):External.ContainsKey(path)?[]:File.ReadAllLines(Resolve(path)),0);return id;}
             case "file_text_eof":return textReads[I(0)].Line>=textReads[I(0)].Lines.Length;
@@ -227,7 +256,7 @@ public sealed partial class GmWorld
             case "file_bin_write_byte":binaries[I(0)].WriteByte((byte)I(1));return 0;
             case "file_bin_rewrite":binaries[I(0)].SetLength(0);return 0;
             case "file_bin_close":binaries[I(0)].Dispose();binaries.Remove(I(0));return 0;
-            case "execute_file":{var path=S(0).Replace('\\','/');var saved=SavedFile(path);var compiled=saved is not null?Compile(File.ReadAllText(saved)):External.TryGetValue(path,out var external)?external:Compile(File.ReadAllText(Resolve(path)));return Evaluator.Run(compiled,c);}
+            case "execute_file":return Evaluator.Run(FileCode(S(0)),c);
             case "execute_string":return Evaluator.Run(Compile(S(0)),c);
             case "screen_redraw":Redraw?.Invoke();return 0;
             case "motion_set":Write(Self,"direction",V(0));Write(Self,"speed",V(1));return 0;
@@ -239,6 +268,8 @@ public sealed partial class GmWorld
             case "sprite_get_bbox_left":case "sprite_get_bbox_right":case "sprite_get_bbox_top":case "sprite_get_bbox_bottom":return Sprites[I(0)].GetProperty("masks")[0].GetProperty(name[16..]).GetInt32();
             case "background_get_width":case "background_get_height":{var b=Manifest.GetProperty("backgrounds").EnumerateArray().First(b=>b.GetProperty("id").GetInt32()==I(0));return b.GetProperty(name=="background_get_width"?"width":"height").GetInt32();}
         }
+        var particle=ParticleCall(name,a,c);
+        if(particle is GmValue particleResult)return particleResult;
         var asset=Assets(name,a,c);
         if(asset is GmValue assetResult)return assetResult;
         var roomAsset=RoomAssets(name,a);

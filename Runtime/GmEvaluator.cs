@@ -11,6 +11,8 @@ public sealed class GmContext
     public int EventObject = -1;
     public int EventKind;
     public int EventSub;
+    public string? Flow;
+    public GmValue Result;
     public GmContext(GmInstance self, GmInstance? other = null, GmValue[]? args = null)
     {
         Self = self;
@@ -26,7 +28,7 @@ public sealed class GmFlow : Exception
     public GmFlow(string kind, GmValue value = default) { Kind = kind; Value = value; }
 }
 
-public sealed class GmEvaluator
+public sealed partial class GmEvaluator
 {
     private readonly GmWorld world;
     private long remaining;
@@ -40,12 +42,22 @@ public sealed class GmEvaluator
         if (string.IsNullOrEmpty(key)) return 0;
         if (!world.Code.TryGetValue(key, out var code)) throw new InvalidOperationException("Missing compiled code " + key);
         if(profiling&&Environment.TickCount64-reportTime>=5000){reportTime=Environment.TickCount64;Console.WriteLine("GML_PROFILE "+key+" frame="+world.Frame+" budget="+remaining);}
-        try { return Eval(code, context); }
+        long started=world.Performance.ScriptsEnabled?System.Diagnostics.Stopwatch.GetTimestamp():0;
+        try
+        {
+            var result=Eval(code,context);
+            if(context.Flow is not null){result=context.Result;context.Flow=null;context.Result=default;}
+            return result;
+        }
         catch (GmFlow f) { return f.Value; }
         catch (Exception e) when (e is not GmFlow) { throw new InvalidOperationException(key + ": " + e.Message, e); }
+        finally{world.Performance.Script(key,started);}
     }
 
-    public GmValue Eval(JsonElement e, GmContext c)
+    public bool CompiledExecution=Environment.GetEnvironmentVariable("SLACK_INTERPRET")!="1";
+    public GmValue Eval(JsonElement e,GmContext c)=>CompiledExecution?Executable(e)(c):Interpret(e,c);
+
+    private GmValue Interpret(JsonElement e, GmContext c)
     {
         if (--remaining < 0) throw new InvalidOperationException("GML instruction budget exceeded");
         var tag = Tag(e);
@@ -199,9 +211,9 @@ public sealed class GmEvaluator
         if (Tag(e) == "id")
         {
             var name = e[1].GetString()!;
-            if(name=="argument")
+            if(name=="argument"||name.StartsWith("argument",StringComparison.Ordinal)&&int.TryParse(name[8..],out _))
             {
-                int argumentIndex=indices?[0]??0;
+                int argumentIndex=indices?[0]??(name=="argument"?0:int.Parse(name[8..]));
                 return (()=>argumentIndex>=0&&argumentIndex<c.Arguments.Length?c.Arguments[argumentIndex]:0,v=>
                 {
                     if(argumentIndex<0||argumentIndex>=16)throw new IndexOutOfRangeException("Argument index");

@@ -29,6 +29,7 @@ public readonly struct GmValue : IEquatable<GmValue>
 public sealed class GmScope
 {
     public readonly Dictionary<string, GmValue> Values = new(StringComparer.Ordinal);
+    internal Action<string>? Changed;
     private readonly Dictionary<(string,int),int> lengths=new();
     private static (int Row,int Column) Position(IReadOnlyList<int>? indices)
     {
@@ -51,8 +52,11 @@ public sealed class GmScope
     public GmValue ReadOr(string name, GmValue fallback = default) => Values.GetValueOrDefault(name, fallback);
     public void Write(string name,GmValue value,IReadOnlyList<int>? indices=null)
     {
-        Values[Key(name,indices)]=value;
+        string key=Key(name,indices);
+        if(Values.TryGetValue(key,out var previous)&&previous.Equals(value))return;
+        Values[key]=value;
         var (row,column)=Position(indices);
-        lengths[(name,row)]=Math.Max(lengths.GetValueOrDefault((name,row)),column+1);
+        if(!lengths.TryGetValue((name,row),out var length)||length<=column)lengths[(name,row)]=column+1;
+        Changed?.Invoke(name);
     }
 }

@@ -14,6 +14,31 @@ fn text(bytes: &[u8]) -> String {
 
 fn string(value: &PascalString) -> String { text(&value.0) }
 
+fn uncomment(source: &str) -> String {
+    let chars: Vec<_> = source.chars().collect();
+    let mut result = String::new();
+    let mut i = 0;
+    let mut quote = None;
+    while i < chars.len() {
+        let c = chars[i];
+        if let Some(q) = quote {
+            result.push(c);
+            if c == q { quote = None; }
+            i += 1;
+        } else if c == '\'' || c == '"' {
+            quote = Some(c); result.push(c); i += 1;
+        } else if c == '/' && chars.get(i+1) == Some(&'/') {
+            i += 2;
+            while i < chars.len() && chars[i] != '\n' { i += 1; }
+        } else if c == '/' && chars.get(i+1) == Some(&'*') {
+            i += 2;
+            while i+1 < chars.len() && !(chars[i] == '*' && chars[i+1] == '/') { i += 1; }
+            i = (i+2).min(chars.len()); result.push(' ');
+        } else { result.push(c); i += 1; }
+    }
+    result
+}
+
 fn expr(e: &Expr, calls: &mut BTreeMap<String, usize>) -> Value {
     match e {
         Expr::LiteralIdentifier(v) => json!(["id", text(v)]),
@@ -78,7 +103,7 @@ impl Export {
             } else if a.action_kind == 7 && a.param_count > 0 { &a.param_strings[0] } else { &a.fn_code };
             let code = if a.execution_type == 2 || a.id == 603 { Some(self.parse(code_key, &source.0)) } else { None };
             let parameters: Vec<_> = if code.is_some() { Vec::new() } else { a.param_strings.iter().take(a.param_count).enumerate().map(|(pi,p)| {
-                if a.param_types[pi] == 1 { json!(["str",string(p)]) }
+                if matches!(a.param_types[pi], 1 | 2) { json!(["str",string(p)]) }
                 else { match AST::expression(&p.0) { Ok(e) => expr(&e,&mut self.calls), Err(e) => { self.errors.push(json!({"key":format!("{key}/{i}/parameter/{pi}"),"error":e.to_string()})); Value::Null } } }
             }).collect() };
             json!({"id":a.id,"kind":a.action_kind,"execution":a.execution_type,"target":a.applies_to,
@@ -164,23 +189,73 @@ fn main() {
     let constants: Vec<_> = assets.constants.iter().map(|c| json!({"name":string(&c.name),"value":string(&c.expression)})).collect();
     let library: Vec<_> = assets.library_init_strings.iter().enumerate().map(|(i,c)| export.parse(format!("library/{i}"),&c.0)).collect();
     let mut external = Vec::new();
-    fn walk(dir: &Path, base: &Path, export: &mut Export, files: &mut Vec<Value>) {
+    let mut media = BTreeMap::new();
+    fn walk(dir: &Path, base: &Path, output: &Path, export: &mut Export, files: &mut Vec<Value>, media: &mut BTreeMap<String, Value>) {
         let mut entries: Vec<_> = fs::read_dir(dir).unwrap().map(|v| v.unwrap().path()).collect();
         entries.sort();
         for path in entries {
             if path.is_dir() {
-                if path.file_name().unwrap() != "__history" { walk(&path,base,export,files); }
+                if path.file_name().unwrap() != "__history" { walk(&path,base,output,export,files,media); }
             } else {
                 let relative = path.strip_prefix(base).unwrap().to_string_lossy().replace('\\',"/");
                 if path.extension().and_then(|v| v.to_str()) == Some("txt") && !relative.contains("README") {
                     let bytes = fs::read(&path).unwrap();
                     let key = export.parse(format!("external/{relative}"),&bytes);
                     files.push(json!({"path":relative,"code":key}));
+                } else if path.extension().and_then(|v| v.to_str()).map(|v|v.eq_ignore_ascii_case("gif")).unwrap_or(false) {
+                    let mut options = gif::DecodeOptions::new();
+                    options.set_color_output(gif::ColorOutput::RGBA);
+                    let mut reader = options.read_info(fs::File::open(&path).unwrap()).unwrap();
+                    let width = reader.width() as u32;
+                    let height = reader.height() as u32;
+                    let mut canvas = vec![0u8; (width*height*4) as usize];
+                    let mut frames = Vec::new();
+                    while let Some(frame) = reader.read_next_frame().unwrap() {
+                        let previous = canvas.clone();
+                        for y in 0..frame.height as usize { for x in 0..frame.width as usize {
+                            let src = (y*frame.width as usize+x)*4;
+                            let dst = ((y+frame.top as usize)*width as usize+x+frame.left as usize)*4;
+                            if frame.buffer[src+3] != 0 { canvas[dst..dst+4].copy_from_slice(&frame.buffer[src..src+4]); }
+                        }}
+                        let name = format!("external/{relative}/{}.png",frames.len());
+                        fs::create_dir_all(output.join(&name).parent().unwrap()).unwrap();
+                        image(&output.join(&name),width,height,&canvas,false);
+                        frames.push(json!({"path":name,"width":width,"height":height}));
+                        match frame.dispose {
+                            gif::DisposalMethod::Background => { for y in 0..frame.height as usize { for x in 0..frame.width as usize {
+                                let dst = ((y+frame.top as usize)*width as usize+x+frame.left as usize)*4;
+                                canvas[dst..dst+4].fill(0);
+                            }}},
+                            gif::DisposalMethod::Previous => canvas = previous,
+                            _ => (),
+                        }
+                    }
+                    media.insert(relative,json!({"frames":frames,"originX":0,"originY":0,"masks":[]}));
+                } else if path.extension().and_then(|v|v.to_str()).map(|s|s.eq_ignore_ascii_case("png")).unwrap_or(false) {
+                    let name = format!("assets/{relative}");
+                    fs::create_dir_all(output.join(&name).parent().unwrap()).unwrap();
+                    fs::copy(&path,output.join(&name)).unwrap();
+                    let reader = png::Decoder::new(fs::File::open(&path).unwrap()).read_info().unwrap();
+                    let info = reader.info();
+                    media.insert(relative,json!({"frames":[{"path":name,"width":info.width,"height":info.height}],"originX":0,"originY":0,"masks":[]}));
+                } else if path.extension().and_then(|v|v.to_str()).map(|s|s.eq_ignore_ascii_case("bmp")).unwrap_or(false) {
+                    let bytes = fs::read(&path).unwrap();
+                    let name = format!("assets/{relative}");
+                    fs::create_dir_all(output.join(&name).parent().unwrap()).unwrap();
+                    fs::copy(&path,output.join(&name)).unwrap();
+                    let width = i32::from_le_bytes(bytes[18..22].try_into().unwrap()).unsigned_abs();
+                    let height = i32::from_le_bytes(bytes[22..26].try_into().unwrap()).unsigned_abs();
+                    media.insert(relative,json!({"frames":[{"path":name,"width":width,"height":height}],"originX":0,"originY":0,"masks":[]}));
+                } else if matches!(path.extension().and_then(|v|v.to_str()).map(|s|s.to_ascii_lowercase()).as_deref(),Some("wav" | "ogg" | "mp3" | "mid")) {
+                    let dest = output.join("assets").join(&relative);
+                    fs::create_dir_all(dest.parent().unwrap()).unwrap();
+                    fs::copy(&path,dest).unwrap();
                 }
             }
         }
     }
-    walk(&source.join("Chara"),source,&mut export,&mut external);
+    walk(&source.join("Chara"),source,output,&mut export,&mut external,&mut media);
+    walk(&source.join("Sound"),source,output,&mut export,&mut external,&mut media);
     let items_path = source.join("Chara/Chest/Items");
     let items_key = export.parse("external/Chara/Chest/Items".into(), &fs::read(items_path).unwrap());
     external.push(json!({"path":"Chara/Chest/Items","code":items_key}));
@@ -191,10 +266,17 @@ fn main() {
             external.push(json!({"path":format!("Cfg/{name}"),"code":key}));
         }
     }
+    fs::create_dir_all(output.join("assets/Cfg")).unwrap();
+    for name in ["KeyConfig","itemData","data"] {
+        if source.join("Cfg").join(name).exists() { fs::copy(source.join("Cfg").join(name),output.join("assets/Cfg").join(name)).unwrap(); }
+    }
     let counts = json!({"scripts":scripts.len(),"objects":objects.len(),"rooms":rooms.len(),"sprites":sprites.len(),"sounds":sounds.len(),"backgrounds":backgrounds.len(),"fonts":fonts.len(),"external":external.len(),"codeUnits":export.code.len(),"parseErrors":export.errors.len()});
     let manifest = json!({"version":format!("{:?}",assets.version),"counts":counts,"scripts":scripts,"objects":objects,"rooms":rooms,"sprites":sprites,"backgrounds":backgrounds,"sounds":sounds,"fonts":fonts,"constants":constants,"roomOrder":assets.room_order,"library":library,"external":external,"lastInstanceId":assets.last_instance_id,"lastTileId":assets.last_tile_id});
     fs::write(output.join("manifest.json"),serde_json::to_vec(&manifest).unwrap()).unwrap();
+    fs::write(output.join("media.json"),serde_json::to_vec(&media).unwrap()).unwrap();
     fs::write(output.join("code.json"),serde_json::to_vec(&export.code).unwrap()).unwrap();
+    let sources: BTreeMap<_,_> = export.source.iter().filter(|(k,_)|k.starts_with("external/")).map(|(k,v)|(k.trim_start_matches("external/"),uncomment(v))).collect();
+    fs::write(output.join("sources.json"),serde_json::to_vec(&sources).unwrap()).unwrap();
     fs::write(output.join("analysis.json"),serde_json::to_vec_pretty(&json!({"counts":counts,"calls":export.calls,"errors":export.errors})).unwrap()).unwrap();
     if let Some(path) = args.get(3) { fs::write(path,serde_json::to_vec_pretty(&export.source).unwrap()).unwrap(); }
     println!("{counts}");

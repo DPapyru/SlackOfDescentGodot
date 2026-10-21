@@ -1,0 +1,11 @@
+[package]
+name = "slack-extract"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+gm8exe = { git = "https://github.com/OpenGMK/OpenGMK", rev = "9e4282e6d19f4dd00961811840ddc3e11da6dd5a" }
+gml-parser = { git = "https://github.com/OpenGMK/OpenGMK", rev = "9e4282e6d19f4dd00961811840ddc3e11da6dd5a" }
+serde_json = "1"
+encoding_rs = "0.8"
+png = "0.17"

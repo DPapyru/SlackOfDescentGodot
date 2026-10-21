@@ -30,10 +30,11 @@ public sealed partial class GmWorld
     public readonly GmEvaluator Evaluator;
     public readonly string Root;
     public readonly string SourceRoot;
+    public readonly string UserRoot;
     public readonly HashSet<string> Unsupported = new();
     public readonly Dictionary<string, int> Calls = new();
     public readonly List<string> Trace = new();
-    public readonly Random Random = new(0);
+    public readonly GmRandom Random = new();
     public int CurrentRoom = -1;
     public int? PendingRoom;
     public int NextId;
@@ -43,10 +44,11 @@ public sealed partial class GmWorld
     public Action? InputEvents;
     public Func<string, GmValue[], GmContext, GmValue?>? Platform;
 
-    public GmWorld(string root, string sourceRoot)
+    public GmWorld(string root, string sourceRoot,string? userRoot=null)
     {
         Root = root;
         SourceRoot = sourceRoot;
+        UserRoot=Path.GetFullPath(userRoot??Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),"SlackOfDescentGodot"));
         Manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(root,"manifest.json"))).RootElement;
         Code = JsonSerializer.Deserialize<Dictionary<string,JsonElement>>(File.ReadAllText(Path.Combine(root,"code.json")),new JsonSerializerOptions{MaxDepth=1024})!;
         Evaluator = new(this);
@@ -126,17 +128,22 @@ public sealed partial class GmWorld
     {
         if(name=="room"){PendingRoom=value.Int;return;}
         if(Engine.Values.ContainsKey(GmScope.Key(name,indices))){Engine.Write(name,value,indices);return;}
+        if(name is "hspeed" or "vspeed"&&instance.Scope.ReadOr(name).Equals(value))return;
+        if(name=="direction"){double direction=value.Number%360;value=direction<0?direction+360:direction;}
         instance.Scope.Write(name,value,indices);
         if(name is "hspeed" or "vspeed")
         {
             var h=instance.Scope.ReadOr("hspeed").Number;var v=instance.Scope.ReadOr("vspeed").Number;
             instance.Scope.Write("speed",Math.Sqrt(h*h+v*v));
-            if(h!=0||v!=0)instance.Scope.Write("direction",Direction(0,0,h,v));
+            double direction=Direction(0,0,h,v),rounded=Math.Round(direction,MidpointRounding.ToEven);
+            instance.Scope.Write("direction",Math.Abs(direction-rounded)<0.0001?rounded:direction);
         }
         if(name is "speed" or "direction")
         {
             var speed=instance.Scope.ReadOr("speed").Number;var dir=instance.Scope.ReadOr("direction").Number*Math.PI/180;
-            instance.Scope.Write("hspeed",Math.Cos(dir)*speed);instance.Scope.Write("vspeed",-Math.Sin(dir)*speed);
+            double h=Math.Cos(dir)*speed,v=-Math.Sin(dir)*speed;
+            double roundedH=Math.Round(h,MidpointRounding.ToEven),roundedV=Math.Round(v,MidpointRounding.ToEven);
+            instance.Scope.Write("hspeed",Math.Abs(h-roundedH)<0.0001?roundedH:h);instance.Scope.Write("vspeed",Math.Abs(v-roundedV)<0.0001?roundedV:v);
         }
     }
 

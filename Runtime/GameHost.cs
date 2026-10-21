@@ -61,6 +61,7 @@ public partial class GameHost : Node2D
         try
         {
             world=new(root,source);
+            if(audit)world.Random.Seed=0;
             audio=new(this,world);
             graphics=new(this,world);
             canvas=new GmCanvas();AddChild(canvas);

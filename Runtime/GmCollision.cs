@@ -10,6 +10,7 @@ public readonly record struct GmBounds(double Left,double Top,double Right,doubl
 
 public sealed partial class GmWorld
 {
+    private readonly Dictionary<JsonElement,string> maskData=new();
     public bool MouseOver(GmInstance instance,double x,double y)=>Bounds(instance).Overlaps(new(x,y,x,y))&&Opaque(instance,x,y);
 
     private void BoundaryEvents()
@@ -77,7 +78,9 @@ public sealed partial class GmWorld
         int mx=(int)Math.Floor((dx*cs-dy*sn)/sx+sprite.GetProperty("originX").GetInt32());
         int my=(int)Math.Floor((dx*sn+dy*cs)/sy+sprite.GetProperty("originY").GetInt32());
         int w=mask.GetProperty("width").GetInt32(),h=mask.GetProperty("height").GetInt32();
-        return mx>=0&&my>=0&&mx<w&&my<h&&mask.GetProperty("data").GetString()![my*w+mx]=='1';
+        if(mx<0||my<0||mx>=w||my>=h)return false;
+        if(!maskData.TryGetValue(mask,out var data))maskData[mask]=data=mask.GetProperty("data").GetString()!;
+        return data[my*w+mx]=='1';
     }
 
     private bool Touches(GmInstance a,GmInstance b,double x,double y,bool precise=true)
@@ -100,6 +103,39 @@ public sealed partial class GmWorld
         GmInstance? At(double x,double y,int target,bool solids=false)=>Targets(target).FirstOrDefault(i=>(!solids||i.Scope.ReadOr("solid").Truth)&&Touches(self,i,x,y));
         switch(name)
         {
+            case "move_bounce_solid":case "move_bounce_all":
+            {
+                bool solid=name=="move_bounce_solid";
+                double x=self.Scope.ReadOr("x").Number,y=self.Scope.ReadOr("y").Number;
+                bool bounce=At(x,y,-3,solid)is not null;
+                if(bounce){x=self.Scope.ReadOr("xprevious").Number;y=self.Scope.ReadOr("yprevious").Number;}
+                double h=self.Scope.ReadOr("hspeed").Number,v=self.Scope.ReadOr("vspeed").Number;
+                if(I(0)==1)
+                {
+                    double speed=self.Scope.ReadOr("speed").Number,start=Math.Round(self.Scope.ReadOr("direction").Number/10,MidpointRounding.ToEven)*10;
+                    double Side(int step)
+                    {
+                        double angle=start;
+                        for(int turn=0;turn<36;turn++)
+                        {
+                            angle+=step;
+                            if(At(x+speed*Math.Cos(angle*Math.PI/180),y-speed*Math.Sin(angle*Math.PI/180),-3,solid)is null)break;
+                            bounce=true;
+                        }
+                        return angle;
+                    }
+                    double clockwise=Side(-10),counterclockwise=Side(10);
+                    if(bounce)Write(self,"direction",clockwise+counterclockwise+180-start);
+                }
+                else
+                {
+                    bool horizontal=At(x+h,y,-3,solid)is not null,vertical=At(x,y+v,-3,solid)is not null;
+                    if(horizontal)Write(self,"hspeed",-h);
+                    if(vertical)Write(self,"vspeed",-v);
+                    if(!horizontal&&!vertical&&At(x+h,y+v,-3,solid)is not null){Write(self,"hspeed",-h);Write(self,"vspeed",-v);}
+                }
+                Write(self,"x",x);Write(self,"y",y);return 0;
+            }
             case "place_meeting":return At(N(0),N(1),I(2))is not null;
             case "instance_place":return At(N(0),N(1),I(2))?.Id??-4;
             case "place_free":return At(N(0),N(1),-3,true)is null;

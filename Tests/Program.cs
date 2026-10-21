@@ -191,4 +191,100 @@ Equal(boundaryInstance.Scope.Read("hit",[0]),1,"sprite touching room edge is ins
 Equal(boundaryInstance.Scope.Read("hit",[1]),2,"sprite crossing room edge intersects");
 boundaryWorld.Write(boundaryInstance,"x",boundaryInstance.Scope.Read("x").Number-1);boundaryWorld.Step();
 Equal(boundaryInstance.Scope.Read("hit",[0]),2,"sprite fully outside room");
+int[] randomSeeds=[1,134775814,-596792289,870078620,1172187917,-1410233534,1368768587,694906232];
+var random=new GmRandom(0);
+foreach(int seed in randomSeeds)
+{
+    Equal(random.Next(1),unchecked((uint)seed)/4294967296.0,"GameMaker floating random sequence");
+    Equal(random.Seed,seed,"GameMaker random seed progression");
+}
+random.Seed=0;
+foreach(int expected in new[]{0,0,9,2,3,7,3,1})Equal(random.NextInt(10),expected,"GameMaker integer random sequence");
+random.Seed=-1;
+foreach(int expected in new[]{97,20,52,13})Equal(random.NextInt(100),expected,"negative seed wraps unsigned");
+random.Seed=0;Equal(random.NextInt(uint.MaxValue),0,"negative one integer bound wraps");
+world.Call("random_set_seed",[0],context);
+Equal(world.Call("random_range",[10,-10],context),-10+20.0/4294967296.0,"reversed floating random range");
+Equal(world.Call("random_get_seed",[],context),1,"random seed API");
+world.Call("random_set_seed",[0],context);
+Equal(world.Call("choose",[],context),0,"empty choose result");
+Equal(world.Call("random_get_seed",[],context),0,"empty choose leaves seed unchanged");
+Equal(world.Call("choose",["first","second"],context),"first","choose uses integer random");
+world.Call("random_set_seed",[0],context);
+Equal(world.Call("action_if_dice",[0.5],context),true,"dice accepts fractional bound");
+self.Scope.Write("hspeed",3);self.Scope.Write("vspeed",4);self.Scope.Write("speed",5);
+context.Locals.Write("argument_relative",1);
+world.Call("action_move",["000001000",2],context);
+Equal(self.Scope.Read("hspeed"),5,"relative direction action adds horizontal velocity");
+Equal(self.Scope.Read("vspeed"),4,"relative direction action preserves vertical velocity");
+var bounceWorld=new GmWorld(Path.Combine(project,"GameData"),source);
+int bounceObject=bounceWorld.Call("object_add",[],context).Int;
+int bounceSprite=bounceWorld.RegisterSprite(System.Text.Json.JsonSerializer.SerializeToElement(new
+{
+    originX=0,originY=0,
+    frames=new[]{new{width=1,height=1,path="unused"}},
+    masks=new[]{new{width=1,height=1,left=0,right=0,top=0,bottom=0,data="1"}}
+}));
+bounceWorld.Call("object_set_sprite",[bounceObject,bounceSprite],context);
+var ball=bounceWorld.Create(bounceObject,0,0);
+var wall=bounceWorld.Create(bounceObject,2,0);wall.Scope.Write("solid",true);
+bounceWorld.Write(ball,"hspeed",2);bounceWorld.Write(ball,"vspeed",0);
+bounceWorld.Call("move_bounce_solid",[0],new(ball));
+Equal(ball.Scope.Read("hspeed"),-2,"horizontal solid bounce");
+Equal(ball.Scope.Read("x"),0,"bounce keeps previous position");
+bounceWorld.Write(wall,"x",0);bounceWorld.Write(wall,"y",2);
+bounceWorld.Write(ball,"hspeed",0);bounceWorld.Write(ball,"vspeed",2);
+bounceWorld.Call("move_bounce_solid",[0],new(ball));
+Equal(ball.Scope.Read("vspeed"),-2,"vertical solid bounce");
+bounceWorld.Write(wall,"x",2);bounceWorld.Write(wall,"y",2);
+bounceWorld.Write(ball,"hspeed",2);bounceWorld.Write(ball,"vspeed",2);
+bounceWorld.Call("move_bounce_solid",[0],new(ball));
+Equal(ball.Scope.Read("hspeed"),-2,"corner bounce horizontal");
+Equal(ball.Scope.Read("vspeed"),-2,"corner bounce vertical");
+bounceWorld.Write(wall,"solid",false);bounceWorld.Write(ball,"hspeed",2);bounceWorld.Write(ball,"vspeed",2);
+bounceWorld.Call("move_bounce_solid",[0],new(ball));
+Equal(ball.Scope.Read("hspeed"),2,"solid bounce ignores nonsolid");
+bounceWorld.Call("move_bounce_all",[0],new(ball));
+Equal(ball.Scope.Read("hspeed"),-2,"all bounce includes nonsolid");
+bounceWorld.Write(ball,"x",2);bounceWorld.Write(ball,"y",2);bounceWorld.Write(ball,"hspeed",2);bounceWorld.Write(ball,"vspeed",2);
+bounceWorld.Call("move_bounce_all",[0],new(ball));
+Equal(ball.Scope.Read("x"),0,"overlap bounce restores xprevious");
+Equal(ball.Scope.Read("y"),0,"overlap bounce restores yprevious");
+bounceWorld.Write(ball,"direction",-90);bounceWorld.Write(ball,"speed",3);
+Equal(ball.Scope.Read("direction"),270,"negative direction normalized");
+Equal(ball.Scope.Read("hspeed"),0,"cardinal horizontal velocity snaps to zero");
+Equal(ball.Scope.Read("vspeed"),3,"cardinal vertical velocity");
+bounceWorld.Write(ball,"direction",720);
+Equal(ball.Scope.Read("direction"),0,"multiple turns normalized");
+bounceWorld.Write(ball,"direction",89.99999);bounceWorld.Write(ball,"speed",1);
+Equal(ball.Scope.Read("hspeed"),0,"near integer horizontal velocity snaps");
+Equal(ball.Scope.Read("vspeed"),-1,"near integer vertical velocity snaps");
+bounceWorld.Write(ball,"speed",0);bounceWorld.Write(ball,"hspeed",0);
+Equal(ball.Scope.Read("direction"),89.99999,"unchanged component preserves stopped direction");
+bounceWorld.Write(ball,"direction",90);bounceWorld.Write(ball,"speed",1);bounceWorld.Write(ball,"vspeed",0);
+Equal(ball.Scope.Read("direction"),0,"changed component to rest recomputes direction");
+bounceWorld.Write(ball,"hspeed",2);bounceWorld.Write(ball,"vspeed",0.0000001);
+Equal(ball.Scope.Read("direction"),360,"component direction snaps near full turn");
+var saveRoot=Path.Combine(Path.GetTempPath(),"slack-save-test-"+Guid.NewGuid().ToString("N"));
+try
+{
+    var savedWorld=new GmWorld(Path.Combine(project,"GameData"),source,saveRoot);
+    var saveContext=new GmContext(new GmInstance{Id=999999,Object=-1});
+    string config="Cfg/MigrationRuntimeTest";
+    savedWorld.External[config]=savedWorld.Compile("saved_value=1;");
+    int savedHandle=savedWorld.Call("file_text_open_write",[config],saveContext).Int;
+    savedWorld.Call("file_text_write_string",[savedHandle,"saved_value=42;"],saveContext);
+    savedWorld.Call("file_text_close",[savedHandle],saveContext);
+    savedWorld.Evaluator.ResetBudget();savedWorld.Call("execute_file",["cfg/migrationruntimetest"],saveContext);
+    Equal(saveContext.Self.Scope.Read("saved_value"),42,"saved script overrides extracted original");
+    Equal(savedWorld.Resolve(config),savedWorld.Resolve("cfg/MIGRATIONRUNTIMETEST"),"saved path case insensitive");
+    Equal(savedWorld.Resolve("cfg/MIGRATIONRUNTIMETEST",true),savedWorld.Resolve(config),"write reuses saved path casing");
+    savedHandle=savedWorld.Call("file_text_open_read",[config],saveContext).Int;
+    Equal(savedWorld.Call("file_text_read_string",[savedHandle],saveContext),"saved_value=42;","text reads saved script before extracted source");
+    savedWorld.Call("file_text_close",[savedHandle],saveContext);
+    bool rejected=false;
+    try{savedWorld.Resolve("../../outside",true);}catch(InvalidOperationException){rejected=true;}
+    Equal(rejected,true,"save path traversal rejected");
+}
+finally{if(Directory.Exists(saveRoot))Directory.Delete(saveRoot,true);}
 Console.WriteLine($"PASS {assertions} assertions");

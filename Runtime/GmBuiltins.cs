@@ -21,6 +21,25 @@ public sealed partial class GmWorld
 
     private Dictionary<string,string> Sources=>sourceText??=JsonSerializer.Deserialize<Dictionary<string,string>>(File.ReadAllText(Path.Combine(Root,"sources.json")))!.ToDictionary(p=>p.Key,p=>p.Value,StringComparer.OrdinalIgnoreCase);
 
+    private static string CasePath(string root,string path)
+    {
+        var resolved=root;
+        foreach(var part in path.Split('/',StringSplitOptions.RemoveEmptyEntries))
+        {
+            if(part==".")continue;
+            var exact=Path.Combine(resolved,part);
+            if(File.Exists(exact)||Directory.Exists(exact)||!Directory.Exists(resolved)){resolved=exact;continue;}
+            resolved=Directory.EnumerateFileSystemEntries(resolved).FirstOrDefault(p=>string.Equals(Path.GetFileName(p),part,StringComparison.OrdinalIgnoreCase))??exact;
+        }
+        return resolved;
+    }
+
+    private string? SavedFile(string path)
+    {
+        var resolved=Resolve(path);
+        return resolved.StartsWith(UserRoot+Path.DirectorySeparatorChar,StringComparison.Ordinal)&&File.Exists(resolved)?resolved:null;
+    }
+
     public string Resolve(string path,bool writing=false)
     {
         path=path.Replace('\\','/');
@@ -31,20 +50,13 @@ public sealed partial class GmWorld
                 throw new InvalidOperationException("Path outside game assets: "+path);
             path=relative;
         }
-        var userRoot=Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),"SlackOfDescentGodot");
-        var userPath=Path.GetFullPath(Path.Combine(userRoot,path));
-        if(!userPath.StartsWith(userRoot+Path.DirectorySeparatorChar,StringComparison.Ordinal)&&userPath!=userRoot)throw new InvalidOperationException("Invalid game path "+path);
+        var userPath=Path.GetFullPath(Path.Combine(UserRoot,path));
+        if(!userPath.StartsWith(UserRoot+Path.DirectorySeparatorChar,StringComparison.Ordinal)&&userPath!=UserRoot)throw new InvalidOperationException("Invalid game path "+path);
+        path=Path.GetRelativePath(UserRoot,userPath).Replace('\\','/');
+        userPath=CasePath(UserRoot,path);
         if(writing){Directory.CreateDirectory(Path.GetDirectoryName(userPath)!);return userPath;}
         if(File.Exists(userPath))return userPath;
-        var resolved=SourceRoot;
-        foreach(var part in path.Split('/',StringSplitOptions.RemoveEmptyEntries))
-        {
-            if(part==".")continue;
-            var exact=Path.Combine(resolved,part);
-            if(File.Exists(exact)||Directory.Exists(exact)||!Directory.Exists(resolved)){resolved=exact;continue;}
-            resolved=Directory.EnumerateFileSystemEntries(resolved).FirstOrDefault(p=>string.Equals(Path.GetFileName(p),part,StringComparison.OrdinalIgnoreCase))??exact;
-        }
-        return resolved;
+        return CasePath(SourceRoot,path);
     }
 
     public string Compile(string source)
@@ -87,7 +99,7 @@ public sealed partial class GmWorld
             case "action_if":return V(0).Truth;
             case "action_if_variable":return I(2)==0?V(0).Equals(V(1)):I(2)==1?V(0).CompareTo(V(1))<0:V(0).CompareTo(V(1))>0;
             case "action_if_number":{int n=Select(I(0),c).Count();return I(2)==0?n==I(1):I(2)==1?n<I(1):n>I(1);}
-            case "action_if_dice":return Random.Next(Math.Max(1,I(0)))==0;
+            case "action_if_dice":return Random.Next(N(0))<1;
             case "action_set_hspeed":Write(Self,"hspeed",c.Locals.ReadOr("argument_relative").Truth?Self.Scope.ReadOr("hspeed")+V(0):V(0));return 0;
             case "action_set_vspeed":Write(Self,"vspeed",c.Locals.ReadOr("argument_relative").Truth?Self.Scope.ReadOr("vspeed")+V(0):V(0));return 0;
             case "action_set_motion":return Call(c.Locals.ReadOr("argument_relative").Truth?"motion_add":"motion_set",a,c);
@@ -95,9 +107,10 @@ public sealed partial class GmWorld
             {
                 var directions=S(0);if(directions.Length!=9)throw new ArgumentException("Direction selector must have nine entries");
                 if(!directions.Contains('1'))return 0;
-                int selected;do{selected=Random.Next(9);}while(directions[selected]!='1');
+                int selected;do{selected=Random.NextInt(8);}while(directions[selected]!='1');
                 double speed=selected==4?0:N(1),direction=new[]{225,270,315,180,0,0,135,90,45}[selected];
-                Write(Self,"direction",direction);Write(Self,"speed",c.Locals.ReadOr("argument_relative").Truth?Self.Scope.ReadOr("speed").Number+speed:speed);return 0;
+                if(c.Locals.ReadOr("argument_relative").Truth)return Call("motion_add",[direction,speed],c);
+                Write(Self,"direction",direction);Write(Self,"speed",speed);return 0;
             }
             case "action_set_gravity":Write(Self,"gravity_direction",V(0));Write(Self,"gravity",V(1));return 0;
             case "action_move_to":{var relative=c.Locals.ReadOr("argument_relative").Truth;Write(Self,"x",relative?Self.Scope.ReadOr("x")+V(0):V(0));Write(Self,"y",relative?Self.Scope.ReadOr("y")+V(1):V(1));return 0;}
@@ -112,7 +125,14 @@ public sealed partial class GmWorld
             case "sign":return Math.Sign(N(0));case "sqrt":return Math.Sqrt(N(0));case "sqr":return N(0)*N(0);case "power":return Math.Pow(N(0),N(1));
             case "sin":return Math.Sin(N(0));case "cos":return Math.Cos(N(0));case "arccos":return Math.Acos(N(0));case "degtorad":return N(0)*Math.PI/180;case "radtodeg":return N(0)*180/Math.PI;
             case "min":return a.Min(v=>v.Number);case "max":return a.Max(v=>v.Number);
-            case "random":return Random.NextDouble()*N(0);case "random_range":return N(0)+Random.NextDouble()*(N(1)-N(0));case "irandom":return Random.Next(Math.Max(0,I(0))+1);case "irandom_range":return Random.Next(Math.Min(I(0),I(1)),Math.Max(I(0),I(1))+1);case "choose":return a[Random.Next(a.Length)];
+            case "random":return Random.Next(N(0));
+            case "random_range":return Math.Min(N(0),N(1))+Random.Next(Math.Abs(N(1)-N(0)));
+            case "irandom":return Random.NextInt(unchecked((uint)I(0)));
+            case "irandom_range":return unchecked(Math.Min(I(0),I(1))+Random.NextInt((uint)Math.Abs((long)I(1)-I(0))));
+            case "choose":return a.Length>0?a[Random.NextInt((uint)(a.Length-1))]:0;
+            case "random_get_seed":return Random.Seed;
+            case "random_set_seed":Random.Seed=I(0);return 0;
+            case "randomize":Random.Randomize();return 0;
             case "point_distance":return Math.Sqrt(Math.Pow(N(2)-N(0),2)+Math.Pow(N(3)-N(1),2));case "point_direction":return Direction(N(0),N(1),N(2),N(3));
             case "lengthdir_x":return Math.Cos(N(1)*Math.PI/180)*N(0);case "lengthdir_y":return -Math.Sin(N(1)*Math.PI/180)*N(0);
             case "distance_to_point":return Math.Sqrt(Math.Pow(N(0)-Self.Scope.ReadOr("x").Number,2)+Math.Pow(N(1)-Self.Scope.ReadOr("y").Number,2));
@@ -194,7 +214,7 @@ public sealed partial class GmWorld
             case "file_exists":{var path=S(0).Replace('\\','/');return path.Equals("bin/bGM/bGM.exe",StringComparison.OrdinalIgnoreCase)||File.Exists(Resolve(path))||External.ContainsKey(path)||Media.ContainsKey(path);}
             case "file_find_first":{var pattern=S(0).Replace('\\','/');var parent=Path.GetDirectoryName(pattern)??"";var dir=Resolve(parent);foundFiles=Directory.Exists(dir)?Directory.EnumerateFiles(dir,Path.GetFileName(pattern)).Order(StringComparer.Ordinal).Select(Path.GetFileName).Cast<string>().ToArray():[];foundIndex=0;return foundFiles.FirstOrDefault()??"";}
             case "file_find_next":return ++foundIndex<foundFiles.Length?foundFiles[foundIndex]:"";
-            case "file_text_open_read":{int id=handle++;var path=S(0).Replace('\\','/');textReads[id]=(Sources.TryGetValue(path,out var text)?text.Replace("\r","").Split('\n'):External.ContainsKey(path)?[]:File.ReadAllLines(Resolve(path)),0);return id;}
+            case "file_text_open_read":{int id=handle++;var path=S(0).Replace('\\','/');var saved=SavedFile(path);textReads[id]=(saved is not null?File.ReadAllLines(saved):Sources.TryGetValue(path,out var text)?text.Replace("\r","").Split('\n'):External.ContainsKey(path)?[]:File.ReadAllLines(Resolve(path)),0);return id;}
             case "file_text_eof":return textReads[I(0)].Line>=textReads[I(0)].Lines.Length;
             case "file_text_read_string":{var f=textReads[I(0)];return f.Line<f.Lines.Length?f.Lines[f.Line]:"";}
             case "file_text_readln":{var f=textReads[I(0)];textReads[I(0)]=(f.Lines,f.Line+1);return 0;}
@@ -207,7 +227,7 @@ public sealed partial class GmWorld
             case "file_bin_write_byte":binaries[I(0)].WriteByte((byte)I(1));return 0;
             case "file_bin_rewrite":binaries[I(0)].SetLength(0);return 0;
             case "file_bin_close":binaries[I(0)].Dispose();binaries.Remove(I(0));return 0;
-            case "execute_file":{var path=S(0).Replace('\\','/');var compiled=External.TryGetValue(path,out var external)?external:Compile(File.ReadAllText(Resolve(path)));return Evaluator.Run(compiled,c);}
+            case "execute_file":{var path=S(0).Replace('\\','/');var saved=SavedFile(path);var compiled=saved is not null?Compile(File.ReadAllText(saved)):External.TryGetValue(path,out var external)?external:Compile(File.ReadAllText(Resolve(path)));return Evaluator.Run(compiled,c);}
             case "execute_string":return Evaluator.Run(Compile(S(0)),c);
             case "screen_redraw":Redraw?.Invoke();return 0;
             case "motion_set":Write(Self,"direction",V(0));Write(Self,"speed",V(1));return 0;

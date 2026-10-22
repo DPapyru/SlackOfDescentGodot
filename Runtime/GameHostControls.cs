@@ -91,7 +91,8 @@ public partial class GameHost
         try
         {
             await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
-            await ToSignal(RenderingServer.Singleton,RenderingServer.SignalName.FramePostDraw);
+            canvas.QueueRedraw();
+            await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
             var context=new GmContext(new GmInstance());
             var display=world.Select(world.Constants["objDisplay"].Int,context).Single();
             var player=world.Select(world.Constants["objPlayerDoll"].Int,context).Single();
@@ -114,20 +115,20 @@ public partial class GameHost
             task=Open(false);menu=await Menu();int nana=-1;
             for(int i=0;i<menu.ItemCount;i++)if(menu.GetItemText(i)=="Character-Nana")nana=menu.GetItemId(i);
             if(nana<2)throw new InvalidOperationException("Nana candidate is missing");
-            menu.EmitSignal(PopupMenu.SignalName.IdPressed,nana);menu.Hide();await AuditFinish(task,"V selection");
+            menu.EmitSignal(PopupMenu.SignalName.IdPressed,nana);await AuditFinish(task,"V selection");
             if(display.Scope.Read("chara").ToString()!="Character-Nana"||player.Object!=originalObject)throw new InvalidOperationException("V did not retain original appearance loading behavior");
             await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
             GD.Print("CONTROLS_UI open=part");
             task=Open(true);menu=await Menu();
             if(menu.GetItemText(0)!="Body"||menu.GetItemText(3)!="Head"||!menu.IsItemSeparator(5))throw new InvalidOperationException("Ctrl+V part menu differs");
-            menu.EmitSignal(PopupMenu.SignalName.IdPressed,3);menu.Hide();
+            menu.EmitSignal(PopupMenu.SignalName.IdPressed,3);
             await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
             GD.Print("CONTROLS_UI open=part-character");
             menu=await Menu();if(menu.GetItemText(0)!="<Input Custom Character Name>")throw new InvalidOperationException("Ctrl+V character menu missing");
-            menu.EmitSignal(PopupMenu.SignalName.IdPressed,nana);menu.Hide();await AuditFinish(task,"Ctrl+V selection");
+            menu.EmitSignal(PopupMenu.SignalName.IdPressed,nana);await AuditFinish(task,"Ctrl+V selection");
             if(display.Scope.Read("clothingPart").ToString()!="head")throw new InvalidOperationException("Ctrl+V did not load selected part");
             await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
-            task=Open(false);menu=await Menu();menu.EmitSignal(PopupMenu.SignalName.IdPressed,0);menu.Hide();
+            task=Open(false);menu=await Menu();menu.EmitSignal(PopupMenu.SignalName.IdPressed,0);
             var entryDialog=await AuditWait(()=>GetNodeOrNull<ConfirmationDialog>("CharacterInput"),"character input");
             var entry=entryDialog.GetChildren().OfType<LineEdit>().Single();entry.Text="Character-Nana";entryDialog.EmitSignal(ConfirmationDialog.SignalName.Confirmed);
             await AuditFinish(task,"V name input");

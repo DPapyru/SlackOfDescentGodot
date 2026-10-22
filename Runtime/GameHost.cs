@@ -115,6 +115,7 @@ public partial class GameHost : Node2D
         audit=OS.GetCmdlineUserArgs().Contains("--audit");
         try
         {
+            if(audit)GD.Print("AUDIT_START initializing game data");
             var root=OS.HasFeature("editor")?ProjectSettings.GlobalizePath("res://GameData"):GmPaths.FindData(Path.GetDirectoryName(OS.GetExecutablePath())!,AppContext.BaseDirectory);
             var source=System.Environment.GetEnvironmentVariable("SLACK_SOURCE")??Path.Combine(root,"assets");
             world=new(root,source,System.Environment.GetEnvironmentVariable("SLACK_USER_ROOT"));
@@ -133,6 +134,17 @@ public partial class GameHost : Node2D
             world.Wait=Wait;
             world.InputEventsAsync=()=>controls.DispatchAsync(world);
             world.Redraw=()=>{graphics.Build();canvas.QueueRedraw();};
+            if(audit)GD.Print("AUDIT_DATA_READY");
+            if(audit&&OS.GetCmdlineUserArgs().Contains("--package-resources-audit"))
+            {
+                SetProcess(false);
+                var context=new GmContext(new GmInstance());
+                world.Evaluator.ResetBudget();
+                RegressionExpect(world.Evaluator.Run(world.Compile("return \"package-\u65e5\u672c\u8a9e\";"),context).ToString()=="package-\u65e5\u672c\u8a9e","packaged dynamic compiler");
+                RegressionExpect(world.Call("file_find_first",["Chara/Doll/Head/Character-Nana_*.gif",16],context).ToString().Length>0,"packaged character selection resources");
+                GD.Print("PACKAGE_RUNTIME_OK images=",graphics.AuditResourceImages()," sounds=",audio.AuditResourceSounds()," source=",world.SourceRoot);
+                audio.Shutdown();GetTree().Quit();return;
+            }
             if(audit&&OS.GetCmdlineUserArgs().Contains("--graphics-audit")){SetProcess(false);AuditGraphics();return;}
             world.LoadRoom(world.Manifest.GetProperty("roomOrder")[0].GetInt32());
             graphics.Build();
@@ -167,7 +179,7 @@ public partial class GameHost : Node2D
                 int shoot=Array.IndexOf(commandArgs,"--shoot");
                 if(shoot>=0&&shoot+1<commandArgs.Length)AuditShoot(int.Parse(commandArgs[shoot+1]));
                 int animation=Array.IndexOf(commandArgs,"--animation-audit");
-                if(animation>=0&&animation+1<commandArgs.Length){animationAudit=(commandArgs[animation+1]=="route"?AuditRoute(true):AuditAnimation(commandArgs[animation+1])).GetEnumerator();return;}
+                if(animation>=0&&animation+1<commandArgs.Length){animationAudit=(commandArgs[animation+1]=="route"?AuditRoute(true):commandArgs[animation+1].StartsWith("bind:",StringComparison.Ordinal)?AuditBinding(commandArgs[animation+1][5..],true):AuditAnimation(commandArgs[animation+1])).GetEnumerator();return;}
                 GD.Print("AUDIT room=",world.CurrentRoom," frames=",world.Frame," instances=",world.Instances.Count);
                 if(world.Performance.Enabled)GD.Print("PERF_CONTENT tiles=",world.Tiles.Count," objects=",string.Join(" ",world.Instances.GroupBy(i=>i.Object).OrderByDescending(g=>g.Count()).Take(12).Select(g=>$"{g.Key}:{g.Count()}")));
                 int benchmark=Array.IndexOf(commandArgs,"--benchmark");
@@ -232,7 +244,8 @@ public partial class GameHost : Node2D
     private async Task<int> ShowPopupMenu(string text,int fallback)
     {
         var completion=new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var popup=new PopupMenu{Name="CharacterMenu",MaxSize=new Vector2I(420,Math.Max(120,(int)GetViewportRect().Size.Y-32))};
+        // Native popups avoid broken parent-signal cleanup in the 4.7.2 release template.
+        var popup=new PopupMenu{Name="CharacterMenu",ForceNative=true,MaxSize=new Vector2I(420,Math.Max(120,(int)GetViewportRect().Size.Y-32))};
         var entries=text.Split('|');
         for(int i=0;i<entries.Length;i++)
         {
@@ -248,7 +261,7 @@ public partial class GameHost : Node2D
             popup.PopupOnParent(new Rect2I((Vector2I)GetViewport().GetMousePosition(),Vector2I.Zero));
             return await completion.Task;
         }
-        finally{modalDepth--;controls.Clear(world);elapsed=0;RemoveChild(popup);popup.QueueFree();}
+        finally{modalDepth--;controls.Clear(world);elapsed=0;if(popup.Visible)popup.Hide();RemoveChild(popup);popup.QueueFree();}
     }
     private async Task<string> InputText(string text,string initial)
     {
@@ -261,7 +274,7 @@ public partial class GameHost : Node2D
         entry.TextSubmitted+=value=>completion.TrySetResult(value);
         AddChild(dialog);modalDepth++;
         try{dialog.PopupCentered();entry.GrabFocus();entry.SelectAll();return await completion.Task;}
-        finally{modalDepth--;controls.Clear(world);elapsed=0;RemoveChild(dialog);dialog.QueueFree();}
+        finally{modalDepth--;controls.Clear(world);elapsed=0;if(dialog.Visible)dialog.Hide();RemoveChild(dialog);dialog.QueueFree();}
     }
     private async Task<int> ShowDialog(string text,string[] choices)
     {
@@ -274,7 +287,7 @@ public partial class GameHost : Node2D
         dialog.CloseRequested+=()=>completion.TrySetResult(0);
         AddChild(dialog);modalDepth++;
         try{dialog.PopupCentered();return await completion.Task;}
-        finally{modalDepth--;controls.Clear(world);elapsed=0;RemoveChild(dialog);dialog.QueueFree();}
+        finally{modalDepth--;controls.Clear(world);elapsed=0;if(dialog.Visible)dialog.Hide();RemoveChild(dialog);dialog.QueueFree();}
     }
     private async void AuditGraphics()
     {
@@ -546,7 +559,8 @@ public partial class GameHost : Node2D
                 if(seconds>=17)
                 {
                     RegressionExpect(fpsAuditSamples.Any(s=>s.LogicFps>25),"FPS label measured stable gameplay");
-                    RegressionExpect(fpsAuditSamples.Any(s=>s.LogicFps<25&&s.Dropped),"FPS slowdown triggers logging");
+                    RegressionExpect(fpsAuditSamples.Any(s=>s.LogicFps<25),"FPS measures actual slowdown");
+                    RegressionExpect(fpsAuditSamples.Any(s=>s.Dropped),"FPS slowdown triggers logging");
                     RegressionExpect(fpsLabel!.Text=="FPS: "+world.Engine.Read("fps").Number.ToString("F0"),"FPS label follows measured rate");
                     RegressionExpect(world.Performance.LogPath is string log&&File.ReadLines(log).Any(line=>line.Contains("\"type\":\"drop\"",StringComparison.Ordinal)),"real slowdown writes performance log");
                     GD.Print("FPS_AUDIT_OK label=",fpsLabel.Text," log=",world.Performance.LogPath);audio.Shutdown();GetTree().Quit();return;

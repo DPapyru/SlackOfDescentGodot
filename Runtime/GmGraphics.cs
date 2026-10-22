@@ -48,6 +48,21 @@ public partial class GmCanvas : Node2D
 
 public sealed class GmGraphics
 {
+    public int AuditResourceImages()
+    {
+        var media=JsonDocument.Parse(File.ReadAllText(Path.Combine(world.Root,"media.json")));
+        using(media)
+        {
+            var frames=world.Manifest.GetProperty("sprites").EnumerateArray().Concat(media.RootElement.EnumerateObject().Select(p=>p.Value)).SelectMany(s=>s.GetProperty("frames").EnumerateArray());
+            var paths=frames.Select(f=>f.GetProperty("path").GetString()!).Concat(new[]{"backgrounds","fonts"}.SelectMany(group=>world.Manifest.GetProperty(group).EnumerateArray()).Select(a=>a.GetProperty("path").GetString()!)).Distinct().ToArray();
+            foreach(string path in paths)
+            {
+                using var image=Image.LoadFromFile(Path.Combine(world.Root,path));
+                if(image is null||image.IsEmpty())throw new InvalidDataException("Packaged image failed to decode: "+path);
+            }
+            return paths.Length;
+        }
+    }
     private readonly Node owner;
     private readonly GmWorld world;
     private readonly Dictionary<string,Texture2D> textures=new();
@@ -424,8 +439,7 @@ public sealed class GmGraphics
             }
         }
         canvas.QueueRedraw();
-        await owner.ToSignal(RenderingServer.Singleton,RenderingServer.SignalName.FramePostDraw);
-        await owner.ToSignal(RenderingServer.Singleton,RenderingServer.SignalName.FramePostDraw);
+        await AuditDrawFrames();
         using var image=view.GetTexture().GetImage();var cpu=SurfaceImage(surface);
         var expected=new[]{new Color(110/255f,115/255f,160/255f),new Color(120/255f,205/255f,1),new Color(200*20/65025f,50*180/65025f,100*220/65025f),new Color(0,155/255f,170/255f),new Color(200/255f,50/255f,100/255f),new Color(200/255f,50/255f,100/255f),new Color((200*20/255f+20)/255f,(50*180/255f+180)/255f,1)};
         var errors=new List<string>();
@@ -451,8 +465,35 @@ public sealed class GmGraphics
         SurfaceImage(surface);var refreshed=SurfaceTexture(surface);using var refreshedImage=refreshed.GetImage();
         if(Math.Abs(refreshedImage.GetPixel(1,1).R-0x56/255f)>1/255f)errors.Add("surface-refresh-after-capture");
         if(Colour(0xffffff,-1).A!=0||Colour(0xffffff,2).A!=1)errors.Add("opacity-clamp");
+        int testSprite=CaptureSprite(SurfaceImage(surface),new Rect2I(0,0,4,4),0,false,0,0);
+        int duplicate=world.Call("sprite_duplicate",[testSprite],context).Int;
+        string generated=world.Sprites[testSprite].GetProperty("frames")[0].GetProperty("path").GetString()!;
+        for(int iteration=0;iteration<4;iteration++)
+        {
+            var previous=Texture(generated);TexturePixels(previous);
+            Call("sprite_set_alpha_from_sprite",[testSprite,duplicate],context);
+            if(textureData.ContainsKey(previous))errors.Add("alpha-replacement-cache");
+        }
+        world.Call("sprite_delete",[testSprite],context);
+        if(!textures.ContainsKey(generated))errors.Add("shared-sprite-texture-released");
+        Begin();target=-1;blend=0;
+        Sprite(duplicate,0,Vector2.Zero,Vector2.One,0,Colors.White);
+        world.Call("sprite_delete",[duplicate],context);
+        if(textures.ContainsKey(generated))errors.Add("unreferenced-sprite-texture-retained");
+        canvas.QueueRedraw();
+        await AuditDrawFrames();
+        using var queuedImage=view.GetTexture().GetImage();
+        if(queuedImage.GetPixel(1,1).A<=0)errors.Add("queued-sprite-texture-lifetime");
         view.QueueFree();Call("surface_free",[surface],context);target=-1;blend=0;alpha=1;
         if(errors.Count>0)throw new InvalidOperationException("Blend mismatch: "+string.Join(",",errors));
+    }
+    private async Task AuditDrawFrames()
+    {
+        for(int frame=0;frame<2;frame++)
+        {
+            await owner.ToSignal(owner.GetTree(),SceneTree.SignalName.ProcessFrame);
+            RenderingServer.ForceDraw(false);
+        }
     }
     private void Text(string text,Vector2 position,float scaleX=1,float scaleY=1,float rotation=0)
     {
@@ -639,12 +680,14 @@ public sealed class GmGraphics
                 for(int f=0;f<destination.GetArrayLength();f++)
                 {
                     var path=destination[f].GetProperty("path").GetString()!;
-                    var image=Texture(path).GetImage();var mask=Texture(source[f%source.GetArrayLength()].GetProperty("path").GetString()!).GetImage();
+                    var previous=Texture(path);
+                    using var image=previous.GetImage();using var mask=Texture(source[f%source.GetArrayLength()].GetProperty("path").GetString()!).GetImage();
                     for(int y=0;y<image.GetHeight();y++)for(int x=0;x<image.GetWidth();x++)
                     {
                         var pixel=image.GetPixel(x,y);var m=mask.GetPixel(x%mask.GetWidth(),y%mask.GetHeight());pixel.A=(m.R+m.G+m.B)/3;image.SetPixel(x,y,pixel);
                     }
                     textures[path]=ImageTexture.CreateFromImage(image);
+                    textureData.Remove(previous);
                 }
                 return 0;
             }

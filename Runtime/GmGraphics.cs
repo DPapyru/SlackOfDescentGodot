@@ -78,6 +78,21 @@ public sealed class GmGraphics
     private Texture2D? primitiveTexture;
     private Texture2D[]? particleShapes;
     private ImageTexture? white;
+    internal List<(int Sprite,double Frame,float Alpha)>? SpriteAudit;
+    internal int SpriteOpaquePixels(int id,double frame)
+    {
+        if(!world.Sprites.TryGetValue(id,out var sprite))return 0;
+        var frames=sprite.GetProperty("frames");if(frames.GetArrayLength()==0)return 0;
+        int index=((int)Math.Floor(frame)%frames.GetArrayLength()+frames.GetArrayLength())%frames.GetArrayLength();
+        var pixels=TexturePixels(Texture(frames[index].GetProperty("path").GetString()!)).Data;
+        int count=0;for(int i=3;i<pixels.Length;i+=4)if(pixels[i]>0)count++;return count;
+    }
+    public object Statistics()=>new{surfaces=surfaces.Count,textures=textures.Count,pixelCaches=textureData.Count,generated=textures.Keys.Count(k=>k.StartsWith("generated/",StringComparison.Ordinal))};
+    private void ReleaseTexture(string path)
+    {
+        if(world.Sprites.Values.Any(s=>s.GetProperty("frames").EnumerateArray().Any(f=>f.GetProperty("path").GetString()==path)))return;
+        if(textures.Remove(path,out var texture))textureData.Remove(texture);
+    }
     private ImageTexture White
     {
         get
@@ -105,7 +120,7 @@ public sealed class GmGraphics
         if(target<0)main.Add(draw);
         else if(surfaces.TryGetValue(target,out var surface)){surface.Canvas.Commands.Add(draw);surface.Canvas.QueueRedraw();}
     }
-    public void Begin(){main.Clear();}
+    public void Begin(){main.Clear();SpriteAudit?.Clear();}
     public void Render(GmCanvas canvas)
     {
         canvas.Transform=Transform2D.Identity;
@@ -172,7 +187,8 @@ public sealed class GmGraphics
     private Texture2D Texture(string path)
     {
         if(textures.TryGetValue(path,out var texture))return texture;
-        return textures[path]=ImageTexture.CreateFromImage(Image.LoadFromFile(Path.Combine(world.Root,path)));
+        using var image=Image.LoadFromFile(Path.Combine(world.Root,path));
+        return textures[path]=ImageTexture.CreateFromImage(image);
     }
     private void DrawParticles(GmParticleSystem system)
     {
@@ -368,6 +384,7 @@ public sealed class GmGraphics
     public void Sprite(int id,double frame,Vector2 position,Vector2 scale,float angle,Color tint)
     {
         if(!world.Sprites.TryGetValue(id,out var s))return;
+        if(target<0)SpriteAudit?.Add((id,frame,tint.A));
         var frames=s.GetProperty("frames");
         if(frames.GetArrayLength()==0)return;
         int f=((int)Math.Floor(frame)%frames.GetArrayLength()+frames.GetArrayLength())%frames.GetArrayLength();
@@ -470,6 +487,16 @@ public sealed class GmGraphics
         Vector2 P(int i)=>new(F(i),F(i+1));
         switch(name)
         {
+            case "slack_delete_sprite":
+            {
+                using var deleted=JsonDocument.Parse(a[0].ToString());
+                foreach(var frame in deleted.RootElement.GetProperty("frames").EnumerateArray())
+                {
+                    string path=frame.GetProperty("path").GetString()!;
+                    if(path.StartsWith("generated/",StringComparison.Ordinal))ReleaseTexture(path);
+                }
+                return 0;
+            }
             case "part_system_drawit":if(world.Particles.Systems.TryGetValue(I(0),out var system))DrawParticles(system);return 0;
             case "action_draw_ellipse":
             {
@@ -494,9 +521,9 @@ public sealed class GmGraphics
             }
             case "sprite_create_from_screen":
             {
-                using var screen=owner.GetViewport().GetTexture().GetImage();
                 int width=(int)world.Engine.Read("view_wport",[0]).Number,height=(int)world.Engine.Read("view_hport",[0]).Number;
                 if(width<=0||height<=0){width=world.Engine.Read("room_width").Int;height=world.Engine.Read("room_height").Int;}
+                using var screen=DisplayServer.GetName()=="headless"?Image.CreateEmpty(width,height,false,Image.Format.Rgba8):owner.GetViewport().GetTexture().GetImage();
                 if(screen.GetWidth()!=width||screen.GetHeight()!=height)screen.Resize(width,height,Image.Interpolation.Nearest);
                 return CaptureSprite(screen,new(I(0),I(1),I(2),I(3)),I(4),N(5)>=0.5,I(6),I(7));
             }
@@ -594,7 +621,7 @@ public sealed class GmGraphics
                 var canvas=new GmCanvas();view.AddChild(canvas);owner.AddChild(view);surfaces[id]=(view,canvas);return id;
             }
             case "surface_exists":return surfaces.ContainsKey(I(0));
-            case "surface_free":if(surfaces.Remove(I(0),out var old))old.View.QueueFree();if(surfacePixels.Remove(I(0),out var removed))removed.Dispose();surfaceData.Remove(I(0));dirtySurfaces.Remove(I(0));dirtySurfaceTextures.Remove(I(0));if(surfaceTextures.Remove(I(0),out var freed))textureData.Remove(freed);return 0;
+            case "surface_free":if(surfaces.Remove(I(0),out var old))old.View.QueueFree();if(surfacePixels.Remove(I(0),out var removed))removed.Dispose();surfaceData.Remove(I(0));dirtySurfaces.Remove(I(0));dirtySurfaceTextures.Remove(I(0));if(surfaceTextures.Remove(I(0),out var freed))textureData.Remove(freed);if(target==I(0))target=-1;return 0;
             case "surface_set_target":if(!surfaces.ContainsKey(I(0)))return false;target=I(0);return true;
             case "surface_reset_target":target=-1;return 0;
             case "surface_get_texture":return I(0);

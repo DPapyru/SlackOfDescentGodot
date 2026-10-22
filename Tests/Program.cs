@@ -14,6 +14,55 @@ void Equal(GmValue actual,GmValue expected,string name)
     assertions++;
 }
 void Run(string code)=>world.Evaluator.Run(world.Compile(code),context);
+var monitor=new GmFrameMonitor();
+Equal(monitor.Update(0,0,1,30,true) is null,true,"frame monitor starts a room window");
+for(int second=1;second<=9;second++)monitor.Update(second,second*30,1,30,true);
+var measured=monitor.Update(10,295,1,30,true)!;
+Equal(measured.LogicFps,25,"measured FPS reflects completed logic frames");
+Equal(measured.Dropped,true,"five FPS drop triggers inclusively");
+Equal(monitor.Update(11,320,1,30,true)!.Dropped,false,"continuous drop rate limited");
+Equal(monitor.Update(15,420,1,30,true)!.Dropped,true,"continuous drop repeats after five seconds");
+Equal(monitor.Update(16,450,2,30,true) is null,true,"room change resets baseline");
+measured=monitor.Update(17,480,2,30,false)!;
+Equal(measured.RenderFps is null,true,"headless sample has no rendering FPS");
+Equal(measured.LogicBaseline is null,true,"new room has no stale baseline");
+Equal(monitor.Update(18,510,2,60,false) is null,true,"target change resets baseline");
+monitor.Reset();Equal(monitor.Update(19,510,2,60,false) is null,true,"modal pause resets measurement");
+var renderingMonitor=new GmFrameMonitor();long monitorFrame=0;double monitorTime=0;
+renderingMonitor.Update(0,0,1,30,true);
+GmFrameSample? renderingSample=null;
+for(int second=0;second<10;second++)for(int tick=0;tick<60;tick++)
+{
+    monitorTime+=1.0/60;if(tick%2==0)monitorFrame++;
+    renderingSample=renderingMonitor.Update(monitorTime,monitorFrame,1,30,true)??renderingSample;
+}
+Equal(renderingSample!.LogicBaseline is >29 and <31,true,"logic baseline uses actual thirty FPS cadence");
+Equal(renderingSample.RenderBaseline is >59 and <61,true,"render baseline tracks sixty FPS independently");
+bool renderDropped=false;
+for(int tick=0;tick<80;tick++){monitorTime+=1.0/40;if(tick%4!=0)monitorFrame++;renderingSample=renderingMonitor.Update(monitorTime,monitorFrame,1,30,true);renderDropped|=renderingSample?.Dropped==true;}
+Equal(renderDropped,true,"render-only slowdown triggers a drop");
+var layoutRoot=Path.Combine(Path.GetTempPath(),"slack-layout-test-"+Guid.NewGuid().ToString("N"));
+try
+{
+    var managed=Path.Combine(layoutRoot,"data_SlackOfDescent_windows_x86_64");
+    var assets=Path.Combine(managed,"GameData");
+    Directory.CreateDirectory(assets);
+    File.WriteAllText(Path.Combine(assets,"manifest.json"),"{}");
+    Equal(GmPaths.FindData(layoutRoot,managed),assets,"export finds data beside managed assembly");
+    var parser=Path.Combine(layoutRoot,"Tools",OperatingSystem.IsWindows()?"slack-extract.exe":"slack-extract");
+    Directory.CreateDirectory(Path.GetDirectoryName(parser)!);File.WriteAllText(parser,"");
+    Equal(GmPaths.FindCompiler(assets),parser,"nested data finds parser beside executable");
+    var adjacent=Path.Combine(layoutRoot,"GameData");Directory.CreateDirectory(adjacent);
+    File.WriteAllText(Path.Combine(adjacent,"manifest.json"),"{}");
+    Equal(GmPaths.FindData(layoutRoot,managed),adjacent,"export prefers data beside executable");
+    Equal(GmPaths.FindCompiler(adjacent),parser,"adjacent data finds packaged parser");
+    bool missing=false;
+    try{GmPaths.FindData(Path.Combine(layoutRoot,"missing"),Path.Combine(managed,"missing"));}catch(DirectoryNotFoundException){missing=true;}
+    Equal(missing,true,"missing exported data reports failure");
+}
+finally{Directory.Delete(layoutRoot,true);}
+Run("unicode_text=\"\u65e5\u672c\u8a9e\";");
+Equal(self.Scope.Read("unicode_text"),"\u65e5\u672c\u8a9e","dynamic parser preserves UTF-8 strings");
 var waits=new Queue<TaskCompletionSource<GmValue>>();
 world.Wait=(name,args,c)=>
 {
@@ -39,6 +88,23 @@ waits.Dequeue().SetResult(0);waits.Dequeue().SetResult(0);await suspended;
 Equal(self.Scope.Read("async_count"),1,"break exits waiting loop");
 Equal(self.Scope.Read("async_after"),1,"waiting break preserves following statement");
 world.Wait=null;
+world.Platform=(name,args,c)=>name=="sound_play"?new GmValue(0):(GmValue?)null;
+foreach(bool menuCompiled in new[]{false,true})
+{
+    world.Evaluator.CompiledExecution=menuCompiled;
+    foreach(int cursor in new[]{1,2})
+    {
+        var menu=new GmInstance{Object=world.Constants["objTitle"].Int};
+        world.Evaluator.ResetBudget();
+        world.Evaluator.Run(world.Compile("up=0;down=0;left=0;right=0;decide=2;cancel=0;b1=0;b2=0;keyAvailable=1;View=8;VIEW_TITLE=0;VIEW_GAMESTART=1;VIEW_GAMESTART_CC=8;VIEW_STAGESELECT=3;NEWGAME=0;STAGESELECT=1;GAMESTART_CC_BACK=2;"),new(menu));
+        menu.Scope.Write("Cursor",cursor);
+        await world.Evaluator.RunAsync("objects/objTitle/3/0/1",new(menu));
+        Equal(menu.Scope.Read("View"),cursor==1?3:1,"Crackle Cradle menu handles selection without undefined legacy case "+menuCompiled);
+        Equal(menu.Scope.Read("Cursor"),0,"Crackle Cradle submenu resets cursor "+menuCompiled);
+    }
+}
+world.Evaluator.CompiledExecution=true;
+world.Platform=null;
 var cooperative=new GmWorld(Path.Combine(project,"GameData"),source);
 var cooperativeContext=new GmContext(new GmInstance());
 int cooperativeParent=cooperative.Call("object_add",[],cooperativeContext).Int;
@@ -88,6 +154,30 @@ bool failed=false;
 try{Run("result=missing_variable;");}catch(InvalidOperationException){failed=true;}
 if(!failed)throw new Exception("Uninitialized variables must fail");
 assertions++;
+foreach(bool compiledExecution in new[]{false,true})
+{
+    world.Evaluator.CompiledExecution=compiledExecution;
+    Run("result=(0.1+0.2==0.3); less=(0.1+0.2>0.3); matched=0; switch(0.3+0.00000000000001){case 0.3:matched=1;break;}");
+    Equal(self.Scope.Read("result"),true,"GML approximate equality "+compiledExecution);
+    Equal(self.Scope.Read("less"),false,"GML comparison tolerance "+compiledExecution);
+    Equal(self.Scope.Read("matched"),0,"GML switch retains exact numeric matching "+compiledExecution);
+    Run("result=debug_mode;");
+    Equal(self.Scope.Read("result"),false,"release debug mode "+compiledExecution);
+    bool readOnly=false;
+    try{Run("debug_mode=1;");}catch(InvalidOperationException){readOnly=true;}
+    Equal(readOnly,true,"debug mode is read only "+compiledExecution);
+}
+world.Evaluator.CompiledExecution=true;
+var cleanup=new GmWorld(Path.Combine(project,"GameData"),source);
+var cleanupContext=new GmContext(new GmInstance());
+int cleanupObject=cleanup.Call("object_add",[],cleanupContext).Int;
+cleanup.Globals.Write("EnemyName","RuntimeTest",[0]);
+cleanup.Globals.Write("EnemyObject",cleanupObject,[0]);
+cleanup.Evaluator.ResetBudget();
+await cleanup.Evaluator.CallAsync("deleteEnemy",[0],cleanupContext);
+Equal(cleanup.Call("object_exists",[cleanupObject],cleanupContext),false,"enemy cleanup deletes loaded object");
+Equal(cleanup.Globals.Read("EnemyName",[0]),"","enemy cleanup resets name");
+Equal(cleanupContext.Self.Scope.Values.ContainsKey("debug_mode"),false,"enemy cleanup uses engine debug mode");
 bool outOfRange=false;
 try{Run("result=value[5];");}catch(InvalidOperationException){outOfRange=true;}
 Equal(outOfRange,true,"sparse array bounds");
@@ -187,6 +277,23 @@ world.Call("object_event_add",[deactivateObject,3,2,"unexpected_end=1;"],context
 var deactivated=world.Create(deactivateObject,0,0);world.Step();
 Equal(deactivated.Scope.Values.ContainsKey("unexpected_end"),false,"deactivation suppresses later events");
 var input=new GmInput();
+var bindingRoot=Path.Combine(Path.GetTempPath(),"slack-binding-test-"+Guid.NewGuid().ToString("N"));
+try
+{
+    var bindingWorld=new GmWorld(Path.Combine(project,"GameData"),Path.Combine(project,"GameData/assets"),bindingRoot);
+    input.LoadBindings(bindingWorld);Equal(input.SecondaryKey,71,"old configs default secondary fire to G");
+    input.Key(bindingWorld,71,true);Equal(input.Call("slack_secondary_fire",[],bindingWorld)!.Value,true,"G triggers secondary fire");
+    input.EndStep();Equal(input.Call("slack_secondary_fire",[],bindingWorld)!.Value,false,"held G does not repeat");
+    input.Clear(bindingWorld);input.Mouse(bindingWorld,3,true);
+    Equal(input.Call("slack_secondary_fire",[],bindingWorld)!.Value,true,"middle triggers keyboard mouse secondary fire");
+    bindingWorld.Globals.Write("controllMode",1);Equal(input.Call("slack_secondary_fire",[],bindingWorld)!.Value,false,"middle disabled in keyboard only mode");
+    input.SaveBinding(bindingWorld,72);var restored=new GmInput();restored.LoadBindings(bindingWorld);
+    Equal(restored.SecondaryKey,72,"secondary binding persists");input.Clear(bindingWorld);
+    input.Key(bindingWorld,71,true);Equal(input.Call("slack_secondary_fire",[],bindingWorld)!.Value,false,"previous secondary binding no longer fires");
+    input.Key(bindingWorld,72,true);Equal(input.Call("slack_secondary_fire",[],bindingWorld)!.Value,true,"custom secondary binding fires");
+    input.Clear(bindingWorld);Equal(input.Call("slack_secondary_fire",[],bindingWorld)!.Value,false,"modal clear discards secondary press");
+}
+finally{Directory.Delete(bindingRoot,true);input=new GmInput();}
 GmValue Query(string name,int code)=>input.Call(name,[code],world)!.Value;
 Equal(Query("mouse_check_button",0),true,"mouse no button initially");
 Equal(Query("mouse_check_button",-1),false,"mouse any button initially");
@@ -605,4 +712,78 @@ Equal(particleWorld.OutputSize().Height,477,"wide viewport output height");
 mapped=particleWorld.MouseToRoom(424,238.5);
 Equal(mapped.X,1624,"wide mouse world x");
 Equal(mapped.Y,538,"wide mouse world y uses original rounding");
+int activationParent=particleWorld.Call("object_add",[],particleContext).Int;
+int activationChild=particleWorld.Call("object_add",[],particleContext).Int;
+particleWorld.Call("object_set_parent",[activationChild,activationParent],particleContext);
+particleWorld.Call("object_set_sprite",[activationParent,particleWorld.Constants["sprMaskDot"]],particleContext);
+particleWorld.Call("object_set_sprite",[activationChild,particleWorld.Constants["sprMaskDot"]],particleContext);
+var nearActivation=particleWorld.Create(activationChild,100,100);
+var farActivation=particleWorld.Create(activationParent,1000,1000);
+particleWorld.Call("instance_deactivate_object",[activationParent],particleContext);
+Equal(nearActivation.Active||farActivation.Active,false,"parent deactivation includes children");
+particleWorld.Call("instance_activate_region",[90,90,20,20,1],particleContext);
+Equal(nearActivation.Active,true,"inside activation finds inactive colliders");
+Equal(farActivation.Active,false,"inside activation keeps distant objects inactive");
+particleWorld.Write(farActivation,"x",105);particleWorld.Write(farActivation,"y",105);
+particleWorld.Call("instance_activate_region",[90,90,20,20,1],particleContext);
+Equal(farActivation.Active,true,"region activation updates moved inactive colliders");
+particleWorld.Call("instance_deactivate_region",[90,90,20,20,1,1],new(nearActivation));
+Equal(nearActivation.Active,true,"region deactivation respects notme");
+Equal(farActivation.Active,false,"region deactivation affects other colliders");
+particleWorld.Call("instance_activate_object",[activationParent],particleContext);
+Equal(farActivation.Active,true,"cached parent activation includes inactive objects");
+var inactiveEffects=new List<GmInstance>();
+foreach(string kind in new[]{"objFluid","objFluidInWater"})
+{
+    var effect=particleWorld.Create(particleWorld.Constants[kind].Int,0,0,run:false);
+    effect.Scope.Write("alarm",3,[0]);effect.Active=false;inactiveEffects.Add(effect);
+}
+farActivation.Active=false;
+particleWorld.Step();particleWorld.Step();
+Equal(inactiveEffects.All(particleWorld.Instances.Contains),true,"inactive effects keep their remaining lifetime");
+particleWorld.Step();
+Equal(inactiveEffects.Any(particleWorld.Instances.Contains),false,"inactive fluids expire offscreen");
+Equal(particleWorld.Instances.Contains(farActivation),true,"inactive gameplay objects do not expire");
+foreach(bool compiledReference in new[]{false,true})
+{
+    particleWorld.Evaluator.CompiledExecution=compiledReference;
+    var dying=particleWorld.Create(activationParent,0,0);
+    var surviving=particleWorld.Create(activationChild,0,0);surviving.Scope.Write("owner",dying.Id);
+    particleWorld.Globals.Write("survivor",surviving.Id);
+    particleWorld.Evaluator.ResetBudget();
+    particleWorld.Evaluator.Run(particleWorld.Compile("instance_destroy();self.last_value=7;with(global.survivor){owner_value=other.last_value;other.last_value=8;}"),new(dying));
+    Equal(surviving.Scope.Read("owner_value"),7,"other can read destroyed caller within event "+compiledReference);
+    Equal(dying.Scope.Read("last_value"),8,"other can write destroyed caller within event "+compiledReference);
+    Equal(particleWorld.Call("instance_exists",[dying.Id],particleContext),false,"destroyed caller is absent from instance queries");
+}
+particleWorld.Evaluator.CompiledExecution=true;
+var loadingOwner=particleWorld.Create(activationParent,0,0);
+particleWorld.Globals.Write("PartCreator",loadingOwner.Id);particleWorld.Globals.Write("ForceLoadOnDoll",-1);
+loadingOwner.Scope.Write("chara","Character-Nana");loadingOwner.Scope.Write("category","Body");loadingOwner.Scope.Write("loadPlayer",1);
+particleWorld.Call("LoadContext",[],new(loadingOwner));
+Equal(loadingOwner.Scope.Read("ctrlTarget"),loadingOwner.Id,"clothing loading selects exact creating player");
+loadingOwner.Scope.Write("chara","Empty");loadingOwner.Scope.Write("loadPlayer",0);
+particleWorld.Call("LoadContext",[],new(loadingOwner));
+Equal(loadingOwner.Scope.Read("ctrlTarget"),loadingOwner.Id,"empty clothing initializes its owning doll");
+var loggingRoot=Path.Combine(Path.GetTempPath(),"slack-performance-test-"+Guid.NewGuid().ToString("N"));
+string? previousPerf=Environment.GetEnvironmentVariable("SLACK_PERF");
+try
+{
+    Environment.SetEnvironmentVariable("SLACK_PERF",null);
+    var perf=new GmPerformance();perf.Configure(loggingRoot,false);
+    Equal(perf.LogPath is null,true,"release does not create debug performance log");
+    perf.Configure(loggingRoot,true);
+    particleWorld.CurrentRoom=particleWorld.Rooms.Keys.First();
+    var noDrop=new GmFrameSample(1,30,null,30,null,false);
+    perf.Record(noDrop,particleWorld,()=>new{surfaces=0});
+    Equal(File.ReadAllLines(perf.LogPath!).Length,1,"stable FPS only writes session metadata");
+    perf.Record(noDrop with{LogicFps=25,Dropped=true},particleWorld,()=>new{surfaces=0});
+    using var record=System.Text.Json.JsonDocument.Parse(File.ReadAllLines(perf.LogPath!)[1]);
+    Equal(record.RootElement.GetProperty("type").GetString()!,"drop","drop creates independent JSON record");
+    foreach(string field in new[]{"character","players","npcs","room","particles","graphics","phases"})
+        Equal(record.RootElement.TryGetProperty(field,out _),true,"drop captures "+field);
+    Environment.SetEnvironmentVariable("SLACK_PERF","0");perf.Configure(loggingRoot,true);
+    Equal(perf.Enabled,false,"explicit disable suppresses debug performance log");
+}
+finally{Environment.SetEnvironmentVariable("SLACK_PERF",previousPerf);if(Directory.Exists(loggingRoot))Directory.Delete(loggingRoot,true);}
 Console.WriteLine($"PASS {assertions} assertions");

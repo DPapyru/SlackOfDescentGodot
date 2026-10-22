@@ -25,6 +25,67 @@ public partial class GameHost
         }
         await task;
     }
+    private async void AuditTransitions()
+    {
+        try
+        {
+            await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
+            foreach(int selection in new[]{1,0,2,0})
+            {
+                var task=ShowDialog("Character Select",["Nana","Yuki"]);
+                var dialog=GetChildren().OfType<AcceptDialog>().Single();
+                await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
+                if(selection==0)dialog.EmitSignal(Window.SignalName.CloseRequested);
+                else dialog.EmitSignal(AcceptDialog.SignalName.CustomAction,selection.ToString());
+                await AuditFinish(task,"level dialog");
+                if(await task!=selection)throw new InvalidOperationException("Dialog selection differs");
+                await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
+            }
+            var context=new GmContext(new GmInstance());
+            int character=0;
+            foreach(string mode in new[]{"TestRoom","Playground","Stage1","Survival","SurvivalWorld","Playground"})
+            {
+                var menuTask=AuditMenuAsync(mode);
+                long started=Stopwatch.GetTimestamp();
+                while(!menuTask.IsCompleted)
+                {
+                    if(Stopwatch.GetElapsedTime(started).TotalSeconds>30)throw new InvalidOperationException("Timed out: level selection "+mode);
+                    var dialog=GetChildren().OfType<AcceptDialog>().FirstOrDefault(d=>d.Visible);
+                    if(dialog is not null)
+                    {
+                        await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
+                        int selection=character++%4;
+                        if(selection==0)dialog.EmitSignal(Window.SignalName.CloseRequested);
+                        else dialog.EmitSignal(AcceptDialog.SignalName.CustomAction,selection.ToString());
+                    }
+                    await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
+                }
+                await menuTask;
+                for(int i=0;i<30;i++)await StepFrameAsync();
+                string destination=mode switch{"TestRoom"=>"EnemyTestRoom","Stage1"=>"Stage1_1",_=>mode};
+                if(world.CurrentRoom!=world.Constants[destination].Int)throw new InvalidOperationException("Level did not finish loading: "+mode);
+                GD.Print("TRANSITION level=",mode," room=",world.CurrentRoom," enemies=",world.Globals.Read("EnemyNum"));
+                controls.Clear(world);
+                _Input(new InputEventKey{Keycode=Key.Backspace,Pressed=true});
+                var task=StepFrameAsync();
+                for(int i=0;i<4&&task.IsCompleted;i++){await task;task=StepFrameAsync();}
+                var pause=await AuditWait(()=>world.Select(world.Constants["objPause"].Int,context).FirstOrDefault(),"level pause");
+                await AuditWait(()=>pause.Scope.Read("index").Int>=2?pause:null,"level pause loop");
+                for(int cursor=1;cursor<=2;cursor++)
+                {
+                    _Input(new InputEventKey{Keycode=Key.S,Pressed=true});
+                    await AuditWait(()=>pause.Scope.Read("Cursor").Int==cursor?pause:null,"return title navigation");
+                    _Input(new InputEventKey{Keycode=Key.S,Pressed=false});
+                    for(int i=0;i<4;i++)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
+                }
+                _Input(new InputEventKey{Keycode=Key.Enter,Pressed=true});
+                await AuditFinish(task,"return title");controls.Clear(world);
+                if(world.CurrentRoom!=world.Constants["Title"].Int)throw new InvalidOperationException("Level did not return to title: "+mode);
+            }
+            GD.Print("TRANSITIONS_OK");audio.Shutdown();GetTree().Quit();
+        }
+        catch(Exception e){Fail(e);audio.Shutdown();GetTree().Quit(1);}
+    }
     private async void AuditInteractiveControls()
     {
         try

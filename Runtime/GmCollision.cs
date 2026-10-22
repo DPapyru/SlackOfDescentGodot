@@ -69,6 +69,7 @@ public sealed partial class GmWorld
         };
     }
     internal void InvalidateCollisionSprites()=>collisionIndexedCount=-1;
+    internal void ForgetCollisionSprite(JsonElement sprite)=>collisionMasks.Remove(sprite);
     private void IndexCollider(GmInstance instance)
     {
         if(collisionMembership.Remove(instance,out var old))

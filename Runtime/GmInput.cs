@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace SlackOfDescent;
 
 public sealed class GmInput
@@ -14,6 +16,25 @@ public sealed class GmInput
     private double previousX;
     private double previousY;
     public int Wheel;
+    public int SecondaryKey{get;private set;}=71;
+    public void LoadBindings(GmWorld world)
+    {
+        SecondaryKey=71;
+        string path=world.Resolve("Cfg/SecondaryFire.json");
+        if(!File.Exists(path))return;
+        try
+        {
+            var binding=JsonSerializer.Deserialize<Dictionary<string,int>>(File.ReadAllText(path));
+            if(binding is not null&&binding.TryGetValue("key",out int code)&&code is >1 and <256)SecondaryKey=code;
+        }
+        catch(JsonException){}
+    }
+    public void SaveBinding(GmWorld world,int code)
+    {
+        if(code is <=1 or >=256)throw new ArgumentOutOfRangeException(nameof(code));
+        File.WriteAllText(world.Resolve("Cfg/SecondaryFire.json",true),JsonSerializer.Serialize(new{key=code}));
+        SecondaryKey=code;
+    }
     public void Key(GmWorld world,int code,bool down)
     {
         if(down){held.Add(code);if(physicalHeld.Add(code))pressed.Add(code);world.Engine.Write("keyboard_key",code);world.Engine.Write("keyboard_lastkey",code);}
@@ -31,6 +52,7 @@ public sealed class GmInput
         int code=args.Length>0?args[0].Int:0;
         switch(name)
         {
+            case "slack_secondary_fire":return pressed.Contains(SecondaryKey)||(world.Globals.ReadOr("controllMode").Int==0&&mousePressed.Contains(3));
             case "keyboard_check":return Check(held,code,1);
             case "keyboard_check_pressed":return Check(pressed,code,1);
             case "keyboard_check_released":return Check(released,code,1);

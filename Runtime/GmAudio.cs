@@ -72,6 +72,7 @@ public sealed class GmAudio
     {
         var p=new AudioStreamPlayer{Stream=Load(world.Resolve(path))};
         owner.AddChild(p);int id=requested??nextEmitter++;players[id]=p;volumes[id]=1;types[id]=0;
+        if(requested is null)world.Globals.Write("Sounds",0,[id]);
         p.Finished+=()=>{if(loops.GetValueOrDefault(id))p.Play();};
         return id;
     }
@@ -106,6 +107,7 @@ public sealed class GmAudio
             }
             if(options.TryGetValue("-f",out var file))
             {
+                if(!File.Exists(world.Resolve(file))){GD.Print("AUDIO_MISSING ",file);return -1;}
                 int id=Create(file);music[options["-i"]]=id;loops[id]=options.ContainsKey("-L");
                 if(options.TryGetValue("-v",out var volume))volumes[id]=double.Parse(volume,CultureInfo.InvariantCulture);
                 if(options.TryGetValue("-s",out var pitch))players[id].PitchScale=float.Parse(pitch,CultureInfo.InvariantCulture);

@@ -20,9 +20,17 @@ public partial class GameHost : Node2D
     private long liveStart;
     private long liveFirstFrame;
     private readonly List<double> liveTimes=new();
+    private readonly GmFrameMonitor frameMonitor=new();
+    private readonly long frameClock=Stopwatch.GetTimestamp();
+    private Label? fpsLabel;
+    private long fpsAuditStart;
+    private bool fpsAuditSlow;
+    private readonly List<GmFrameSample> fpsAuditSamples=new();
     private IEnumerator<int>? animationAudit;
     private Task? pendingFrame;
     private int modalDepth;
+    private Button? grenadeBinding;
+    private ConfirmationDialog? bindingDialog;
     private string? Prompt(string name,string text,string initial)
     {
         var args=OS.GetCmdlineUserArgs();int option=Array.IndexOf(args,name);
@@ -85,6 +93,7 @@ public partial class GameHost : Node2D
     };
     public override void _Input(InputEvent input)
     {
+        if(bindingDialog is not null){CaptureGrenadeBinding(input);return;}
         if(world is null||modalDepth>0)return;
         if(input is InputEventMouseButton button)
         {
@@ -104,15 +113,21 @@ public partial class GameHost : Node2D
     {
         TextureFilter=TextureFilterEnum.Linear;
         audit=OS.GetCmdlineUserArgs().Contains("--audit");
-        var root=OS.HasFeature("editor")?ProjectSettings.GlobalizePath("res://GameData"):Path.Combine(Path.GetDirectoryName(OS.GetExecutablePath())!,"GameData");
-        var source=System.Environment.GetEnvironmentVariable("SLACK_SOURCE")??System.IO.Path.Combine(root,"assets");
         try
         {
-            world=new(root,source);
+            var root=OS.HasFeature("editor")?ProjectSettings.GlobalizePath("res://GameData"):GmPaths.FindData(Path.GetDirectoryName(OS.GetExecutablePath())!,AppContext.BaseDirectory);
+            var source=System.Environment.GetEnvironmentVariable("SLACK_SOURCE")??Path.Combine(root,"assets");
+            world=new(root,source,System.Environment.GetEnvironmentVariable("SLACK_USER_ROOT"));
+            world.Performance.Configure(world.UserRoot,OS.IsDebugBuild());
+            controls.LoadBindings(world);
             if(audit)world.Random.Seed=0;
             audio=new(this,world);
             graphics=new(this,world);
             canvas=new GmCanvas();AddChild(canvas);
+            var hud=new CanvasLayer{Layer=100};AddChild(hud);
+            fpsLabel=new Label{Text="FPS: --",MouseFilter=Control.MouseFilterEnum.Ignore,HorizontalAlignment=HorizontalAlignment.Right};
+            hud.AddChild(fpsLabel);fpsLabel.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.TopRight);
+            fpsLabel.OffsetLeft=-100;fpsLabel.OffsetTop=4;fpsLabel.OffsetRight=-8;fpsLabel.OffsetBottom=26;
             canvas.Paint=c=>{if(failure is null)try{graphics.Render(c);}catch(Exception e){Fail(e);}};
             world.Platform=Platform;
             world.Wait=Wait;
@@ -131,6 +146,7 @@ public partial class GameHost : Node2D
             {
                 int frames=120;
                 var commandArgs=OS.GetCmdlineUserArgs();
+                if(commandArgs.Contains("--regression-audit")){SetProcess(false);AuditGameplayRegression();return;}
                 var index=Array.IndexOf(commandArgs,"--frames");
                 if(index>=0&&index+1<commandArgs.Length)frames=int.Parse(commandArgs[index+1]);
                 var roomIndex=Array.IndexOf(commandArgs,"--room");
@@ -145,11 +161,13 @@ public partial class GameHost : Node2D
                     world.LoadRoom(int.Parse(commandArgs[roomIndex+1]));
                 }
                 for(int i=0;i<frames;i++)StepFrame();
+                ContentAudit(commandArgs);
+                if(commandArgs.Contains("--transition-audit")){SetProcess(false);AuditTransitions();return;}
                 if(commandArgs.Contains("--controls-ui-audit")){SetProcess(false);AuditInteractiveControls();return;}
                 int shoot=Array.IndexOf(commandArgs,"--shoot");
                 if(shoot>=0&&shoot+1<commandArgs.Length)AuditShoot(int.Parse(commandArgs[shoot+1]));
                 int animation=Array.IndexOf(commandArgs,"--animation-audit");
-                if(animation>=0&&animation+1<commandArgs.Length){animationAudit=AuditAnimation(commandArgs[animation+1]).GetEnumerator();return;}
+                if(animation>=0&&animation+1<commandArgs.Length){animationAudit=(commandArgs[animation+1]=="route"?AuditRoute(true):AuditAnimation(commandArgs[animation+1])).GetEnumerator();return;}
                 GD.Print("AUDIT room=",world.CurrentRoom," frames=",world.Frame," instances=",world.Instances.Count);
                 if(world.Performance.Enabled)GD.Print("PERF_CONTENT tiles=",world.Tiles.Count," objects=",string.Join(" ",world.Instances.GroupBy(i=>i.Object).OrderByDescending(g=>g.Count()).Take(12).Select(g=>$"{g.Key}:{g.Count()}")));
                 int benchmark=Array.IndexOf(commandArgs,"--benchmark");
@@ -163,6 +181,7 @@ public partial class GameHost : Node2D
                 var state=System.Environment.GetEnvironmentVariable("SLACK_STATE");
                 if(state is not null)File.WriteAllText(state,JsonSerializer.Serialize(new{room=world.CurrentRoom,frame=world.Frame,seed=world.Random.Seed,globals=world.Globals.Values.ToDictionary(p=>p.Key,p=>p.Value.ToString()),engine=world.Engine.Values.ToDictionary(p=>p.Key,p=>p.Value.ToString()),instances=world.Instances.Select(i=>new{id=i.Id,obj=i.Object,active=i.Active,destroyed=i.Destroyed,values=i.Scope.Values.ToDictionary(p=>p.Key,p=>p.Value.ToString())})}));
                 int live=Array.IndexOf(commandArgs,"--live-frames");
+                if(commandArgs.Contains("--fps-audit")){fpsAuditStart=Stopwatch.GetTimestamp();Engine.MaxFps=60;return;}
                 if(live>=0&&live+1<commandArgs.Length){liveFirstFrame=world.Frame;liveEnd=world.Frame+int.Parse(commandArgs[live+1]);liveStart=Stopwatch.GetTimestamp();return;}
             }
             catch(Exception e){Fail(e);}
@@ -170,7 +189,7 @@ public partial class GameHost : Node2D
             {
                 SetProcess(false);canvas.QueueRedraw();GD.Print("AUDIT_OK");Capture();return;
             }
-            SetProcess(false);canvas.Paint=null;
+            SetProcess(false);if(canvas is not null)canvas.Paint=null;
             audio?.Shutdown();
             GD.Print(failure is null?"AUDIT_OK":"AUDIT_FAILED");GetTree().Quit(failure is null?0:1);
         }
@@ -194,7 +213,7 @@ public partial class GameHost : Node2D
         {
             case "show_menu":return audit&&!OS.GetCmdlineUserArgs().Contains("--controls-ui-audit")?Menu(args[0].ToString(),args[1].Int):await ShowPopupMenu(args[0].ToString(),args[1].Int);
             case "get_string":return audit&&!OS.GetCmdlineUserArgs().Contains("--controls-ui-audit")?Prompt("--input-text",args[0].ToString(),args[1].ToString())??args[1]:await InputText(args[0].ToString(),args[1].ToString());
-            case "show_message_ext":return audit?Dialog(args[0].ToString(),args.Skip(1).Select(v=>v.ToString()).ToArray()):await ShowDialog(args[0].ToString(),args.Skip(1).Select(v=>v.ToString()).ToArray());
+            case "show_message_ext":return audit&&!OS.GetCmdlineUserArgs().Contains("--transition-audit")&&!OS.GetCmdlineUserArgs().Contains("--regression-audit")?Dialog(args[0].ToString(),args.Skip(1).Select(v=>v.ToString()).ToArray()):await ShowDialog(args[0].ToString(),args.Skip(1).Select(v=>v.ToString()).ToArray());
             case "show_question":return (audit?Dialog(args[0].ToString(),["Yes","No"]):await ShowDialog(args[0].ToString(),["Yes","No"]))==1;
             case "show_message":
                 if(audit)Dialog(args[0].ToString(),["OK"]);else await ShowDialog(args[0].ToString(),["OK"]);
@@ -445,17 +464,19 @@ public partial class GameHost : Node2D
         GD.Print("ANIMATION_OK mode=",mode);
     }
 
-    private void AuditMenu(string mode)
+    private void AuditMenu(string mode)=>AuditMenuAsync(mode).GetAwaiter().GetResult();
+
+    private async Task AuditMenuAsync(string mode)
     {
-        for(int i=0;i<180;i++)StepFrame();
+        for(int i=0;i<180;i++)await StepFrameAsync();
         var title=world.Instances.Single(i=>!i.Destroyed&&world.IsObject(i.Object,world.Constants["objTitle"].Int));
         int offset=world.Globals.Read("controllMode").Int==world.Constants["CTRL_KEY"].Int?12:0;
         if(world.Globals.Read("controllMode").Int==world.Constants["CTRL_JOYPAD"].Int)throw new InvalidOperationException("Menu audit requires keyboard configuration");
-        void Tap(int binding)
+        async Task Tap(int binding)
         {
             int code=world.Globals.Read("key",[offset+binding]).Int;
-            controls.Key(world,code,true);StepFrame();controls.Key(world,code,false);
-            for(int i=0;i<4;i++)StepFrame();
+            controls.Key(world,code,true);await StepFrameAsync();controls.Key(world,code,false);
+            for(int i=0;i<4;i++)await StepFrameAsync();
         }
         void Expect(string field,GmValue value)
         {
@@ -464,15 +485,15 @@ public partial class GameHost : Node2D
         }
         Expect("View",title.Scope.Read("VIEW_TITLE"));
         Expect("Cursor",title.Scope.Read("GAMESTART"));
-        Tap(10);Expect("View",title.Scope.Read("VIEW_GAMESTART"));
+        await Tap(10);Expect("View",title.Scope.Read("VIEW_GAMESTART"));
         string selection=mode switch{"Playground"=>"PLAYGROUND","TestRoom"=>"TEST","Survival"=>"SURVIVALPLAYGROUND","SurvivalWorld"=>"SURVIVAL","Stage1"=>"CRACKLECRADLE",_=>throw new ArgumentException("Unknown audit menu "+mode)};
         int wanted=title.Scope.Read(selection).Int;
-        for(int attempt=0;title.Scope.Read("Cursor").Int!=wanted&&attempt<10;attempt++)Tap(3);
+        for(int attempt=0;title.Scope.Read("Cursor").Int!=wanted&&attempt<10;attempt++)await Tap(3);
         Expect("Cursor",wanted);
-        Tap(10);
+        await Tap(10);
         if(mode=="Stage1")
         {
-            Expect("View",title.Scope.Read("VIEW_GAMESTART_CC"));Expect("Cursor",title.Scope.Read("NEWGAME"));Tap(10);
+            Expect("View",title.Scope.Read("VIEW_GAMESTART_CC"));Expect("Cursor",title.Scope.Read("NEWGAME"));await Tap(10);
         }
         int loading=world.Constants[mode+"_Loading"].Int;
         string destination=mode switch{"TestRoom"=>"EnemyTestRoom","Stage1"=>"Stage1_1",_=>mode};
@@ -482,9 +503,19 @@ public partial class GameHost : Node2D
 
     private void Fail(Exception e)
     {
+        if(failure is not null)return;
         failure=e.Message;
         GD.PushError(audit?e.Message:e.ToString());
         SetProcess(false);
+        if(!audit)
+        {
+            audio?.Shutdown();
+            var dialog=new AcceptDialog{Title="Slack Of Descent - Error",DialogText=e.Message,MinSize=new Vector2I(480,160)};
+            dialog.Confirmed+=()=>GetTree().Quit(1);
+            dialog.Canceled+=()=>GetTree().Quit(1);
+            dialog.CloseRequested+=()=>GetTree().Quit(1);
+            AddChild(dialog);dialog.PopupCentered();
+        }
     }
 
     public override void _Process(double delta)
@@ -492,10 +523,34 @@ public partial class GameHost : Node2D
         if(failure is not null){if(audit)GetTree().Quit(1);return;}
         try
         {
+            SyncGrenadeBinding();
+            if(modalDepth>0&&pendingFrame is null){elapsed=0;frameMonitor.Reset();canvas.QueueRedraw();return;}
             if(pendingFrame is not null)
             {
-                if(!pendingFrame.IsCompleted){elapsed=0;canvas.QueueRedraw();return;}
+                if(!pendingFrame.IsCompleted){elapsed=0;frameMonitor.Reset();canvas.QueueRedraw();return;}
                 pendingFrame.GetAwaiter().GetResult();pendingFrame=null;elapsed=0;
+            }
+            var measurement=frameMonitor.Update(Stopwatch.GetElapsedTime(frameClock).TotalSeconds,world.Frame,world.CurrentRoom,world.Engine.Read("room_speed").Number,DisplayServer.GetName()!="headless");
+            if(measurement is not null)
+            {
+                world.Engine.Write("fps",measurement.LogicFps);world.Globals.Write("current_fps",measurement.LogicFps);
+                if(fpsLabel is not null)fpsLabel.Text="FPS: "+measurement.LogicFps.ToString("F0");
+                world.Performance.Record(measurement,world,()=>graphics.Statistics());
+                if(fpsAuditStart>0)fpsAuditSamples.Add(measurement);
+            }
+            if(fpsAuditStart>0)
+            {
+                double seconds=Stopwatch.GetElapsedTime(fpsAuditStart).TotalSeconds;
+                if(seconds>=12&&!fpsAuditSlow){fpsAuditSlow=true;Engine.MaxFps=12;}
+                if(fpsAuditSlow)OS.DelayMsec(90);
+                if(seconds>=17)
+                {
+                    RegressionExpect(fpsAuditSamples.Any(s=>s.LogicFps>25),"FPS label measured stable gameplay");
+                    RegressionExpect(fpsAuditSamples.Any(s=>s.LogicFps<25&&s.Dropped),"FPS slowdown triggers logging");
+                    RegressionExpect(fpsLabel!.Text=="FPS: "+world.Engine.Read("fps").Number.ToString("F0"),"FPS label follows measured rate");
+                    RegressionExpect(world.Performance.LogPath is string log&&File.ReadLines(log).Any(line=>line.Contains("\"type\":\"drop\"",StringComparison.Ordinal)),"real slowdown writes performance log");
+                    GD.Print("FPS_AUDIT_OK label=",fpsLabel.Text," log=",world.Performance.LogPath);audio.Shutdown();GetTree().Quit();return;
+                }
             }
             if(animationAudit is not null)
             {

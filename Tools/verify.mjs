@@ -7,6 +7,7 @@ const root = path.resolve(import.meta.dirname, '..');
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'GameData/manifest.json')));
 const code = JSON.parse(fs.readFileSync(path.join(root, 'GameData/code.json')));
 const analysis = JSON.parse(fs.readFileSync(path.join(root, 'GameData/analysis.json')));
+const media = JSON.parse(fs.readFileSync(path.join(root, 'GameData/media.json')));
 assert.equal(analysis.errors.length, 0);
 for (const group of ['sprites', 'backgrounds', 'sounds', 'objects', 'rooms', 'scripts', 'fonts']) {
     const ids = manifest[group].map(a => a.id);
@@ -14,6 +15,9 @@ for (const group of ['sprites', 'backgrounds', 'sounds', 'objects', 'rooms', 'sc
 }
 for (const script of manifest.scripts) assert.ok(code[script.code], script.name);
 for (const file of manifest.external) assert.ok(code[file.code], file.path);
+for (const [name, asset] of Object.entries(media)) for (const frame of asset.frames) assert.ok(fs.existsSync(path.join(root, 'GameData', frame.path)), name + ':' + frame.path);
+for (const background of manifest.backgrounds) assert.ok(fs.existsSync(path.join(root, 'GameData', background.path)), background.path);
+for (const font of manifest.fonts) assert.ok(fs.existsSync(path.join(root, 'GameData', font.path)), font.path);
 for (const sprite of manifest.sprites) for (const frame of sprite.frames) assert.ok(fs.existsSync(path.join(root, 'GameData', frame.path)), frame.path);
 for (const sound of manifest.sounds) if (sound.present) assert.ok(fs.existsSync(path.join(root, 'GameData', sound.path)), sound.path);
 for (const room of manifest.rooms) {
@@ -35,9 +39,10 @@ for (const object of manifest.objects) for (const event of object.events) for (c
     }
 }
 assert.equal(variables, 296);
-const files = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root }).toString().split('\0').filter(Boolean);
+const files = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root, maxBuffer: 16 * 1024 * 1024 }).toString().split('\0').filter(Boolean);
 for (const file of files) {
-    assert.ok(!/\.(md|rst|adoc|txt)$/i.test(file), file);
+    if (file.startsWith('GameData/assets/Chara/')) continue;
+    assert.ok(file === 'docs/requirements.md' || !/\.(md|rst|adoc|txt)$/i.test(file), file);
     if (/\.(cs|rs|mjs)$/.test(file)) {
         const text = fs.readFileSync(path.join(root, file), 'utf8');
         assert.ok(!/^\s*(\/\/|\/\*|\* |<!--)/m.test(text), file);

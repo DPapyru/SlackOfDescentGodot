@@ -20,6 +20,8 @@ public readonly struct GmValue : IEquatable<GmValue>
     public static GmValue operator *(GmValue a, GmValue b) => a.IsString ? new(string.Concat(Enumerable.Repeat(a.Text, Math.Max(0, b.Int)))) : new(a.Number * b.Number);
     public static GmValue operator /(GmValue a, GmValue b) => b.Number == 0 ? throw new DivideByZeroException() : new(a.Number / b.Number);
     public bool Equals(GmValue other) => IsString == other.IsString && (IsString ? Text == other.Text : Number == other.Number);
+    public bool AlmostEquals(GmValue other)=>IsString==other.IsString&&(IsString?Text==other.Text:Math.Abs(Number-other.Number)<1e-13);
+    public int GmlCompare(GmValue other)=>IsString&&other.IsString?string.CompareOrdinal(Text,other.Text):Math.Abs(Number-other.Number)<1e-13?0:Number.CompareTo(other.Number);
     public override bool Equals(object? obj) => obj is GmValue value && Equals(value);
     public override int GetHashCode() => IsString ? Text!.GetHashCode() : Number.GetHashCode();
     public override string ToString() => Text ?? Number.ToString("0.################", CultureInfo.InvariantCulture);

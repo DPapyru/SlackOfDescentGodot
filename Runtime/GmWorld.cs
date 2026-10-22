@@ -16,6 +16,7 @@ public sealed class GmInstance
     public GmBounds CachedBounds;
     public bool HasBounds;
     internal int CollisionOrder;
+    internal long InactiveEffectExpiry;
 }
 
 public sealed partial class GmWorld
@@ -86,6 +87,7 @@ public sealed partial class GmWorld
         UserRoot=Path.GetFullPath(userRoot??Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),"SlackOfDescentGodot"));
         Manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(root,"manifest.json"))).RootElement;
         Code = JsonSerializer.Deserialize<Dictionary<string,JsonElement>>(File.ReadAllText(Path.Combine(root,"code.json")),new JsonSerializerOptions{MaxDepth=1024})!;
+        ApplyGameplayFixes();
         Evaluator = new(this);
         NextId = Manifest.GetProperty("lastInstanceId").GetInt32() + 1;
         foreach (var category in new[] {"scripts","objects","rooms","sprites","sounds","backgrounds","fonts"})
@@ -149,6 +151,7 @@ public sealed partial class GmWorld
         if(name is "bbox_left" or "bbox_top" or "bbox_right" or "bbox_bottom")
         {var b=Bounds(instance);return name switch{"bbox_left"=>b.Left,"bbox_top"=>b.Top,"bbox_right"=>b.Right,_=>b.Bottom};}
         if(name=="room") return CurrentRoom;
+        if(name=="debug_mode")return false;
         if(name=="instance_count") return Instances.Count(i=>!i.Destroyed);
         if(name=="instance_id") return Instances.Where(i=>!i.Destroyed).ElementAt(indices?[0]??0).Id;
         if(name=="event_type"||name=="event_number") return 0;
@@ -165,6 +168,7 @@ public sealed partial class GmWorld
 
     public void Write(GmInstance instance,string name,GmValue value,IReadOnlyList<int>? indices=null)
     {
+        if(name=="debug_mode")throw new InvalidOperationException("Read-only variable debug_mode");
         if(name=="room"){PendingRoom=value.Int;return;}
         if(Engine.Values.ContainsKey(GmScope.Key(name,indices))){Engine.Write(name,value,indices);return;}
         if(name is "hspeed" or "vspeed"&&instance.Scope.ReadOr(name).Equals(value))return;
@@ -207,6 +211,16 @@ public sealed partial class GmWorld
             selectionLookup[target]=matches=Instances.Where(i=>i.Id==target||IsObject(i.Object,target)).ToList();
         return matches.Where(i=>!i.Destroyed&&i.Active);
     }
+    internal IEnumerable<GmInstance> ReferenceInstances(int target,GmContext context)=>target==-1?[context.Self]:target==-2?[context.Other]:Select(target,context);
+    private IEnumerable<GmInstance> ActivationInstances(int target)
+    {
+        if(target==-3)return Instances.Where(i=>!i.Destroyed);
+        if(indexedCount!=Instances.Count)ResetInstanceLookup();
+        if(target>=100000)return instanceLookup.TryGetValue(target,out var found)&&!found.Destroyed?[found]:[];
+        if(!selectionLookup.TryGetValue(target,out var matches))
+            selectionLookup[target]=matches=Instances.Where(i=>i.Id==target||IsObject(i.Object,target)).ToList();
+        return matches.Where(i=>!i.Destroyed);
+    }
     private int InstanceCount(int target,GmContext context)
     {
         if(target is -1 or -2)return Select(target,context).Count();
@@ -229,7 +243,12 @@ public sealed partial class GmWorld
             indexedCount++;
         }
         Instances.Add(instance);
-        instanceCounts.Clear();instance.VisibilityChanged=()=>{instanceCounts.Clear();if(instance.Destroyed)changedColliders.Add(instance);};
+        instanceCounts.Clear();instance.VisibilityChanged=()=>
+        {
+            instanceCounts.Clear();if(instance.Destroyed)changedColliders.Add(instance);
+            if(instance.Object==Constants["objFluid"].Int||instance.Object==Constants["objFluidInWater"].Int)
+                instance.InactiveEffectExpiry=instance.Active?0:Frame+Math.Max(1,instance.Scope.Read("alarm",[0]).Int);
+        };
         WatchCollider(instance);
         if(collisionIndexedCount==Instances.Count-1){instance.CollisionOrder=nextCollisionOrder++;changedColliders.Add(instance);collisionIndexedCount++;}
         Created[obj]=Created.GetValueOrDefault(obj)+1;
@@ -467,8 +486,11 @@ public sealed partial class GmWorld
 
     private void RemoveDestroyed()
     {
+        foreach(var instance in Instances)
+            if(!instance.Active&&instance.InactiveEffectExpiry>0&&Frame>=instance.InactiveEffectExpiry)instance.Destroyed=true;
         int previous=Instances.Count;
         int removed=Instances.RemoveAll(i=>i.Destroyed);
+        if(removed>0)indexedCount=-1;
         if(collisionIndexedCount==previous)collisionIndexedCount-=removed;
     }
 

@@ -58,7 +58,11 @@ public sealed partial class GmWorld
                 if(result is null)throw new InvalidOperationException("Sprite preparation requires rendering platform");
                 return id;
             }
-            case "sprite_delete":Sprites.Remove(I(0));InvalidateCollisionSprites();return 0;
+            case "sprite_delete":
+            {
+                if(Sprites.Remove(I(0),out var removed)){ForgetCollisionSprite(removed);Platform?.Invoke("slack_delete_sprite",[removed.GetRawText()],context);}
+                InvalidateCollisionSprites();return 0;
+            }
             case "sprite_duplicate":return RegisterSprite(Sprites[I(0)]);
             case "sprite_set_offset":
             {

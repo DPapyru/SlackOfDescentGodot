@@ -168,9 +168,9 @@ public sealed partial class GmEvaluator
         "IntDivide" => Math.Truncate(a.Number / b.Number), "Modulo" => a.Number % b.Number,
         "BitwiseAnd" => a.Int & b.Int, "BitwiseOr" => a.Int | b.Int, "BitwiseXor" => a.Int ^ b.Int,
         "BinaryShiftLeft" => a.Int << b.Int, "BinaryShiftRight" => a.Int >> b.Int,
-        "Equal" => a.Equals(b), "NotEqual" => !a.Equals(b),
-        "LessThan" => a.CompareTo(b) < 0, "GreaterThan" => a.CompareTo(b) > 0,
-        "LessThanOrEqual" => a.CompareTo(b) <= 0, "GreaterThanOrEqual" => a.CompareTo(b) >= 0,
+        "Equal" => a.AlmostEquals(b), "NotEqual" => !a.AlmostEquals(b),
+        "LessThan" => a.GmlCompare(b) < 0, "GreaterThan" => a.GmlCompare(b) > 0,
+        "LessThanOrEqual" => a.GmlCompare(b) <= 0, "GreaterThanOrEqual" => a.GmlCompare(b) >= 0,
         "And" => a.Truth && b.Truth, "Or" => a.Truth || b.Truth, "Xor" => a.Truth ^ b.Truth,
         _ => throw new NotSupportedException("Binary " + op)
     };
@@ -205,8 +205,8 @@ public sealed partial class GmEvaluator
             var target = Eval(e[2], c).Int;
             var name = e[3][1].GetString()!;
             if (target == -5) return (() => world.Globals.Read(name, indices), v => world.Globals.Write(name, v, indices));
-            GmInstance Instance() => world.Select(target, c).FirstOrDefault() ?? throw new InvalidOperationException("No instance " + target);
-            return (() => world.Read(Instance(), name, indices), v => { foreach (var i in world.Select(target, c).ToArray()) world.Write(i, name, v, indices); });
+            GmInstance Instance() => world.ReferenceInstances(target, c).FirstOrDefault() ?? throw new InvalidOperationException("No instance " + target);
+            return (() => world.Read(Instance(), name, indices), v => { foreach (var i in world.ReferenceInstances(target, c).ToArray()) world.Write(i, name, v, indices); });
         }
         if (Tag(e) == "id")
         {

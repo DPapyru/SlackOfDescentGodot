@@ -82,10 +82,8 @@ public sealed partial class GmWorld
     public string Compile(string source)
     {
         if(dynamicCode.TryGetValue(source,out var existing))return existing;
-        var compiler=Path.Combine(Path.GetDirectoryName(Root)!,"Tools",OperatingSystem.IsWindows()?"slack-extract.exe":"slack-extract");
-        if(!File.Exists(compiler))compiler=Path.Combine(Path.GetDirectoryName(Root)!,"Tools/Extract/target/release/slack-extract");
-        if(!File.Exists(compiler))throw new FileNotFoundException("GML compiler unavailable",compiler);
-        using var process=Process.Start(new ProcessStartInfo(compiler,"--parse"){RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true,UseShellExecute=false})!;
+        var compiler=GmPaths.FindCompiler(Root);
+        using var process=Process.Start(new ProcessStartInfo(compiler,"--parse"){RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true,UseShellExecute=false,CreateNoWindow=true,StandardInputEncoding=new System.Text.UTF8Encoding(false),StandardOutputEncoding=System.Text.Encoding.UTF8,StandardErrorEncoding=System.Text.Encoding.UTF8})!;
         process.StandardInput.Write(source);process.StandardInput.Close();
         var output=process.StandardOutput.ReadToEnd();var error=process.StandardError.ReadToEnd();process.WaitForExit();
         if(process.ExitCode!=0)throw new InvalidOperationException("GML compilation: "+error);
@@ -205,13 +203,14 @@ public sealed partial class GmWorld
             case "instance_exists":return Select(I(0),c).Any();case "instance_number":return InstanceCount(I(0),c);
             case "instance_find":return Select(I(0),c).Skip(Math.Max(0,I(1))).FirstOrDefault()?.Id??-4;
             case "instance_nearest":return Select(I(2),c).OrderBy(i=>Math.Pow(i.Scope.ReadOr("x").Number-N(0),2)+Math.Pow(i.Scope.ReadOr("y").Number-N(1),2)).FirstOrDefault()?.Id??-4;
-            case "instance_activate_object":foreach(var i in Instances.Where(i=>I(0)==-3||i.Id==I(0)||IsObject(i.Object,I(0))))i.Active=true;return 0;
+            case "instance_activate_object":foreach(var i in ActivationInstances(I(0)))i.Active=true;return 0;
             case "instance_deactivate_object":foreach(var i in Select(I(0),c).ToArray())i.Active=false;return 0;
             case "instance_activate_region":case "instance_deactivate_region":
             {
                 var region=new GmBounds(N(0),N(1),N(0)+N(2),N(1)+N(3));
                 bool activate=name=="instance_activate_region";
-                foreach(var i in Instances.Where(i=>!i.Destroyed&&i.Active!=activate&&!(name=="instance_deactivate_region"&&N(5)>=0.5&&i==Self)))
+                IEnumerable<GmInstance> candidates=N(4)>=0.5?Nearby(region):Instances;
+                foreach(var i in candidates.Where(i=>!i.Destroyed&&i.Active!=activate&&!(name=="instance_deactivate_region"&&N(5)>=0.5&&i==Self)))
                     if(Bounds(i).Overlaps(region)==(N(4)>=0.5))i.Active=activate;
                 return 0;
             }
@@ -264,7 +263,7 @@ public sealed partial class GmWorld
             case "sprite_exists":return Sprites.ContainsKey(I(0));
             case "sprite_get_number":return Sprites.TryGetValue(I(0),out var sprite)?sprite.GetProperty("frames").GetArrayLength():0;
             case "sprite_get_width":case "sprite_get_height":{if(!Sprites.TryGetValue(I(0),out var s)||s.GetProperty("frames").GetArrayLength()==0)return 0;return s.GetProperty("frames")[0].GetProperty(name=="sprite_get_width"?"width":"height").GetInt32();}
-            case "sprite_get_xoffset":case "sprite_get_yoffset":return Sprites[I(0)].GetProperty(name=="sprite_get_xoffset"?"originX":"originY").GetInt32();
+            case "sprite_get_xoffset":case "sprite_get_yoffset":return Sprites.TryGetValue(I(0),out var offsetSprite)?offsetSprite.GetProperty(name=="sprite_get_xoffset"?"originX":"originY").GetInt32():0;
             case "sprite_get_bbox_left":case "sprite_get_bbox_right":case "sprite_get_bbox_top":case "sprite_get_bbox_bottom":return Sprites[I(0)].GetProperty("masks")[0].GetProperty(name[16..]).GetInt32();
             case "background_get_width":case "background_get_height":{var b=Manifest.GetProperty("backgrounds").EnumerateArray().First(b=>b.GetProperty("id").GetInt32()==I(0));return b.GetProperty(name=="background_get_width"?"width":"height").GetInt32();}
         }

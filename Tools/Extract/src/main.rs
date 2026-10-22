@@ -126,6 +126,26 @@ fn image(path: &Path, width: u32, height: u32, pixels: &[u8], bgra: bool) {
     encoder.write_header().unwrap().write_image_data(&bytes).unwrap();
 }
 
+fn sound(path: &Path, bytes: &[u8]) {
+    fs::write(path,bytes).unwrap();
+    if path.extension().and_then(|v|v.to_str()).map(|v|v.eq_ignore_ascii_case("wav")) != Some(true) || bytes.get(..4) != Some(b"RIFF") { return; }
+    let mut offset = 12;
+    while offset + 10 <= bytes.len() {
+        let length = u32::from_le_bytes(bytes[offset+4..offset+8].try_into().unwrap()) as usize;
+        if &bytes[offset..offset+4] == b"fmt " {
+            let format = u16::from_le_bytes(bytes[offset+8..offset+10].try_into().unwrap());
+            if format != 1 && format != 3 {
+                let converted = path.with_extension("pcm.wav");
+                let status = std::process::Command::new("ffmpeg").args(["-v","error","-y","-i"]).arg(path).args(["-c:a","pcm_s16le"]).arg(&converted).status().expect("ffmpeg is required to convert legacy compressed WAV assets");
+                assert!(status.success(),"WAV conversion failed: {}",path.display());
+                fs::rename(converted,path).unwrap();
+            }
+            break;
+        }
+        offset += 8 + length + length % 2;
+    }
+}
+
 fn main() {
     let args: Vec<_> = env::args().collect();
     if args.get(1).map(String::as_str) == Some("--parse") {
@@ -177,7 +197,7 @@ fn main() {
     })).collect();
     let sounds: Vec<_> = assets.sounds.iter().enumerate().filter_map(|(id,s)| s.as_ref().map(|s| {
         let path = format!("sounds/{id}{}",string(&s.extension));
-        if let Some(data) = &s.data { fs::write(output.join(&path),data).unwrap(); }
+        if let Some(data) = &s.data { sound(&output.join(&path),data); }
         json!({"id":id,"name":string(&s.name),"path":path,"volume":s.volume,"pan":s.pan,"kind":s.kind as u32,"present":s.data.is_some(),"effects":{"chorus":s.fx.chorus,"echo":s.fx.echo,"flanger":s.fx.flanger,"gargle":s.fx.gargle,"reverb":s.fx.reverb}})
     })).collect();
     let fonts: Vec<_> = assets.fonts.iter().enumerate().filter_map(|(id,f)| f.as_ref().map(|f| {
@@ -198,6 +218,11 @@ fn main() {
                 if path.file_name().unwrap() != "__history" { walk(&path,base,output,export,files,media); }
             } else {
                 let relative = path.strip_prefix(base).unwrap().to_string_lossy().replace('\\',"/");
+                if relative.starts_with("Chara/") {
+                    let original = output.join("assets").join(&relative);
+                    fs::create_dir_all(original.parent().unwrap()).unwrap();
+                    fs::copy(&path,original).unwrap();
+                }
                 if path.extension().and_then(|v| v.to_str()) == Some("txt") && !relative.contains("README") {
                     let bytes = fs::read(&path).unwrap();
                     let key = export.parse(format!("external/{relative}"),&bytes);
@@ -249,7 +274,7 @@ fn main() {
                 } else if matches!(path.extension().and_then(|v|v.to_str()).map(|s|s.to_ascii_lowercase()).as_deref(),Some("wav" | "ogg" | "mp3" | "mid")) {
                     let dest = output.join("assets").join(&relative);
                     fs::create_dir_all(dest.parent().unwrap()).unwrap();
-                    fs::copy(&path,dest).unwrap();
+                    sound(&dest,&fs::read(&path).unwrap());
                 }
             }
         }

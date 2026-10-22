@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { auditPackage, writeInventory } from './package-audit.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const godot = process.argv[2] ?? process.env.GODOT_BIN;
@@ -28,7 +29,7 @@ for (const target of targets) {
         for (const file of [target.executable, 'SlackOfDescent.pck']) {
             if (!fs.existsSync(path.join(prepared, file))) throw new Error('Missing exported file: ' + file);
         }
-        fs.cpSync(path.join(root, 'GameData'), path.join(prepared, 'GameData'), { recursive: true, filter: file => !file.endsWith('.import') });
+        fs.cpSync(path.join(root, 'GameData'), path.join(prepared, 'GameData'), { recursive: true, filter: file => !file.endsWith('.import') && path.basename(file) !== 'Thumbs.db' });
         fs.copyFileSync(compiler, path.join(prepared, 'Tools', path.basename(compiler)));
         for (const file of ['manifest.json', 'code.json', 'sources.json', 'media.json', 'particles.bin', 'assets/Cfg/KeyConfig', 'assets/Cfg/data', 'assets/Cfg/itemData']) {
             if (!fs.existsSync(path.join(prepared, 'GameData', file))) throw new Error('Missing exported game data: ' + file);
@@ -37,10 +38,25 @@ for (const target of targets) {
             fs.chmodSync(path.join(prepared, target.executable), 0o755);
             fs.chmodSync(path.join(prepared, 'Tools/slack-extract'), 0o755);
         }
+        writeInventory(prepared, target.name);
+        console.log(JSON.stringify(auditPackage(prepared, path.join(root, 'GameData'))));
+        const archive = path.join(staging, target.name + '.zip');
+        if (process.platform === 'win32') {
+            const quote = value => "'" + value.replaceAll("'", "''") + "'";
+            execFileSync('powershell.exe', ['-NoProfile', '-Command', 'Compress-Archive -LiteralPath ' + quote(prepared) + ' -DestinationPath ' + quote(archive)], { stdio: 'inherit' });
+        } else execFileSync('zip', ['-q', '-r', archive, target.name], { cwd: staging, stdio: 'inherit' });
         const previous = path.join(staging, 'previous');
+        const finalArchive = path.join(output, target.name + '.zip');
+        const previousArchive = path.join(staging, 'previous.zip');
         if (fs.existsSync(directory)) fs.renameSync(directory, previous);
-        try { fs.renameSync(prepared, directory); }
+        try {
+            if (fs.existsSync(finalArchive)) fs.renameSync(finalArchive, previousArchive);
+            fs.renameSync(archive, finalArchive);
+            fs.renameSync(prepared, directory);
+        }
         catch (error) {
+            if (fs.existsSync(finalArchive) && !fs.existsSync(archive)) fs.renameSync(finalArchive, archive);
+            if (fs.existsSync(previousArchive)) fs.renameSync(previousArchive, finalArchive);
             if (fs.existsSync(previous)) fs.renameSync(previous, directory);
             throw error;
         }

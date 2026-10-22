@@ -4,16 +4,16 @@
 
 ## 实施状态
 
-本轮仅实施 bug 与性能修复，以及支撑性能修复的 debug 独立日志。保留当前 `ai` 工作区已有改动，不自动提交或合并。不加载 Skill，不读取不必要的日志和图片。
+本轮仅实施 bug 与性能修复，以及支撑性能修复的 debug 独立日志。遵照用户要求先提交检查点，再在 `fix/extraction-fidelity` 分支继续；不自动合并。不加载 Skill，不读取不必要的日志和图片。用户追加 Windows 压缩包资源与运行验证，允许使用 Steam Proton。
 
 | 编号 | 项目 | 状态 |
 | --- | --- | --- |
-| BUG-01 | mud 沾染逐步去除 | 尚未复现立即移除；身体残留与绘制检查通过，服饰及水洗扩展检查待运行 |
-| BUG-02 | SlimePlant 初始化及全地图、怪物加载验证 | SlimePlant 修复已验证；110 张地图逐项复验通过，52 类怪物中 51 类通过，1 类缺原始资源 |
+| BUG-01 | mud 沾染逐步去除 | 尚未复现立即移除；身体残留、服饰受控衰减和水洗检查通过，不能标记根因已修复 |
+| BUG-02 | SlimePlant 初始化及全地图、怪物加载验证 | SlimePlant 修复已验证；110/110 地图、51/52 怪物短期检查通过，RubberWorm 脚本与所检查资源树不一致 |
 | BUG-03 | 右上角 FPS 实测更新 | 已实现，实际降速测试通过 |
-| BUG-04 | chara 导出与加载完整性 | Rust 导出修复、全量提取与本地资源恢复完成；最终导出包验证待完成 |
+| BUG-04 | chara 导出与加载完整性 | 已修复原始角色文件漏打包，独立反编译对照和 ZIP 哈希检查通过；最终双平台完整运行回归未完成 |
 | PERF-01 | Playground 后段及持续运行退化 | 已优化并完成受控及有渲染路线测试；最终修改后的复核待续 |
-| PERF-02 | vore 怪物热点分析与优化 | 共用激活、液滴及资源缓存已优化；各怪物绑定/吞噬动作的专项性能验收待续 |
+| PERF-02 | vore 怪物热点分析与优化 | 共用激活、液滴及资源缓存已优化；绑定专项汇总 31/32 通过，受控性能对照待完成 |
 | PERF-03 | debug 掉帧独立日志 | 已实现，模拟采样与实际降速写入检查通过 |
 | LATER-01 | 汉化 | 待办 |
 | LATER-02 | 原生 60 帧及 delta 适配 | 待办 |
@@ -24,7 +24,9 @@
 
 性能日志采用已确认的“相对稳定帧率”基准：进入地图预热 3 秒，再采集 5 个一秒窗口，以中位数建立基准；下降至少 5 FPS 时记录，持续掉帧最多每 5 秒补充一次，切图重建基准。逻辑与渲染帧率分开统计。保持原版逻辑步长，本轮不实施原生 60 帧改造。
 
-2026-10-22 检查点：用户要求先记录、后续继续，本轮在完成记录后停止。当前任务尚未全部完成，不自动提交或合并。下方“继续执行入口”列出剩余工作。
+2026-10-22 继续实施：已提交 `cf93f98`（保留既有修复、诊断与角色文件）、`bf950b2`（提取动作元数据、独立反编译对照与注释动作回归）。当前任务尚未全部完成；最后一次记录不代表未完成项已验收。
+
+2026-10-22 停止交接：用户要求停止后续实现与测试，只导出资源并提交 Git，剩余由用户 Debug。已停止正在运行的回归，不再自动推进下方剩余事项。运行时与审计修改已提交 `994bc07`，打包工具与本交接文档另行提交。资源和发布包保留在下述导出目录，未解决的资源引用没有填充替代素材。
 
 ## 原始需求
 
@@ -114,32 +116,46 @@
 - 删除动态 sprite 时清理碰撞遮罩缓存与无其他 sprite 引用的生成纹理缓存；surface 释放时清理像素/纹理缓存。纹理不立即强制 Dispose，避免尚未执行的绘制命令引用失效。文件纹理加载后释放临时 Image。
 - GML 数值表达式比较使用 `1e-13` 容差；switch 匹配保持精确比较。无效 sprite 的 x/y offset 查询返回 0。无渲染模式截屏生成空白纹理，使依赖屏幕捕获的对象可以进行逻辑检查。
 - Rust 提取器把原始 `Chara` 文件一并复制到 `GameData/assets/Chara`，本地已恢复约 46 MB 文件。压缩 WAV 经 `ffmpeg` 转为 PCM16，修复原始 sound137 的 ADPCM 加载问题。原始缺失 BGM 输出 `AUDIO_MISSING`，不再导致关卡中断。
+- 提取器保留注释动作及其原始元数据、资源槽位数量与设置；非空但尚不支持的资源类别和解析错误直接失败。运行时同步/异步动作缓存跳过 `kind=0, execution=0` 的注释动作，避免注释占用条件分支体。
+- `Tools/decompile-audit.mjs` 独立读取官方反编译器输出的 GM81，与提取结果比较对象、脚本、房间、动作元数据、内嵌图片像素和声音等。当前 EXE 实际为 419 个对象槽位，其中 48 个空槽、371 个对象；paths、timelines、triggers、included files、extensions 均为零。不能将未使用的资源类别推断为本次缺资源的根因。
+- `Tools/export.mjs` 为 Linux/Windows 生成 ZIP，附带 `package-files.json`；`Tools/package-audit.mjs` 核对清单、SHA256、资源引用和整个源 GameData。`--package-resources-audit` 实际验证动态编译、角色扫描及 Godot 图像/声音解码。
+- 图形审计新增共享 sprite 删除、最后引用缓存释放、反复 alpha 替换与延迟 GPU 绘制检查；alpha 替换后清除旧像素缓存并释放临时 Image。菜单测试新增对实际控件生命周期的检查。
+- 角色 PopupMenu 使用原生子窗口，绕过 Godot 4.7.2 发布模板内嵌弹窗的父信号清理错误；避免重复 Hide。角色 UI 审计不依赖静止窗口的绘制信号，图形审计则显式提交 GPU 绘制。最新 Linux 发布包角色审计通过，最新原生弹窗尚未在 Windows 复验。
 - 新增 `Tools/content-audit.mjs` 和 `Runtime/GameHostContentAudit.cs`，覆盖地图加载、怪物生命周期、泥浆残留及往返性能检查。需求之外的汉化、原生 60 帧和编辑器等均未实施。
 
 ### 已执行的检查
 
 | 检查 | 最近已完成结果 | 范围与限制 |
 | --- | --- | --- |
-| `dotnet build --no-restore` | 成功，0 warning、0 error | 最后一次成功在泥浆服饰/水洗审计扩展之前 |
-| `dotnet run --project Tests/RuntimeTests.csproj --no-restore` | PASS，2,183 条断言 | 包含 FPS、渲染独立下降、日志字段、激活、液滴到期、精确加载目标、自毁后引用和实例缓存回归 |
-| `node Tools/verify.mjs` | 通过 | 98,098 AST 单元、110 地图、371 对象、358 脚本，媒体帧/背景/字体/声音文件检查；最后一次成功在移除 Cargo.lock 自动头注释之前 |
-| Rust release 构建及完整提取 | 通过，0 parse errors | 离线构建；提取到 `/tmp/ccgame-extracted-fixes`，仅回填 Chara 原始文件与 sound137，没有覆盖全部生成元数据 |
-| 图形混合与 surface 刷新审计 | `GRAPHICS_OK` | 有渲染，blend 0..6、triangle 4/5/6 及 capture 后 surface 刷新；在后续缓存/引用修改前执行，最终回归待续 |
-| FPS 实际降速审计 | `FPS_AUDIT_OK` | 原逻辑速度下实际限速，标签降为 14；独立日志写出 drop 记录，逻辑/渲染均有数据 |
+| `dotnet build --no-restore` | 成功，0 warning、0 error | 已覆盖泥浆、绑定和资源审计扩展 |
+| `dotnet run --project Tests/RuntimeTests.csproj --no-restore` | PASS，2,191 条断言 | 新增同步/异步条件与注释动作检查，其余包含 FPS、日志、激活、液滴、加载目标、自毁引用和实例缓存回归 |
+| `node Tools/verify.mjs` | 通过 | 98,098 AST 单元、110 地图、371 对象、358 脚本及媒体引用 |
+| Rust Linux/Windows release 构建 | 通过，0 parse errors | 离线构建，两平台解析器均进入发布包；没有重写全部生成元数据 |
+| 独立反编译对照 | `DECOMPILE_AUDIT_OK` | 官方当前版和 v2.2.0 两份参考分别核对，约 180 万检查；不证明全部运行语义、外部 GIF 解码或字体排版一致 |
+| 图形混合与资源生命周期审计 | `GRAPHICS_OK` | 已覆盖缓存/引用修改后的 blend 0..6、triangle 4/5/6、surface 刷新与删除后实际 GPU 绘制；Linux 和 Windows/Proton 均已运行 |
+| FPS 实际降速审计 | `FPS_AUDIT_OK` | 最新 `/tmp/ccgame-fps-accepted.log` 标签降为 16；独立日志写出 drop 记录，逻辑/渲染均有数据 |
 
-地图检查通过结果为“完整枚举后，对失败项逐项修复复验”的汇总，不是最终工作区一次性重跑的 110/110。覆盖加载与几十帧短时运行，不能等同于全剧情通关或全部按键验收。最终实例索引修复之后尚未完整重跑所有地图。
+地图与怪物完整枚举的结果位于 `/tmp/ccgame-content-checkpoint.json`：地图 110/110、怪物 51/52 通过。该轮检查跨越了若干运行时构建，覆盖加载与几十帧短时运行，不能等同于最终单一构建的全剧情通关或全部按键验收。SlimePlant 已生成并运行 180 帧。BossMachine、BossParasite 在各自原始 Boss 关卡检查约 210 帧，不能当作独立 Playground 生成通过。
 
-结果文件依次汇总为 `/tmp/ccgame-rooms.json`、`/tmp/ccgame-rooms-recheck.json`、`/tmp/ccgame-rooms-latest.json`、`/tmp/ccgame-rooms-target.json`、`/tmp/ccgame-rooms-demo-final.json`、`/tmp/ccgame-credit-fixed.json`，同名地图取后者，得到 110/110 通过。SurvivalWorld 的最新默认值修复已在 `ccgame-rooms-latest.json` 中通过。
+资源来源仍需核实：所检查的 `SlackOfDescent_Dev/Chara/RubberWorm/Picture` 包含 `MaskBody.gif`、`MaskHead.gif` 等，而 `set_data.txt` 引用 `Body.gif`、`Head.gif`、`Mouth_Inside.gif` 等；Stage6 的 `Sound/BGM/Stage6_4.mp3` 引用也未对应上。该事实仅说明所检查资源树与脚本不一致，不能推断所有原版发行版都缺失，也不代表用户批准豁免。没有伪造替代素材，不能宣称全部资源均可完整显示/播放。
 
-怪物结果汇总 `/tmp/ccgame-enemies.json`、`/tmp/ccgame-enemies-recheck.json`、`/tmp/ccgame-boss-context.json` 为 51/52 通过。SlimePlant 已生成并运行 180 帧；BossHito、Haruki 已复验。BossMachine、BossParasite 依赖关卡对象，改为在各自原始 Boss 关卡运行约 210 帧，不能当作独立 Playground 生成通过。
-
-原始资源限制：`RubberWorm` 的 `Chara/RubberWorm/Picture/Body.gif` 等脚本引用图片在原版目录中就不存在，尚未补造资源；部分 Stage6 地图引用的 `Sound/BGM/Stage6_4.mp3` 原版也不存在，目前以缺失诊断继续运行。不能宣称原版全部资源均可完整显示/播放。
+绑定专项 `/tmp/ccgame-bind-complete.json` 加上两项复验 `/tmp/ccgame-bind-boss-final.json`，汇总为 31/32 通过，剩余 RubberWorm。每类执行三轮绑定 180 帧、释放 60 帧；除 VorePlantOriginal 使用落下碰撞触发外，其余由脚本设置绑定阶段，不代表所有自然捕获入口已验收。BossHitoBrain、BossWorm 的失败来自审计生成位置，调整场景布置后复验通过，未改怪物脚本。
 
 ### 泥浆检查
 
-已执行的身体检查结果：总 `qKOF` 沾染后为 12.6039，离开一帧后为 12.6153，再过 120 帧为 11.4133。对应覆盖层绘制的非透明源像素为 3,777 和 4,031，证明当时既有残留状态，也有带透明度的覆盖层绘制。像素数会随姿态/帧图变化，不是画面整体像素一致性测试。
+最新 `/tmp/ccgame-mud-latest.log` 检查通过：身体 `qKOF` 为 12.6039 → 离开一帧 12.6300 → 再过 120 帧 11.0255；服饰为 25.4200 → 25.5590 → 15.8822。覆盖层绘制对应的非透明源像素为 7,111 / 7,226。实际水体碰撞使总量 26.9077 → 一帧 22.2146 → 120 帧后 12.1960，并检查到负清洗状态。像素计数来自被调用的覆盖层源纹理，不是全画面像素一致性测试。
 
-目前没有复现用户报告的“立即移除”，也没有确定该现象的根因，因此 BUG-01 不标记修复完成。最后一次代码编辑已扩展 `--mud-residue-audit`：合并身体与服饰残留采样，并加入实际水体碰撞清洗；此扩展尚未编译或运行，恢复后优先验证。不要把此前仅身体检查通过当作扩展检查已通过。
+原脚本 `qsMultiDrip` 有 `(x)&(y)&(visible)` 位运算门槛，服饰默认位置 `(32,32)` 会挡住该分支。审计记录被挡住的 8 件服饰，再仅在审计中把其锚点设为 `(1,1)`，验证衰减分支；普通游戏未修改此门槛。因此身体、受控服饰和水洗检查通过不代表普通玩法全部服饰已验证。目前没有复现用户报告的“立即移除”，没有确定根因，BUG-01 不标记修复完成。
+
+### Windows 发布包
+
+旧 `/home/dpapyru/ccgame-builds/SlackOfDescent-Windows-x64.zip` 仅含 251 个 Chara 文件，`Chara/Doll` 下为零。新的 ZIP 每平台包含 14,375 个清单文件，其中 3,565 个 Chara 文件；解压后与源 GameData 的文件列表及 SHA256 全量一致。新增清单也覆盖 EXE、PCK、解析器与自包含 .NET 运行时。
+
+资源运行审计已在 Linux 和 Windows/Proton 通过：动态 UTF-8 编译、角色扫描、10,059 个图片和 803 个声音解码。测试取消 `SLACK_SOURCE`、使用新用户目录、从 `/tmp` 启动，解压路径包含中文与空格。Steam Proton 版本为 `proton-10.0-4b`；系统 Wine 9.0 连 `--version` 都崩溃，不能用该 Wine 失败判定 Windows 包损坏。未测试真实 Windows 机器。
+
+最终导出目录 `/media/dpapyru/e68fb9c4-1943-4ed4-9fe1-e9295d2f5c55/ccgame-final-builds/`，包含独立资源包 `GameData.zip`（约 168 MB，ZIP 完整性检查通过），以及 `Linux.zip`、`Windows.zip` 和两个平台的展开目录。
+
+最新 ZIP 解压目录 `/media/dpapyru/e68fb9c4-1943-4ed4-9fe1-e9295d2f5c55/ccgame-accepted-unzip/发布 解压/` 的 Linux/Windows 清单哈希核对均通过。最新运行回归 `/tmp/ccgame-package-accepted.json` 中 Linux 资源、GPU 图形、角色 UI 三项通过；用户叫停时 Linux 完整玩法正在运行，已停止，Windows 最终整套回归未运行。较早构建的 Linux 完整玩法，以及 Windows/Proton 资源与 GPU 图形已通过，不等于最终构建八项全部通过。未宣称原生 Windows 全面正常。
 
 ### 性能测量
 
@@ -157,17 +173,14 @@
 
 优化版另有有渲染三轮测试 `/tmp/ccgame-route-rendered.log`：起点各轮约 56–58 FPS，x=8000 约 41–46 FPS，最重中间路段约 34–39 FPS；生成纹理 1,002、surface 17 稳定，结束实例数 2,992。此审计每个渲染回调主动推进一步，用于比较绘制负载，不是原生 60 帧游戏模式。CPU 往返与该有渲染测量都发生在最终实例索引失效修复之前，应在恢复后针对该修改复核。
 
-### 继续执行入口
+### 用户接手事项
 
-1. 先编译并运行最新泥浆服饰/水洗审计；若失败，修正审计或实际问题并区分两者。继续定位用户所述立即移除，保留“未复现”状态直到有证据。
-2. 运行 runtime tests、资源核验、`git diff --check`。最近通过断言为 2,183；最后的泥浆审计扩展及 Cargo.lock/verify 清理尚未验证。
-3. 复核共用服饰加载目标与过场初始化的行为，确认未影响 V 键换角色；对最终实例缓存修复重跑代表性地图、SlimePlant、液滴路线及图形审计。不要为了通过审计忽略全部未初始化变量。
-4. 针对 vore 怪物实际绑定/吞噬动作进行热点采样；目前仅有共用路径优化及生命周期检查，专项验收未完成。
-5. 检查生成纹理的共享引用/删除和角色重载资源寿命；当前已避免立即 Dispose 破坏延迟绘制，最终稳定性仍需检查。
-6. 验证最终 Linux 导出包能脱离原版目录使用自带 Chara 资源运行；Windows 打包/运行验证尚未在本轮完成。`Tools/export.mjs` 会依次生成两个平台，执行前检查对应编译器与 Godot 模板。
-7. 写回最终状态与限制，保留原始需求和用户既有修改；没有提交、合并或后续大需求开发授权。
+1. 完成最终双平台 ZIP 的运行回归，包含资源解码、GPU 图形、角色菜单与完整菜单/关卡/武器往返。Windows 使用已获准的 Steam Proton，真实 Windows 未覆盖。
+2. 完成最终 Playground 和绑定热点的顺序受控性能测量。实际 FPS 下降及独立日志已复测通过；功能枚举期间的并行耗时不能作为性能证据。
+3. BUG-01 仍未复现；RubberWorm 和 Stage6_4 的资源来源仍未解决。保持这些项目的未完成状态，不以审计通过或未经批准的豁免代替修复。
+4. 以上均由用户继续 Debug；本轮仅导出和提交现有成果，不自动合并，也不实施 LATER 项目。
 
-运行环境：项目 `/home/dpapyru/ccgame`，分支 `ai`；Godot 为 `/home/dpapyru/公共/Godot/Godot_v4.7.2-stable_mono_linux_x86_64/Godot_v4.7.2-stable_mono_linux.x86_64`。原版目录 `/home/dpapyru/桌面/.game/BaiduNetdiskDownload/SlackOfDescent_Dev`；按需读取的原脚本文本索引 `/home/dpapyru/.cache/ccgame-migration/source.json`。不读取无关日志或图片，不加载 Skill。
+运行环境：项目 `/home/dpapyru/ccgame`，分支 `fix/extraction-fidelity`；Godot 为 `/home/dpapyru/公共/Godot/Godot_v4.7.2-stable_mono_linux_x86_64/Godot_v4.7.2-stable_mono_linux.x86_64`。原版目录 `/home/dpapyru/桌面/.game/BaiduNetdiskDownload/SlackOfDescent_Dev`；按需读取的原脚本文本索引 `/home/dpapyru/.cache/ccgame-migration/source.json`。不读取无关日志或图片，不加载 Skill。
 
 建议恢复命令（`GODOT_BIN` 设为上述可执行文件；每次使用独立临时用户目录）：
 
@@ -179,8 +192,6 @@ env SLACK_PERF=0 SLACK_USER_ROOT=/tmp/ccgame-mud-resume "$GODOT_BIN" --headless 
 env GODOT_BIN="$GODOT_BIN" SLACK_AUDIT_OUTPUT=/tmp/ccgame-content-resume.json node Tools/content-audit.mjs all
 ```
 
-FPS 已通过测试的记录位于 `/tmp/ccgame-fps-real-v2.log` 和 `/tmp/ccgame-fps-real-v2/logs/`。`--fps-audit` 会在测试模式主动降速；普通游戏没有该限速注入。审计工具支持 `--route-audit`、`--animation-audit route`、`--content-frames`，其余用法见对应代码。
+`--fps-audit` 会在测试模式主动降速；普通游戏没有该限速注入。审计工具支持 `--route-audit`、`--animation-audit route`、`--content-frames`；`Tools/bind-audit.mjs` 支持 `--rendered` 与 `SLACK_AUDIT_PROJECT`，用于独立副本的受控比较。
 
-工作区注意：开始时 `GameHost.cs`、`GameHostControls.cs`、`GmAudio.cs`、`GmBuiltins.cs`、`GmInput.cs`、`GmWorld.cs`、`Tests/Program.cs`、`Tools/export.mjs` 已有未提交修改，另有 bindings/regression/paths/gameplay fixes 等未跟踪文件。`.gitignore` 的改动来自其他来源，未回退。不要覆盖这些内容。新增 Chara 文件及当前所有改动留在工作区，未提交。
-
-停止前仅核对了需求文档与相关进程；没有遗留的 Godot、内容审计、runtime test 或导出进程。停止记录不代表剩余验收已完成。
+工作区既有修改和新增 Chara 文件已由 `cf93f98` 检查点保留，没有回退用户改动。后续提交仍在开发分支，不自动合并。

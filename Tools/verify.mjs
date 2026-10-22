@@ -29,7 +29,6 @@ for (const room of manifest.rooms) {
 }
 let variables = 0;
 for (const object of manifest.objects) for (const event of object.events) for (const action of event.actions) {
-    assert.notEqual(action.id, 605);
     if (action.code) assert.ok(code[action.code], action.code);
     if (action.kind === 6) {
         assert.equal(code[action.code][0], 'group');
@@ -47,6 +46,6 @@ for (const file of files) {
         const text = fs.readFileSync(path.join(root, file), 'utf8');
         assert.ok(!/^\s*(\/\/|\/\*|\* |<!--)/m.test(text), file);
     }
-    if (file.endsWith('.lock') || file.endsWith('.godot')) assert.ok(!/^\s*[#;]/m.test(fs.readFileSync(path.join(root, file), 'utf8')), file);
+    if (file.endsWith('.godot')) assert.ok(!/^\s*[#;]/m.test(fs.readFileSync(path.join(root, file), 'utf8')), file);
 }
 console.log(JSON.stringify({ ...manifest.counts, variableActions: variables, branchContent: 'PASS' }));

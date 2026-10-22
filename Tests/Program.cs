@@ -203,6 +203,36 @@ Equal(instance.Scope.Read("alarm",[0]),90,"original DnD alarm action");
 var variableAction=world.Manifest.GetProperty("objects").EnumerateArray().SelectMany(o=>o.GetProperty("events").EnumerateArray()).SelectMany(e=>e.GetProperty("actions").EnumerateArray()).First(a=>a.GetProperty("kind").GetInt32()==6);
 var compiled=world.Code[variableAction.GetProperty("code").GetString()!];
 Equal(compiled[1].GetArrayLength()>0,true,"variable action contains assignment");
+var actionRoot=Path.Combine(Path.GetTempPath(),"slack-actions-"+Guid.NewGuid().ToString("N"));
+try
+{
+    Directory.CreateDirectory(actionRoot);
+    var actionManifest=System.Text.Json.Nodes.JsonNode.Parse(world.Manifest.GetRawText())!;
+    var actionObject=actionManifest["objects"]!.AsArray().First(o=>o!["id"]!.GetValue<int>()==caution)!;
+    object Action(int id,int execution,string function,object[] parameters,bool condition=false,int kind=0)=>new{id,kind,execution,target=-1,condition,invert=false,relative=false,function,code=(string?)null,parameters};
+    var actions=new[]{
+        Action(408,1,"action_if",[new object[]{"id","pass"}],true),
+        Action(605,0,"",[]),
+        Action(0,1,"action_set_hspeed",[new object[]{"num",17}]),
+        Action(0,0,"",[],kind:3),
+        Action(605,0,"",[]),
+        Action(0,1,"action_set_hspeed",[new object[]{"num",23}]),
+        Action(0,1,"action_set_vspeed",[new object[]{"num",5}])};
+    actionObject["events"]=System.Text.Json.JsonSerializer.SerializeToNode(new[]{new{kind=7,sub=10,actions}});
+    File.WriteAllText(Path.Combine(actionRoot,"manifest.json"),actionManifest.ToJsonString());
+    File.Copy(Path.Combine(project,"GameData/code.json"),Path.Combine(actionRoot,"code.json"));
+    var actionWorld=new GmWorld(actionRoot,source);
+    var actionInstance=actionWorld.Create(caution,0,0,run:false);
+    foreach(bool asynchronous in new[]{false,true})foreach(bool passed in new[]{false,true})
+    {
+        actionInstance.Scope.Write("pass",passed);
+        actionWorld.Evaluator.ResetBudget();
+        if(asynchronous)await actionWorld.EventAsync(actionInstance,7,10);else actionWorld.Event(actionInstance,7,10);
+        Equal(actionInstance.Scope.Read("hspeed"),passed?17:23,"comments do not consume conditional or else body "+asynchronous);
+        Equal(actionInstance.Scope.Read("vspeed"),5,"statement after conditional remains unconditional "+asynchronous);
+    }
+}
+finally{Directory.Delete(actionRoot,true);}
 var colliderA=world.Create(caution,0,0,run:false);
 var colliderB=world.Create(caution,0,0,run:false);
 Equal(world.Call("place_meeting",[0,0,caution],new(colliderA)),true,"precise overlap");

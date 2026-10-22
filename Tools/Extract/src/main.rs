@@ -91,7 +91,7 @@ impl Export {
     }
 
     fn actions(&mut self, key: &str, actions: &[CodeAction]) -> Vec<Value> {
-        actions.iter().enumerate().filter(|(_,a)| a.id != 605).map(|(i,a)| {
+        actions.iter().enumerate().map(|(i,a)| {
             let code_key = format!("{key}/{i}");
             let variable_source;
             let source = if a.action_kind == 6 {
@@ -107,6 +107,9 @@ impl Export {
                 else { match AST::expression(&p.0) { Ok(e) => expr(&e,&mut self.calls), Err(e) => { self.errors.push(json!({"key":format!("{key}/{i}/parameter/{pi}"),"error":e.to_string()})); Value::Null } } }
             }).collect() };
             json!({"id":a.id,"kind":a.action_kind,"execution":a.execution_type,"target":a.applies_to,
+                "sourceIndex":i,"library":a.lib_id,"appliesToSomething":a.applies_to_something,
+                "parameterStrings":a.param_strings.iter().map(string).collect::<Vec<_>>(),
+                "rawCode":string(&a.fn_code),"parameterCount":a.param_count,
                 "condition":a.is_condition,"invert":a.invert_condition,"relative":a.is_relative,
                 "function":string(&a.fn_name),"code":code,
                 "parameters":parameters,
@@ -164,6 +167,7 @@ fn main() {
     let output = Path::new(&args[2]);
     for sub in ["sprites", "backgrounds", "sounds", "fonts"] { fs::create_dir_all(output.join(sub)).unwrap(); }
     let assets = gm8exe::reader::from_exe(fs::read(source.join("SlackOfDescent.exe")).unwrap(), None::<fn(&str)>, true, true).unwrap();
+    assert!(assets.paths.iter().all(Option::is_none) && assets.timelines.iter().all(Option::is_none) && assets.triggers.iter().all(Option::is_none) && assets.included_files.is_empty() && assets.extensions.is_empty(), "Unsupported source resource categories: refusing incomplete extraction");
     let mut export = Export { calls: BTreeMap::new(), errors: Vec::new(), code: BTreeMap::new(), source: BTreeMap::new() };
     let scripts: Vec<_> = assets.scripts.iter().enumerate().filter_map(|(id,s)| s.as_ref().map(|s| {
         json!({"id":id,"name":string(&s.name),"code":export.parse(format!("scripts/{}",string(&s.name)), &s.source.0)})
@@ -296,7 +300,9 @@ fn main() {
         if source.join("Cfg").join(name).exists() { fs::copy(source.join("Cfg").join(name),output.join("assets/Cfg").join(name)).unwrap(); }
     }
     let counts = json!({"scripts":scripts.len(),"objects":objects.len(),"rooms":rooms.len(),"sprites":sprites.len(),"sounds":sounds.len(),"backgrounds":backgrounds.len(),"fonts":fonts.len(),"external":external.len(),"codeUnits":export.code.len(),"parseErrors":export.errors.len()});
-    let manifest = json!({"version":format!("{:?}",assets.version),"counts":counts,"scripts":scripts,"objects":objects,"rooms":rooms,"sprites":sprites,"backgrounds":backgrounds,"sounds":sounds,"fonts":fonts,"constants":constants,"roomOrder":assets.room_order,"library":library,"external":external,"lastInstanceId":assets.last_instance_id,"lastTileId":assets.last_tile_id});
+    let slots = json!({"scripts":assets.scripts.len(),"objects":assets.objects.len(),"rooms":assets.rooms.len(),"sprites":assets.sprites.len(),"backgrounds":assets.backgrounds.len(),"sounds":assets.sounds.len(),"fonts":assets.fonts.len(),"paths":assets.paths.len(),"timelines":assets.timelines.len(),"triggers":assets.triggers.len(),"includedFiles":assets.included_files.len(),"extensions":assets.extensions.len()});
+    let settings = json!({"zeroUninitializedVariables":assets.settings.zero_uninitialized_vars,"errorOnUninitializedArguments":assets.settings.error_on_uninitialized_args});
+    let manifest = json!({"version":format!("{:?}",assets.version),"counts":counts,"resourceSlots":slots,"settings":settings,"scripts":scripts,"objects":objects,"rooms":rooms,"sprites":sprites,"backgrounds":backgrounds,"sounds":sounds,"fonts":fonts,"constants":constants,"roomOrder":assets.room_order,"library":library,"external":external,"lastInstanceId":assets.last_instance_id,"lastTileId":assets.last_tile_id});
     fs::write(output.join("manifest.json"),serde_json::to_vec(&manifest).unwrap()).unwrap();
     fs::write(output.join("media.json"),serde_json::to_vec(&media).unwrap()).unwrap();
     fs::write(output.join("code.json"),serde_json::to_vec(&export.code).unwrap()).unwrap();
@@ -304,5 +310,6 @@ fn main() {
     fs::write(output.join("sources.json"),serde_json::to_vec(&sources).unwrap()).unwrap();
     fs::write(output.join("analysis.json"),serde_json::to_vec_pretty(&json!({"counts":counts,"calls":export.calls,"errors":export.errors})).unwrap()).unwrap();
     if let Some(path) = args.get(3) { fs::write(path,serde_json::to_vec_pretty(&export.source).unwrap()).unwrap(); }
+    assert!(export.errors.is_empty(), "Extraction has parse errors; output must not be installed");
     println!("{counts}");
 }

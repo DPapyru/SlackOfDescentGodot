@@ -309,7 +309,7 @@ public sealed partial class GmWorld
 
     private void Actions(JsonElement actions,GmContext context)
     {
-        if(!actionEntries.TryGetValue(actions,out var entries))actionEntries[actions]=entries=actions.EnumerateArray().ToArray();
+        if(!actionEntries.TryGetValue(actions,out var entries))actionEntries[actions]=entries=actions.EnumerateArray().Where(a=>a.GetProperty("kind").GetInt32()!=0||a.GetProperty("execution").GetInt32()!=0).ToArray();
         int index=0;
         while(index<entries.Length)ActionBlock(entries,ref index,context,true);
     }

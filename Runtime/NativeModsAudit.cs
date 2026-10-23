@@ -124,6 +124,7 @@ public partial class NativeModsAudit : Node
         {
             world.Write(actor, "vspeed", 7); bridge.Update(Frame(jump * 2, 32));
             Expect(actor.Scope.ReadOr("vspeed").Number == (jump < 3 ? -18 : 7), "triple jump impulse/no fourth " + jump);
+            if (jump < 3) Expect(actor.Scope.ReadOr("Angle").Number > 17, "all three jumps start the same rotation " + jump);
             if (jump < 2) bridge.Update(Frame(jump * 2 + 1));
         }
         floor.Active = true; world.Write(actor, "vspeed", 0); bridge.Update(Frame(10));
@@ -131,11 +132,15 @@ public partial class NativeModsAudit : Node
         Expect(actor.Scope.ReadOr("nativeJumpCount").Int == 1, "triple jump resets after actual landing");
         world.Globals.Write("Chara", "Nana"); bridge.BindCharacter(actor, content.Characters["example.spin-nana"]);
         world.Write(actor, "vspeed", 0); bridge.Update(Frame(20, 32));
+        Expect(actor.Scope.ReadOr("Angle").Number > 17, "Nana first jump starts one full rotation");
         for (int i = 21; i < 51; i++) bridge.Update(Frame(i));
         Expect(Math.Abs(actor.Scope.ReadOr("Angle").Number - 17) < 1e-6, "Nana finishes exactly one rotation and restores angle");
         floor.Active = true; world.Write(actor, "vspeed", 0); bridge.Update(Frame(52)); floor.Active = false;
         bridge.Update(Frame(53, 32)); actor.Scope.Write("BINDED", 1); bridge.Update(Frame(54));
         Expect(actor.Scope.ReadOr("Angle").Number == 17, "binding interrupts Nana spin cleanly"); actor.Scope.Write("BINDED", 0);
+        floor.Active = true; world.Write(actor, "vspeed", 0); bridge.Update(Frame(55)); floor.Active = false;
+        bridge.Update(Frame(56, 32)); world.Write(actor, "vspeed", 0); bridge.Update(Frame(57));
+        Expect(actor.Scope.ReadOr("Angle").Number == 17, "ceiling stop interrupts Nana spin cleanly");
         actor.Scope.Write("MotionNum", 100); actor.Scope.Write("x", 400);
         bridge.Update(Frame(60, 39)); bridge.Update(Frame(61)); bridge.Update(Frame(66, 39));
         for (int i = 67; i <= 77; i++) bridge.Update(Frame(i));
@@ -152,7 +157,10 @@ public partial class NativeModsAudit : Node
     {
         var live = new GmWorld(Path.Combine(root, "GameData"), Path.Combine(root, "GameData", "assets"), Path.Combine(temporary, "live"));
         var input = new GmInput();
-        live.Platform = (name, arguments, context) => input.Call(name, arguments, live) ?? (GmValue?)0;
+        live.Platform = (name, arguments, context) => input.Call(name, arguments, live)
+            ?? (name.StartsWith("place_", StringComparison.Ordinal) || name.StartsWith("collision_", StringComparison.Ordinal)
+                || name.StartsWith("move_", StringComparison.Ordinal) || name is "instance_place" or "action_if_empty" or "action_if_object" or "distance_to_object"
+                ? null : (GmValue?)0);
         live.Wait = (name, arguments, context) => new ValueTask<GmValue>(1);
         live.LoadRoom(live.Manifest.GetProperty("roomOrder")[0].GetInt32());
         for (int i = 0; i < 180; i++) live.Step();
@@ -173,11 +181,12 @@ public partial class NativeModsAudit : Node
         bridge.BindCharacter(player, content.Characters["example.triple-yuki"]);
         int jumpKey = NativeActorActions.Key(new(live, player), 5);
         long tick = 0;
-        void Tick(bool jump = false)
+        void Tick(bool jump = false, int extraKey = 0)
         {
             input.Key(live, jumpKey, jump);
+            var held = new HashSet<int>(); if (jump) held.Add(jumpKey); if (extraKey != 0) held.Add(extraKey);
             bridge.Update(new(FrameContext.FixedDelta, tick / 60.0, tick,
-                new InputSnapshot(jump ? new HashSet<int> { jumpKey } : new HashSet<int>(), jump ? new HashSet<int> { jumpKey } : new HashSet<int>(), new HashSet<int>())));
+                new InputSnapshot(held, held, new HashSet<int>())));
             if (tick % 2 == 0) { live.Step(); input.EndStep(); }
             tick++;
         }
@@ -190,6 +199,26 @@ public partial class NativeModsAudit : Node
         bridge.UnbindCharacter(player.Id);
         var controller = NativeActorActions.Controller(new(live, player))!;
         Expect(!controller.Scope.ReadOr("slackNativeJump").Truth, "live original GM jump resumes after replacement removed");
+        live.Evaluator.ResetBudget(); live.Call("NanaLoad", [], new(player));
+        live.Write(player, "x", 96); live.Write(player, "y", 64); live.Write(player, "hspeed", 0); live.Write(player, "vspeed", 0);
+        NativeActorActions.Motion(new(live, player), "STAND_0");
+        for (int i = 0; i < 4; i++) live.Step();
+        bool corridor = false;
+        for (int y = 64; y < 1200 && !corridor; y += 64)
+            for (int x = 96; x < 1500 && !corridor; x += 128)
+            {
+                corridor = Enumerable.Range(0, 109).All(dx => live.Call("place_free", [x + dx, y], new(player)).Truth && live.Call("place_free", [x + dx, y + 64], new(player)).Truth);
+                if (corridor) { live.Write(player, "x", x); live.Write(player, "y", y); }
+            }
+        Expect(corridor, "live room contains unobstructed dash corridor");
+        bridge.BindCharacter(player, content.Characters["example.spin-nana"]);
+        int rightKey = NativeActorActions.Key(new(live, player), 1);
+        Tick(extraKey: rightKey); Tick(); Tick(extraKey: rightKey);
+        double beforeDash = player.Scope.ReadOr("x").Number;
+        for (int i = 0; i < 15; i++) Tick();
+        Expect(player.Scope.ReadOr("x").Number > beforeDash + 80, "live Nana dash survives deferred original MotionChange transition");
+        Expect(player.Scope.ReadOr("nativeDashDistance").Number == 108, "live Nana dash writes exactly108 swept native pixels");
+        bridge.UnbindCharacter(player.Id);
     }
     private static GmValue SetMotion(GmWorld world, GmInstance actor, GmValue value) { world.Write(actor, "MotionNum", value); return 0; }
 }

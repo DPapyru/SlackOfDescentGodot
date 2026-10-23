@@ -41,11 +41,11 @@ public sealed class TripleJump : ICharacterAction
             jumps++; airborne = true;
             actor.VerticalSpeed = NativeActorActions.FirstJumpVelocity(actor);
             actor.Write("air", 1); actor.Write("gravity", actor.World.Globals.ReadOr("G", 1).Number);
-            NativeActorActions.Motion(actor, jumps > 1 && actor.World.Globals.ReadOr("Chara").ToString() == "Yuki" ? "JUMPUP2" : "JUMPUP");
-            if (jumps > 1 && actor.World.Globals.ReadOr("Chara").ToString() == "Yuki")
-            { ResetSpin(actor); originalAngle = actor.Read("Angle"); spinning = true; spinTime = 0; }
+            NativeActorActions.Motion(actor, actor.World.Globals.ReadOr("Chara").ToString() == "Yuki" ? "JUMPUP2" : "JUMPUP");
+            ResetSpin(actor); originalAngle = actor.Read("Angle"); spinning = true; spinTime = 0;
             actor.Write("nativeJumpCount", jumps);
         }
+        if (spinning && actor.VerticalSpeed >= 0) ResetSpin(actor);
         if (spinning)
         {
             spinTime += frame.Delta;
@@ -78,9 +78,10 @@ public sealed class NanaSpinJump : ICharacterAction
             actor.Write("air", 1); actor.Write("gravity", actor.World.Globals.ReadOr("G", 1).Number);
             NativeActorActions.Motion(actor, "JUMPUP");
         }
+        if (spinning && actor.VerticalSpeed >= 0) Reset(actor);
         if (!spinning) return;
         // Land, bind, damage, replacement and unload restore the original rotation.
-        if (actor.Read("MotionNum") == actor.Read("DASH")) { Reset(actor); return; }
+        if (NativeActorActions.MotionMatches(actor, "DASH")) { Reset(actor); return; }
         elapsed += frame.Delta;
         actor.Write("Angle", originalAngle + 360 * Math.Min(elapsed / .5, 1));
         if (elapsed >= .5) Reset(actor);
@@ -118,10 +119,11 @@ public sealed class NanaLongDash : ICharacterAction
             NativeActorActions.Motion(actor, "DASH");
         }
         if (!dashing) return;
-        if (actor.Read("MotionNum") != actor.Read("DASH")) { Stop(actor); return; }
+        if (!NativeActorActions.MotionMatches(actor, "DASH")) { Stop(actor); return; }
         elapsed += frame.Delta;
         double target = Distance * Math.Min(elapsed / Cooldown, 1), step = target - moved;
-        bool clear = NativeActorActions.MoveHorizontal(actor, direction * step); moved = target;
+        double before = actor.X;
+        bool clear = NativeActorActions.MoveHorizontal(actor, direction * step); moved += Math.Abs(actor.X - before);
         actor.Write("nativeDashDistance", moved);
         if (!clear || elapsed >= Cooldown - 1e-9)
         {

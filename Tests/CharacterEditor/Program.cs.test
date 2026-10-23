@@ -15,6 +15,7 @@ Expect(source.Rgba[3] == 128 && source.Rgba[(1 * 3 + 1) * 4] == 67 && source.Rgb
 var clipboard = NativePixelClipboard.Decode(source.Encode())!;
 Expect(clipboard.Rgba.SequenceEqual(source.Rgba), "clipboard survives encoded OS transport");
 Expect(NativePixelClipboard.Decode("other clipboard text") is null, "unrelated text is ignored");
+Expect(NativePixelClipboard.Decode("slack-rgba-v1:" + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("{\"Width\":2,\"Height\":2,\"Rgba\":null}"))) is null, "malformed clipboard with null pixels is ignored");
 document.Paste(tail.Id, 0, clipboard, 7, 8);
 Expect(document.Copy(tail.Id, 0, new(7, 8, 3, 3)).Rgba.SequenceEqual(source.Rgba), "cross part paste replaces all RGBA channels");
 document.Undo(); tail = document.Definition.Parts.Single(p => p.Id == tail.Id);
@@ -42,6 +43,9 @@ try
     tail.AnchorX = 11; tail.OffsetY = -4; tail.Layer = -9;
     repository.Save(document, registry);
     Expect(!document.Dirty, "successful save establishes clean baseline");
+    document.Undo(); document.Redo();
+    Expect(!document.Dirty, "redo to saved content ignores immutable storage revision changes");
+    tail = document.Definition.Parts.Single(p => p.Id == tail.Id);
     Expect(registry.Characters.ContainsKey(document.Definition.Id), "saved characters are available immediately");
     string firstAsset = document.Definition.Parts[0].Frames[0].Png;
     var loaded = repository.Load(document.Definition.Id); var loadedTail = loaded.Definition.Parts.Single(p => p.Id == tail.Id);

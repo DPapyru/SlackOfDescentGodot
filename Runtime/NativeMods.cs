@@ -86,9 +86,11 @@ public sealed class NativeModManager : IDisposable
     public NativeModResult Unload(string id)
     {
         if (!loaded.Remove(id, out var mod)) return new(false, id, "模组尚未加载。");
-        Remove(mod); content.Refresh();
+        Remove(mod);
+        string diagnostics = "模组已卸载。";
+        try { content.Refresh(); } catch (Exception error) { diagnostics += "\n内容刷新失败：" + error.GetBaseException().Message; }
         var weak = Retire(mod); NotifyChanged();
-        return new(true, id, "模组已卸载。", weak);
+        return new(true, id, diagnostics, weak);
     }
 
     private void NotifyChanged()

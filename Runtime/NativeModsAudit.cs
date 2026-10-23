@@ -73,7 +73,11 @@ public partial class NativeModsAudit : Node
             Expect(!loadFailed.Success && loadFailed.Diagnostics.Contains("load-failed"), "mod Load failure reports diagnostics");
             await Frames(3);
             Expect(GetTree().GetNodesInGroup("native_lifecycle").Count == 0, "failed Load cleans partial nodes signals timers tasks");
+            Action unloadObserver = () => throw new InvalidOperationException("observer-failed");
+            content.Changed += unloadObserver;
             var moveUnload = manager.Unload("example.movement");
+            content.Changed -= unloadObserver;
+            Expect(moveUnload.Success && moveUnload.Diagnostics.Contains("observer-failed"), "unload releases resources even when a registry observer throws");
             await Frames(3);
             Expect(NativeModManager.VerifyUnloaded(moveUnload.PreviousContext!), "movement context releases bound action references");
             GD.Print("NATIVE_MOD_AUDIT_OK assertions=", assertions, " reloads=20 collected=20 tracked_nodes=0 tracked_tasks=0");

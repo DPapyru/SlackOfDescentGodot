@@ -25,6 +25,8 @@ public partial class GameHost
             string output=Path.Combine(contentStore.Root,"integration-pixels");
             string report=characterEditor!.RunUiAudit(output);
             RegressionExpect(content.Characters.Values.Any(c=>c.Parts.Count>=2),"saved editor character immediately registered");
+            var rediscovered=new ContentRegistry();new NativeContentStore(world.UserRoot).DiscoverCharacters(rediscovered);
+            RegressionExpect(rediscovered.Characters.Values.Any(c=>c.Parts.Count==3&&c.Name=="UI 像素审核"),"saved character discovered by fresh content service");
             characterEditor.ApplyRuntimePreview();
             await AuditWait(()=>previewReady&&!previewBusy?Player():null,"actual character preview initialization");
             var previewActor=Player()!;
@@ -44,16 +46,17 @@ public partial class GameHost
             _Input(new InputEventKey{Keycode=Key.V,Pressed=true});
             var vTask=StepFrameAsync();
             var menu=await AuditWait(()=>GetNodeOrNull<PopupMenu>("CharacterMenu"),"real V custom character menu");
-            int custom=Enumerable.Range(0,menu.ItemCount).First(i=>menu.GetItemText(i).StartsWith("编辑器：",StringComparison.Ordinal));
+            int custom=Enumerable.Range(0,menu.ItemCount).First(i=>menu.GetItemText(i)=="编辑器：UI 像素审核");
             menu.EmitSignal(PopupMenu.SignalName.IdPressed,menu.GetItemId(custom));
             await AuditFinish(vTask,"V full character binding");
-            RegressionExpect(nativeBridge.BoundCharacter(Player()!.Id) is not null,"real V menu applies complete binding");
+            RegressionExpect(nativeBridge.BoundCharacter(Player()!.Id)?.Parts.Count==3,"real V menu applies saved layered character binding");
             controls.Clear(world);nativeAuditUi=false;
             await world.LoadRoomAsync(world.Constants["Title"].Int);SyncNativeMenu();
             nativeMenu.GetChildren().OfType<Button>().Single(b=>b.Text=="地图编辑器").EmitSignal(Button.SignalName.Pressed);
             RegressionExpect(mapEditor is not null&&mapEditor.Document.Instances.Count==1227&&mapEditor.Document.Tiles.Count==1647,"map editor imports complete benchmark");
             var doc=mapEditor!.Document;await PlayMap(doc);
             RegressionExpect(mapPlaytest&&modalDepth==0,"map playtest resumes gameplay");
+            for(int f=0;f<12;f++)await StepFrameAsync();
             ReturnToMapEditor();
             await AuditWait(()=>mapEditor.Visible&&modalDepth==1?mapEditor:null,"return to map editor");
             mapEditor.EmitSignal(Window.SignalName.CloseRequested);

@@ -22,7 +22,7 @@ public static class NativeLocalization
         if (source.Contains('#') || source.Contains('\n')) return string.Join('\n',source.Replace('#','\n').Split('\n').Select(Text));
         // Long, explicit phrases cover GM strings assembled from labels and numbers.
         foreach (var pair in fragments)
-            if ((pair.Key.EndsWith(": ",StringComparison.Ordinal) || pair.Key.EndsWith('=') || pair.Key.StartsWith("No Exists:",StringComparison.Ordinal)) && source.StartsWith(pair.Key,StringComparison.Ordinal))
+            if ((pair.Key.EndsWith(' ') || pair.Key.EndsWith('=') || pair.Key.StartsWith("No Exists:",StringComparison.Ordinal)) && source.StartsWith(pair.Key,StringComparison.Ordinal))
                 return pair.Value + source[pair.Key.Length..];
         return source;
     }

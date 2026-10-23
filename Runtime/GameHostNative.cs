@@ -62,25 +62,25 @@ public partial class GameHost
     {
         if(modPanel is not null)return;
         ResetNativeInput();modalDepth++;
-        modPanel=new(mods,contentStore,ExamplesDirectory);AddChild(modPanel);
+        modPanel=new(mods,contentStore,ExamplesDirectory){Visible=false,ForceNative=true};AddChild(modPanel);
         modPanel.VisibilityChanged+=()=>
         {
             if(modPanel is null||modPanel.Visible)return;
             var closed=modPanel;modPanel=null;modalDepth--;ResetNativeInput();closed.QueueFree();
         };
-        modPanel.PopupCentered();
+        ShowEditorWindow(modPanel);
     }
     private void OpenMapEditor()
     {
         if(mapEditor is not null)return;
         ResetNativeInput();modalDepth++;
-        mapEditor=new(world,content,contentStore);AddChild(mapEditor);
+        mapEditor=new(world,content,contentStore){Visible=false,ForceNative=true};AddChild(mapEditor);
         mapEditor.Closed+=()=>
         {
             var closed=mapEditor;mapEditor=null;modalDepth--;ResetNativeInput();closed?.QueueFree();
         };
         mapEditor.PlayRequested+=PlayMap;
-        mapEditor.PopupCentered();
+        ShowEditorWindow(mapEditor);
     }
     private async Task PrepareTestingRoom()
     {
@@ -115,20 +115,21 @@ public partial class GameHost
             }
             ResetNativeInput();nativeClock.RoomChanged();
         }
-        catch(Exception e){await ShowDialog("试玩失败："+e.Message,["OK"]);mapEditor.ResumeAfterPlaytest();}
+        catch(Exception e){mapEditor.Service.RestoreAfterPlaytest();await ShowDialog("试玩失败："+e.Message,["OK"]);mapEditor.ResumeAfterPlaytest();}
     }
     private async void ReturnToMapEditor()
     {
         if(!mapPlaytest||mapEditor is null)return;
         mapPlaytest=false;modalDepth++;ResetNativeInput();
         await world.LoadRoomAsync(world.Constants["Title"].Int);graphics.Build();
+        mapEditor.Service.RestoreAfterPlaytest();
         mapEditor.ResumeAfterPlaytest();
     }
     private void OpenCharacterEditor()
     {
         if(characterEditor is not null)return;
         ResetNativeInput();modalDepth++;previewReady=false;previewReturnRoom=world.CurrentRoom;
-        characterEditor=new(world,content,contentStore);AddChild(characterEditor);
+        characterEditor=new(world,content,contentStore){Visible=false,ForceNative=true};AddChild(characterEditor);
         previewViewport=new SubViewport{Size=new(640,480),TransparentBg=false,RenderTargetUpdateMode=SubViewport.UpdateMode.Always,Disable3D=true};AddChild(previewViewport);
         previewCanvas=new GmCanvas();previewViewport.AddChild(previewCanvas);previewCanvas.Paint=c=>graphics.Render(c);
         characterEditor.PreviewSurface.Texture=previewViewport.GetTexture();
@@ -136,7 +137,12 @@ public partial class GameHost
         characterEditor.PreviewAdvanceRequested+=AdvanceCharacterPreview;
         characterEditor.PreviewResetRequested+=()=>{var player=Player();if(player is not null){world.Write(player,"x",96);world.Write(player,"y",0);world.Write(player,"vspeed",0);}};
         characterEditor.Closed+=CloseCharacterEditor;
-        characterEditor.PopupCentered();
+        ShowEditorWindow(characterEditor);
+    }
+    private static void ShowEditorWindow(Window window)
+    {
+        if(DisplayServer.GetName()=="headless"){window.Position=Vector2I.Zero;window.Show();}
+        else window.PopupCentered();
     }
     private async void CloseCharacterEditor()
     {
@@ -184,6 +190,14 @@ public partial class GameHost
     private async Task BindFullCharacter(CharacterDefinition definition)
     {
         var actor=Player()??throw new InvalidOperationException("没有可控制的角色");
+        var missing=definition.Actions.Values.Where(id=>!content.Actions.ContainsKey(id))
+            .Concat(definition.Dependencies.Where(id=>!mods.LoadedMods.Any(m=>m.Id==id)&&!content.Resources.ContainsKey(id)))
+            .Concat(definition.Parts.SelectMany(p=>p.Frames).Where(f=>!File.Exists(new NativeCharacterRepository(contentStore).FramePath(f))).Select(f=>f.Png)).Distinct().ToArray();
+        if(missing.Length>0)
+        {
+            string message="角色缺少以下资源或扩展，配置会保留：\n"+string.Join('\n',missing);
+            if(audit)GD.Print("CONTENT_MISSING ",message);else await ShowDialog(message,["OK"]);
+        }
         var context=new GmContext(actor);world.Evaluator.ResetBudget();
         if(definition.BasePreset is not ("Nana" or "Yuki" or "Ryoko"))throw new InvalidDataException("未知基础行为："+definition.BasePreset);
         // Snapshot the costume before any Destroy event mutates the shared loop variables.

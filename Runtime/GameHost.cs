@@ -113,6 +113,7 @@ public partial class GameHost : Node2D
 
     public override void _Ready()
     {
+        Engine.MaxFps=60;
         TextureFilter=TextureFilterEnum.Linear;
         audit=OS.GetCmdlineUserArgs().Contains("--audit");
         try

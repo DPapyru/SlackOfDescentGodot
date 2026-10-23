@@ -549,7 +549,7 @@ public sealed partial class GmGraphics
             RenderingServer.ForceDraw(false);
         }
     }
-    private void Text(string text,Vector2 position,float scaleX=1,float scaleY=1,float rotation=0)
+    private void Text(string text,Vector2 position,float scaleX=1,float scaleY=1,float rotation=0,float wrapWidth=-1,float lineSpacing=-1)
     {
         text=NativeLocalization.Text(text);
         var selected=world.Manifest.GetProperty("fonts").EnumerateArray().FirstOrDefault(f=>f.GetProperty("id").GetInt32()==font);
@@ -561,13 +561,27 @@ public sealed partial class GmGraphics
         if(text.Any(ch=>ch>=256)&&NativeLocalization.Font is {} chinese)
         {
             var camera=target<0?Camera:Vector2.Zero;
-            foreach(string line in text.Replace('#','\n').Split('\n'))
+            IEnumerable<string> Lines()
+            {
+                foreach(string paragraph in text.Replace('#','\n').Split('\n'))
+                {
+                    if(wrapWidth<=0){yield return paragraph;continue;}
+                    string line="";
+                    foreach(char character in paragraph)
+                    {
+                        if(line.Length>0&&chinese.GetStringSize(line+character,HorizontalAlignment.Left,-1,height).X>wrapWidth){yield return line;line="";}
+                        line+=character;
+                    }
+                    yield return line;
+                }
+            }
+            foreach(string line in Lines())
             {
                 string captured=line;Vector2 baseline=position-camera;
                 float width=chinese.GetStringSize(line,HorizontalAlignment.Left,-1,height).X;
                 float offset=halign==1?-width/2:halign==2?-width:0;
                 Add(c=>{c.DrawSetTransform(baseline,rotation,new(scaleX,scaleY));c.DrawString(chinese,new(offset,chinese.GetAscent(height)),captured,HorizontalAlignment.Left,-1,height,tint);c.DrawSetTransform(Vector2.Zero);});
-                position.Y+=height*scaleY;
+                position.Y+=(lineSpacing<0?height:lineSpacing)*scaleY;
             }
             return;
         }
@@ -693,7 +707,7 @@ public sealed partial class GmGraphics
                 Textured(texture,Vector2.Zero,new Rect2(P(2),P(4)),P(6),P(8),-Mathf.DegToRad(F(10)),Colour(N(11),N(15)));return 0;
             }
             case "draw_text":Text(a[2].ToString(),P(0));return 0;
-            case "draw_text_ext":Text(a[2].ToString(),P(0));return 0;
+            case "draw_text_ext":Text(a[2].ToString(),P(0),wrapWidth:F(4),lineSpacing:F(3));return 0;
             case "draw_text_color":
             {var previousColour=colour;var opacity=alpha;colour=Colour(N(3));alpha=F(7);Text(a[2].ToString(),P(0));colour=previousColour;alpha=opacity;return 0;}
             case "draw_text_transformed_color":

@@ -1,0 +1,66 @@
+using SlackOfDescent;
+using System.Text.Json;
+
+int assertions = 0;
+void Expect(bool condition, string message) { assertions++; if (!condition) throw new Exception(message); }
+var document = NativeCharacterDocument.Create();
+var hat = document.Definition.Parts[1]; var tail = document.Definition.Parts[2];
+document.BeginEdit();
+document.Paint(hat.Id, 0, 3, 4, 11, 25, 230, 128);
+document.Paint(hat.Id, 0, 4, 5, 67, 33, 19, 0);
+document.EndEdit();
+Expect(document.UndoCount == 1, "one brush stroke is one undo");
+var source = document.Copy(hat.Id, 0, new(3, 4, 3, 3));
+Expect(source.Rgba[3] == 128 && source.Rgba[(1 * 3 + 1) * 4] == 67 && source.Rgba[(1 * 3 + 1) * 4 + 3] == 0, "copy preserves alpha and invisible RGB");
+var clipboard = NativePixelClipboard.Decode(source.Encode())!;
+Expect(clipboard.Rgba.SequenceEqual(source.Rgba), "clipboard survives encoded OS transport");
+Expect(NativePixelClipboard.Decode("other clipboard text") is null, "unrelated text is ignored");
+document.Paste(tail.Id, 0, clipboard, 7, 8);
+Expect(document.Copy(tail.Id, 0, new(7, 8, 3, 3)).Rgba.SequenceEqual(source.Rgba), "cross part paste replaces all RGBA channels");
+document.Undo(); tail = document.Definition.Parts.Single(p => p.Id == tail.Id);
+Expect(document.Pixels(tail, 0).All(b => b == 0), "paste undo restores blank part");
+document.Redo(); tail = document.Definition.Parts.Single(p => p.Id == tail.Id);
+Expect(document.Copy(tail.Id, 0, new(7, 8, 3, 3)).Rgba.SequenceEqual(source.Rgba), "paste redo restores exact pixels");
+int copiedFrame = document.AddFrame(tail.Id, 0);
+Expect(document.Pixels(tail, copiedFrame).SequenceEqual(document.Pixels(tail, 0)), "frame duplication has matching pixel content");
+document.Paint(tail.Id, copiedFrame, 0, 0, 1, 2, 3, 255);
+Expect(document.Pixels(tail, 0)[3] == 0, "duplicated frames own separate data");
+document.Paste(tail.Id, 0, clipboard, -1, -1);
+Expect(document.Pixels(tail, 0)[0] == 67 && document.Pixels(tail, 0)[3] == 0, "negative paste clips while preserving source rectangle offset");
+var encoded = NativeCharacterPng.Encode(source.Width, source.Height, source.Rgba);
+Expect(NativeCharacterPng.Decode(encoded).Rgba.SequenceEqual(source.Rgba), "PNG roundtrip preserves byte exact transparent RGB");
+encoded[20] ^= 1; bool invalid = false; try { NativeCharacterPng.Decode(encoded); } catch (InvalidDataException) { invalid = true; }
+Expect(invalid, "corrupt PNG CRC is rejected");
+string temporary = Path.Combine(Path.GetTempPath(), "native-character-tests-" + Guid.NewGuid().ToString("N"));
+try
+{
+    var store = new NativeContentStore(temporary); var registry = new ContentRegistry(); var repository = new NativeCharacterRepository(store);
+    document.Definition.Dependencies.Add("missing.action.pack"); document.Definition.Actions[CharacterActionSlot.Jump] = "missing.action.pack.jump";
+    document.Definition.Extra = new() { ["future"] = JsonSerializer.SerializeToElement(new { preserved = "未知值" }) };
+    tail.Extra = new() { ["futurePart"] = JsonSerializer.SerializeToElement(71) };
+    tail.Frames[0].Extra = new() { ["futureFrame"] = JsonSerializer.SerializeToElement(true) };
+    tail.AnchorX = 11; tail.OffsetY = -4; tail.Layer = -9;
+    repository.Save(document, registry);
+    Expect(!document.Dirty, "successful save establishes clean baseline");
+    Expect(registry.Characters.ContainsKey(document.Definition.Id), "saved characters are available immediately");
+    string firstAsset = document.Definition.Parts[0].Frames[0].Png;
+    var loaded = repository.Load(document.Definition.Id); var loadedTail = loaded.Definition.Parts.Single(p => p.Id == tail.Id);
+    Expect(loaded.Definition.Id == document.Definition.Id, "save and load retain stable ID");
+    Expect(loadedTail.AnchorX == 11 && loadedTail.OffsetY == -4 && loadedTail.Layer == -9, "part transform persists independently");
+    Expect(loaded.Definition.Dependencies.SequenceEqual(document.Definition.Dependencies) && loaded.Definition.Actions[CharacterActionSlot.Jump] == "missing.action.pack.jump", "missing dependencies and actions remain intact");
+    Expect(loaded.Definition.Extra!["future"].GetProperty("preserved").GetString() == "未知值" && loadedTail.Extra!["futurePart"].GetInt32() == 71 && loadedTail.Frames[0].Extra!["futureFrame"].GetBoolean(), "unknown JSON survives at definition, part and frame levels");
+    foreach (var part in document.Definition.Parts) for (int f = 0; f < part.Frames.Count; f++) Expect(document.Pixels(part, f).SequenceEqual(loaded.Pixels(loaded.Definition.Parts.Single(p => p.Id == part.Id), f)), "saved frame equals loaded frame");
+    bool overwrite = false; try { repository.Save(loaded, registry); } catch (IOException) { overwrite = true; }
+    Expect(overwrite, "overwrite needs explicit consent");
+    repository.Save(loaded, registry, true);
+    Expect(firstAsset != loaded.Definition.Parts[0].Frames[0].Png && File.Exists(Path.Combine(store.Characters, firstAsset)), "atomic manifest save points to immutable new assets");
+    var restarted = new ContentRegistry(); repository.Discover(restarted);
+    Expect(restarted.Characters.ContainsKey(document.Definition.Id), "restart discovers saved character");
+    var missing = loaded.Duplicate(); missing.Definition.Parts[0].Frames[0].Png = "../../escape.png";
+    invalid = false; try { repository.LoadDefinition(missing.Definition); } catch (InvalidDataException) { invalid = true; }
+    Expect(invalid, "asset paths cannot escape content directory");
+    var bad = new CharacterDefinition { Id = "../escape" }; invalid = false; try { new NativeCharacterDocument(bad); } catch (InvalidDataException) { invalid = true; }
+    Expect(invalid, "character ID cannot escape content directory");
+}
+finally { Directory.Delete(temporary, true); }
+Console.WriteLine($"CHARACTER_MODEL_TESTS_OK assertions={assertions}");

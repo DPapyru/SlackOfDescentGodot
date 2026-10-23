@@ -5,7 +5,6 @@ using System.Text.Json.Serialization;
 
 namespace SlackOfDescent;
 
-/// <summary>A lossless room document: original fields, layers, camera and creation code remain editable.</summary>
 public sealed class NativeMapDocument
 {
     public int FormatVersion { get; set; } = 1;
@@ -26,7 +25,6 @@ public sealed class NativeMapDocument
 public sealed record NativeMapLoadResult(NativeMapDocument Document, double Milliseconds, IReadOnlyList<string> Warnings);
 public sealed record NativeMapAttachment(int InstanceId, string EntityType);
 
-/// <summary>Imports the actual EnemyTestRoom used by the title menu; no parallel room format is invented.</summary>
 public sealed class NativeMapService
 {
     private readonly GmWorld world;
@@ -122,7 +120,6 @@ public sealed class NativeMapService
         foreach (var asset in world.Manifest.GetProperty("backgrounds").EnumerateArray()) if (name is null ? asset.GetProperty("id").GetInt32() == id : asset.GetProperty("name").GetString() == name) return asset.GetProperty("id").GetInt32();
         return null;
     }
-    /// <summary>Registers a playable clone. Missing dependencies are omitted from playback only, never the document.</summary>
     public int InstallForPlay(NativeMapDocument document)
     {
         Validate(document);
@@ -174,8 +171,6 @@ public sealed class NativeMapService
         string installedRoomCode = $"native/maps/{document.Id}/create";
         world.Code[installedRoomCode] = document.CreationCode.TryGetValue(originalRoomCode, out var roomAst) || world.Code.TryGetValue(originalRoomCode, out roomAst) ? roomAst.Clone() : JsonSerializer.SerializeToElement(new object[] { "group", Array.Empty<object>() });
         installedCode.Add(installedRoomCode); room["code"] = installedRoomCode;
-        // GM scripts index globals by room ID (EnemyObject[room], stage state and transitions).
-        // Preserve that identity for imported rooms rather than breaking original initialization.
         int sourceId = Int(document.Room, "id", -1);
         int id = world.Rooms.ContainsKey(sourceId) && world.Rooms[sourceId].GetProperty("name").GetString() == document.OriginalRoomName ? sourceId : playRoom ??= world.Rooms.Keys.Max() + 1;
         if (world.Rooms.TryGetValue(id, out var previous) && id != playRoom && !replacedRooms.ContainsKey(id)) replacedRooms[id] = previous;
@@ -184,7 +179,6 @@ public sealed class NativeMapService
         world.NextId = Math.Max(world.NextId, document.Instances.OfType<JsonObject>().Select(i => Int(i, "id")).DefaultIfEmpty().Max() + 1);
         return id;
     }
-    /// <summary>Restores built-in rooms and removes temporary room/code definitions after editor playtest mode.</summary>
     public void RestoreAfterPlaytest()
     {
         foreach (var pair in replacedRooms) world.Rooms[pair.Key] = pair.Value;
@@ -194,7 +188,6 @@ public sealed class NativeMapService
         foreach (string key in installedCode) world.Code.Remove(key);
         installedCode.Clear();
     }
-    /// <summary>Called after room creation to retain user overrides even when original Create events set defaults.</summary>
     public void ApplyProperties(NativeMapDocument document)
     {
         var byId = world.Instances.Where(i => !i.Destroyed).GroupBy(i => i.Id).ToDictionary(g => g.Key, g => g.Last());

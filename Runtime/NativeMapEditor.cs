@@ -7,7 +7,6 @@ namespace SlackOfDescent;
 
 public enum NativeMapTool { Select, Tile, Erase, Collision, Entity, Pan }
 
-/// <summary>The in-game map editor; its document remains alive while the host runs a playtest.</summary>
 public partial class NativeMapEditor : Window
 {
     private readonly GmWorld world;

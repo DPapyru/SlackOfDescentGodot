@@ -21,6 +21,7 @@ public partial class GameHost : Node2D
     private long liveFirstFrame;
     private readonly List<double> liveTimes=new();
     private readonly GmFrameMonitor frameMonitor=new();
+    private int cadenceRoom=int.MinValue;
     private readonly long frameClock=Stopwatch.GetTimestamp();
     private Label? fpsLabel;
     private long fpsAuditStart;
@@ -120,6 +121,7 @@ public partial class GameHost : Node2D
             var source=System.Environment.GetEnvironmentVariable("SLACK_SOURCE")??Path.Combine(root,"assets");
             world=new(root,source,System.Environment.GetEnvironmentVariable("SLACK_USER_ROOT"));
             world.Performance.Configure(world.UserRoot,OS.IsDebugBuild());
+            if(DisplayServer.GetName()!="headless")RenderingServer.FramePostDraw+=OnFramePostDraw;
             controls.LoadBindings(world);
             if(audit)world.Random.Seed=0;
             audio=new(this,world);
@@ -179,7 +181,7 @@ public partial class GameHost : Node2D
                 int shoot=Array.IndexOf(commandArgs,"--shoot");
                 if(shoot>=0&&shoot+1<commandArgs.Length)AuditShoot(int.Parse(commandArgs[shoot+1]));
                 int animation=Array.IndexOf(commandArgs,"--animation-audit");
-                if(animation>=0&&animation+1<commandArgs.Length){animationAudit=(commandArgs[animation+1]=="route"?AuditRoute(true):commandArgs[animation+1].StartsWith("bind:",StringComparison.Ordinal)?AuditBinding(commandArgs[animation+1][5..],true):AuditAnimation(commandArgs[animation+1])).GetEnumerator();return;}
+                if(animation>=0&&animation+1<commandArgs.Length){animationAudit=(commandArgs[animation+1]=="rain"?AuditRain():commandArgs[animation+1]=="route"?AuditRoute(true):commandArgs[animation+1].StartsWith("bind:",StringComparison.Ordinal)?AuditBinding(commandArgs[animation+1][5..],true):AuditAnimation(commandArgs[animation+1])).GetEnumerator();return;}
                 GD.Print("AUDIT room=",world.CurrentRoom," frames=",world.Frame," instances=",world.Instances.Count);
                 if(world.Performance.Enabled)GD.Print("PERF_CONTENT tiles=",world.Tiles.Count," objects=",string.Join(" ",world.Instances.GroupBy(i=>i.Object).OrderByDescending(g=>g.Count()).Take(12).Select(g=>$"{g.Key}:{g.Count()}")));
                 int benchmark=Array.IndexOf(commandArgs,"--benchmark");
@@ -291,7 +293,7 @@ public partial class GameHost : Node2D
     }
     private async void AuditGraphics()
     {
-        try{await graphics.Audit();GD.Print("GRAPHICS_OK");audio.Shutdown();GetTree().Quit();}
+        try{await graphics.Audit();await graphics.AuditEffects();GD.Print("GRAPHICS_OK");audio.Shutdown();GetTree().Quit();}
         catch(Exception e){Fail(e);audio.Shutdown();GetTree().Quit(1);}
     }
 
@@ -534,13 +536,15 @@ public partial class GameHost : Node2D
     public override void _Process(double delta)
     {
         if(failure is not null){if(audit)GetTree().Quit(1);return;}
+        long processStarted=world.Performance.Start(),firstFrame=world.Frame;
         try
         {
             SyncGrenadeBinding();
-            if(modalDepth>0&&pendingFrame is null){elapsed=0;frameMonitor.Reset();canvas.QueueRedraw();return;}
+            if(cadenceRoom!=world.CurrentRoom){cadenceRoom=world.CurrentRoom;world.Performance.ResetCadence();}
+            if(modalDepth>0&&pendingFrame is null){elapsed=0;frameMonitor.Reset();world.Performance.ResetCadence();canvas.QueueRedraw();return;}
             if(pendingFrame is not null)
             {
-                if(!pendingFrame.IsCompleted){elapsed=0;frameMonitor.Reset();canvas.QueueRedraw();return;}
+                if(!pendingFrame.IsCompleted){elapsed=0;frameMonitor.Reset();world.Performance.ResetCadence();canvas.QueueRedraw();return;}
                 pendingFrame.GetAwaiter().GetResult();pendingFrame=null;elapsed=0;
             }
             var measurement=frameMonitor.Update(Stopwatch.GetElapsedTime(frameClock).TotalSeconds,world.Frame,world.CurrentRoom,world.Engine.Read("room_speed").Number,DisplayServer.GetName()!="headless");
@@ -549,6 +553,7 @@ public partial class GameHost : Node2D
                 world.Engine.Write("fps",measurement.LogicFps);world.Globals.Write("current_fps",measurement.LogicFps);
                 if(fpsLabel is not null)fpsLabel.Text="FPS: "+measurement.LogicFps.ToString("F0");
                 world.Performance.Record(measurement,world,()=>graphics.Statistics());
+                world.Performance.Cadence(measurement,world,()=>graphics.Statistics());
                 if(fpsAuditStart>0)fpsAuditSamples.Add(measurement);
             }
             if(fpsAuditStart>0)
@@ -602,7 +607,10 @@ public partial class GameHost : Node2D
             {captured=true;Capture();}
         }
         catch(Exception e){Fail(e);QueueRedraw();if(audit){audio.Shutdown();GetTree().Quit(1);}}
+        finally{world.Performance.Process(processStarted,world.Frame-firstFrame);}
     }
+
+    private void OnFramePostDraw()=>world.Performance.RenderCompleted();
 
     private async void Capture()
     {
@@ -614,7 +622,7 @@ public partial class GameHost : Node2D
         image.SavePng(path);image.Dispose();GD.Print("CAPTURE ",path);audio.Shutdown();GetTree().Quit(failure is null?0:1);
     }
 
-    public override void _ExitTree(){audio?.Shutdown();}
+    public override void _ExitTree(){RenderingServer.FramePostDraw-=OnFramePostDraw;graphics?.Shutdown();audio?.Shutdown();}
 
     public override void _Draw()
     {

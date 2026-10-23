@@ -275,6 +275,61 @@ var collisionInstance=world.Create(collisionObject,0,0);
 world.Instances.Remove(self);
 world.Step();
 Equal(collisionInstance.Scope.Read("contact"),colliderB.Id,"collision event other context");
+var dispatch=new GmWorld(Path.Combine(project,"GameData"),source);
+var dispatchContext=new GmContext(new GmInstance());
+int dispatchParent=dispatch.Call("object_add",[],dispatchContext).Int;
+int dispatchChild=dispatch.Call("object_add",[],dispatchContext).Int;
+int dispatchActor=dispatch.Call("object_add",[],dispatchContext).Int;
+int dispatchSprite=dispatch.RegisterSprite(System.Text.Json.JsonSerializer.SerializeToElement(new{originX=0,originY=0,frames=new[]{new{width=2,height=2,path="unused"}},masks=new[]{new{width=2,height=2,left=0,right=1,top=0,bottom=1,data="1111"}}}));
+dispatch.Call("object_set_parent",[dispatchChild,dispatchParent],dispatchContext);
+foreach(int obj in new[]{dispatchParent,dispatchChild,dispatchActor})dispatch.Call("object_set_sprite",[obj,dispatchSprite],dispatchContext);
+dispatch.Call("object_event_add",[dispatchActor,4,dispatchParent,"global.contacts+=string(other.id)+\",\"; if(other.id==global.first){x=-1024; collision_point(x,y,all,1,1);}"],dispatchContext);
+var dispatchSelf=dispatch.Create(dispatchActor,0,-256,run:false);
+var dispatchFirst=dispatch.Create(dispatchChild,0,-256,run:false);
+var dispatchSecond=dispatch.Create(dispatchChild,-1024,-256,run:false);
+dispatch.Globals.Write("first",dispatchFirst.Id);dispatch.Globals.Write("contacts","");
+dispatch.Step();
+Equal(dispatch.Globals.Read("contacts"),$"{dispatchFirst.Id},{dispatchSecond.Id},","collision callback nested query cannot consume outer geometry change");
+// A running traversal retains membership and order; later traversals see mutations.
+foreach(string mutation in new[]{"create","destroy","deactivate","type","parent","move","large","solid"})
+{
+    var w=new GmWorld(Path.Combine(project,"GameData"),source);
+    var c=new GmContext(new GmInstance());
+    int parent=w.Call("object_add",[],c).Int,child=w.Call("object_add",[],c).Int,actorType=w.Call("object_add",[],c).Int,unrelated=w.Call("object_add",[],c).Int;
+    int sprite=w.RegisterSprite(System.Text.Json.JsonSerializer.SerializeToElement(new{originX=0,originY=0,frames=new[]{new{width=2,height=2,path="unused"}},masks=new[]{new{width=2,height=2,left=0,right=1,top=0,bottom=1,data="1111"}}}));
+    w.Call("object_set_parent",[child,parent],c);
+    foreach(int obj in new[]{parent,child,actorType,unrelated})w.Call("object_set_sprite",[obj,sprite],c);
+    var collisionActor=w.Create(actorType,-512,-256,run:false);
+    var first=w.Create(child,-512,-256,run:false);
+    var second=w.Create(child,-512,-256,run:false);
+    var outsider=w.Create(unrelated,-512,-256,run:false);
+    w.Globals.Write("contacts","");w.Globals.Write("first",first.Id);w.Globals.Write("second",second.Id);w.Globals.Write("outsider",outsider.Id);
+    string change=mutation switch
+    {
+        "create"=>$"instance_create(x,y,{child});",
+        "destroy"=>"with(global.second) instance_destroy();",
+        "deactivate"=>"instance_deactivate_object(global.second);",
+        "type"=>$"with(global.second) instance_change({unrelated},false);with(global.outsider) instance_change({child},false);",
+        "parent"=>$"object_set_parent({child},noone);",
+        "move"=>"x=-2048;with(global.second) x=-2048;collision_point(x,y,all,1,1);",
+        "large"=>"with(global.second){x=-4096;image_xscale=4096;}collision_point(x,y,all,1,1);",
+        "solid"=>"collision_point(x,y,all,1,1);",
+        _=>""
+    };
+    if(mutation=="solid")
+    {
+        collisionActor.Scope.Write("hspeed",128);first.Scope.Write("x",-384);first.Scope.Write("solid",true);
+    }
+    w.Call("object_event_add",[actorType,4,parent,"global.contacts+=string(other.id)+\",\";if(other.id==global.first){"+change+"}"],c);
+    w.Step();
+    Equal(w.Globals.Read("contacts"),mutation=="destroy"?$"{first.Id},":$"{first.Id},{second.Id},","collision snapshot survives callback "+mutation);
+    long rebuilt=w.CollisionSnapshotRebuilds;
+    w.Globals.Write("contacts","");w.Step();
+    if(mutation is "destroy" or "deactivate" or "type" or "parent" or "create")
+        Equal(w.CollisionSnapshotRebuilds>rebuilt,true,"collision snapshot invalidated after "+mutation);
+    if(mutation is "destroy" or "deactivate" or "parent")
+        Equal(w.Globals.Read("contacts").ToString().Contains(second.Id.ToString()+","),false,"later collision snapshot excludes "+mutation);
+}
 var originalMotion=world.Create(dynamicObject,500,500,run:false);
 var nativeMotion=world.Create(dynamicObject,500,500,run:false);
 var originalPart=world.Create(dynamicObject,500,500,run:false);
@@ -625,6 +680,89 @@ Equal(rectanglePixels[21],20,"surface rectangle fills green channel");
 Equal(rectanglePixels[42],30,"surface rectangle copies subsequent rows");
 Equal(rectanglePixels[43],255,"surface rectangle copies alpha");
 Equal(rectanglePixels[47],0,"surface rectangle excludes right boundary");
+void CheckOpaqueTriangle(float ax,float ay,float bx,float by,float cx,float cy,string name)
+{
+    const int width=19,height=13;
+    var actual=Enumerable.Repeat((byte)73,width*height*4).ToArray();
+    var expected=(byte[])actual.Clone();
+    GmPixels.FillOpaqueTriangle(actual,width,height,ax,ay,bx,by,cx,cy,10,20,30);
+    float Edge(float px,float py,float qx,float qy,float x,float y)=>(qx-px)*(y-py)-(qy-py)*(x-px);
+    float area=Edge(ax,ay,bx,by,cx,cy);
+    if(area<0){(bx,cx)=(cx,bx);(by,cy)=(cy,by);area=-area;}
+    bool TopLeft(float px,float py,float qx,float qy)=>py>qy||py==qy&&px<qx;
+    for(int y=0;y<height;y++)for(int x=0;x<width;x++)
+    {
+        float wa=Edge(bx,by,cx,cy,x+0.5f,y+0.5f),wb=Edge(cx,cy,ax,ay,x+0.5f,y+0.5f),wc=Edge(ax,ay,bx,by,x+0.5f,y+0.5f);
+        if(area==0||wa<0||wa==0&&!TopLeft(bx,by,cx,cy)||wb<0||wb==0&&!TopLeft(cx,cy,ax,ay)||wc<0||wc==0&&!TopLeft(ax,ay,bx,by))continue;
+        int offset=(y*width+x)*4;expected[offset]=10;expected[offset+1]=20;expected[offset+2]=30;expected[offset+3]=255;
+    }
+    Equal(actual.SequenceEqual(expected),true,"opaque triangle matches reference coverage: "+name);
+}
+foreach(var triangle in new (float Ax,float Ay,float Bx,float By,float Cx,float Cy)[]{
+    (1,1,17,1,1,11),(1,1,1,11,17,1),(1,1,17,11,1,11),
+    (-20,-10,40,3,3,30),(30,30,50,30,30,50),(1,1,1,1,1,1),
+    (0,0,4,4,8,8),(0.5f,0.5f,17.5f,0.5f,0.5f,11.5f),
+    (8.25f,-4000,8.75f,5000,9.25f,12.75f),(-1300,-4000,40,1000,73,1033)})
+{
+    CheckOpaqueTriangle(triangle.Ax,triangle.Ay,triangle.Bx,triangle.By,triangle.Cx,triangle.Cy,"fixture");
+    CheckOpaqueTriangle(triangle.Bx,triangle.By,triangle.Cx,triangle.Cy,triangle.Ax,triangle.Ay,"cyclic vertices");
+}
+var triangleRandom=new Random(7341);
+var triangleCache=new GmTriangleCache();
+foreach(var dimensions in new[]{(Width:19,Height:13),(Width:23,Height:17)})
+foreach(float offset in new[]{0f,0.25f,20f})
+{
+    int width=dimensions.Width,height=dimensions.Height;
+    var expected=Enumerable.Repeat((byte)73,width*height*4).ToArray();
+    GmPixels.FillOpaqueTriangle(expected,width,height,1+offset,-20,4+offset,50,15+offset,8,0,0,0);
+    for(int repeat=0;repeat<2;repeat++)
+    {
+        var actual=Enumerable.Repeat((byte)73,width*height*4).ToArray();
+        triangleCache.Fill(actual,width,height,1+offset,-20,4+offset,50,15+offset,8);
+        Equal(actual.SequenceEqual(expected),true,"cached triangle preserves coverage after geometry or size change");
+    }
+}
+Equal(triangleCache.Hits,6,"triangle cache reuses exact geometry");
+Equal(triangleCache.Misses,6,"triangle cache distinguishes dimensions and fractional positions");
+triangleCache.Clear();Equal(triangleCache.Count,0,"triangle cache releases coverage on reset");
+for(int index=0;index<8300;index++)triangleCache.Fill(new byte[16],2,2,index,0,index+1,0,index,1);
+Equal(triangleCache.Count,8192,"triangle cache bounds entries during camera movement");
+triangleCache.Clear();
+var rainCoverage=new byte[32*480*4];
+for(int pass=0;pass<2;pass++)for(int index=0;index<574;index++)
+    triangleCache.Fill(rainCoverage,32,480,index*0.001f,-1,32,481,0,481);
+Equal(triangleCache.Misses,574,"rain working set fits coverage storage budget");
+Equal(triangleCache.Hits,574,"full rain working set survives across frames");
+triangleCache.Clear();
+for(int pass=0;pass<2;pass++)for(int index=0;index<2400;index++)
+    triangleCache.Fill(rainCoverage,32,480,index*0.001f,-1,32,481,0,481);
+Equal(triangleCache.Bytes>8*1024*1024,true,"expanded triangle cache retains more than eight MiB");
+Equal(triangleCache.Bytes<=32*1024*1024,true,"triangle coverage stays within thirty-two MiB");
+Equal(triangleCache.Hits,2400,"expanded working set survives across frames");
+triangleCache.Clear();Equal(triangleCache.Bytes,0,"clearing triangle cache resets byte accounting");
+for(int sample=0;sample<40;sample++)
+{
+    const int width=17,height=11,sourceWidth=9,sourceHeight=7;
+    var texels=new byte[sourceWidth*sourceHeight*4];triangleRandom.NextBytes(texels);
+    for(int i=3;i<texels.Length;i+=4)texels[i]=sample%3==0?(byte)0:sample%3==1?(byte)255:texels[i];
+    var actual=new byte[width*height*4];triangleRandom.NextBytes(actual);var expected=(byte[])actual.Clone();
+    float xx=sample%2==0?1/0.75f:0.5f,yy=xx,tx=sample*0.37f-10,ty=sample*0.19f-6;
+    GmPixels.CompositeNormal(actual,width,height,texels,sourceWidth,sourceHeight,-1,-3,width+2,height+1,xx,yy,tx,ty);
+    for(int y=0;y<height;y++)for(int x=0;x<width;x++)
+    {
+        float localX=xx*(x+0.5f)+tx,localY=yy*(y+0.5f)+ty;
+        if(localX<0||localY<0||localX>=sourceWidth||localY>=sourceHeight)continue;
+        int si=((int)MathF.Floor(localY)*sourceWidth+(int)MathF.Floor(localX))*4,di=(y*width+x)*4;
+        float alpha=texels[si+3]/255f;
+        for(int channel=0;channel<4;channel++)expected[di+channel]=(byte)(Math.Clamp(texels[si+channel]/255f*alpha+expected[di+channel]/255f*(1-alpha),0,1)*255);
+    }
+    Equal(actual.SequenceEqual(expected),true,"normal composite matches reference RGBA: "+sample);
+}
+for(int sample=0;sample<500;sample++)
+{
+    float Coordinate()=>(float)(triangleRandom.NextDouble()*100-40);
+    CheckOpaqueTriangle(Coordinate(),Coordinate(),Coordinate(),Coordinate(),Coordinate(),Coordinate(),"fractional "+sample);
+}
 byte[] smoothPixels=[0,0,0,0,255,255,255,255,0,0,0,0];
 GmPixels.Prepare(smoothPixels,3,1,2,true);
 Equal(smoothPixels[7],191,"two transparent neighbors each reduce alpha");
@@ -812,6 +950,14 @@ try
     Equal(record.RootElement.GetProperty("type").GetString()!,"drop","drop creates independent JSON record");
     foreach(string field in new[]{"character","players","npcs","room","particles","graphics","phases"})
         Equal(record.RootElement.TryGetProperty(field,out _),true,"drop captures "+field);
+    perf.Process(perf.Start(),2);perf.Cadence(noDrop,particleWorld,()=>new{surfaces=0});
+    using var cadence=System.Text.Json.JsonDocument.Parse(File.ReadAllLines(perf.LogPath!)[2]);
+    Equal(cadence.RootElement.GetProperty("type").GetString()!,"cadence","stable gameplay records cadence without a baseline drop");
+    Equal(cadence.RootElement.GetProperty("catchUpProcesses").GetInt32(),1,"cadence counts processes executing multiple logic steps");
+    Equal(cadence.RootElement.GetProperty("maxStepsPerProcess").GetInt32(),2,"cadence records maximum logic steps per process");
+    perf.ResetCadence();perf.Cadence(noDrop,particleWorld,()=>new{surfaces=0});
+    using var resetCadence=System.Text.Json.JsonDocument.Parse(File.ReadAllLines(perf.LogPath!)[3]);
+    Equal(resetCadence.RootElement.GetProperty("logicSteps").GetInt32(),0,"cadence reset discards previous scene work");
     Environment.SetEnvironmentVariable("SLACK_PERF","0");perf.Configure(loggingRoot,true);
     Equal(perf.Enabled,false,"explicit disable suppresses debug performance log");
 }

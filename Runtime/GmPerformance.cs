@@ -12,6 +12,41 @@ public sealed class GmPerformance
     public string? LogPath{get;private set;}
     private bool logFailed;
     private readonly Dictionary<string,(double Total,double Max,int Count)> recentSamples=new();
+    private readonly List<double> processTimes=new(),renderIntervals=new();
+    private long processSteps;
+    private int catchUpProcesses,maxSteps;
+    private long lastRender;
+    public void Process(long started,long steps)
+    {
+        if(!Enabled)return;
+        processTimes.Add(Stopwatch.GetElapsedTime(started).TotalMilliseconds);processSteps+=steps;
+        if(steps>1)catchUpProcesses++;
+        maxSteps=Math.Max(maxSteps,(int)steps);
+    }
+    public void RenderCompleted()
+    {
+        if(!Enabled)return;
+        long now=Stopwatch.GetTimestamp();
+        if(lastRender!=0)renderIntervals.Add(Stopwatch.GetElapsedTime(lastRender,now).TotalMilliseconds);
+        lastRender=now;
+    }
+    public void ResetCadence(){processTimes.Clear();renderIntervals.Clear();processSteps=0;catchUpProcesses=maxSteps=0;lastRender=0;}
+    public void Cadence(GmFrameSample sample,GmWorld world,Func<object> graphics)
+    {
+        if(!Enabled)return;
+        object Summary(List<double> values)
+        {
+            values.Sort();int count=values.Count;
+            return new{count,meanMs=count==0?0:values.Average(),p95Ms=count==0?0:values[(int)Math.Ceiling(count*0.95)-1],maxMs=count==0?0:values[^1]};
+        }
+        WriteLog(new{type="cadence",time=DateTimeOffset.UtcNow,frame=world.Frame,room=world.CurrentRoom,
+            targetLogicFps=world.Engine.Read("room_speed").Number,logicFps=sample.LogicFps,processFps=sample.RenderFps,
+            completedRenderFps=renderIntervals.Count/sample.Seconds,process=Summary(processTimes),renderInterval=Summary(renderIntervals),
+            logicSteps=processSteps,catchUpProcesses,maxStepsPerProcess=maxSteps,graphics=graphics(),
+            dynamicDark=world.Globals.ReadOr("DynamicDark").Truth,darkness=world.Globals.ReadOr("Darkness").Number,
+            collision=new{snapshotRebuilds=world.CollisionSnapshotRebuilds,candidateVisits=world.CollisionCandidateVisits,exactTests=world.CollisionExactTests}});
+        processTimes.Clear();renderIntervals.Clear();processSteps=0;catchUpProcesses=maxSteps=0;
+    }
     public void Configure(string userRoot,bool debug)
     {
         Enabled=Environment.GetEnvironmentVariable("SLACK_PERF") switch{"0"=>false,"1"=>true,_=>debug};

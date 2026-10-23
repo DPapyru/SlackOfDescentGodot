@@ -13,15 +13,17 @@ public partial class GmCanvas : Node2D
     private BackBufferCopy? screenCopy;
     private int batchIndex;
     private int lastBlend=-1;
+    private int lastFilter=-1;
     public void StartBatches(){batchIndex=0;lastBlend=-1;foreach(var batch in batches){batch.Visible=false;batch.Commands.Clear();if(batch.screenCopy is not null)batch.screenCopy.Visible=false;}}
-    public void Batch(Action<GmCanvas> command,int blend)
+    public void Batch(Action<GmCanvas> command,int blend,int filter=0)
     {
-        if(batchIndex>0&&lastBlend==blend&&blend is not (5 or 6)){batches[batchIndex-1].Commands.Add(command);batches[batchIndex-1].QueueRedraw();return;}
-        lastBlend=blend;
+        if(batchIndex>0&&lastBlend==blend&&lastFilter==filter&&blend is not (5 or 6)){batches[batchIndex-1].Commands.Add(command);batches[batchIndex-1].QueueRedraw();return;}
+        lastBlend=blend;lastFilter=filter;
         GmCanvas batch;
         if(batchIndex<batches.Count)batch=batches[batchIndex];
         else{batch=new GmCanvas();batches.Add(batch);AddChild(batch);}
         batchIndex++;batch.Visible=true;
+        batch.TextureFilter=filter==2?TextureFilterEnum.Linear:filter==1?TextureFilterEnum.Nearest:TextureFilterEnum.ParentNode;
         if(!materials.TryGetValue(blend,out var material))
         {
             if(blend is 4 or 5 or 6)
@@ -46,7 +48,7 @@ public partial class GmCanvas : Node2D
     public override void _Draw(){if(Commands.Count>0)StartBatches();Paint?.Invoke(this);foreach(var command in Commands.ToArray())command(this);}
 }
 
-public sealed class GmGraphics
+public sealed partial class GmGraphics
 {
     public int AuditResourceImages()
     {
@@ -65,6 +67,8 @@ public sealed class GmGraphics
     }
     private readonly Node owner;
     private readonly GmWorld world;
+    private readonly GmTriangleCache triangleCache=new();
+    private int triangleCacheRoom=int.MinValue;
     private readonly Dictionary<string,Texture2D> textures=new();
     private readonly Dictionary<int,(SubViewport View,GmCanvas Canvas)> surfaces=new();
     private readonly Dictionary<int,Image> surfacePixels=new();
@@ -102,7 +106,7 @@ public sealed class GmGraphics
         var pixels=TexturePixels(Texture(frames[index].GetProperty("path").GetString()!)).Data;
         int count=0;for(int i=3;i<pixels.Length;i+=4)if(pixels[i]>0)count++;return count;
     }
-    public object Statistics()=>new{surfaces=surfaces.Count,textures=textures.Count,pixelCaches=textureData.Count,generated=textures.Keys.Count(k=>k.StartsWith("generated/",StringComparison.Ordinal))};
+    public object Statistics()=>new{surfaces=surfaces.Count,textures=textures.Count,pixelCaches=textureData.Count,generated=textures.Keys.Count(k=>k.StartsWith("generated/",StringComparison.Ordinal)),triangleCacheEntries=triangleCache.Count,triangleCacheBytes=triangleCache.Bytes,triangleCacheHits=triangleCache.Hits,triangleCacheMisses=triangleCache.Misses,effects=EffectStatistics(),cpuFallbacks=effectFallbacks};
     private void ReleaseTexture(string path)
     {
         if(world.Sprites.Values.Any(s=>s.GetProperty("frames").EnumerateArray().Any(f=>f.GetProperty("path").GetString()==path)))return;
@@ -130,8 +134,9 @@ public sealed class GmGraphics
     private Color Tint=>new(colour.R,colour.G,colour.B,Math.Clamp(alpha,0,1));
     private void Add(Action<GmCanvas> command)
     {
-        int mode=blend;
-        Action<GmCanvas> draw=c=>c.Batch(command,mode);
+        if(target>=0&&effects.ContainsKey(target))SoftwareEffect(target);
+        int mode=blend,filter=drawFilter;
+        Action<GmCanvas> draw=c=>c.Batch(command,mode,filter);
         if(target<0)main.Add(draw);
         else if(surfaces.TryGetValue(target,out var surface)){surface.Canvas.Commands.Add(draw);surface.Canvas.QueueRedraw();}
     }
@@ -182,7 +187,7 @@ public sealed class GmGraphics
     private void Tiled(Texture2D texture,Vector2 position,Vector2 scale,Color tint,bool horizontal=true,bool vertical=true)
     {
         var size=texture.GetSize()*scale;if(size.X<=0||size.Y<=0)return;
-        var bounds=target<0?new Rect2(Camera,viewSize):new Rect2(Vector2.Zero,surfaces[target].View.Size);
+        var bounds=target<0?new Rect2(Camera,viewSize):new Rect2(Vector2.Zero,SurfaceSize(target));
         float x1=horizontal?position.X+MathF.Floor((bounds.Position.X-position.X)/size.X)*size.X:position.X;
         float y1=vertical?position.Y+MathF.Floor((bounds.Position.Y-position.Y)/size.Y)*size.Y:position.Y;
         float x2=horizontal?bounds.End.X:x1+size.X,y2=vertical?bounds.End.Y:y1+size.Y;
@@ -261,6 +266,20 @@ public sealed class GmGraphics
     }
     private void Textured(Texture2D texture,Vector2 origin,Rect2 source,Vector2 position,Vector2 scale,float angle,Color tint)
     {
+        if(target>=0&&effects.TryGetValue(target,out var effect))
+        {
+            var transform=new Transform2D(angle,scale,0,position);
+            var a=transform*-origin;var b=transform*(new Vector2(source.Size.X,0)-origin);
+            var c=transform*(source.Size-origin);var d=transform*(new Vector2(0,source.Size.Y)-origin);
+            if(texture==White&&tint.A>=1&&blend is 0 or 4&&angle==0&&a.X<=0&&a.Y<=0&&c.X>=effect.Logical.X&&c.Y>=effect.Logical.Y)
+            {
+                effect.Reset();c.Y=d.Y=effect.View.Size.Y*effect.Divisor;c.X=b.X=effect.View.Size.X*effect.Divisor;
+            }
+            var size=texture.GetSize();var uv=source.Position/size;var end=source.End/size;
+            effect.Triangle(texture,blend,a,b,c,tint,tint,tint,uv,new(end.X,uv.Y),end);
+            effect.Triangle(texture,blend,a,c,d,tint,tint,tint,uv,end,new(uv.X,end.Y));
+            return;
+        }
         if(target>=0&&surfacePixels.TryGetValue(target,out var pixels))
         {
             var data=TexturePixels(texture);
@@ -279,6 +298,7 @@ public sealed class GmGraphics
     }
     private Image SurfaceImage(int id)
     {
+        SoftwareEffect(id);
         var image=surfacePixels[id];
         if(dirtySurfaces.Remove(id))image.SetData(image.GetWidth(),image.GetHeight(),false,Image.Format.Rgba8,surfaceData[id]);
         return image;
@@ -286,6 +306,7 @@ public sealed class GmGraphics
     private void DirtySurface(int id){dirtySurfaces.Add(id);dirtySurfaceTextures.Add(id);}
     private Texture2D SurfaceTexture(int id)
     {
+        if(effects.TryGetValue(id,out var effect)){effect.Schedule();return surfaces[id].View.GetTexture();}
         bool changed=dirtySurfaceTextures.Remove(id);
         var image=SurfaceImage(id);
         if(!surfaceTextures.TryGetValue(id,out var texture))surfaceTextures[id]=texture=ImageTexture.CreateFromImage(image);
@@ -307,6 +328,11 @@ public sealed class GmGraphics
             GmPixels.FillRectangle(destination,width,height,x1,y1,x2,y2,(byte)(Math.Clamp(tint.R,0,1)*255),(byte)(Math.Clamp(tint.G,0,1)*255),(byte)(Math.Clamp(tint.B,0,1)*255),255);return;
         }
         float xx=inverse.X.X,xy=inverse.Y.X,yx=inverse.X.Y,yy=inverse.Y.Y,tx=inverse.Origin.X,ty=inverse.Origin.Y;
+        if(angle==0&&scale.X>0&&scale.Y>0&&origin==Vector2.Zero&&source.Position==Vector2.Zero&&source.Size==new Vector2(imageWidth,imageHeight)&&tint==Colors.White&&blend==0)
+        {
+            GmPixels.CompositeNormal(destination,width,height,image,imageWidth,imageHeight,left,top,right+1,bottom+1,xx,yy,tx,ty);
+            return;
+        }
         for(int y=top;y<=bottom;y++)for(int x=left;x<=right;x++)
         {
             float localX=xx*(x+0.5f)+xy*(y+0.5f)+tx+origin.X,localY=yx*(x+0.5f)+yy*(y+0.5f)+ty+origin.Y;
@@ -318,7 +344,7 @@ public sealed class GmGraphics
             BlendPixel(destination,di,sr,sg,sb,sa);
         }
     }
-    private void BlendPixel(byte[] destination,int di,float sr,float sg,float sb,float sa)
+    private void BlendPixel(byte[] destination,int di,float sr,float sg,float sb,float sa,bool round=false)
     {
             float dr=destination[di]/255f,dg=destination[di+1]/255f,db=destination[di+2]/255f,da=destination[di+3]/255f;
             float r,g,b,a;
@@ -333,14 +359,21 @@ public sealed class GmGraphics
                 case 6:r=sr*dr+dr;g=sg*dg+dg;b=sb*db+db;a=sa*da+da;break;
                 default:throw new NotSupportedException("Surface blend "+blend);
             }
-            destination[di]=(byte)(Math.Clamp(r,0,1)*255);
-            destination[di+1]=(byte)(Math.Clamp(g,0,1)*255);
-            destination[di+2]=(byte)(Math.Clamp(b,0,1)*255);
-            destination[di+3]=(byte)(Math.Clamp(a,0,1)*255);
+            byte Quantize(float value)=>(byte)(round?MathF.Round(Math.Clamp(value,0,1)*255):Math.Clamp(value,0,1)*255);
+            destination[di]=Quantize(r);
+            destination[di+1]=Quantize(g);
+            destination[di+2]=Quantize(b);
+            destination[di+3]=Quantize(a);
     }
-    private void Triangle(Vector2 a,Vector2 b,Vector2 c,Color ca,Color cb,Color cc,Vector2 ua,Vector2 ub,Vector2 uc,Texture2D? texture)
+    private void Triangle(Vector2 a,Vector2 b,Vector2 c,Color ca,Color cb,Color cc,Vector2 ua,Vector2 ub,Vector2 uc,Texture2D? texture,bool round=false)
     {
         var pixels=surfacePixels[target];int width=pixels.GetWidth(),height=pixels.GetHeight();var destination=surfaceData[target];
+        if(texture is null&&ca==Colors.Black&&cb==ca&&cc==ca&&blend==0)
+        {
+            if(triangleCacheRoom!=world.CurrentRoom){triangleCache.Clear();triangleCacheRoom=world.CurrentRoom;}
+            triangleCache.Fill(destination,width,height,a.X,a.Y,b.X,b.Y,c.X,c.Y);
+            DirtySurface(target);return;
+        }
         float Edge(Vector2 p,Vector2 q,Vector2 point)=>(q.X-p.X)*(point.Y-p.Y)-(q.Y-p.Y)*(point.X-p.X);
         float area=Edge(a,b,c);if(area==0)return;
         if(area<0){(b,c)=(c,b);(cb,cc)=(cc,cb);(ub,uc)=(uc,ub);area=-area;}
@@ -363,7 +396,7 @@ public sealed class GmGraphics
                 int offset=(sy*source.Width+sx)*4;
                 var texels=source.Data!;tint*=new Color(texels[offset]/255f,texels[offset+1]/255f,texels[offset+2]/255f,texels[offset+3]/255f);
             }
-            BlendPixel(destination,(y*width+x)*4,tint.R,tint.G,tint.B,tint.A);
+            BlendPixel(destination,(y*width+x)*4,tint.R,tint.G,tint.B,tint.A,round);
         }
         DirtySurface(target);
     }
@@ -392,7 +425,23 @@ public sealed class GmGraphics
         if(indices.Length==0)return;
         if(target>=0)
         {
-            for(int i=0;i<indices.Length;i+=3){int a=indices[i],b=indices[i+1],c=indices[i+2];Triangle(points[a],points[b],points[c],colours[a],colours[b],colours[c],coords[a],coords[b],coords[c],texture);}
+            if(effects.TryGetValue(target,out var effect))
+            {
+                for(int n=0;n<indices.Length;n+=3)
+                {
+                    int a=indices[n],b=indices[n+1],c=indices[n+2];
+                    effect.Triangle(texture,blend,points[a],points[b],points[c],colours[a],colours[b],colours[c],coords[a],coords[b],coords[c]);
+                }
+                return;
+            }
+            for(int i=0;i<indices.Length;i+=3)
+            {
+                int a=indices[i],b=indices[i+1],c=indices[i+2];
+                bool fast=texture is null&&colours[a]==Colors.Black&&colours[b]==colours[a]&&colours[c]==colours[a]&&blend==0;
+                long started=world.Performance.Start();
+                try{Triangle(points[a],points[b],points[c],colours[a],colours[b],colours[c],coords[a],coords[b],coords[c],texture);}
+                finally{world.Performance.End(fast?"surface_triangle_opaque":"surface_triangle_general",started);}
+            }
         }
         else Add(c=>RenderingServer.CanvasItemAddTriangleArray(c.GetCanvasItem(),indices,points,colours,coords,texture:texture?.GetRid()??default));
     }
@@ -487,9 +536,9 @@ public sealed class GmGraphics
         view.QueueFree();Call("surface_free",[surface],context);target=-1;blend=0;alpha=1;
         if(errors.Count>0)throw new InvalidOperationException("Blend mismatch: "+string.Join(",",errors));
     }
-    private async Task AuditDrawFrames()
+    private async Task AuditDrawFrames(int count=2)
     {
-        for(int frame=0;frame<2;frame++)
+        for(int frame=0;frame<count;frame++)
         {
             await owner.ToSignal(owner.GetTree(),SceneTree.SignalName.ProcessFrame);
             RenderingServer.ForceDraw(false);
@@ -589,7 +638,9 @@ public sealed class GmGraphics
                 var scale=name=="draw_background_tiled"?Vector2.One:P(3);
                 var tint=name=="draw_background_tiled"?Colors.White:Colour(N(name=="draw_background_ext"?6:5),N(name=="draw_background_ext"?7:6));
                 if(name=="draw_background_ext"){Textured(texture,Vector2.Zero,new(Vector2.Zero,texture.GetSize()),P(1),scale,-Mathf.DegToRad(F(5)),tint);return 0;}
-                Tiled(texture,P(1),scale,tint);
+                bool surfaceTarget=target>=0;long started=surfaceTarget?world.Performance.Start():0;
+                try{Tiled(texture,P(1),scale,tint);}
+                finally{if(surfaceTarget)world.Performance.End("surface_background_tiled",started);}
                 return 0;
             }
             case "draw_set_blend_mode":blend=I(0) switch{0=>0,1=>1,3=>3,_=>throw new NotSupportedException("Blend mode "+I(0))};return 0;
@@ -649,7 +700,7 @@ public sealed class GmGraphics
             case "draw_line_width":case "draw_line_width_color":
             {var offset=target<0?Camera:Vector2.Zero;var p1=P(0)-offset;var p2=P(2)-offset;float width=F(4);var tint=name=="draw_line_width"?Tint:Colour(N(5),alpha);Add(c=>c.DrawLine(p1,p2,tint,width));return 0;}
             case "draw_point":case "draw_point_color":
-            {var p=P(0)-(target<0?Camera:Vector2.Zero);var tint=name=="draw_point"?Tint:Colour(N(2),alpha);if(target>=0){var image=surfacePixels[target];if(p.X>=0&&p.Y>=0&&p.X<image.GetWidth()&&p.Y<image.GetHeight()){int offset=((int)p.Y*image.GetWidth()+(int)p.X)*4;BlendPixel(surfaceData[target],offset,tint.R,tint.G,tint.B,tint.A);DirtySurface(target);}}else Add(c=>c.DrawRect(new Rect2(p,Vector2.One),tint));return 0;}
+            {var p=P(0)-(target<0?Camera:Vector2.Zero);var tint=name=="draw_point"?Tint:Colour(N(2),alpha);if(target>=0){SoftwareEffect(target);var image=surfacePixels[target];if(p.X>=0&&p.Y>=0&&p.X<image.GetWidth()&&p.Y<image.GetHeight()){int offset=((int)p.Y*image.GetWidth()+(int)p.X)*4;BlendPixel(surfaceData[target],offset,tint.R,tint.G,tint.B,tint.A);DirtySurface(target);}}else Add(c=>c.DrawRect(new Rect2(p,Vector2.One),tint));return 0;}
             case "draw_circle":case "draw_circle_color":
             {var p=P(0)-(target<0?Camera:Vector2.Zero);float radius=F(2);var tint=name=="draw_circle"?Tint:Colour(N(3),alpha);bool filled=N(name=="draw_circle"?3:5)<0.5;Add(c=>c.DrawCircle(p,radius,tint,filled));return 0;}
             case "draw_ellipse_color":
@@ -657,22 +708,29 @@ public sealed class GmGraphics
             case "surface_create":
             {
                 int id=nextSurface++;
+                if(CreateEffect(id,Math.Max(1,I(0)),Math.Max(1,I(1)),context))return id;
                 var image=Image.CreateEmpty(Math.Max(1,I(0)),Math.Max(1,I(1)),false,Image.Format.Rgba8);image.Fill(Colors.Black);surfacePixels[id]=image;surfaceData[id]=image.GetData();
                 var view=new SubViewport{Size=new(Math.Max(1,I(0)),Math.Max(1,I(1))),TransparentBg=true,RenderTargetUpdateMode=SubViewport.UpdateMode.Disabled};
                 var canvas=new GmCanvas();view.AddChild(canvas);owner.AddChild(view);surfaces[id]=(view,canvas);return id;
             }
             case "surface_exists":return surfaces.ContainsKey(I(0));
-            case "surface_free":if(surfaces.Remove(I(0),out var old))old.View.QueueFree();if(surfacePixels.Remove(I(0),out var removed))removed.Dispose();surfaceData.Remove(I(0));dirtySurfaces.Remove(I(0));dirtySurfaceTextures.Remove(I(0));if(surfaceTextures.Remove(I(0),out var freed))textureData.Remove(freed);if(target==I(0))target=-1;return 0;
+            case "surface_free":effects.Remove(I(0));effectInfo.Remove(I(0));triangleCache.Clear();if(surfaces.Remove(I(0),out var old))RetireSurface(old.View);if(surfacePixels.Remove(I(0),out var removed))removed.Dispose();surfaceData.Remove(I(0));dirtySurfaces.Remove(I(0));dirtySurfaceTextures.Remove(I(0));if(surfaceTextures.Remove(I(0),out var freed))textureData.Remove(freed);if(target==I(0))target=-1;return 0;
             case "surface_set_target":if(!surfaces.ContainsKey(I(0)))return false;target=I(0);return true;
             case "surface_reset_target":target=-1;return 0;
             case "surface_get_texture":return I(0);
             case "draw_surface":case "draw_surface_ext":
             {
                 if(!surfaces.TryGetValue(I(0),out var s))return 0;
+                if(target>=0&&!effects.ContainsKey(target))SoftwareEffect(I(0));
                 var texture=SurfaceTexture(I(0));
-                Textured(texture,Vector2.Zero,new(Vector2.Zero,s.View.Size),P(1),name=="draw_surface_ext"?P(3):Vector2.One,name=="draw_surface_ext"?-Mathf.DegToRad(F(5)):0,name=="draw_surface_ext"?Colour(N(6),N(7)):Colors.White);return 0;
+                var logical=SurfaceSize(I(0));var actual=texture.GetSize();
+                var surfaceScale=(name=="draw_surface_ext"?P(3):Vector2.One)*(effects.TryGetValue(I(0),out var sourceEffect)?new Vector2(sourceEffect.Divisor,sourceEffect.Divisor):Vector2.One);
+                var sourceSize=effects.ContainsKey(I(0))?logical/(float)effects[I(0)].Divisor:actual;
+                int savedFilter=drawFilter;drawFilter=effects.TryGetValue(I(0),out sourceEffect)&&sourceEffect.Divisor==4?2:1;
+                Textured(texture,Vector2.Zero,new(Vector2.Zero,sourceSize),P(1),surfaceScale,name=="draw_surface_ext"?-Mathf.DegToRad(F(5)):0,name=="draw_surface_ext"?Colour(N(6),N(7)):Colors.White);drawFilter=savedFilter;return 0;
             }
             case "draw_clear_alpha":
+                if(effects.TryGetValue(target,out var cleared)){cleared.Reset();var saved=blend;blend=4;Textured(White,Vector2.Zero,new(0,0,1,1),Vector2.Zero,cleared.Logical,0,Colour(N(0),N(1)));blend=saved;return 0;}
                 if(target>=0&&surfaces.TryGetValue(target,out var surface)){surfacePixels[target].Fill(Colour(N(0),N(1)));surfaceData[target]=surfacePixels[target].GetData();DirtySurface(target);surface.Canvas.Commands.Clear();surface.Canvas.StartBatches();surface.View.TransparentBg=N(1)<0.5;surface.Canvas.QueueRedraw();}return 0;
             case "sprite_set_alpha_from_sprite":
             {
@@ -691,10 +749,20 @@ public sealed class GmGraphics
                 }
                 return 0;
             }
-            case "draw_primitive_begin":case "draw_primitive_begin_texture":primitive=I(0);vertices.Clear();uvs.Clear();vertexColours.Clear();primitiveTexture=name.EndsWith("_texture",StringComparison.Ordinal)&&surfaces.ContainsKey(I(1))?SurfaceTexture(I(1)):null;return 0;
+            case "draw_primitive_begin":case "draw_primitive_begin_texture":primitive=I(0);vertices.Clear();uvs.Clear();vertexColours.Clear();if(target>=0&&!effects.ContainsKey(target)&&name.EndsWith("_texture",StringComparison.Ordinal))SoftwareEffect(I(1));primitiveTexture=name.EndsWith("_texture",StringComparison.Ordinal)&&surfaces.ContainsKey(I(1))?SurfaceTexture(I(1)):null;return 0;
             case "draw_vertex":case "draw_vertex_texture_color":vertices.Add(P(0)-(target<0?Camera:Vector2.Zero));uvs.Add(name=="draw_vertex"?Vector2.Zero:P(2));vertexColours.Add(name=="draw_vertex"?Tint:Colour(N(4),N(5)));return 0;
             case "draw_primitive_end":
-            {Primitive(vertices.ToArray(),vertexColours.ToArray(),uvs.ToArray(),primitiveTexture,primitive);return 0;}
+            {
+                if(effects.TryGetValue(target,out var effect)&&primitive is 4 or 5 or 6)
+                {
+                    void Emit(int a,int b,int c)=>effect.Triangle(primitiveTexture,blend,vertices[a],vertices[b],vertices[c],vertexColours[a],vertexColours[b],vertexColours[c],uvs[a],uvs[b],uvs[c]);
+                    if(primitive==4){for(int n=0;n+2<vertices.Count;n+=3)Emit(n,n+1,n+2);}
+                    else if(primitive==5){for(int n=0;n+2<vertices.Count;n++)if(n%2==0)Emit(n,n+1,n+2);else Emit(n+1,n,n+2);}
+                    else{for(int n=1;n+1<vertices.Count;n++)Emit(0,n,n+1);}
+                }
+                else Primitive(vertices.ToArray(),vertexColours.ToArray(),uvs.ToArray(),primitiveTexture,primitive);
+                return 0;
+            }
         }
         return null;
     }

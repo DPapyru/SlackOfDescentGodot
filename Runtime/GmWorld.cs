@@ -37,8 +37,23 @@ public sealed partial class GmWorld
     private readonly Dictionary<JsonElement,JsonElement[]> actionEntries=new(GmJsonIdentity.Instance);
     private int indexedCount=-1;
     private int nextCollisionOrder;
+    private sealed record CollisionSnapshot(GmInstance[] Instances,Dictionary<GmInstance,int> Order);
+    private readonly Dictionary<int,CollisionSnapshot> collisionSnapshots=new();
+    private readonly Stack<List<int>> collisionCandidatePool=new();
+    public long CollisionSnapshotRebuilds,CollisionCandidateVisits,CollisionExactTests;
+    private CollisionSnapshot Snapshot(int target,GmContext context)
+    {
+        if(indexedCount!=Instances.Count)ResetInstanceLookup();
+        if(collisionSnapshots.TryGetValue(target,out var snapshot))return snapshot;
+        var instances=Select(target,context).ToArray();
+        var order=new Dictionary<GmInstance,int>(instances.Length);
+        for(int n=0;n<instances.Length;n++)order[instances[n]]=n;
+        CollisionSnapshotRebuilds++;
+        return collisionSnapshots[target]=new(instances,order);
+    }
     private void ResetInstanceLookup()
     {
+        collisionSnapshots.Clear();
         instanceCounts.Clear();
         instanceLookup.Clear();selectionLookup.Clear();exactInstances.Clear();
         foreach(var instance in Instances)
@@ -50,7 +65,7 @@ public sealed partial class GmWorld
         indexedCount=Instances.Count;
     }
     private void InvalidateEvents(){eventOwners.Clear();collisionTargets.Clear();eventObjects.Clear();}
-    private void InvalidateObjects(){indexedCount=-1;selectionLookup.Clear();objectRelations.Clear();instanceCounts.Clear();InvalidateEvents();InvalidateCollisionSprites();}
+    private void InvalidateObjects(){collisionSnapshots.Clear();indexedCount=-1;selectionLookup.Clear();objectRelations.Clear();instanceCounts.Clear();InvalidateEvents();InvalidateCollisionSprites();}
     public readonly Dictionary<int, JsonElement> Rooms = new();
     public readonly Dictionary<int, JsonElement> Sprites = new();
     public readonly Dictionary<string, string> Scripts = new(StringComparer.Ordinal);
@@ -243,8 +258,10 @@ public sealed partial class GmWorld
             indexedCount++;
         }
         Instances.Add(instance);
+        collisionSnapshots.Clear();geometryVersion++;
         instanceCounts.Clear();instance.VisibilityChanged=()=>
         {
+            collisionSnapshots.Clear();geometryVersion++;
             instanceCounts.Clear();if(instance.Destroyed)changedColliders.Add(instance);
             if(instance.Object==Constants["objFluid"].Int||instance.Object==Constants["objFluidInWater"].Int)
                 instance.InactiveEffectExpiry=instance.Active?0:Frame+Math.Max(1,instance.Scope.Read("alarm",[0]).Int);
@@ -448,15 +465,43 @@ public sealed partial class GmWorld
             }
             foreach(int target in targets)
             {
-                var nearby=Nearby(Bounds(i));
-                foreach(var other in Select(target,new(i)).Where(o=>o!=i).ToArray())
+                if(target<0||target>=100000)
                 {
-                    if(i.Destroyed)break;
-                    if(changedColliders.Count>0||collisionIndexedCount!=Instances.Count)nearby=Nearby(Bounds(i));
-                    if(!nearby.Contains(other)||!Touches(i,other,i.Scope.ReadOr("x").Number,i.Scope.ReadOr("y").Number))continue;
-                    if(other.Scope.ReadOr("solid").Truth){Write(i,"x",i.Scope.ReadOr("xprevious"));Write(i,"y",i.Scope.ReadOr("yprevious"));}
-                    await EventAsync(i,4,target,other);
+                    foreach(var other in Select(target,new(i)).Where(o=>o!=i).ToArray())
+                    {
+                        if(i.Destroyed)break;
+                        CollisionCandidateVisits++;CollisionExactTests++;
+                        if(!Touches(i,other,i.Scope.ReadOr("x").Number,i.Scope.ReadOr("y").Number))continue;
+                        if(other.Scope.ReadOr("solid").Truth){Write(i,"x",i.Scope.ReadOr("xprevious"));Write(i,"y",i.Scope.ReadOr("yprevious"));}
+                        await EventAsync(i,4,target,other);
+                    }
+                    continue;
                 }
+                var snapshot=Snapshot(target,new(i));
+                var nearby=nearbyPool.Count>0?nearbyPool.Pop():new HashSet<GmInstance>();
+                var candidates=collisionCandidatePool.Count>0?collisionCandidatePool.Pop():new List<int>();
+                int cursor=-1,index=0;long version=-1;
+                try
+                {
+                    while(!i.Destroyed)
+                    {
+                        if(version!=geometryVersion)
+                        {
+                            Nearby(Bounds(i),nearby);version=geometryVersion;
+                            candidates.Clear();index=0;
+                            foreach(var member in nearby)
+                                if(member!=i&&snapshot.Order.TryGetValue(member,out int order)&&order>cursor)candidates.Add(order);
+                            candidates.Sort();
+                        }
+                        if(index>=candidates.Count)break;
+                        cursor=candidates[index++];var other=snapshot.Instances[cursor];
+                        CollisionCandidateVisits++;CollisionExactTests++;
+                        if(!Touches(i,other,i.Scope.ReadOr("x").Number,i.Scope.ReadOr("y").Number))continue;
+                        if(other.Scope.ReadOr("solid").Truth){Write(i,"x",i.Scope.ReadOr("xprevious"));Write(i,"y",i.Scope.ReadOr("yprevious"));}
+                        await EventAsync(i,4,target,other);
+                    }
+                }
+                finally{nearby.Clear();nearbyPool.Push(nearby);candidates.Clear();collisionCandidatePool.Push(candidates);}
             }
         }
         await RunObjectEventAsync(3,2);

@@ -6,6 +6,6 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../Runtime/Gm*.cs" Exclude="../Runtime/GmAudio.cs;../Runtime/GmGraphics.cs" />
+    <Compile Include="../Runtime/Gm*.cs" Exclude="../Runtime/GmAudio.cs;../Runtime/GmGraphics.cs;../Runtime/GmEffectSurfaces.cs" />
   </ItemGroup>
 </Project>

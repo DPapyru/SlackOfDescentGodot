@@ -53,6 +53,8 @@ public sealed partial class GmWorld
     private readonly Dictionary<GmInstance,GmBounds> collisionMembership=new();
     private readonly HashSet<GmInstance> largeColliders=new();
     private readonly HashSet<GmInstance> changedColliders=new();
+    private long geometryVersion;
+    private readonly Stack<HashSet<GmInstance>> nearbyPool=new();
     private int collisionIndexedCount=-1;
     private const int CollisionCellSize=128;
     private static (int Left,int Top,int Right,int Bottom) Cells(GmBounds b)=>((int)Math.Floor(b.Left/CollisionCellSize),(int)Math.Floor(b.Top/CollisionCellSize),(int)Math.Floor(b.Right/CollisionCellSize),(int)Math.Floor(b.Bottom/CollisionCellSize));
@@ -64,11 +66,11 @@ public sealed partial class GmWorld
     {
         instance.Scope.Changed=name=>
         {
-            if(name is "x" or "y" or "sprite_index" or "mask_index" or "image_xscale" or "image_yscale" or "image_angle")changedColliders.Add(instance);
-            else if(name=="image_index"&&Mask(instance,out var mask)&&(!instance.HasBounds||!ReferenceEquals(instance.BoundsKey.Mask,mask)))changedColliders.Add(instance);
+            if(name is "x" or "y" or "sprite_index" or "mask_index" or "image_xscale" or "image_yscale" or "image_angle"){changedColliders.Add(instance);geometryVersion++;}
+            else if(name=="image_index"&&Mask(instance,out var mask)&&(!instance.HasBounds||!ReferenceEquals(instance.BoundsKey.Mask,mask))){changedColliders.Add(instance);geometryVersion++;}
         };
     }
-    internal void InvalidateCollisionSprites()=>collisionIndexedCount=-1;
+    internal void InvalidateCollisionSprites(){collisionIndexedCount=-1;geometryVersion++;}
     internal void ForgetCollisionSprite(JsonElement sprite)=>collisionMasks.Remove(sprite);
     private void IndexCollider(GmInstance instance)
     {
@@ -93,7 +95,7 @@ public sealed partial class GmWorld
             members.Add(instance);
         }
     }
-    private HashSet<GmInstance> Nearby(GmBounds bounds)
+    private HashSet<GmInstance> Nearby(GmBounds bounds,HashSet<GmInstance>? reuse=null)
     {
         if(collisionIndexedCount!=Instances.Count)
         {
@@ -107,7 +109,7 @@ public sealed partial class GmWorld
             foreach(var instance in changedColliders)IndexCollider(instance);
             changedColliders.Clear();
         }
-        var result=new HashSet<GmInstance>();if(bounds.Empty)return result;
+        var result=reuse??new HashSet<GmInstance>();result.Clear();if(bounds.Empty)return result;
         if(Large(bounds)){foreach(var pair in collisionMembership)if(pair.Value.Overlaps(bounds))result.Add(pair.Key);return result;}
         var range=Cells(bounds);
         for(int y=range.Top;y<=range.Bottom;y++)for(int x=range.Left;x<=range.Right;x++)
@@ -117,8 +119,18 @@ public sealed partial class GmWorld
     }
     private IEnumerable<GmInstance> CollisionCandidates(GmBounds bounds,int target,GmContext context,bool notMe=true)
     {
-        if(target is -1 or -2 or -4||target>=100000)return Select(target,context).Where(i=>!notMe||i!=context.Self);
-        return Nearby(bounds).Where(i=>!i.Destroyed&&i.Active&&(!notMe||i!=context.Self)&&(target==-3||i.Id==target||IsObject(i.Object,target))).OrderBy(i=>i.CollisionOrder);
+        if(target is -1 or -2 or -4||target>=100000)
+        {
+            foreach(var instance in Select(target,context))if(!notMe||instance!=context.Self)yield return instance;
+            yield break;
+        }
+        var nearby=nearbyPool.Count>0?nearbyPool.Pop():new HashSet<GmInstance>();
+        try
+        {
+            Nearby(bounds,nearby);
+            foreach(var instance in nearby.Where(i=>!i.Destroyed&&i.Active&&(!notMe||i!=context.Self)&&(target==-3||i.Id==target||IsObject(i.Object,target))).OrderBy(i=>i.CollisionOrder))yield return instance;
+        }
+        finally{nearby.Clear();nearbyPool.Push(nearby);}
     }
     public bool MouseOver(GmInstance instance,double x,double y)=>Bounds(instance).Overlaps(new(x,y,x,y))&&Opaque(instance,x,y);
 

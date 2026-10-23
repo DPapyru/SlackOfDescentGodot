@@ -6,6 +6,26 @@ namespace SlackOfDescent;
 
 public partial class GameHost
 {
+    private IEnumerable<int> AuditRain()
+    {
+        var context=new GmContext(new GmInstance());
+        var player=world.Select(world.Constants["objPlayerDoll"].Int,context).Single();
+        if(!world.Select(world.Constants["objRainController"].Int,context).Any())world.Create(world.Constants["objRainController"].Int,0,0);
+        var samples=new List<double>();
+        long started=0;
+        for(int frame=0;frame<240;frame++)
+        {
+            world.Write(player,"x",7997);world.Write(player,"y",1024);world.Write(player,"speed",0);
+            world.Globals.Write("PlayerHP",100);world.Globals.Write("GameOver",0);
+            if(frame==60)started=Stopwatch.GetTimestamp();
+            long step=Stopwatch.GetTimestamp();StepFrame();
+            if(frame>=60)samples.Add(Stopwatch.GetElapsedTime(step).TotalMilliseconds);
+            yield return 0;
+        }
+        double seconds=Stopwatch.GetElapsedTime(started).TotalSeconds;samples.Sort();
+        GD.Print("RAIN_AUDIT room=",world.CurrentRoom," x=7997 y=1024 frames=",samples.Count," logic_fps=",(samples.Count/seconds).ToString("F2")," mean_ms=",samples.Average().ToString("F3")," p95_ms=",samples[(int)((samples.Count-1)*0.95)].ToString("F3")," max_ms=",samples[^1].ToString("F3")," rain_blocks=",world.Select(world.Constants["objRainBlock"].Int,context).Count()," resources=",JsonSerializer.Serialize(graphics.Statistics()));
+    }
+
     private void ContentAudit(string[] args)
     {
         int visit=Array.IndexOf(args,"--visit-room");

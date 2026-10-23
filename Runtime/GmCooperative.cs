@@ -33,6 +33,7 @@ public sealed partial class GmEvaluator
     {
         if(string.IsNullOrEmpty(key))return 0;
         var code=world.Code[key];if(!CanWait(code))return Run(key,context);
+        long started=world.Performance.ScriptsEnabled?System.Diagnostics.Stopwatch.GetTimestamp():0;
         try
         {
             var result=await WaitNode(code,context);
@@ -41,6 +42,7 @@ public sealed partial class GmEvaluator
         }
         catch(GmFlow flow){return flow.Value;}
         catch(Exception e){throw new InvalidOperationException(key+": "+e.Message,e);}
+        finally{world.Performance.Script(key,started);}
     }
     private async ValueTask<bool> WaitLoop(JsonElement body,GmContext context)
     {

@@ -6,7 +6,6 @@ using static SlackOfDescent.NativeMapService;
 
 namespace SlackOfDescent;
 
-/// <summary>Standalone reproducible data, real editor event routing, loading and rendered gameplay audits.</summary>
 public partial class NativeMapAudit : Node2D
 {
     private GmWorld world = null!;
@@ -57,6 +56,7 @@ public partial class NativeMapAudit : Node2D
             var service = new NativeMapService(world, registry);
             var original = service.ImportOriginal(service.TestRoomId).Document;
             string path = Path.Combine(output, "中文 空格", "完整测试.map.json"); service.Save(original, path);
+            if (mode == "collision") { await AuditPlayerCollision(service, original); return; }
             if (mode is "loads" or "cold")
             {
                 var times = new List<double>(); var phases = new List<object>();
@@ -85,7 +85,7 @@ public partial class NativeMapAudit : Node2D
                 }
                 Finish(new { kind = "complete-load", cache = mode == "cold" ? "fresh process; original map dependency loader included; OS page cache not purged" : "same process with dependencies prepared", times, phases, assertions, belowThreeSeconds = times.All(t => t < 3000) }); return;
             }
-            if (mode is not ("baseline" or "custom")) throw new InvalidOperationException("Mode must be ui, loads, baseline or custom");
+            if (mode is not ("baseline" or "custom")) throw new InvalidOperationException("Mode must be ui, cold, loads, collision, baseline or custom");
             await world.LoadRoomAsync(world.Constants["TestRoom_Loading"].Int);
             int room = mode == "baseline" ? service.TestRoomId : service.InstallForPlay(service.Load(path).Document);
             long loading = Stopwatch.GetTimestamp(); await world.LoadRoomAsync(room); loadMilliseconds = Stopwatch.GetElapsedTime(loading).TotalMilliseconds;
@@ -95,6 +95,52 @@ public partial class NativeMapAudit : Node2D
             int argFrames = args.Length > 1 ? int.Parse(args[1]) : 600; frames = argFrames; started = Stopwatch.GetTimestamp(); running = true;
         }
         catch (Exception exception) { GD.PushError(exception.ToString()); Finish(new { kind = mode, passed = false, error = exception.ToString() }, 1); }
+    }
+    private async Task AuditPlayerCollision(NativeMapService service, NativeMapDocument original)
+    {
+        await world.LoadRoomAsync(world.Constants["TestRoom_Loading"].Int);
+        var arena = original.Clone(); arena.Name = "编辑器碰撞操作验证"; arena.Room["width"] = 640; arena.Room["height"] = 480;
+        var keep = new HashSet<int>(new[] { "objSetRespawn", "objDisplay", "objController", "objMultiScroll" }.Select(n => world.Constants[n].Int));
+        foreach (var item in arena.Instances.OfType<JsonObject>().Where(i => !keep.Contains(Int(i, "object"))).ToArray()) arena.Instances.Remove(item);
+        arena.Tiles.Clear(); int block = world.Constants["objBlock"].Int;
+        for (int x = 0; x < 640; x += 32) service.AddEntity(arena, block, x, 320);
+        for (int y = 0; y < 320; y += 32) { service.AddEntity(arena, block, 0, y); service.AddEntity(arena, block, 608, y); }
+        for (int x = 288; x < 416; x += 32) service.AddEntity(arena, block, x, 224);
+        string path = Path.Combine(output, "edited-collision.map.json"); service.Save(arena, path); arena = service.Load(path).Document;
+        await world.LoadRoomAsync(service.InstallForPlay(arena)); service.ApplyProperties(arena);
+        var player = world.Instances.First(i => !i.Destroyed && world.IsObject(i.Object, world.Constants["objPlayerDoll"].Int));
+        async Task Place(double x, double y)
+        {
+            controls.Clear(world); world.Write(player, "x", x); world.Write(player, "y", y); world.Write(player, "hspeed", 0); world.Write(player, "vspeed", 0);
+            for (int i = 0; i < 90; i++) await Step();
+        }
+        await Place(128, 128); var floorBounds = world.Bounds(player);
+        Expect(floorBounds.Bottom >= 315 && floorBounds.Bottom < 321, "Actual character lands on edited floor");
+        int offset = world.Globals.Read("controllMode").Int == world.Constants["CTRL_KEY"].Int ? 12 : 0;
+        int jump = world.Globals.Read("key", [offset + 5]).Int;
+        double startY = player.Scope.Read("y").Number, topY = startY;
+        controls.Key(world, jump, true); await Step(); controls.Key(world, jump, false);
+        for (int i = 0; i < 90; i++) { await Step(); topY = Math.Min(topY, player.Scope.Read("y").Number); }
+        Expect(topY < startY - 10, "Actual jump input moves character above edited floor");
+        await Place(336, 96); var platformBounds = world.Bounds(player);
+        Expect(platformBounds.Bottom >= 219 && platformBounds.Bottom < 225, "Actual character lands on edited raised platform");
+        await Place(480, 128); int right = world.Globals.Read("key", [offset + 1]).Int;
+        double initialX = player.Scope.Read("x").Number; controls.Key(world, right, true); for (int i = 0; i < 120; i++) await Step(); controls.Key(world, right, false);
+        var rightBounds = world.Bounds(player); Expect(player.Scope.Read("x").Number > initialX + 10 && rightBounds.Right >= 600 && rightBounds.Right < 609, $"Actual right input meets edited wall at room boundary: key={right}, x={initialX}->{player.Scope.Read("x").Number}, bounds={rightBounds}");
+        await Place(128, 128); int left = world.Globals.Read("key", [offset]).Int;
+        double nearestLeft = double.PositiveInfinity;
+        controls.Key(world, left, true); for (int i = 0; i < 120; i++) { await Step(); nearestLeft = Math.Min(nearestLeft, world.Bounds(player).Left); } controls.Key(world, left, false);
+        var leftBounds = world.Bounds(player);
+        double stoppedX = player.Scope.Read("x").Number;
+        Expect(nearestLeft >= 32 && stoppedX < 112, $"Actual left input approaches edited wall without crossing: x={stoppedX}, bounds={leftBounds}");
+        foreach (var item in arena.Instances.OfType<JsonObject>().Where(i => Int(i, "object") == block && Number(i, "x") == 0 && Number(i, "y") < 320)) item["x"] = 32;
+        string shiftedPath = Path.Combine(output, "edited-collision-shifted.map.json"); service.Save(arena, shiftedPath); arena = service.Load(shiftedPath).Document;
+        await world.LoadRoomAsync(service.InstallForPlay(arena)); service.ApplyProperties(arena);
+        player = world.Instances.First(i => !i.Destroyed && world.IsObject(i.Object, world.Constants["objPlayerDoll"].Int));
+        await Place(128, 128); controls.Key(world, left, true); for (int i = 0; i < 120; i++) await Step(); controls.Key(world, left, false);
+        double shiftedStoppedX = player.Scope.Read("x").Number;
+        Expect(Math.Abs(shiftedStoppedX - stoppedX - 32) <= 8, $"Moving saved wall one block moves actual character stop: {stoppedX}->{shiftedStoppedX}");
+        Finish(new { kind = "actual-character-collision", assertions, passed = true, playerObject = world.Objects[player.Object].GetProperty("name").GetString(), floorBounds, platformBounds, rightBounds, leftBounds, nearestLeft, stoppedX, shiftedStoppedX, jumpRise = startY - topY, path, shiftedPath });
     }
     private void Expect(bool value, string message) { assertions++; if (!value) throw new InvalidOperationException(message); }
     private async Task InitializeGame()

@@ -30,7 +30,6 @@ if (mode === 'loads') {
   await writeFile(path.join(output, 'loads.json'), JSON.stringify({ cold, hot, passed: true }, null, 2));
   console.log(`MAP_LOADS_OK cold=5 hot=5 max_ms=${Math.max(...times).toFixed(2)} ${output}`);
 } else if (mode === 'performance') {
-  // Serial runs are intentional. The original runtime scheduler is retained for both scenarios.
   const baseline = await run('baseline', 'baseline', 600, true);
   const custom = await run('custom', 'custom', 600, true);
   const ratio = custom.p95Milliseconds / baseline.p95Milliseconds;
@@ -40,6 +39,8 @@ if (mode === 'loads') {
   console.log(`MAP_PERFORMANCE_OK p95_ratio=${ratio.toFixed(4)} baseline_fps=${baseline.renderFps.toFixed(2)} custom_fps=${custom.renderFps.toFixed(2)} ${output}`);
 } else if (mode === 'ui') {
   await run('ui', 'ui', 1, true); console.log(`MAP_UI_FINISHED ${output}`);
+} else if (mode === 'collision') {
+  await run('collision', 'collision', 1); console.log(`MAP_COLLISION_OK ${output}`);
 } else {
-  throw new Error('Use loads, performance or ui; pure data: dotnet run --project Tests/Map/NativeMapTests.csproj');
+  throw new Error('Use loads, performance, collision or ui; pure data: dotnet run --project Tests/Map/NativeMapTests.csproj');
 }

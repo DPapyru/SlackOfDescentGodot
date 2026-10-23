@@ -54,7 +54,7 @@ public sealed record NativePixelClipboard(int Width, int Height, byte[] Rgba)
         try
         {
             var value = JsonSerializer.Deserialize<NativePixelClipboard>(Convert.FromBase64String(text[14..]));
-            return value is not null && value.Width > 0 && value.Height > 0 && value.Width <= 1024 && value.Height <= 1024 && value.Rgba.Length == checked(value.Width * value.Height * 4) ? value : null;
+            return value is not null && value.Width > 0 && value.Height > 0 && value.Width <= 1024 && value.Height <= 1024 && value.Rgba is not null && value.Rgba.Length == checked(value.Width * value.Height * 4) ? value : null;
         }
         catch (Exception e) when (e is FormatException or JsonException or OverflowException) { return null; }
     }
@@ -177,6 +177,7 @@ public sealed class NativeCharacterDocument
     public void Validate()
     {
         if (string.IsNullOrWhiteSpace(Definition.Id) || Definition.Id.Length > 120 || Definition.Id.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '-' or '_'))) throw new InvalidDataException("角色 ID 必须由英文字母、数字、下划线或短横线组成。");
+        if (!double.IsFinite(Definition.AnimationFps) || Definition.AnimationFps is < 1 or > 60) throw new InvalidDataException("动画帧率必须为 1–60。请保留不支持的数据文件并更新编辑器。");
         if (Definition.FormatVersion != 1) throw new InvalidDataException("不支持的角色格式版本：" + Definition.FormatVersion);
         var ids = new HashSet<string>(StringComparer.Ordinal);
         foreach (var part in Definition.Parts)
@@ -203,7 +204,9 @@ public sealed class NativeCharacterDocument
     private static string Fingerprint(Snapshot value)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        hash.AppendData(JsonSerializer.SerializeToUtf8Bytes(value.Definition, NativeContentStore.Json));
+        var semanticDefinition = Clone(value.Definition);
+        foreach (var part in semanticDefinition.Parts) foreach (var frame in part.Frames) frame.Png = "";
+        hash.AppendData(JsonSerializer.SerializeToUtf8Bytes(semanticDefinition, NativeContentStore.Json));
         foreach (var entry in value.Pixels.OrderBy(p => p.Key, StringComparer.Ordinal)) { hash.AppendData(Encoding.UTF8.GetBytes(entry.Key)); hash.AppendData(entry.Value); }
         return Convert.ToHexString(hash.GetHashAndReset());
     }

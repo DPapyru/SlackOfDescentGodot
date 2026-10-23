@@ -50,7 +50,6 @@ foreach (var data in original.Instances.OfType<JsonObject>())
 service.ApplyProperties(loaded); var added = world.Instances.Single(i => i.Id == addedId);
 Expect(added.Scope.Read("editorValue").Number == 42 && added.Scope.Read("editorText").ToString() == "中文与 空格", "Saved custom properties reach gameplay instances");
 Expect(world.Call("collision_point", [513, 161, world.Constants["objBlock"], false, false], new(added)).Int != -4, "Edited collision block is query-ready");
-// A character-shaped actor is moved through floor, raised platform, wall and room edge probes.
 var collisionDocument = original.Clone(); collisionDocument.Instances.Clear(); collisionDocument.Tiles.Clear();
 int blockType = world.Constants["objBlock"].Int;
 for (int x = 0; x < 320; x += 32) service.AddEntity(collisionDocument, blockType, x, 256);
@@ -66,7 +65,6 @@ Expect(!Meets(96,128) && Meets(96,129), "Raised platform top contact boundary");
 Expect(!Meets(256,32) && Meets(257,32), "Wall contact boundary");
 Expect(!Meets(-32,256) && Meets(-31,256), "Room left edge collision boundary");
 Expect(!Meets(320,256) && Meets(319,256), "Room right edge collision boundary");
-// Preserve missing content through load-save; playback excludes it until the provider returns.
 var missing = service.AddEntity(loaded, -1, 128, 64, "missing.vendor.entity"); missing["properties"] = new JsonObject { ["health"] = 777 };
 loaded.Dependencies.Add("missing.asset.bundle"); service.Save(loaded, path); var missingLoaded = service.Load(path);
 Expect(missingLoaded.Warnings.Count >= 2 && missingLoaded.Document.Instances.Count == 1229, "Missing dependencies warn and retain editable data");
@@ -78,7 +76,6 @@ Expect(rejected && File.ReadAllText(path) == before, "Unsupported version cannot
 Expect(Number(new JsonObject { ["number"] = 17 }, "number") == 17, "Integer JSON values remain numeric without serialization");
 var malformed = original.Clone(); malformed.Instances[0]!["x"] = "bad"; rejected = false; try { service.Validate(malformed); } catch (InvalidDataException) { rejected = true; } Expect(rejected, "Malformed raw entity edit rejected before saving");
 malformed = original.Clone(); malformed.Room.Remove("speed"); rejected = false; try { service.Validate(malformed); } catch (InvalidDataException) { rejected = true; } Expect(rejected, "Missing required room metadata rejected");
-// Embedded creation code may deliberately share original names, but must only execute in the map namespace.
 var embedded = original.Clone(); embedded.Instances.Clear(); embedded.Tiles.Clear();
 string roomCode = original.Room["code"]!.GetValue<string>();
 string instanceCode = original.Instances[0]!["code"]!.GetValue<string>();

@@ -5,7 +5,6 @@ using static SlackOfDescent.NativeMapService;
 
 namespace SlackOfDescent;
 
-/// <summary>One culled editor canvas. The gameplay renderer is not involved in editing or hit testing.</summary>
 public partial class NativeMapCanvas : Control
 {
     private readonly GmWorld world;

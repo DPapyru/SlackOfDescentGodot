@@ -7,7 +7,6 @@ namespace SlackOfDescent;
 
 public partial class NativeMapEditor
 {
-    /// <summary>Feeds mouse and keyboard events through this rendered Window, then verifies persisted/playable data.</summary>
     public async Task RunUiAudit(string directory)
     {
         Directory.CreateDirectory(directory); int checks = 0;
@@ -25,7 +24,6 @@ public partial class NativeMapEditor
         }
         async Task ChooseTool(int tool)
         {
-            // The OptionButton popup receives the same selection signal used by mouse selection.
             toolChoice.Select(tool); toolChoice.EmitSignal(OptionButton.SignalName.ItemSelected, tool); await Tick();
         }
         async Task TapKey(Key key, bool ctrl = false)
@@ -52,7 +50,6 @@ public partial class NativeMapEditor
         await Click(Find<Button>("Redo")); placed = Document.Instances.OfType<JsonObject>().Single(i => Int(i, "id") == placedId); Expect(Int(placed["properties"]!.AsObject(), "editorAudit") == 73, "redo restores custom properties");
         string path = Path.Combine(directory, "中文 保存目录", "渲染 地图.map.json"); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         await Click(Find<Button>("SaveMapAs")); await Tick(); Expect(fileDialog.UseNativeDialog && fileDialog.FileMode == FileDialog.FileModeEnum.SaveFile, "system save dialog requested");
-        // Native dialogs are owned by the OS. Optional external automation may provide an actual path.
         string? external = System.Environment.GetEnvironmentVariable("SLACK_MAP_NATIVE_DIALOG");
         if (external == "1")
         {

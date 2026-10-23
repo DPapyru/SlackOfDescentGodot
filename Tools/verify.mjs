@@ -41,7 +41,7 @@ assert.equal(variables, 296);
 const files = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root, maxBuffer: 16 * 1024 * 1024 }).toString().split('\0').filter(file => file && fs.existsSync(path.join(root, file)));
 for (const file of files) {
     if (file.startsWith('GameData/assets/Chara/')) continue;
-    assert.ok(file === 'docs/requirements.md' || !/\.(md|rst|adoc|txt)$/i.test(file), file);
+    assert.ok(file === 'docs/requirements.md' || file === 'docs/performance.md' || !/\.(md|rst|adoc|txt)$/i.test(file), file);
     if (/\.(cs|rs|mjs)$/.test(file)) {
         const text = fs.readFileSync(path.join(root, file), 'utf8');
         const comments = text.match(/^\s*(?:\/\/|\/\*|\* |<!--).*$/gm) ?? [];

@@ -59,7 +59,11 @@ public sealed class GmNativeBridge : IDisposable
         SetControllerFlags();
     }
     // Reserved evaluator interception point. Movement is gated per slot inside the shared script.
-    public bool TrySuppressCode(string key, GmContext context) => false;
+    public bool TrySuppressCode(string key, GmContext context)
+    {
+        if (key is "objects/objController/3/0/13" or "objects/objController/3/0/17" or "objects/objController/3/0/22") SetControllerFlags();
+        return false;
+    }
     private GmInstance? Find(int id) => world.Instances.FirstOrDefault(i => i.Id == id && !i.Destroyed);
     private void BuildActions(int id, CharacterDefinition definition)
     {

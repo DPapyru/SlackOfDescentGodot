@@ -17,7 +17,8 @@ public sealed class NativeModResources : IDisposable
     public void Dispose()
     {
         if (disposed) return;
-        disposed = true; cancellation.Cancel();
+        disposed = true;
+        try { cancellation.Cancel(); } catch (Exception error) { Console.Error.WriteLine("MOD_CANCEL " + error.Message); }
         for (int i = resources.Count - 1; i >= 0; i--)
             try { resources[i].Dispose(); } catch (Exception e) { Console.Error.WriteLine("MOD_RESOURCE " + e.Message); }
         resources.Clear(); cancellation.Dispose();

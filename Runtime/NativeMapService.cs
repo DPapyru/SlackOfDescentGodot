@@ -32,6 +32,7 @@ public sealed class NativeMapService
     private readonly GmWorld world;
     private readonly ContentRegistry registry;
     private int? playRoom;
+    private readonly Dictionary<int, JsonElement> replacedRooms = new();
     private readonly Dictionary<string, int> nativeObjects = new();
     public List<NativeMapAttachment> Attachments { get; } = new();
     public IReadOnlyList<string> LastWarnings { get; private set; } = Array.Empty<string>();
@@ -63,6 +64,21 @@ public sealed class NativeMapService
         if (string.IsNullOrWhiteSpace(document.Id)) throw new InvalidDataException("地图缺少稳定标识。");
         if (document.Room["width"]?.GetValue<int>() is not > 0 || document.Room["height"]?.GetValue<int>() is not > 0) throw new InvalidDataException("地图宽高必须大于零。");
         if (document.Room["instances"] is not JsonArray || document.Room["tiles"] is not JsonArray || document.Room["views"] is not JsonArray || document.Room["backgrounds"] is not JsonArray) throw new InvalidDataException("地图缺少实体、图块、背景或相机数据。");
+        foreach (string field in new[] { "width", "height", "speed" }) if (RequiredNumber(document.Room, field) <= 0) throw new InvalidDataException("房间尺寸和速度必须大于零。");
+        RequiredNumber(document.Room, "colour"); RequiredString(document.Room, "code"); RequiredString(document.Room, "name");
+        foreach (string field in new[] { "viewsEnabled", "clearScreen" }) RequiredBoolean(document.Room, field);
+        foreach (var node in document.Room["views"]!.AsArray())
+        {
+            var view = node as JsonObject ?? throw new InvalidDataException("相机数据必须是对象。");
+            foreach (string field in new[] { "x", "y", "width", "height", "portX", "portY", "portWidth", "portHeight", "hborder", "vborder", "hspeed", "vspeed", "target" }) RequiredNumber(view, field);
+            RequiredBoolean(view, "visible");
+        }
+        foreach (var node in document.Room["backgrounds"]!.AsArray())
+        {
+            var background = node as JsonObject ?? throw new InvalidDataException("背景数据必须是对象。");
+            foreach (string field in new[] { "background", "x", "y", "hspeed", "vspeed" }) RequiredNumber(background, field);
+            foreach (string field in new[] { "visible", "foreground", "tileX", "tileY", "stretch" }) RequiredBoolean(background, field);
+        }
         var warnings = new List<string>();
         var ids = new HashSet<int>();
         foreach (var item in document.Instances)
@@ -71,11 +87,15 @@ public sealed class NativeMapService
             if (instance["entityType"] is JsonValue type)
             { if (!registry.Entities.ContainsKey(type.GetValue<string>())) warnings.Add("缺少扩展实体：" + type.GetValue<string>()); }
             else if (ResolveObject(document, Int(instance, "object", -1)) is null) warnings.Add("缺少原版实体：" + Int(instance, "object", -1));
-            foreach (string field in new[] { "x", "y", "xscale", "yscale", "angle" }) if (!double.IsFinite(Number(instance, field, field.EndsWith("scale", StringComparison.Ordinal) ? 1 : 0))) throw new InvalidDataException("实体坐标或缩放不是有效数值。");
+            foreach (string field in new[] { "id", "object", "x", "y", "xscale", "yscale", "angle", "blend" }) RequiredNumber(instance, field);
+            RequiredString(instance, "code");
+            if (instance["properties"] is not null && (instance["properties"] is not JsonObject properties || properties.Any(p => !IsIdentifier(p.Key) || p.Value is not JsonValue))) throw new InvalidDataException("实体属性必须是有效变量名到数字、文字或布尔值的对象。");
         }
         ids.Clear();
         foreach (var tile in document.Tiles.OfType<JsonObject>())
         {
+            foreach (string field in new[] { "id", "background", "sourceX", "sourceY", "width", "height", "depth", "x", "y", "xscale", "yscale", "blend" }) RequiredNumber(tile, field);
+            if (Number(tile, "width") <= 0 || Number(tile, "height") <= 0) throw new InvalidDataException("图块宽高必须大于零。");
             if (tile["id"] is null || !ids.Add(Int(tile, "id"))) throw new InvalidDataException("图块标识缺失或重复。");
             if (ResolveBackground(document, Int(tile, "background", -1)) is null) warnings.Add("缺少图块资源：" + Int(tile, "background", -1));
         }
@@ -83,6 +103,13 @@ public sealed class NativeMapService
             if (!registry.Entities.ContainsKey(dependency) && !registry.Actions.ContainsKey(dependency) && !registry.Resources.ContainsKey(dependency)) warnings.Add("缺少依赖：" + dependency);
         return LastWarnings = warnings.Distinct().ToArray();
     }
+    private static double RequiredNumber(JsonObject item, string field)
+    {
+        if (item[field] is not JsonValue value || !TryNumber(value, out double number) || !double.IsFinite(number)) throw new InvalidDataException($"字段 {field} 必须是有效数值。");
+        return number;
+    }
+    private static void RequiredString(JsonObject item, string field) { if (item[field] is not JsonValue value || !value.TryGetValue<string>(out _)) throw new InvalidDataException($"字段 {field} 必须是文字。"); }
+    private static void RequiredBoolean(JsonObject item, string field) { if (item[field] is not JsonValue value || !value.TryGetValue<bool>(out _)) throw new InvalidDataException($"字段 {field} 必须是布尔值。"); }
     private int? ResolveObject(NativeMapDocument document, int id)
     {
         if (!document.ObjectNames.TryGetValue(id.ToString(), out string? name)) return world.Objects.ContainsKey(id) ? id : null;
@@ -124,7 +151,7 @@ public sealed class NativeMapService
                 foreach (var property in properties)
                 {
                     if (property.Value is not JsonValue value || !IsIdentifier(property.Key)) continue;
-                    JsonNode? expression = value.TryGetValue<bool>(out bool boolean) ? new JsonArray("num", boolean ? 1 : 0) : value.TryGetValue<double>(out double number) ? new JsonArray("num", number) : value.TryGetValue<string>(out string? text) ? new JsonArray("str", text) : null;
+                    JsonNode? expression = value.TryGetValue<bool>(out bool boolean) ? new JsonArray("num", boolean ? 1 : 0) : TryNumber(value, out double number) ? new JsonArray("num", number) : value.TryGetValue<string>(out string? text) ? new JsonArray("str", text) : null;
                     if (expression is not null) statements.Add(new JsonArray("binary", "Assign", new JsonArray("id", property.Key), expression));
                 }
                 initializer = new JsonArray("group", statements);
@@ -145,12 +172,18 @@ public sealed class NativeMapService
         room["tiles"] = tiles;
         if (room["code"] is not JsonValue roomCode || !world.Code.ContainsKey(roomCode.GetValue<string>()))
         { string code = $"native/maps/{document.Id}/create"; world.Code[code] = JsonSerializer.SerializeToElement(new object[] { "group", Array.Empty<object>() }); room["code"] = code; }
-        int id = playRoom ??= world.Rooms.Keys.Max() + 1;
-        room["id"] = id; room["name"] = document.Name;
+        // GM scripts index globals by room ID (EnemyObject[room], stage state and transitions).
+        // Preserve that identity for imported rooms rather than breaking original initialization.
+        int sourceId = Int(document.Room, "id", -1);
+        int id = world.Rooms.ContainsKey(sourceId) && world.Rooms[sourceId].GetProperty("name").GetString() == document.OriginalRoomName ? sourceId : playRoom ??= world.Rooms.Keys.Max() + 1;
+        if (world.Rooms.TryGetValue(id, out var previous) && !replacedRooms.ContainsKey(id)) replacedRooms[id] = previous;
+        room["id"] = id; room["caption"] = document.Name;
         world.Rooms[id] = JsonSerializer.SerializeToElement(room);
         world.NextId = Math.Max(world.NextId, document.Instances.OfType<JsonObject>().Select(i => Int(i, "id")).DefaultIfEmpty().Max() + 1);
         return id;
     }
+    /// <summary>Restores built-in room definitions after the host leaves editor playtest mode.</summary>
+    public void RestoreAfterPlaytest() { foreach (var pair in replacedRooms) world.Rooms[pair.Key] = pair.Value; replacedRooms.Clear(); }
     /// <summary>Called after room creation to retain user overrides even when original Create events set defaults.</summary>
     public void ApplyProperties(NativeMapDocument document)
     {
@@ -159,7 +192,7 @@ public sealed class NativeMapService
             foreach (var property in properties) if (property.Value is JsonValue value && IsIdentifier(property.Key))
             {
                 if (value.TryGetValue<bool>(out bool boolean)) world.Write(instance, property.Key, boolean);
-                else if (value.TryGetValue<double>(out double number)) world.Write(instance, property.Key, number);
+                else if (TryNumber(value, out double number)) world.Write(instance, property.Key, number);
                 else if (value.TryGetValue<string>(out string? text)) world.Write(instance, property.Key, text);
             }
     }
@@ -179,5 +212,14 @@ public sealed class NativeMapService
     }
     public static bool IsIdentifier(string value) => value.Length > 0 && (char.IsLetter(value[0]) || value[0] == '_') && value.All(c => char.IsLetterOrDigit(c) || c == '_');
     public static int Int(JsonObject item, string field, int fallback = 0) => item[field] is JsonValue value && value.TryGetValue<int>(out int result) ? result : (int)Number(item, field, fallback);
-    public static double Number(JsonObject item, string field, double fallback = 0) => item[field] is JsonValue value && value.TryGetValue<double>(out double number) ? number : fallback;
+    public static bool TryNumber(JsonValue value, out double number)
+    {
+        if (value.TryGetValue<double>(out number)) return true;
+        if (value.TryGetValue<int>(out int integer)) { number = integer; return true; }
+        if (value.TryGetValue<long>(out long longInteger)) { number = longInteger; return true; }
+        if (value.TryGetValue<float>(out float real)) { number = real; return true; }
+        if (value.TryGetValue<decimal>(out decimal precise)) { number = (double)precise; return true; }
+        number = 0; return false;
+    }
+    public static double Number(JsonObject item, string field, double fallback = 0) => item[field] is JsonValue value && TryNumber(value, out double number) ? number : fallback;
 }

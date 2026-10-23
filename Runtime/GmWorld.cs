@@ -89,6 +89,10 @@ public sealed partial class GmWorld
     public int? PendingRoom;
     public int NextId;
     public long Frame;
+    public double GameTime { get; private set; }
+    public bool IsLoadingRoom => Rooms.TryGetValue(CurrentRoom, out var room) &&
+        (room.GetProperty("speed").GetDouble() > 240 || room.GetProperty("name").GetString()!.Contains("_Loading", StringComparison.Ordinal));
+    public Func<string, GmContext, bool>? SuppressCode;
     public bool Ended;
     public Action? Redraw;
     public Action? InputEvents;
@@ -419,7 +423,9 @@ public sealed partial class GmWorld
         long total=Performance.Start(),phase=total;
         Evaluator.ResetBudget();
         if(PendingRoom is int next){await LoadRoomAsync(next);return;}
-        Frame++;Engine.Write("current_time",Frame*1000.0/Math.Max(1,Engine.Read("room_speed").Number));
+        Frame++;
+        if (!IsLoadingRoom) GameTime += 1 / Math.Max(1, Engine.Read("room_speed").Number);
+        Engine.Write("current_time", GameTime * 1000);
         var live=Instances.Where(i=>!i.Destroyed&&i.Active).ToArray();
         foreach(var i in live){i.Scope.Write("xprevious",i.Scope.ReadOr("x"));i.Scope.Write("yprevious",i.Scope.ReadOr("y"));}
         await RunObjectEventAsync(3,1);

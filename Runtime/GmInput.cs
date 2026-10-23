@@ -8,6 +8,8 @@ public sealed class GmInput
     private readonly HashSet<int> physicalHeld=new();
     private readonly HashSet<int> pressed=new();
     private readonly HashSet<int> released=new();
+    private readonly HashSet<int> nativePressed=new();
+    private readonly HashSet<int> nativeReleased=new();
     private readonly HashSet<int> mouseHeld=new();
     private readonly HashSet<int> physicalMouseHeld=new();
     private readonly Queue<(bool Mouse,int Code,bool Down)> pending=new();
@@ -17,6 +19,15 @@ public sealed class GmInput
     private double previousY;
     public int Wheel;
     public int SecondaryKey{get;private set;}=71;
+    public Func<int, int, bool>? JoystickButton;
+    public Func<int, int, double>? JoystickAxis;
+    public Func<int, bool>? JoystickExists;
+    public Func<int, int>? JoystickButtons;
+    public (HashSet<int> Held, HashSet<int> Pressed, HashSet<int> Released) TakeNativeInput()
+    {
+        var result=(new HashSet<int>(held),new HashSet<int>(nativePressed),new HashSet<int>(nativeReleased));
+        nativePressed.Clear();nativeReleased.Clear();return result;
+    }
     public void LoadBindings(GmWorld world)
     {
         SecondaryKey=71;
@@ -37,8 +48,8 @@ public sealed class GmInput
     }
     public void Key(GmWorld world,int code,bool down)
     {
-        if(down){held.Add(code);if(physicalHeld.Add(code))pressed.Add(code);world.Engine.Write("keyboard_key",code);world.Engine.Write("keyboard_lastkey",code);}
-        else{held.Remove(code);if(physicalHeld.Remove(code))released.Add(code);if(world.Engine.ReadOr("keyboard_key").Int==code)world.Engine.Write("keyboard_key",0);}
+        if(down){held.Add(code);if(physicalHeld.Add(code)){pressed.Add(code);nativePressed.Add(code);}world.Engine.Write("keyboard_key",code);world.Engine.Write("keyboard_lastkey",code);}
+        else{held.Remove(code);if(physicalHeld.Remove(code)){released.Add(code);nativeReleased.Add(code);}if(world.Engine.ReadOr("keyboard_key").Int==code)world.Engine.Write("keyboard_key",0);}
     }
     public void Mouse(GmWorld world,int code,bool down)
     {
@@ -52,6 +63,11 @@ public sealed class GmInput
         int code=args.Length>0?args[0].Int:0;
         switch(name)
         {
+            case "joystick_exists":return JoystickExists?.Invoke(code)??false;
+            case "joystick_buttons":return JoystickButtons?.Invoke(code)??0;
+            case "joystick_check_button":return JoystickButton?.Invoke(code,args[1].Int)??false;
+            case "joystick_xpos":return JoystickAxis?.Invoke(code,0)??0;
+            case "joystick_ypos":return JoystickAxis?.Invoke(code,1)??0;
             case "slack_secondary_fire":return pressed.Contains(SecondaryKey)||(world.Globals.ReadOr("controllMode").Int==0&&mousePressed.Contains(3));
             case "keyboard_check":return Check(held,code,1);
             case "keyboard_check_pressed":return Check(pressed,code,1);
@@ -64,7 +80,7 @@ public sealed class GmInput
             case "keyboard_clear":held.Remove(code);pressed.Remove(code);released.Remove(code);return 0;
             case "mouse_clear":mouseHeld.Remove(code);mousePressed.Remove(code);mouseReleased.Remove(code);return 0;
             case "io_clear":
-                held.Clear();mouseHeld.Clear();EndStep();
+                held.Clear();mouseHeld.Clear();nativePressed.Clear();nativeReleased.Clear();EndStep();
                 foreach(var variable in new[]{"keyboard_key","keyboard_lastkey","mouse_button","mouse_lastbutton"})world.Engine.Write(variable,0);
                 return 0;
         }

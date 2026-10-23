@@ -32,6 +32,7 @@ public sealed partial class GmEvaluator
     public async ValueTask<GmValue> RunAsync(string key,GmContext context)
     {
         if(string.IsNullOrEmpty(key))return 0;
+        if(world.SuppressCode?.Invoke(key,context)==true)return 0;
         var code=world.Code[key];if(!CanWait(code))return Run(key,context);
         long started=world.Performance.ScriptsEnabled?System.Diagnostics.Stopwatch.GetTimestamp():0;
         try

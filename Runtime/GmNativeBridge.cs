@@ -33,13 +33,13 @@ public sealed class GmNativeBridge : IDisposable
     {
         var actor = Find(instanceId);
         foreach (var pair in actions.Where(p => p.Key.Item1 == instanceId).ToArray())
-        { if (actor is not null) pair.Value.Detach(new(world, actor)); actions.Remove(pair.Key); }
+        { if (actor is not null) Detach(pair.Value, actor); actions.Remove(pair.Key); }
         characters.Remove(instanceId); SetControllerFlags();
     }
     public void AttachEntity(int instanceId, string registryId)
     {
         if (!registry.Entities.TryGetValue(registryId, out var factory)) throw new InvalidDataException("实体行为未加载：" + registryId);
-        if (entities.Remove(instanceId, out var previous) && Find(instanceId) is {} actor) previous.Detach(new(world, actor));
+        if (entities.Remove(instanceId, out var previous) && Find(instanceId) is {} actor) Detach(previous, actor);
         entityBindings[instanceId] = registryId; entities[instanceId] = factory();
     }
     public void Update(FrameContext frame)
@@ -64,6 +64,14 @@ public sealed class GmNativeBridge : IDisposable
         if (key is "objects/objController/3/0/13" or "objects/objController/3/0/17" or "objects/objController/3/0/22") SetControllerFlags();
         return false;
     }
+    private void Detach(ICharacterAction action, GmInstance actor)
+    {
+        try { action.Detach(new(world, actor)); } catch (Exception error) { Console.Error.WriteLine("MOD_ACTION_DETACH " + error.Message); }
+    }
+    private void Detach(IEntityBehavior behavior, GmInstance actor)
+    {
+        try { behavior.Detach(new(world, actor)); } catch (Exception error) { Console.Error.WriteLine("MOD_ENTITY_DETACH " + error.Message); }
+    }
     private GmInstance? Find(int id) => world.Instances.FirstOrDefault(i => i.Id == id && !i.Destroyed);
     private void BuildActions(int id, CharacterDefinition definition)
     {
@@ -78,11 +86,11 @@ public sealed class GmNativeBridge : IDisposable
     private void Refresh()
     {
         foreach (var pair in actions)
-            if (Find(pair.Key.Item1) is {} actor) pair.Value.Detach(new(world, actor));
+            if (Find(pair.Key.Item1) is {} actor) Detach(pair.Value, actor);
         actions.Clear();
         foreach (var pair in characters) BuildActions(pair.Key, pair.Value);
         foreach (var pair in entities)
-            if (Find(pair.Key) is {} actor) pair.Value.Detach(new(world, actor));
+            if (Find(pair.Key) is {} actor) Detach(pair.Value, actor);
         entities.Clear();
         foreach (var pair in entityBindings)
             if (registry.Entities.TryGetValue(pair.Value, out var factory)) entities[pair.Key] = factory();
@@ -145,7 +153,7 @@ public sealed class GmNativeBridge : IDisposable
     {
         registry.Changed -= Refresh;
         foreach (int id in characters.Keys.ToArray()) UnbindCharacter(id);
-        foreach (var pair in entities) if (Find(pair.Key) is {} actor) pair.Value.Detach(new(world, actor));
+        foreach (var pair in entities) if (Find(pair.Key) is {} actor) Detach(pair.Value, actor);
         entities.Clear(); entityBindings.Clear();
         foreach (var pair in originals) world.Code[pair.Key] = pair.Value;
     }

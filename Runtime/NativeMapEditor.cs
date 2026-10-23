@@ -59,7 +59,7 @@ public partial class NativeMapEditor : Window
         toolChoice = new OptionButton { Name = "MapTool" }; left.AddChild(toolChoice);
         foreach (string text in new[] { "选择与移动", "绘制图块", "擦除", "碰撞区块", "放置实体", "移动视野" }) toolChoice.AddItem(text);
         toolChoice.ItemSelected += index => { MapCanvas.Tool = (NativeMapTool)index; UpdateStatus(); };
-        grid = Field(left, "网格大小", "GridSize", 1, 128, 32);
+        grid = Field(left, "网格大小", "GridSize", 1, 128, 32); grid.ValueChanged += value => { if (MapCanvas is not null) { MapCanvas.GridSize = (float)value; MapCanvas.QueueRedraw(); } };
         var tabs = new TabContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill }; left.AddChild(tabs);
         var tilePanel = new VBoxContainer { Name = "图块" }; tabs.AddChild(tilePanel);
         backgrounds = new OptionButton { Name = "TileBackground" }; tilePanel.AddChild(backgrounds);
@@ -235,7 +235,7 @@ public partial class NativeMapEditor : Window
         if (selected is null) return; var original = selected; bool tile = selectedTile;
         var dialog = new ConfirmationDialog { Name = "MapRawSelection", Title = "完整属性（保留未知字段）", OkButtonText = "应用", CancelButtonText = "取消", Size = new(650, 520) }; AddChild(dialog);
         var text = new TextEdit { Text = selected.ToJsonString(NativeContentStore.Json), CustomMinimumSize = new(620, 440) }; dialog.AddChild(text);
-        dialog.Confirmed += () => { try { var replacement = JsonNode.Parse(text.Text)!.AsObject(); replacement["id"] = Int(original, "id"); Remember(); var collection = tile ? Document.Tiles : Document.Instances; collection[collection.IndexOf(original)] = replacement; Select(replacement, tile); Changed(); dialog.QueueFree(); } catch (Exception exception) { Message(exception.Message); } };
+        dialog.Confirmed += () => { try { var replacement = JsonNode.Parse(text.Text)!.AsObject(); replacement["id"] = Int(original, "id"); var candidate = Document.Clone(); var candidateCollection = tile ? candidate.Tiles : candidate.Instances; int index = (tile ? Document.Tiles : Document.Instances).IndexOf(original); candidateCollection[index] = replacement.DeepClone(); Service.Validate(candidate); Remember(); var collection = tile ? Document.Tiles : Document.Instances; collection[index] = replacement; Select(replacement, tile); Changed(); dialog.QueueFree(); } catch (Exception exception) { Message(exception.Message); } };
         dialog.Canceled += dialog.QueueFree; dialog.PopupCentered();
     }
     public override void _UnhandledKeyInput(InputEvent input)

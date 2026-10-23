@@ -31,8 +31,9 @@ Expect(JsonNode.DeepEquals(loaded.Room, reconstructed.Room), "All original and u
 Expect(loaded.Extra!["futureFormat"].GetProperty("hello").GetString() == "兼容", "Unknown document fields round trip");
 Expect(Directory.EnumerateFiles(Path.GetDirectoryName(path)!, "*.tmp").Count() == 0, "Atomic save leaves no temporary files");
 int installed = service.InstallForPlay(loaded); var playable = world.Rooms[installed];
+Expect(installed == service.TestRoomId, "Playback retains original room-indexed script identity");
 Expect(playable.GetProperty("instances").GetArrayLength() == 1228 && playable.GetProperty("tiles").GetArrayLength() == 1647, "Playback reconstructs complete content");
-foreach (var pair in original.Room.Where(p => p.Key is not ("id" or "name" or "instances" or "tiles"))) Expect(JsonNode.DeepEquals(pair.Value, JsonNode.Parse(playable.GetProperty(pair.Key).GetRawText())), "Preserved room metadata " + pair.Key);
+foreach (var pair in original.Room.Where(p => p.Key is not ("id" or "name" or "caption" or "instances" or "tiles"))) Expect(JsonNode.DeepEquals(pair.Value, JsonNode.Parse(playable.GetProperty(pair.Key).GetRawText())), "Preserved room metadata " + pair.Key);
 foreach (var data in playable.GetProperty("instances").EnumerateArray())
 {
     var actor = world.Create(data.GetProperty("object").GetInt32(), data.GetProperty("x").GetDouble(), data.GetProperty("y").GetDouble(), data.GetProperty("id").GetInt32(), false);
@@ -73,5 +74,9 @@ service.InstallForPlay(missingLoaded.Document); Expect(world.Rooms[installed].Ge
 string before = File.ReadAllText(path); var invalid = loaded.Clone(); invalid.FormatVersion = 99;
 bool rejected = false; try { service.Save(invalid, path); } catch (InvalidDataException) { rejected = true; }
 Expect(rejected && File.ReadAllText(path) == before, "Unsupported version cannot overwrite source");
+Expect(Number(new JsonObject { ["number"] = 17 }, "number") == 17, "Integer JSON values remain numeric without serialization");
+var malformed = original.Clone(); malformed.Instances[0]!["x"] = "bad"; rejected = false; try { service.Validate(malformed); } catch (InvalidDataException) { rejected = true; } Expect(rejected, "Malformed raw entity edit rejected before saving");
+malformed = original.Clone(); malformed.Room.Remove("speed"); rejected = false; try { service.Validate(malformed); } catch (InvalidDataException) { rejected = true; } Expect(rejected, "Missing required room metadata rejected");
+service.RestoreAfterPlaytest(); Expect(world.Rooms[service.TestRoomId].GetProperty("instances").GetArrayLength() == 1227, "Original room restored after playtest");
 Console.WriteLine($"MAP_DATA_OK assertions={assertions} entities=1227 tiles=1647 output={output}");
 File.WriteAllText(Path.Combine(output, "result.json"), JsonSerializer.Serialize(new { assertions, entities = 1227, tiles = 1647, checks = new[] { "lossless-import", "stable-ids", "atomic-unicode-save", "entity-reconstruction", "custom-properties", "collision-boundaries", "missing-dependencies", "version-protection" } }, NativeContentStore.Json));

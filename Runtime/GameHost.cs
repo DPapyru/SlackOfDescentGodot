@@ -24,6 +24,7 @@ public partial class GameHost : Node2D
     private int cadenceRoom=int.MinValue;
     private readonly long frameClock=Stopwatch.GetTimestamp();
     private Label? fpsLabel;
+    private bool renderSignalConnected;
     private long fpsAuditStart;
     private bool fpsAuditSlow;
     private readonly List<GmFrameSample> fpsAuditSamples=new();
@@ -122,7 +123,7 @@ public partial class GameHost : Node2D
             world=new(root,source,System.Environment.GetEnvironmentVariable("SLACK_USER_ROOT"));
             NativeLocalization.Initialize(root);
             world.Performance.Configure(world.UserRoot,OS.IsDebugBuild());
-            if(DisplayServer.GetName()!="headless")RenderingServer.FramePostDraw+=OnFramePostDraw;
+            if(DisplayServer.GetName()!="headless"){RenderingServer.FramePostDraw+=OnFramePostDraw;renderSignalConnected=true;}
             controls.LoadBindings(world);
             controls.JoystickExists=number=>Input.GetConnectedJoypads().Contains(number-1);
             controls.JoystickButtons=number=>Input.GetConnectedJoypads().Contains(number-1)?16:0;
@@ -137,6 +138,7 @@ public partial class GameHost : Node2D
             if(audit)world.Random.Seed=0;
             audio=new(this,world);
             graphics=new(this,world);
+            InitializeNative();
             canvas=new GmCanvas();AddChild(canvas);
             var hud=new CanvasLayer{Layer=100};AddChild(hud);
             fpsLabel=new Label{Text="FPS: --",MouseFilter=Control.MouseFilterEnum.Ignore,HorizontalAlignment=HorizontalAlignment.Right};
@@ -163,6 +165,7 @@ public partial class GameHost : Node2D
             graphics.Build();
             if(OS.GetCmdlineUserArgs().Contains("--capture"))for(int i=0;i<120;i++)StepFrame();
             GD.Print("Loaded original room ",world.CurrentRoom);
+            if(audit&&OS.GetCmdlineUserArgs().Contains("--native-integration-audit")){SetProcess(false);AuditNativeIntegration();return;}
         }
         catch(Exception e){Fail(e);}
         if(audit)
@@ -236,7 +239,7 @@ public partial class GameHost : Node2D
     {
         switch(name)
         {
-            case "show_menu":return audit&&!OS.GetCmdlineUserArgs().Contains("--controls-ui-audit")?Menu(args[0].ToString(),args[1].Int):await ShowPopupMenu(args[0].ToString(),args[1].Int);
+            case "show_menu":return await NativeCharacterMenu(args[0].ToString(),args[1].Int,context);
             case "get_string":return audit&&!OS.GetCmdlineUserArgs().Contains("--controls-ui-audit")?Prompt("--input-text",args[0].ToString(),args[1].ToString())??args[1]:await InputText(args[0].ToString(),args[1].ToString());
             case "show_message_ext":return audit&&!OS.GetCmdlineUserArgs().Contains("--transition-audit")&&!OS.GetCmdlineUserArgs().Contains("--regression-audit")?Dialog(args[0].ToString(),args.Skip(1).Select(v=>v.ToString()).ToArray()):await ShowDialog(args[0].ToString(),args.Skip(1).Select(v=>v.ToString()).ToArray());
             case "show_question":return (audit?Dialog(args[0].ToString(),["Yes","No"]):await ShowDialog(args[0].ToString(),["Yes","No"]))==1;
@@ -552,12 +555,14 @@ public partial class GameHost : Node2D
         try
         {
             SyncGrenadeBinding();
-            if(cadenceRoom!=world.CurrentRoom){cadenceRoom=world.CurrentRoom;world.Performance.ResetCadence();}
-            if(modalDepth>0&&pendingFrame is null){elapsed=0;frameMonitor.Reset();world.Performance.ResetCadence();canvas.QueueRedraw();return;}
+            SyncNativeMenu();
+            if(cadenceRoom!=world.CurrentRoom){cadenceRoom=world.CurrentRoom;world.Performance.ResetCadence();nativeClock.RoomChanged();}
+            if(!audit&&!GetWindow().HasFocus()&&modalDepth==0){ResetNativeInput();canvas.QueueRedraw();return;}
+            if(modalDepth>0&&pendingFrame is null){elapsed=0;nativeClock.Pause();frameMonitor.Reset();world.Performance.ResetCadence();canvas.QueueRedraw();return;}
             if(pendingFrame is not null)
             {
-                if(!pendingFrame.IsCompleted){elapsed=0;frameMonitor.Reset();world.Performance.ResetCadence();canvas.QueueRedraw();return;}
-                pendingFrame.GetAwaiter().GetResult();pendingFrame=null;elapsed=0;
+                if(!pendingFrame.IsCompleted){elapsed=0;nativeClock.Pause();frameMonitor.Reset();world.Performance.ResetCadence();canvas.QueueRedraw();return;}
+                pendingFrame.GetAwaiter().GetResult();pendingFrame=null;elapsed=0;nativeClock.Pause();
             }
             var measurement=frameMonitor.Update(Stopwatch.GetElapsedTime(frameClock).TotalSeconds,world.Frame,world.CurrentRoom,world.Engine.Read("room_speed").Number,DisplayServer.GetName()!="headless");
             if(measurement is not null)
@@ -595,14 +600,27 @@ public partial class GameHost : Node2D
             }
             if(liveEnd>0)liveTimes.Add(delta*1000);
             UpdateMouse();
-            var step=1.0/Math.Max(1,world.Engine.Read("room_speed").Number);
-            elapsed=Math.Min(elapsed+delta,step*2);
-            int count=0;
-            while(elapsed>=step&&count++<2)
+            if(world.IsLoadingRoom)
             {
-                elapsed-=step;pendingFrame=StepFrameAsync();
-                if(!pendingFrame.IsCompleted){elapsed=0;break;}
+                // Loading rooms are cooperative jobs, independent of gameplay time.
+                long loadingStarted=Stopwatch.GetTimestamp();
+                for(int jobs=0;jobs<128&&world.IsLoadingRoom&&Stopwatch.GetElapsedTime(loadingStarted).TotalMilliseconds<8;jobs++)
+                {
+                    pendingFrame=StepFrameAsync();
+                    if(!pendingFrame.IsCompleted)break;
+                    pendingFrame.GetAwaiter().GetResult();pendingFrame=null;
+                }
+                nativeClock.RoomChanged();
+            }
+            else for(int count=nativeClock.Advance(delta);count>0;count--)
+            {
+                nativeClock.BeginTick();controls.Poll(world);var state=controls.TakeNativeInput();
+                nativeBridge.Update(new(FrameContext.FixedDelta,nativeClock.GameTime,nativeClock.Tick,new(state.Held,state.Pressed,state.Released)));
+                if(!nativeClock.LegacyDue(world.Engine.Read("room_speed").Number))continue;
+                pendingFrame=StepFrameAsync();
+                if(!pendingFrame.IsCompleted){nativeClock.Pause();break;}
                 pendingFrame.GetAwaiter().GetResult();pendingFrame=null;
+                if(world.IsLoadingRoom){nativeClock.RoomChanged();break;}
             }
             if(world.Ended){audio.Shutdown();GetTree().Quit();}
             QueueRedraw();canvas.QueueRedraw();
@@ -634,7 +652,7 @@ public partial class GameHost : Node2D
         image.SavePng(path);image.Dispose();GD.Print("CAPTURE ",path);audio.Shutdown();GetTree().Quit(failure is null?0:1);
     }
 
-    public override void _ExitTree(){RenderingServer.FramePostDraw-=OnFramePostDraw;graphics?.Shutdown();audio?.Shutdown();}
+    public override void _ExitTree(){if(renderSignalConnected)RenderingServer.FramePostDraw-=OnFramePostDraw;nativeBridge?.Dispose();mods?.Dispose();graphics?.Shutdown();audio?.Shutdown();}
 
     public override void _Draw()
     {

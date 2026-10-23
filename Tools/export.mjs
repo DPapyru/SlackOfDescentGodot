@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { auditPackage, writeInventory } from './package-audit.mjs';
+import { packageModToolchain } from './package-mod-toolchain.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const godot = process.argv[2] ?? process.env.GODOT_BIN;
@@ -31,6 +32,7 @@ for (const target of targets) {
         }
         fs.cpSync(path.join(root, 'GameData'), path.join(prepared, 'GameData'), { recursive: true, filter: file => !file.endsWith('.import') && path.basename(file) !== 'Thumbs.db' });
         fs.copyFileSync(compiler, path.join(prepared, 'Tools', path.basename(compiler)));
+        packageModToolchain(prepared, managed, root);
         for (const file of ['manifest.json', 'code.json', 'sources.json', 'media.json', 'particles.bin', 'assets/Cfg/KeyConfig', 'assets/Cfg/data', 'assets/Cfg/itemData']) {
             if (!fs.existsSync(path.join(prepared, 'GameData', file))) throw new Error('Missing exported game data: ' + file);
         }

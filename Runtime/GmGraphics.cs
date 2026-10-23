@@ -95,6 +95,9 @@ public sealed partial class GmGraphics
     private readonly List<Color> vertexColours=new();
     private int primitive;
     private Texture2D? primitiveTexture;
+    public Func<IEnumerable<(double Depth,Action Draw)>>? AdditionalDraws;
+    public void DrawExternal(string path,Vector2 origin,Vector2 position,Vector2 scale,float angle)
+    {var texture=Texture(path);Textured(texture,origin,new(Vector2.Zero,texture.GetSize()),position,scale,angle,Colors.White);}
     private Texture2D[]? particleShapes;
     private ImageTexture? white;
     internal List<(int Sprite,double Frame,float Alpha)>? SpriteAudit;
@@ -158,6 +161,7 @@ public sealed partial class GmGraphics
         viewSize=world.Engine.ReadOr("view_enabled").Truth?new((float)world.Engine.Read("view_wview",[0]).Number,(float)world.Engine.Read("view_hview",[0]).Number):new(world.Engine.Read("room_width").Int,world.Engine.Read("room_height").Int);
         RoomBackgrounds(false);
         var draws=new List<(double Depth,Action Draw)>();
+        if(AdditionalDraws is not null)draws.AddRange(AdditionalDraws());
         foreach(var system in world.Particles.Systems.Values.Where(s=>s.AutoDraw))draws.Add((system.Depth,()=>DrawParticles(system)));
         foreach(var instance in world.Instances.Where(i=>!i.Destroyed&&i.Active&&i.Scope.ReadOr("visible").Truth).ToArray())
             draws.Add((instance.Scope.ReadOr("depth").Number,()=>{if(!instance.Destroyed&&!world.Event(instance,8,0))Instance(instance);}));
@@ -562,7 +566,7 @@ public sealed partial class GmGraphics
                 string captured=line;Vector2 baseline=position-camera;
                 float width=chinese.GetStringSize(line,HorizontalAlignment.Left,-1,height).X;
                 float offset=halign==1?-width/2:halign==2?-width:0;
-                Add(c=>{c.DrawSetTransform(baseline,rotation,new(scaleX,scaleY));c.DrawString(chinese,captured,new(offset,chinese.GetAscent(height)),HorizontalAlignment.Left,-1,height,tint);c.DrawSetTransform(Vector2.Zero);});
+                Add(c=>{c.DrawSetTransform(baseline,rotation,new(scaleX,scaleY));c.DrawString(chinese,new(offset,chinese.GetAscent(height)),captured,HorizontalAlignment.Left,-1,height,tint);c.DrawSetTransform(Vector2.Zero);});
                 position.Y+=height*scaleY;
             }
             return;

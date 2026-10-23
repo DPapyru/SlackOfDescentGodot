@@ -1,0 +1,237 @@
+using Godot;
+
+namespace SlackOfDescent;
+
+public partial class GameHost
+{
+    private readonly GmFixedClock nativeClock = new();
+    private readonly ContentRegistry content = new();
+    private NativeContentStore contentStore = null!;
+    private NativeModManager mods = null!;
+    private GmNativeBridge nativeBridge = null!;
+    private HBoxContainer? nativeMenu;
+    private NativeMapEditor? mapEditor;
+    private NativeCharacterEditor? characterEditor;
+    private NativeModPanel? modPanel;
+    private Button? returnFromTest;
+    private bool mapPlaytest;
+    private bool previewBusy;
+    private bool previewReady;
+    private int previewReturnRoom;
+    private CharacterDefinition? previewDefinition;
+    private bool nativeAuditUi;
+    private SubViewport? previewViewport;
+    private GmCanvas? previewCanvas;
+    private readonly Dictionary<int, CharacterDefinition> characterVisuals = new();
+
+    private string ExamplesDirectory => OS.HasFeature("editor") ? ProjectSettings.GlobalizePath("res://Examples/Mods")
+        : Path.Combine(Path.GetDirectoryName(OS.GetExecutablePath())!,"Examples","Mods");
+    private void InitializeNative()
+    {
+        contentStore = new(world.UserRoot);
+        mods = new(content);
+        nativeBridge = new(world, content);
+        world.SuppressCode = nativeBridge.TrySuppressCode;
+        contentStore.DiscoverCharacters(content);
+        string enabled = Path.Combine(contentStore.Root,"enabled-mods.json");
+        if(File.Exists(enabled))
+            foreach(string directory in NativeContentStore.Load<string[]>(enabled))
+            {
+                var result=mods.Reload(directory);
+                if(!result.Success)GD.Print("MOD_LOAD_FAILED ",result.Id," ",result.Diagnostics);
+            }
+        mods.Changed += ()=>NativeContentStore.Save(enabled,mods.LoadedMods.Select(m=>m.Directory).ToArray());
+        graphics.AdditionalDraws = NativeCharacterDraws;
+        GetWindow().FocusExited += ResetNativeInput;
+    }
+    private void ResetNativeInput()
+    { nativeClock.Pause(); controls.Clear(world); elapsed=0; frameMonitor.Reset(); }
+    private void SyncNativeMenu()
+    {
+        if(nativeMenu is null)
+        {
+            nativeMenu=new HBoxContainer{Name="NativeMainMenu",Position=new(8,8)};AddChild(nativeMenu);
+            void Add(string text,Action action){var button=new Button{Text=text};button.Pressed+=action;nativeMenu.AddChild(button);}
+            Add("C# 模组",OpenMods);Add("角色编辑器",OpenCharacterEditor);Add("地图编辑器",OpenMapEditor);
+        }
+        var title=world.Instances.FirstOrDefault(i=>!i.Destroyed&&world.IsObject(i.Object,world.Constants["objTitle"].Int));
+        nativeMenu.Visible=title is not null&&modalDepth==0&&!mapPlaytest;
+        if(returnFromTest is not null)returnFromTest.Visible=mapPlaytest;
+    }
+    private void OpenMods()
+    {
+        if(modPanel is not null)return;
+        ResetNativeInput();modalDepth++;
+        modPanel=new(mods,contentStore,ExamplesDirectory);AddChild(modPanel);
+        modPanel.VisibilityChanged+=()=>
+        {
+            if(modPanel is null||modPanel.Visible)return;
+            var closed=modPanel;modPanel=null;modalDepth--;ResetNativeInput();closed.QueueFree();
+        };
+        modPanel.PopupCentered();
+    }
+    private void OpenMapEditor()
+    {
+        if(mapEditor is not null)return;
+        ResetNativeInput();modalDepth++;
+        mapEditor=new(world,content,contentStore);AddChild(mapEditor);
+        mapEditor.Closed+=()=>
+        {
+            var closed=mapEditor;mapEditor=null;modalDepth--;ResetNativeInput();closed?.QueueFree();
+        };
+        mapEditor.PlayRequested+=PlayMap;
+        mapEditor.PopupCentered();
+    }
+    private async Task PrepareTestingRoom()
+    {
+        var context=new GmContext(world.Instances.FirstOrDefault(i=>!i.Destroyed)??new GmInstance());
+        world.Evaluator.ResetBudget();
+        world.Globals.Write("StartArea",0);
+        await world.Evaluator.CallAsync("DataItemReset",[],context);
+        await world.Evaluator.CallAsync("DataItemLoad",[],context);
+        await world.LoadRoomAsync(world.Constants["TestRoom_Loading"].Int);
+        var started=System.Diagnostics.Stopwatch.StartNew();
+        while(world.IsLoadingRoom||world.PendingRoom is not null)
+        {
+            await world.StepAsync();
+            if(started.Elapsed.TotalSeconds>30)throw new InvalidOperationException("测试房间加载超时");
+        }
+    }
+    private async Task PlayMap(NativeMapDocument document)
+    {
+        if(mapEditor is null)return;
+        try
+        {
+            ResetNativeInput();
+            await PrepareTestingRoom();
+            int id=mapEditor.Service.InstallForPlay(document);
+            await world.LoadRoomAsync(id);mapEditor.Service.ApplyProperties(document);
+            foreach(var entity in mapEditor.Service.Attachments)nativeBridge.AttachEntity(entity.InstanceId,entity.EntityType);
+            graphics.Build();mapPlaytest=true;modalDepth--;
+            if(returnFromTest is null)
+            {
+                returnFromTest=new Button{Text="返回地图编辑器",Position=new(8,40)};AddChild(returnFromTest);
+                returnFromTest.Pressed+=ReturnToMapEditor;
+            }
+            ResetNativeInput();nativeClock.RoomChanged();
+        }
+        catch(Exception e){await ShowDialog("试玩失败："+e.Message,["OK"]);mapEditor.ResumeAfterPlaytest();}
+    }
+    private async void ReturnToMapEditor()
+    {
+        if(!mapPlaytest||mapEditor is null)return;
+        mapPlaytest=false;modalDepth++;ResetNativeInput();
+        await world.LoadRoomAsync(world.Constants["Title"].Int);graphics.Build();
+        mapEditor.ResumeAfterPlaytest();
+    }
+    private void OpenCharacterEditor()
+    {
+        if(characterEditor is not null)return;
+        ResetNativeInput();modalDepth++;previewReady=false;previewReturnRoom=world.CurrentRoom;
+        characterEditor=new(world,content,contentStore);AddChild(characterEditor);
+        previewViewport=new SubViewport{Size=new(640,480),TransparentBg=false,RenderTargetUpdateMode=SubViewport.UpdateMode.Always,Disable3D=true};AddChild(previewViewport);
+        previewCanvas=new GmCanvas();previewViewport.AddChild(previewCanvas);previewCanvas.Paint=c=>graphics.Render(c);
+        characterEditor.PreviewSurface.Texture=previewViewport.GetTexture();
+        characterEditor.PreviewRequested+=ApplyCharacterPreview;
+        characterEditor.PreviewAdvanceRequested+=AdvanceCharacterPreview;
+        characterEditor.PreviewResetRequested+=()=>{var player=Player();if(player is not null){world.Write(player,"x",96);world.Write(player,"y",0);world.Write(player,"vspeed",0);}};
+        characterEditor.Closed+=CloseCharacterEditor;
+        characterEditor.PopupCentered();
+    }
+    private async void CloseCharacterEditor()
+    {
+        if(characterEditor is null)return;
+        var closed=characterEditor;characterEditor=null;
+        while(previewBusy)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
+        characterVisuals.Clear();previewDefinition=null;previewReady=false;
+        previewViewport?.QueueFree();previewViewport=null;previewCanvas=null;
+        if(world.CurrentRoom!=previewReturnRoom)await world.LoadRoomAsync(previewReturnRoom);
+        graphics.Build();modalDepth--;ResetNativeInput();closed.QueueFree();
+    }
+    private GmInstance? Player()=>world.Instances.FirstOrDefault(i=>!i.Destroyed&&world.IsObject(i.Object,world.Constants["objPlayerDoll"].Int));
+    private async void ApplyCharacterPreview(CharacterDefinition definition)
+    {
+        if(previewBusy)return;
+        previewBusy=true;
+        try
+        {
+            if(!previewReady){await PrepareTestingRoom();previewReady=true;}
+            previewDefinition=definition;await BindFullCharacter(definition);graphics.Build();previewCanvas?.QueueRedraw();
+            characterEditor?.SetPreviewState("真实运行时："+definition.BasePreset+"；动作与碰撞已绑定。");
+        }
+        catch(Exception e){characterEditor?.SetPreviewState("预览失败："+e.Message);}
+        finally{previewBusy=false;}
+    }
+    private async void AdvanceCharacterPreview(NativeCharacterPreviewInput input)
+    {
+        if(previewBusy||!previewReady||characterEditor is null)return;
+        previewBusy=true;
+        try
+        {
+            int offset=world.Globals.ReadOr("controllMode").Equals(world.Constants["CTRL_KEY"])?12:0;
+            void Key(int slot,bool held)=>controls.Key(world,world.Globals.Read("key",[offset+slot]).Int,held);
+            Key(0,input.Left);Key(1,input.Right);Key(5,input.Jump);
+            if(input.Dash){Key(1,true);Key(1,false);Key(1,true);}
+            nativeClock.BeginTick();var state=controls.TakeNativeInput();
+            nativeBridge.Update(new(FrameContext.FixedDelta,nativeClock.GameTime,nativeClock.Tick,new(state.Held,state.Pressed,state.Released)));
+            if(nativeClock.LegacyDue(world.Engine.Read("room_speed").Number))await StepFrameAsync();
+            graphics.Build();previewCanvas?.QueueRedraw();
+            var actor=Player();if(actor is not null)characterEditor?.SetPreviewState($"真实运行时　动作 {actor.Scope.ReadOr("MotionNum")}　位置 {actor.Scope.ReadOr("x").Number:F1}, {actor.Scope.ReadOr("y").Number:F1}　竖直速度 {actor.Scope.ReadOr("vspeed").Number:F1}");
+        }
+        catch(Exception e){characterEditor?.SetPreviewState("预览失败："+e.Message);}
+        finally{previewBusy=false;}
+    }
+    private async Task BindFullCharacter(CharacterDefinition definition)
+    {
+        var actor=Player()??throw new InvalidOperationException("没有可控制的角色");
+        var context=new GmContext(actor);world.Evaluator.ResetBudget();
+        if(definition.BasePreset is not ("Nana" or "Yuki" or "Ryoko"))throw new InvalidDataException("未知基础行为："+definition.BasePreset);
+        // Snapshot the costume before any Destroy event mutates the shared loop variables.
+        var previousParts=actor.Scope.Values.Where(p=>p.Key=="PartsList"||p.Key.StartsWith("PartsList[",StringComparison.Ordinal)).Select(p=>p.Value.Int).Where(id=>id>=100000).Distinct().ToArray();
+        foreach(int id in previousParts)
+        {
+            var part=world.Instances.FirstOrDefault(i=>i.Id==id&&!i.Destroyed);
+            if(part is not null)await world.Evaluator.CallAsync("instance_destroy",[],new(part));
+        }
+        actor.Scope.Write("PartsNumber",0);actor.Scope.Write("PartsList",world.Constants["noone"]);
+        await world.Evaluator.CallAsync(definition.BasePreset+"Load",[],context);
+        actor.Scope.Write("HEAD_EXT",world.Constants["obj"+definition.BasePreset+"_Head"]);
+        actor.Scope.Write("MotionNum",actor.Scope.ReadOr("STAND_0"));actor.Scope.Write("KeyFrmNum",0);
+        var display=world.Instances.FirstOrDefault(i=>!i.Destroyed&&world.IsObject(i.Object,world.Constants["objDisplay"].Int));
+        if(display is not null)await world.Evaluator.CallAsync("LoadCharacter",[definition.Appearance,false],new(display));
+        nativeBridge.BindCharacter(actor,definition);characterVisuals[actor.Id]=definition;
+    }
+    private async Task<int> NativeCharacterMenu(string text,int fallback,GmContext context)
+    {
+        bool full=text.StartsWith("<Input Custom Character Name>",StringComparison.Ordinal)&&!controls.Call("keyboard_check",[17],world)!.Value.Truth;
+        var characters=full?content.Characters.Values.OrderBy(c=>c.Name).ToArray():[];
+        string expanded=text+string.Concat(characters.Select(c=>"|编辑器："+c.Name));
+        int selected=audit&&!nativeAuditUi&&!OS.GetCmdlineUserArgs().Contains("--controls-ui-audit")?Menu(expanded,fallback):await ShowPopupMenu(expanded,fallback);
+        int original=text.Split('|').Length;
+        if(selected>=original&&selected<original+characters.Length){await BindFullCharacter(characters[selected-original]);return fallback;}
+        return selected;
+    }
+    private IEnumerable<(double Depth, Action Draw)> NativeCharacterDraws()
+    {
+        var repository=new NativeCharacterRepository(contentStore);
+        foreach(var item in characterVisuals.ToArray())
+        {
+            var actor=world.Instances.FirstOrDefault(i=>i.Id==item.Key&&!i.Destroyed);
+            if(actor is null){characterVisuals.Remove(item.Key);continue;}
+            if(!actor.Active||!actor.Scope.ReadOr("visible",true).Truth)continue;
+            var definition=item.Value;
+            foreach(var part in definition.Parts.Where(p=>p.Visible&&p.Frames.Count>0).OrderBy(p=>p.Layer))
+            {
+                int total=part.Frames.Sum(f=>f.Duration);if(total<=0)continue;
+                int tick=(int)(nativeClock.GameTime*definition.AnimationFps)%total;
+                var frame=part.Frames[0];foreach(var f in part.Frames){frame=f;if(tick<f.Duration)break;tick-=f.Duration;}
+                string path=repository.FramePath(frame);if(!File.Exists(path))continue;
+                Vector2 position=new((float)actor.Scope.ReadOr("x").Number,(float)actor.Scope.ReadOr("y").Number);
+                var origin=new Vector2(part.AnchorX-part.OffsetX,part.AnchorY-part.OffsetY);
+                var scale=new Vector2((float)actor.Scope.ReadOr("Direction",1).Number,1);
+                float angle=-Mathf.DegToRad((float)actor.Scope.ReadOr("Angle").Number);
+                yield return(actor.Scope.ReadOr("depth").Number-part.Layer,()=>graphics.DrawExternal(path,origin,position,scale,angle));
+            }
+        }
+    }
+}

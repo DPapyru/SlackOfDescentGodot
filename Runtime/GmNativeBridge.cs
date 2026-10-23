@@ -166,7 +166,7 @@ public static class NativeActorActions
         && !actor.Instance.Destroyed && IsLocomotion(actor);
     public static bool IsLocomotion(ActorContext actor)
     {
-        double motion = actor.Read("MotionNum");
+        double motion = actor.Read("ChangeMotion") != 0 ? actor.Read("ChangeMotionNum") : actor.Read("MotionNum");
         return new[] { "STAND_0", "STAND_1", "STAND_0_RYOTE", "STAND_1_RYOTE", "WALK", "RUN", "JUMPUP", "JUMPUP2", "JUMPUP3", "JUMPDOWN", "DASH", "CROUCH" }
             .Any(name => actor.Instance.Scope.Values.ContainsKey(name) && actor.Read(name) == motion);
     }
@@ -177,6 +177,12 @@ public static class NativeActorActions
         if (actor.World.Globals.ReadOr("SurvivalGame").Truth) velocity *= preset == "Yuki" ? .5 : preset == "Nana" ? .9 : 1;
         if (preset == "Nana") velocity *= Controller(actor)?.Scope.ReadOr("JumpMultiplier", 1).Number ?? 1;
         return velocity;
+    }
+    public static bool MotionMatches(ActorContext actor, string motion)
+    {
+        if (!actor.Instance.Scope.Values.ContainsKey(motion)) return false;
+        double expected = actor.Read(motion);
+        return actor.Read("ChangeMotion") != 0 ? actor.Read("ChangeMotionNum") == expected : actor.Read("MotionNum") == expected;
     }
     public static void Motion(ActorContext actor, string motion)
     { if (actor.Instance.Scope.Values.ContainsKey(motion)) actor.Call("MotionChange", actor.Read(motion), 0, 1); }

@@ -33,6 +33,7 @@ public sealed class NativeMapService
     private readonly ContentRegistry registry;
     private int? playRoom;
     private readonly Dictionary<int, JsonElement> replacedRooms = new();
+    private readonly HashSet<string> installedCode = new(StringComparer.Ordinal);
     private readonly Dictionary<string, int> nativeObjects = new();
     public List<NativeMapAttachment> Attachments { get; } = new();
     public IReadOnlyList<string> LastWarnings { get; private set; } = Array.Empty<string>();
@@ -125,7 +126,6 @@ public sealed class NativeMapService
     public int InstallForPlay(NativeMapDocument document)
     {
         Validate(document);
-        foreach (var code in document.CreationCode) world.Code[code.Key] = code.Value.Clone();
         var room = document.Room.DeepClone().AsObject();
         Attachments.Clear();
         var instances = new JsonArray();
@@ -144,7 +144,7 @@ public sealed class NativeMapService
             if (objectId is null) continue;
             item["object"] = objectId.Value;
             string codeName = item["code"]?.GetValue<string>() ?? "";
-            JsonNode initializer = world.Code.TryGetValue(codeName, out var ast) ? JsonNode.Parse(ast.GetRawText())! : new JsonArray("group", new JsonArray());
+            JsonNode initializer = document.CreationCode.TryGetValue(codeName, out var ast) || world.Code.TryGetValue(codeName, out ast) ? JsonNode.Parse(ast.GetRawText())! : new JsonArray("group", new JsonArray());
             if (item["properties"] is JsonObject properties)
             {
                 var statements = new JsonArray(initializer);
@@ -156,9 +156,9 @@ public sealed class NativeMapService
                 }
                 initializer = new JsonArray("group", statements);
             }
-            string installedCode = $"native/maps/{document.Id}/instances/{Int(item, "id")}";
-            world.Code[installedCode] = JsonSerializer.SerializeToElement(initializer);
-            item["code"] = installedCode;
+            string installedInstanceCode = $"native/maps/{document.Id}/instances/{Int(item, "id")}";
+            world.Code[installedInstanceCode] = JsonSerializer.SerializeToElement(initializer); installedCode.Add(installedInstanceCode);
+            item["code"] = installedInstanceCode;
             instances.Add(item);
         }
         room["instances"] = instances;
@@ -170,20 +170,30 @@ public sealed class NativeMapService
             var item = original.DeepClone().AsObject(); item["background"] = background.Value; tiles.Add(item);
         }
         room["tiles"] = tiles;
-        if (room["code"] is not JsonValue roomCode || !world.Code.ContainsKey(roomCode.GetValue<string>()))
-        { string code = $"native/maps/{document.Id}/create"; world.Code[code] = JsonSerializer.SerializeToElement(new object[] { "group", Array.Empty<object>() }); room["code"] = code; }
+        string originalRoomCode = room["code"]?.GetValue<string>() ?? "";
+        string installedRoomCode = $"native/maps/{document.Id}/create";
+        world.Code[installedRoomCode] = document.CreationCode.TryGetValue(originalRoomCode, out var roomAst) || world.Code.TryGetValue(originalRoomCode, out roomAst) ? roomAst.Clone() : JsonSerializer.SerializeToElement(new object[] { "group", Array.Empty<object>() });
+        installedCode.Add(installedRoomCode); room["code"] = installedRoomCode;
         // GM scripts index globals by room ID (EnemyObject[room], stage state and transitions).
         // Preserve that identity for imported rooms rather than breaking original initialization.
         int sourceId = Int(document.Room, "id", -1);
         int id = world.Rooms.ContainsKey(sourceId) && world.Rooms[sourceId].GetProperty("name").GetString() == document.OriginalRoomName ? sourceId : playRoom ??= world.Rooms.Keys.Max() + 1;
-        if (world.Rooms.TryGetValue(id, out var previous) && !replacedRooms.ContainsKey(id)) replacedRooms[id] = previous;
+        if (world.Rooms.TryGetValue(id, out var previous) && id != playRoom && !replacedRooms.ContainsKey(id)) replacedRooms[id] = previous;
         room["id"] = id; room["caption"] = document.Name;
         world.Rooms[id] = JsonSerializer.SerializeToElement(room);
         world.NextId = Math.Max(world.NextId, document.Instances.OfType<JsonObject>().Select(i => Int(i, "id")).DefaultIfEmpty().Max() + 1);
         return id;
     }
-    /// <summary>Restores built-in room definitions after the host leaves editor playtest mode.</summary>
-    public void RestoreAfterPlaytest() { foreach (var pair in replacedRooms) world.Rooms[pair.Key] = pair.Value; replacedRooms.Clear(); }
+    /// <summary>Restores built-in rooms and removes temporary room/code definitions after editor playtest mode.</summary>
+    public void RestoreAfterPlaytest()
+    {
+        foreach (var pair in replacedRooms) world.Rooms[pair.Key] = pair.Value;
+        replacedRooms.Clear();
+        if (playRoom is int temporaryRoom) world.Rooms.Remove(temporaryRoom);
+        playRoom = null;
+        foreach (string key in installedCode) world.Code.Remove(key);
+        installedCode.Clear();
+    }
     /// <summary>Called after room creation to retain user overrides even when original Create events set defaults.</summary>
     public void ApplyProperties(NativeMapDocument document)
     {

@@ -12,6 +12,7 @@ var registry = new ContentRegistry(); var service = new NativeMapService(world, 
 int assertions = 0;
 void Expect(bool condition, string message) { assertions++; if (!condition) throw new InvalidOperationException(message); }
 var original = service.ImportOriginal(service.TestRoomId).Document;
+var sourceCode = world.Code.ToDictionary(pair => pair.Key, pair => pair.Value.GetRawText(), StringComparer.Ordinal);
 Expect(service.TestRoomId == world.Constants["EnemyTestRoom"].Int, "Title TestRoom resolves actual EnemyTestRoom");
 Expect(original.Instances.Count == 1227 && original.Tiles.Count == 1647, "Complete original map counts");
 Expect(JsonNode.DeepEquals(original.Room, JsonNode.Parse(world.Rooms[service.TestRoomId].GetRawText())), "Import preserves every raw field");
@@ -33,7 +34,7 @@ Expect(Directory.EnumerateFiles(Path.GetDirectoryName(path)!, "*.tmp").Count() =
 int installed = service.InstallForPlay(loaded); var playable = world.Rooms[installed];
 Expect(installed == service.TestRoomId, "Playback retains original room-indexed script identity");
 Expect(playable.GetProperty("instances").GetArrayLength() == 1228 && playable.GetProperty("tiles").GetArrayLength() == 1647, "Playback reconstructs complete content");
-foreach (var pair in original.Room.Where(p => p.Key is not ("id" or "name" or "caption" or "instances" or "tiles"))) Expect(JsonNode.DeepEquals(pair.Value, JsonNode.Parse(playable.GetProperty(pair.Key).GetRawText())), "Preserved room metadata " + pair.Key);
+foreach (var pair in original.Room.Where(p => p.Key is not ("id" or "name" or "caption" or "code" or "instances" or "tiles"))) Expect(JsonNode.DeepEquals(pair.Value, JsonNode.Parse(playable.GetProperty(pair.Key).GetRawText())), "Preserved room metadata " + pair.Key);
 foreach (var data in playable.GetProperty("instances").EnumerateArray())
 {
     var actor = world.Create(data.GetProperty("object").GetInt32(), data.GetProperty("x").GetDouble(), data.GetProperty("y").GetDouble(), data.GetProperty("id").GetInt32(), false);
@@ -77,6 +78,33 @@ Expect(rejected && File.ReadAllText(path) == before, "Unsupported version cannot
 Expect(Number(new JsonObject { ["number"] = 17 }, "number") == 17, "Integer JSON values remain numeric without serialization");
 var malformed = original.Clone(); malformed.Instances[0]!["x"] = "bad"; rejected = false; try { service.Validate(malformed); } catch (InvalidDataException) { rejected = true; } Expect(rejected, "Malformed raw entity edit rejected before saving");
 malformed = original.Clone(); malformed.Room.Remove("speed"); rejected = false; try { service.Validate(malformed); } catch (InvalidDataException) { rejected = true; } Expect(rejected, "Missing required room metadata rejected");
+// Embedded creation code may deliberately share original names, but must only execute in the map namespace.
+var embedded = original.Clone(); embedded.Instances.Clear(); embedded.Tiles.Clear();
+string roomCode = original.Room["code"]!.GetValue<string>();
+string instanceCode = original.Instances[0]!["code"]!.GetValue<string>();
+JsonElement Assignment(string name, int value) => JsonSerializer.SerializeToElement(new object[] { "group", new object[] { new object[] { "binary", "Assign", new object[] { "id", name }, new object[] { "num", value } } } });
+embedded.CreationCode[roomCode] = Assignment("embeddedRoomValue", 91);
+embedded.CreationCode[instanceCode] = Assignment("embeddedInstanceValue", 83);
+embedded.CreationCode["unused-embedded-code"] = Assignment("unused", 1);
+var embeddedEntity = service.AddEntity(embedded, blockType, 64, 64); embeddedEntity["code"] = instanceCode;
+embeddedEntity["properties"] = new JsonObject { ["embeddedPropertyValue"] = 77 };
+service.InstallForPlay(embedded); var embeddedRoom = world.Rooms[installed];
+string installedRoomCode = embeddedRoom.GetProperty("code").GetString()!;
+string installedInstanceCode = embeddedRoom.GetProperty("instances")[0].GetProperty("code").GetString()!;
+Expect(installedRoomCode == $"native/maps/{embedded.Id}/create" && installedInstanceCode == $"native/maps/{embedded.Id}/instances/{Int(embeddedEntity, "id")}", "Creation code uses stable map-owned keys");
+Expect(sourceCode.All(pair => world.Code[pair.Key].GetRawText() == pair.Value) && !world.Code.ContainsKey("unused-embedded-code"), "Embedded code never overwrites original or installs unused entries");
+var embeddedActor = world.Create(blockType, 64, 64, run: false);
+world.Evaluator.ResetBudget();
+world.Evaluator.Run(installedRoomCode, new(embeddedActor)); world.Evaluator.Run(installedInstanceCode, new(embeddedActor));
+Expect(embeddedActor.Scope.Read("embeddedRoomValue").Int == 91 && embeddedActor.Scope.Read("embeddedInstanceValue").Int == 83 && embeddedActor.Scope.Read("embeddedPropertyValue").Int == 77, "Embedded room and instance creation code execute with saved properties");
+embedded.CreationCode[instanceCode] = Assignment("embeddedInstanceValue", 84); service.InstallForPlay(embedded);
+world.Evaluator.Run(installedInstanceCode, new(embeddedActor));
+Expect(embeddedActor.Scope.Read("embeddedInstanceValue").Int == 84, "Repeated playtest executes the latest embedded creation code");
+var standalone = embedded.Clone(); standalone.OriginalRoomName = "unknown-source-room";
+int standaloneRoom = service.InstallForPlay(standalone);
+Expect(standaloneRoom != service.TestRoomId && service.InstallForPlay(standalone) == standaloneRoom, "Unknown source maps reuse a temporary playtest room");
 service.RestoreAfterPlaytest(); Expect(world.Rooms[service.TestRoomId].GetProperty("instances").GetArrayLength() == 1227, "Original room restored after playtest");
+Expect(!world.Rooms.ContainsKey(standaloneRoom), "Playtest cleanup removes temporary rooms that reference map code");
+Expect(world.Code.Count == sourceCode.Count && sourceCode.All(pair => world.Code.TryGetValue(pair.Key, out var code) && code.GetRawText() == pair.Value), "Playtest cleanup removes map code and preserves all original code");
 Console.WriteLine($"MAP_DATA_OK assertions={assertions} entities=1227 tiles=1647 output={output}");
-File.WriteAllText(Path.Combine(output, "result.json"), JsonSerializer.Serialize(new { assertions, entities = 1227, tiles = 1647, checks = new[] { "lossless-import", "stable-ids", "atomic-unicode-save", "entity-reconstruction", "custom-properties", "collision-boundaries", "missing-dependencies", "version-protection" } }, NativeContentStore.Json));
+File.WriteAllText(Path.Combine(output, "result.json"), JsonSerializer.Serialize(new { assertions, entities = 1227, tiles = 1647, checks = new[] { "lossless-import", "stable-ids", "atomic-unicode-save", "entity-reconstruction", "custom-properties", "collision-boundaries", "embedded-code-isolation", "playtest-code-cleanup", "missing-dependencies", "version-protection" } }, NativeContentStore.Json));

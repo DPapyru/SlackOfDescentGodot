@@ -63,6 +63,14 @@ try
     var missing = loaded.Duplicate(); missing.Definition.Parts[0].Frames[0].Png = "../../escape.png";
     invalid = false; try { repository.LoadDefinition(missing.Definition); } catch (InvalidDataException) { invalid = true; }
     Expect(invalid, "asset paths cannot escape content directory");
+    string missingPath=loaded.Definition.Parts[0].Frames[0].Png;
+    File.Delete(repository.FramePath(loaded.Definition.Parts[0].Frames[0]));
+    var unresolved=repository.Load(loaded.Definition.Id);
+    Expect(unresolved.MissingFrames.Count==1,"missing PNG reported while document remains editable");
+    unresolved.Definition.Name="资源缺失仍可保存";repository.Save(unresolved,registry,true);
+    Expect(repository.Load(loaded.Definition.Id).Definition.Parts[0].Frames[0].Png==missingPath,"save preserves unavailable PNG dependency");
+    var unresolvedPart=unresolved.Definition.Parts[0];unresolved.Paint(unresolvedPart.Id,0,1,1,11,22,33,128);repository.Save(unresolved,registry,true);
+    Expect(unresolved.MissingFrames.Count==0&&repository.Load(unresolved.Definition.Id).Pixels(unresolvedPart.Frames[0].Id)[(1*unresolvedPart.Width+1)*4+3]==128,"painting a missing frame saves explicit RGBA replacement");
     var bad = new CharacterDefinition { Id = "../escape" }; invalid = false; try { new NativeCharacterDocument(bad); } catch (InvalidDataException) { invalid = true; }
     Expect(invalid, "character ID cannot escape content directory");
 }

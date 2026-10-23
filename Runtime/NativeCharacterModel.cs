@@ -64,6 +64,7 @@ public sealed record NativePixelClipboard(int Width, int Height, byte[] Rgba)
 public sealed class NativeCharacterDocument
 {
     public CharacterDefinition Definition { get; private set; }
+    public Dictionary<string,string> MissingFrames { get; } = new(StringComparer.Ordinal);
     private Dictionary<string, byte[]> pixels = new(StringComparer.Ordinal);
     private readonly Stack<Snapshot> undo = new();
     private readonly Stack<Snapshot> redo = new();
@@ -173,7 +174,12 @@ public sealed class NativeCharacterDocument
         undo.Push(Capture()); Restore(redo.Pop()); return true;
     }
     public void MarkSaved() => saved = Fingerprint();
-    public NativeCharacterDocument Duplicate() => new(Definition, pixels);
+    public NativeCharacterDocument Duplicate()
+    {
+        var copy=new NativeCharacterDocument(Definition,pixels);
+        foreach(var frame in MissingFrames)copy.MissingFrames.Add(frame.Key,frame.Value);
+        return copy;
+    }
     public void Validate()
     {
         if (string.IsNullOrWhiteSpace(Definition.Id) || Definition.Id.Length > 120 || Definition.Id.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '-' or '_'))) throw new InvalidDataException("角色 ID 必须由英文字母、数字、下划线或短横线组成。");
@@ -232,14 +238,28 @@ public sealed class NativeCharacterRepository(NativeContentStore store)
     public NativeCharacterDocument LoadDefinition(CharacterDefinition definition)
     {
         var data = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        var missing=new Dictionary<string,string>(StringComparer.Ordinal);
         foreach (var part in definition.Parts)
             foreach (var frame in part.Frames)
             {
-                var png = NativeCharacterPng.Decode(File.ReadAllBytes(FramePath(frame)));
-                if (png.Width != part.Width || png.Height != part.Height) throw new InvalidDataException("PNG 尺寸与角色部件不符。");
-                if (!data.TryAdd(frame.Id, png.Rgba)) throw new InvalidDataException("角色帧 ID 重复。");
+                string path=FramePath(frame);
+                byte[] rgba;
+                try
+                {
+                    var png = NativeCharacterPng.Decode(File.ReadAllBytes(path));
+                    if (png.Width != part.Width || png.Height != part.Height) throw new InvalidDataException("PNG 尺寸与角色部件不符。");
+                    rgba=png.Rgba;
+                }
+                catch(Exception error)when(error is FileNotFoundException or DirectoryNotFoundException or InvalidDataException)
+                {
+                    missing.Add(frame.Id,frame.Png);
+                    rgba=new byte[checked(part.Width*part.Height*4)];
+                }
+                if (!data.TryAdd(frame.Id, rgba)) throw new InvalidDataException("角色帧 ID 重复。");
             }
-        return new(definition, data);
+        var document=new NativeCharacterDocument(definition,data);
+        foreach(var frame in missing)document.MissingFrames.Add(frame.Key,frame.Value);
+        return document;
     }
     public void Save(NativeCharacterDocument document, ContentRegistry registry, bool overwrite = false)
     {
@@ -259,14 +279,18 @@ public sealed class NativeCharacterRepository(NativeContentStore store)
                 int frameIndex = 0;
                 foreach (var frame in part.Frames)
                 {
+                    // An unavailable frame keeps its original dependency until the user paints replacement pixels.
+                    if(staged.MissingFrames.ContainsKey(frame.Id)&&staged.Pixels(frame.Id).All(b=>b==0)){frameIndex++;continue;}
                     frame.Png = Path.Combine(staged.Definition.Id, revision, $"{partIndex:D2}-{frameIndex++:D3}.png").Replace('\\', '/');
                     NativeContentStore.WriteAtomic(FramePath(frame), NativeCharacterPng.Encode(part.Width, part.Height, staged.Pixels(part, part.Frames.IndexOf(frame))));
+                    staged.MissingFrames.Remove(frame.Id);
                 }
                 partIndex++;
             }
             NativeContentStore.Save(path, staged.Definition); committed = true;
             for (int p = 0; p < document.Definition.Parts.Count; p++)
                 for (int f = 0; f < document.Definition.Parts[p].Frames.Count; f++) document.Definition.Parts[p].Frames[f].Png = staged.Definition.Parts[p].Frames[f].Png;
+            document.MissingFrames.Clear();foreach(var frame in staged.MissingFrames)document.MissingFrames.Add(frame.Key,frame.Value);
             document.MarkSaved(); registry.RegisterCharacter(staged.Definition);
         }
         finally { if (!committed && Directory.Exists(directory)) Directory.Delete(directory, true); }

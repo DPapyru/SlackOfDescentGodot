@@ -12,8 +12,8 @@ public sealed class GmFixedClock
     {
         if (!double.IsFinite(wallDelta) || wallDelta < 0) throw new ArgumentOutOfRangeException(nameof(wallDelta));
         accumulated += wallDelta;
-        // A long system stall is a suspension, rather than seconds of queued actions.
-        if (accumulated > .25) accumulated = .25;
+        // Limit work per callback while preserving the unprocessed simulation time.
+        // Only explicit modal/focus suspension discards the backlog.
         int ticks = Math.Min(15, (int)Math.Floor((accumulated + 1e-12) / Delta));
         accumulated = Math.Max(0, accumulated - ticks * Delta);
         return ticks;

@@ -18,6 +18,8 @@ public static class FixedClockTests
         var paused=new GmFixedClock();paused.Advance(.01);paused.Pause();
         Check(paused.Advance(.01)==0,"modal resume discards fractional backlog");
         Check(paused.Advance(5)==15,"system stall cannot enqueue seconds of actions");
+        int catchUp=15;for(int pass=0;pass<19;pass++)catchUp+=paused.Advance(0);
+        Check(catchUp==300,"bounded callbacks preserve all five seconds after a stall");
         bool rejected=false;try{paused.LegacyDue(3000);}catch(InvalidOperationException){rejected=true;}
         Check(rejected,"loading frequency never becomes gameplay frequency");
         return count;

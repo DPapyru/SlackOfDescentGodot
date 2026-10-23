@@ -159,6 +159,7 @@ public partial class NativeCharacterEditor : Window
     {
         Title = (Document.Dirty ? "＊ " : "") + "像素角色编辑器 — " + Document.Definition.Name;
         if (status is not null) status.Text = $"{(Document.Dirty ? "尚未保存" : "已保存")}　ID：{Document.Definition.Id}　部件：{Document.Definition.Parts.Count}　撤销：{Document.UndoCount}　依赖：{string.Join("、", Document.Definition.Dependencies)}";
+        if(status is not null&&Document.MissingFrames.Count>0)status.Text+="\n缺少或损坏的帧（保留原始引用）："+string.Join("、",Document.MissingFrames.Values);
     }
     private void RefreshSaved()
     {
@@ -175,7 +176,17 @@ public partial class NativeCharacterEditor : Window
     private void LoadSelected()
     {
         if (savedCharacters.Selected < 0) { ShowMessage("暂无可载入的角色。"); return; }
-        try { Document = repository.Load(savedCharacters.GetItemMetadata(savedCharacters.Selected).AsString()); selectedPart = selectedFrame = 0; canvas.Selection = null; Refresh(); }
+        try
+        {
+            string id=savedCharacters.GetItemMetadata(savedCharacters.Selected).AsString();
+            if(registry.Characters.TryGetValue(id,out var registered)&&!File.Exists(Path.Combine(repository.Store.Characters,id+".character.json")))
+            {
+                var copy=System.Text.Json.JsonSerializer.Deserialize<CharacterDefinition>(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(registered,NativeContentStore.Json),NativeContentStore.Json)!;
+                copy.Id=Guid.NewGuid().ToString("N");copy.Name+="（副本）";Document=repository.LoadDefinition(copy);
+            }
+            else Document=repository.Load(id);
+            selectedPart=selectedFrame=0;canvas.Selection=null;Refresh();
+        }
         catch (Exception e) { ShowMessage("载入失败：" + e.Message); }
     }
     private void SaveRequested()

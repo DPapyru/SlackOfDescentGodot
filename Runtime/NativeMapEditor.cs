@@ -121,7 +121,7 @@ public partial class NativeMapEditor : Window
         foreach (string id in registry.Entities.Keys.Order()) if (id.Contains(filter, StringComparison.OrdinalIgnoreCase)) { int index = entities.AddItem("扩展：" + id); entities.SetItemMetadata(index, "native:" + id); }
         if (entities.ItemCount > 0) entities.Select(0);
     }
-    private void RegistryChanged() { if (IsInsideTree()) { PopulateEntities(""); if (Document is not null) UpdateStatus(); } }
+    private void RegistryChanged() { if (IsInsideTree()) { PopulateEntities(""); if (Document is not null) { Service.Validate(Document); UpdateStatus(); } } }
     public void Import(int roomId)
     {
         var result = Service.ImportOriginal(roomId); SetDocument(result.Document, null); status.Text += $"　导入 {result.Milliseconds:F1} 毫秒";
@@ -143,7 +143,7 @@ public partial class NativeMapEditor : Window
     private void UpdateStatus()
     {
         if (Document is null || status is null) return;
-        var warnings = Service.Validate(Document); status.Text = $"{Document.Name}{(Dirty ? " *" : "")}　{Int(Document.Room, "width")}×{Int(Document.Room, "height")}　实体 {Document.Instances.Count}　图块 {Document.Tiles.Count}　{(FilePath ?? "尚未保存")}";
+        var warnings = Service.LastWarnings; status.Text = $"{Document.Name}{(Dirty ? " *" : "")}　{Int(Document.Room, "width")}×{Int(Document.Room, "height")}　实体 {Document.Instances.Count}　图块 {Document.Tiles.Count}　{(FilePath ?? "尚未保存")}";
         if (warnings.Count > 0) status.Text += $"　缺少依赖 {warnings.Count} 项（数据已保留）";
         Title = "地图编辑器 — " + Document.Name + (Dirty ? " *" : ""); MapCanvas.GridSize = (float)grid.Value;
     }

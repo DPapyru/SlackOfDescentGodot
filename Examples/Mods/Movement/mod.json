@@ -1,0 +1,7 @@
+{
+  "formatVersion": 1,
+  "id": "example.movement",
+  "entryType": "MovementExample.MovementMod",
+  "sources": ["MovementMod.cs"],
+  "managedDependencies": []
+}

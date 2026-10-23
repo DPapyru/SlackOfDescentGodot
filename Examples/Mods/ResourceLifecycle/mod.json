@@ -1,0 +1,7 @@
+{
+  "formatVersion": 1,
+  "id": "example.lifecycle",
+  "entryType": "LifecycleExample.LifecycleMod",
+  "sources": ["LifecycleMod.cs"],
+  "managedDependencies": []
+}

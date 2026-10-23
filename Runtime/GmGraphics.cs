@@ -207,7 +207,8 @@ public sealed partial class GmGraphics
     private Texture2D Texture(string path)
     {
         if(textures.TryGetValue(path,out var texture))return texture;
-        using var image=Image.LoadFromFile(Path.Combine(world.Root,path));
+        string localized=Path.Combine(world.Root,"localization",path);
+        using var image=Image.LoadFromFile(File.Exists(localized)?localized:Path.Combine(world.Root,path));
         return textures[path]=ImageTexture.CreateFromImage(image);
     }
     private void DrawParticles(GmParticleSystem system)
@@ -546,12 +547,26 @@ public sealed partial class GmGraphics
     }
     private void Text(string text,Vector2 position,float scaleX=1,float scaleY=1,float rotation=0)
     {
+        text=NativeLocalization.Text(text);
         var selected=world.Manifest.GetProperty("fonts").EnumerateArray().FirstOrDefault(f=>f.GetProperty("id").GetInt32()==font);
         if(selected.ValueKind==JsonValueKind.Undefined)throw new InvalidOperationException("Font not selected "+font);
         var texture=Texture(selected.GetProperty("path").GetString()!);
         var map=selected.GetProperty("map");
         int height=selected.GetProperty("size").GetInt32();
         var tint=Tint;
+        if(text.Any(ch=>ch>=256)&&NativeLocalization.Font is {} chinese)
+        {
+            var camera=target<0?Camera:Vector2.Zero;
+            foreach(string line in text.Replace('#','\n').Split('\n'))
+            {
+                string captured=line;Vector2 baseline=position-camera;
+                float width=chinese.GetStringSize(line,HorizontalAlignment.Left,-1,height).X;
+                float offset=halign==1?-width/2:halign==2?-width:0;
+                Add(c=>{c.DrawSetTransform(baseline,rotation,new(scaleX,scaleY));c.DrawString(chinese,captured,new(offset,chinese.GetAscent(height)),HorizontalAlignment.Left,-1,height,tint);c.DrawSetTransform(Vector2.Zero);});
+                position.Y+=height*scaleY;
+            }
+            return;
+        }
         foreach(var line in text.Replace('#','\n').Split('\n'))
         {
             float width=0;

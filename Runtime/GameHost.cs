@@ -120,9 +120,20 @@ public partial class GameHost : Node2D
             var root=OS.HasFeature("editor")?ProjectSettings.GlobalizePath("res://GameData"):GmPaths.FindData(Path.GetDirectoryName(OS.GetExecutablePath())!,AppContext.BaseDirectory);
             var source=System.Environment.GetEnvironmentVariable("SLACK_SOURCE")??Path.Combine(root,"assets");
             world=new(root,source,System.Environment.GetEnvironmentVariable("SLACK_USER_ROOT"));
+            NativeLocalization.Initialize(root);
             world.Performance.Configure(world.UserRoot,OS.IsDebugBuild());
             if(DisplayServer.GetName()!="headless")RenderingServer.FramePostDraw+=OnFramePostDraw;
             controls.LoadBindings(world);
+            controls.JoystickExists=number=>Input.GetConnectedJoypads().Contains(number-1);
+            controls.JoystickButtons=number=>Input.GetConnectedJoypads().Contains(number-1)?16:0;
+            controls.JoystickButton=(number,button)=>button>0&&Input.IsJoyButtonPressed(number-1,(JoyButton)(button-1));
+            controls.JoystickAxis=(number,axis)=>
+            {
+                float value=Input.GetJoyAxis(number-1,axis==0?JoyAxis.LeftX:JoyAxis.LeftY);
+                if(Math.Abs(value)>.5)return value;
+                return axis==0?(Input.IsJoyButtonPressed(number-1,JoyButton.DpadRight)?1:0)-(Input.IsJoyButtonPressed(number-1,JoyButton.DpadLeft)?1:0)
+                    :(Input.IsJoyButtonPressed(number-1,JoyButton.DpadDown)?1:0)-(Input.IsJoyButtonPressed(number-1,JoyButton.DpadUp)?1:0);
+            };
             if(audit)world.Random.Seed=0;
             audio=new(this,world);
             graphics=new(this,world);
@@ -253,7 +264,7 @@ public partial class GameHost : Node2D
         {
             if(entries[i].Length==0)popup.AddSeparator();
             else if(entries[i][0]=='-')popup.AddSeparator(entries[i][1..],i);
-            else{popup.AddItem(entries[i][0]=='/'?entries[i][1..]:entries[i],i);if(entries[i][0]=='/')popup.SetItemDisabled(popup.ItemCount-1,true);}
+            else{popup.AddItem(NativeLocalization.Text(entries[i][0]=='/'?entries[i][1..]:entries[i]),i);if(entries[i][0]=='/')popup.SetItemDisabled(popup.ItemCount-1,true);}
         }
         popup.IdPressed+=id=>completion.TrySetResult((int)id);
         popup.PopupHide+=()=>Callable.From(()=>completion.TrySetResult(fallback)).CallDeferred();
@@ -268,7 +279,8 @@ public partial class GameHost : Node2D
     private async Task<string> InputText(string text,string initial)
     {
         var completion=new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var dialog=new ConfirmationDialog{Name="CharacterInput",Title="Slack Of Descent",DialogText=text};
+        var dialog=new ConfirmationDialog{Name="CharacterInput",Title="沉降之暇",DialogText=NativeLocalization.Text(text)};
+        dialog.GetOkButton().Text="确定";dialog.GetCancelButton().Text="取消";
         var entry=new LineEdit{Text=initial,CustomMinimumSize=new Vector2(300,32)};dialog.AddChild(entry);
         dialog.Confirmed+=()=>completion.TrySetResult(entry.Text);
         dialog.Canceled+=()=>completion.TrySetResult(initial);
@@ -281,9 +293,9 @@ public partial class GameHost : Node2D
     private async Task<int> ShowDialog(string text,string[] choices)
     {
         var completion=new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var dialog=new AcceptDialog{Title="Slack Of Descent",DialogText=text.Replace('#','\n')};
+        var dialog=new AcceptDialog{Title="沉降之暇",DialogText=NativeLocalization.Text(text).Replace('#','\n')};
         dialog.GetOkButton().Hide();
-        for(int i=0;i<choices.Length;i++)if(choices[i].Length>0)dialog.AddButton(choices[i],false,(i+1).ToString());
+        for(int i=0;i<choices.Length;i++)if(choices[i].Length>0)dialog.AddButton(NativeLocalization.Text(choices[i]),false,(i+1).ToString());
         dialog.CustomAction+=action=>completion.TrySetResult(int.Parse(action));
         dialog.Canceled+=()=>completion.TrySetResult(0);
         dialog.CloseRequested+=()=>completion.TrySetResult(0);

@@ -1,0 +1,1457 @@
+{
+  "source": "ai d996bab GameData manifest/code; runtime dynamic bindings are global.key[0..31]",
+  "entries": [
+    {
+      "context": "objCharaEdit",
+      "input": "event:5:36",
+      "binding": "[{\"appliesToSomething\": true, \"code\": null, \"condition\": false, \"execution\": 1, \"function\": \"action_move_to\", \"id\": 109, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 2, \"parameterStrings\": [\"mouse_x\", \"mouse_y\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [0, 0], \"parameters\": [[\"id\", \"mouse_x\"], [\"id\", \"mouse_y\"]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": 23}, {\"appliesToSomething\": true, \"code\": null, \"condition\": false, \"execution\": 1, \"function\": \"action_move\", \"id\": 101, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 2, \"parameterStrings\": [\"000010000\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1, 0], \"parameters\": [[\"str\", \"000010000\"], [\"num\", 0.0]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 1, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objCharaEdit/5/36/2\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 611, \"invert\": false, \"kind\": 6, \"library\": 1, \"parameterCount\": 2, \"parameterStrings\": [\"global.PlayerHP\", \"global.PlayerHPMAX\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1, 0], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 2, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objCharaEdit/5/36/3\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 611, \"invert\": false, \"kind\": 6, \"library\": 1, \"parameterCount\": 2, \"parameterStrings\": [\"global.PlayerST\", \"global.PlayerSTMAX\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1, 0], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 3, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objCharaEdit/5/36/4\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"with(objDropWeapon){ instance_destroy() }\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 4, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objCharaEdit",
+      "input": "event:5:33",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objCharaEdit/5/33/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"Ter=instance_nearest(mouse_x,mouse_y,objEnemyDoll)\\r\\nwith(Ter){\\r\\nx=mouse_x\\r\\ny=mouse_y\\r\\nspeed=0\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objCharaEdit",
+      "input": "event:9:107",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objCharaEdit/9/107/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"with(Edit_Target){\\r\\n    global.EditorDirectory = get_string(\\\"MotionLoad\\\",global.EditorDirectory);\\r\\n    setMotionForPlayer(other.Edit_MotionNum,global.EditorDirectory);\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objCharaEdit",
+      "input": "event:9:69",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objCharaEdit/9/69/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"{\\r\\n    Edit_Able = !Edit_Able;\\r\\n    objEnemyEdit.Edit_Able = !Edit_Able;\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objCharaEdit",
+      "input": "event:9:51",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objCharaEdit/9/51/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"with(objExtParts){\\r\\n    visible = !visible \\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objCharaEdit",
+      "input": "event:9:50",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objCharaEdit/9/50/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"with(objEnemyDoll){\\r\\n    for(i=0;i<PARTS_MAX;i+=1) with(Process[i]){ visible = !visible }\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objCharaEdit",
+      "input": "event:9:49",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objCharaEdit/9/49/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"with(objPlayerDoll){\\r\\n    for(i=0;i<PARTS_MAX;i+=1) with(Process[i]){ visible = !visible }\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objCharaEdit",
+      "input": "event:9:34",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objCharaEdit/9/34/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"Flash(c_red,1.0,0.01);\\r\\nwith(objPlayerDoll){\\r\\nif(!isGameOver()){\\r\\nsound_play(sndHit02)\\r\\nif(!BINDED){\\r\\naddDamage(1000,FLYING_0, 0, 1, FLYING_0, 0, 2);\\r\\n}else{\\r\\naddDamage(1000,-1, -1, -1, -1, -1, -1);\\r\\n}\\r\\n}\\r\\n}\\r\\n\\r\\n//instance_create(mouse_x,mouse_y,objSpring);\\r\\n\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objCharaEdit",
+      "input": "event:9:13",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objCharaEdit/9/13/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"CharaStatusReset();\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objCharaEdit",
+      "input": "event:9:8",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objCharaEdit/9/8/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"if(keyboard_check(vk_shift) && room == EditRoom){  \\r\\nwith(objPlayerDoll){instance_destroy()}\\r\\nwith(objPlayerParts){instance_destroy()}\\r\\nwith(objExtParts){instance_destroy()}\\r\\nwith(objParts){instance_destroy()}\\r\\n    game_restart();\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:5:40",
+      "binding": "[{\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 605, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"Debug Stuff\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [[\"str\", \"Debug Stuff\"]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/5/40/1\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"if keyboard_check(vk_control)\\r\\n{\\r\\n    objDark4_2.alphaDefault -= 0.007\\r\\n}\\r\\nelse\\r\\n{\\r\\n    with(ds_list_find_value(global.Dolls,0))\\r\\n    {\\r\\n        down = 1\\r\\n    }\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 1, \"target\": -1}, {\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 425, \"invert\": false, \"kind\": 4, \"library\": 1, \"parameterCount\": 0, \"parameterStrings\": [\"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 2, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/5/40/3\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"/*\\r\\nwith(global.Dolls[global.ControllingDoll])\\r\\n{\\r\\nif(DollChara==\\\"Nana\\\"){\\r\\n    switch( MotionNum ){\\r\\n        //-----------------------------------------------------------------------\\r\\n        case STAND_0 : \\r\\n            break;\\r\\n        case WALK : \\r\\n            if(place_free(x-5*Direction,y)) x -= 5*Direction;\\r\\n            break;\\r\\n        case RUN : \\r\\n            if(place_free(x-12*Direction,y)) x -= 12*Direction;\\r\\n            break;\\r\\n    }\\r\\n}\\r\\n}\\r\\n*/\\r\\n\\r\\n//global.Dolls[0].MotionNum = global.Dolls[0].WALK;\\r\\n//global.Dolls[0].DemoMotionNum = global.Dolls[0].WALK;\\r\\nglobal.Dolls[0].right = 1;\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 3, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/5/40/4\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"with(objDark4_2){\\r\\nalphaDefault -= 0.05;\\r\\n}\\r\\n\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 4, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:5:39",
+      "binding": "[{\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 605, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"Debug Stuff\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [[\"str\", \"Debug Stuff\"]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/5/39/1\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"with(ds_list_find_value(global.Dolls,0))\\r\\n{\\r\\n    right = 1\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 1, \"target\": -1}, {\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 425, \"invert\": false, \"kind\": 4, \"library\": 1, \"parameterCount\": 0, \"parameterStrings\": [\"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 2, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:5:38",
+      "binding": "[{\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 605, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"Debug Stuff\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [[\"str\", \"Debug Stuff\"]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/5/38/1\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"if keyboard_check(vk_control)\\r\\n{\\r\\n    objDark4_2.alphaDefault += 0.007\\r\\n}\\r\\nelse\\r\\n{\\r\\n    with(ds_list_find_value(global.Dolls,0))\\r\\n    {\\r\\n        up = 1\\r\\n    }\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 1, \"target\": -1}, {\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 425, \"invert\": false, \"kind\": 4, \"library\": 1, \"parameterCount\": 0, \"parameterStrings\": [\"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 2, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/5/38/3\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"/*\\r\\nwith(global.Dolls[global.ControllingDoll])\\r\\n{\\r\\nif(DollChara==\\\"Nana\\\"){\\r\\n    switch( MotionNum ){\\r\\n        //-----------------------------------------------------------------------\\r\\n        case STAND_0 : \\r\\n            break;\\r\\n        case WALK : \\r\\n            if(place_free(x-5*Direction,y)) x -= 5*Direction;\\r\\n            break;\\r\\n        case RUN : \\r\\n            if(place_free(x-12*Direction,y)) x -= 12*Direction;\\r\\n            break;\\r\\n    }\\r\\n}\\r\\n}\\r\\n*/\\r\\n\\r\\n//global.Dolls[0].MotionNum = global.Dolls[0].STAND_0;\\r\\n//global.Dolls[0].DemoMotionNum = global.Dolls[0].STAND_0;\\r\\nglobal.Dolls[0].left = 1;\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 3, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/5/38/4\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"with(objDark4_2){\\r\\nalphaDefault += 0.05;\\r\\n}\\r\\n\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 4, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/5/38/5\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"LoadBody(\\\"NanaInazuma\\\");\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 5, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:5:37",
+      "binding": "[{\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 605, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"Debug Stuff\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [[\"str\", \"Debug Stuff\"]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/5/37/1\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"with(ds_list_find_value(global.Dolls,0))\\r\\n{\\r\\n    left = 1\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 1, \"target\": -1}, {\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 425, \"invert\": false, \"kind\": 4, \"library\": 1, \"parameterCount\": 0, \"parameterStrings\": [\"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 2, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:5:36",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objDisplay/5/36/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"//ctrlTarget\\r\\nt = noone;\\r\\n\\r\\nwith(objController)\\r\\n{\\r\\n    other.t = CtrlTarget;\\r\\n}\\r\\n\\r\\nwith(t.id)\\r\\n{\\r\\n    x = mouse_x;\\r\\n    y = mouse_y;\\r\\n    speed = 0;\\r\\n    //motion_set(000010000, 0);\\r\\n}\\r\\n\\r\\n//t.speed = 0;\\r\\n//with(t.id)\\r\\n//{\\r\\n//}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}, {\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 425, \"invert\": false, \"kind\": 4, \"library\": 1, \"parameterCount\": 0, \"parameterStrings\": [\"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 1, \"target\": -1}, {\"appliesToSomething\": true, \"code\": null, \"condition\": false, \"execution\": 1, \"function\": \"action_move_to\", \"id\": 109, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 2, \"parameterStrings\": [\"mouse_x\", \"mouse_y\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [0, 0], \"parameters\": [[\"id\", \"mouse_x\"], [\"id\", \"mouse_y\"]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 2, \"target\": 23}, {\"appliesToSomething\": true, \"code\": null, \"condition\": false, \"execution\": 1, \"function\": \"action_move\", \"id\": 101, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 2, \"parameterStrings\": [\"000010000\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1, 0], \"parameters\": [[\"str\", \"000010000\"], [\"num\", 0.0]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 3, \"target\": 23}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/5/36/4\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 611, \"invert\": false, \"kind\": 6, \"library\": 1, \"parameterCount\": 2, \"parameterStrings\": [\"global.PlayerHP\", \"global.PlayerHPMAX\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1, 0], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 4, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/5/36/5\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 611, \"invert\": false, \"kind\": 6, \"library\": 1, \"parameterCount\": 2, \"parameterStrings\": [\"global.PlayerST\", \"global.PlayerSTMAX\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1, 0], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 5, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/5/36/6\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"with(objDropWeapon){ instance_destroy() }\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 6, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:5:33",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objDisplay/5/33/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"Ter=instance_nearest(mouse_x,mouse_y,objEnemyDoll)\\r\\nif(!Ter){\\r\\nTer=instance_nearest(mouse_x,mouse_y,objEnemyDollNoDeactivate)\\r\\n}\\r\\nwith(Ter){\\r\\nx=mouse_x\\r\\ny=mouse_y\\r\\nspeed=0\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}, {\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 425, \"invert\": false, \"kind\": 4, \"library\": 1, \"parameterCount\": 0, \"parameterStrings\": [\"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 1, \"target\": -1}, {\"appliesToSomething\": true, \"code\": null, \"condition\": false, \"execution\": 1, \"function\": \"action_move_to\", \"id\": 109, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 2, \"parameterStrings\": [\"mouse_x\", \"mouse_y\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [0, 0], \"parameters\": [[\"id\", \"mouse_x\"], [\"id\", \"mouse_y\"]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 2, \"target\": 23}, {\"appliesToSomething\": true, \"code\": null, \"condition\": false, \"execution\": 1, \"function\": \"action_move\", \"id\": 101, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 2, \"parameterStrings\": [\"000010000\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1, 0], \"parameters\": [[\"str\", \"000010000\"], [\"num\", 0.0]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 3, \"target\": 23}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/5/33/4\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 611, \"invert\": false, \"kind\": 6, \"library\": 1, \"parameterCount\": 2, \"parameterStrings\": [\"global.PlayerHP\", \"1\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1, 0], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 4, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:5:1",
+      "binding": "[{\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 605, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"THE CAMERA MOVEMENT CLUSTERFUCK ENJOY\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [[\"str\", \"THE CAMERA MOVEMENT CLUSTERFUCK ENJOY\"]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}, {\"appliesToSomething\": true, \"code\": null, \"condition\": true, \"execution\": 1, \"function\": \"action_if\", \"id\": 408, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"global.Camera == 2\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [0], \"parameters\": [[\"binary\", \"Equal\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"Camera\"]], [\"num\", 2.0]]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 1, \"target\": -1}, {\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 422, \"invert\": false, \"kind\": 1, \"library\": 1, \"parameterCount\": 0, \"parameterStrings\": [\"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 2, \"target\": -1}, {\"appliesToSomething\": true, \"code\": null, \"condition\": true, \"execution\": 1, \"function\": \"action_if\", \"id\": 408, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"global.config_ArrowCamera\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [0], \"parameters\": [[\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"config_ArrowCamera\"]]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 3, \"target\": -1}, {\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 422, \"invert\": false, \"kind\": 1, \"library\": 1, \"parameterCount\": 0, \"parameterStrings\": [\"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 4, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/5/1/5\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"if keyboard_check(vk_up)\\r\\n{\\r\\n    global.lockedY -= global.CameraSpeed;\\r\\n}\\r\\nif keyboard_check(vk_left)\\r\\n{\\r\\n    global.lockedX -= global.CameraSpeed;\\r\\n}\\r\\nif keyboard_check(vk_down)\\r\\n{\\r\\n    global.lockedY += global.CameraSpeed;\\r\\n}\\r\\nif keyboard_check(vk_right)\\r\\n{\\r\\n    global.lockedX += global.CameraSpeed;\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 5, \"target\": -1}, {\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 424, \"invert\": false, \"kind\": 2, \"library\": 1, \"parameterCount\": 0, \"parameterStrings\": [\"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 6, \"target\": -1}, {\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 421, \"invert\": false, \"kind\": 3, \"library\": 1, \"parameterCount\": 0, \"parameterStrings\": [\"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 7, \"target\": -1}, {\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 422, \"invert\": false, \"kind\": 1, \"library\": 1, \"parameterCount\": 0, \"parameterStrings\": [\"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 8, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/5/1/9\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"if keyboard_check(ord('W'))\\r\\n{\\r\\n    global.lockedY -= global.CameraSpeed;\\r\\n}\\r\\nif keyboard_check(ord('A'))\\r\\n{\\r\\n    global.lockedX -= global.CameraSpeed;\\r\\n}\\r\\nif keyboard_check(ord('S'))\\r\\n{\\r\\n    global.lockedY += global.CameraSpeed;\\r\\n}\\r\\nif keyboard_check(ord('D'))\\r\\n{\\r\\n    global.lockedX += global.CameraSpeed;\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 9, \"target\": -1}, {\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 424, \"invert\": false, \"kind\": 2, \"library\": 1, \"parameterCount\": 0, \"parameterStrings\": [\"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 10, \"target\": -1}, {\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 424, \"invert\": false, \"kind\": 2, \"library\": 1, \"parameterCount\": 0, \"parameterStrings\": [\"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 11, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:6:53",
+      "binding": "[{\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 605, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [[\"str\", \"\"]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:9:123",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/123/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"if(global.Stamina == 2)\\r\\n{\\r\\n    global.Stamina = 1\\r\\n}\\r\\nelse\\r\\n{\\r\\n    global.Stamina = 2\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:9:122",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/122/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"if(global.God)\\r\\n{\\r\\n    global.God = false\\r\\n}\\r\\nelse\\r\\n{\\r\\n    global.God = true\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:9:119",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/119/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"if(global.Camera == 1)\\r\\n{\\r\\n    global.Camera = 0;\\r\\n    //Motion Blur bugs out for some reason when the camera is\\r\\n    //stopped, so I'm going to disable it as a temporary\\r\\n    //work-around.\\r\\n    global.previousBlur = global.config_MotionBlur;\\r\\n    global.config_MotionBlur = false;\\r\\n}\\r\\nelse\\r\\n{\\r\\n    global.Camera = 1;\\r\\n    global.config_MotionBlur = global.previousBlur;\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:9:118",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/118/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"if(global.Stamina == 0)\\r\\n{\\r\\n    global.Stamina = 1\\r\\n}\\r\\nelse\\r\\n{\\r\\n    global.Stamina = 0\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:9:117",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/117/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"if keyboard_check(vk_control)\\r\\n{\\r\\n    if(room_speed == 120)\\r\\n    {\\r\\n        room_speed = 30;\\r\\n        exit;\\r\\n    }\\r\\n    else\\r\\n    {\\r\\n        room_speed = 120;\\r\\n    }\\r\\n}\\r\\nelse\\r\\n{\\r\\n    if(room_speed == 60)\\r\\n    {\\r\\n        //room_speed = 15000;\\r\\n        room_speed = 30;\\r\\n        exit;\\r\\n    }\\r\\n    else\\r\\n    {\\r\\n        room_speed = 60;\\r\\n    }\\r\\n}\\r\\n\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:9:116",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/116/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"if keyboard_check(vk_control)\\r\\n{\\r\\n    if(room_speed == 7.5)\\r\\n    {\\r\\n        room_speed = 30;\\r\\n        exit;\\r\\n    }\\r\\n    else\\r\\n    {\\r\\n        room_speed = 7.5;\\r\\n    }\\r\\n}\\r\\nelse\\r\\n{\\r\\n    if(room_speed == 15)\\r\\n    {\\r\\n        //room_speed = 15000;\\r\\n        room_speed = 30;\\r\\n        exit;\\r\\n    }\\r\\n    else\\r\\n    {\\r\\n        room_speed = 15;\\r\\n    }\\r\\n}\\r\\n\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:9:114",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/114/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"if(global.Vignette)\\r\\n{\\r\\n    global.Vignette = false\\r\\n}\\r\\nelse\\r\\n{\\r\\n    global.Vignette = true\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:9:113",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/113/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"if(global.Mist)\\r\\n{\\r\\n    global.Mist = false\\r\\n}\\r\\nelse\\r\\n{\\r\\n    global.Mist = true\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:9:112",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/112/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"if keyboard_check(vk_control)\\r\\n{\\r\\n    if (window_get_cursor() == cr_none)\\r\\n    {\\r\\n        window_set_cursor(cr_default);\\r\\n    }\\r\\n    else\\r\\n    {\\r\\n        window_set_cursor(cr_none);\\r\\n    }\\r\\n}\\r\\nelse\\r\\n{\\r\\n    if(keyboard_check(vk_alt))\\r\\n    {\\r\\n        if(global.RenderDoll)\\r\\n        {\\r\\n            global.RenderDoll = false;\\r\\n        }\\r\\n        else\\r\\n        {\\r\\n            global.RenderDoll = true;\\r\\n        }\\r\\n    }\\r\\n    else\\r\\n    {\\r\\n        if(global.GUI)\\r\\n        {\\r\\n            global.GUI = false\\r\\n        }\\r\\n        else\\r\\n        {\\r\\n            global.GUI = true\\r\\n        }\\r\\n    }\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:9:86",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/86/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"if keyboard_check(vk_control)\\r\\n{\\r\\n    //clothingPart = get_string(\\\"Load from Clothing Part\\\", \\\"body_top\\\");\\r\\n    //HandleLoadClothingPart(get_string(\\\"Load Custom Character\\\", \\\"Nana\\\"),false,clothingPart);\\r\\n    clothingPart = show_menu(global.TotalCustomPartsString,-1);\\r\\n    if(clothingPart > -1)\\r\\n    {\\r\\n        selection = show_menu(\\\"<Input Custom Character Name>|<Empty>|\\\" + global.CustomCharactersString, -1);\\r\\n        if(selection == 0) { HandleLoadPart(get_string(\\\"Load Custom Character\\\", \\\"Nana\\\"),false,global.TotalCustomParts[clothingPart]); }\\r\\n        if(selection == 1) { HandleLoadPart(\\\"Empty\\\",false,global.TotalCustomParts[clothingPart]); }\\r\\n        if(selection > 1) { HandleLoadPart(ds_list_find_value(global.CustomCharacters,selection-2),false,global.TotalCustomParts[clothingPart]); }\\r\\n    }\\r\\n}\\r\\nelse\\r\\n{\\r\\n    selection = show_menu(\\\"<Input Custom Character Name>|<Empty>|\\\" + global.CustomCharactersString, -1);\\r\\n    if(selection == 0) { LoadCharacter(get_string(\\\"Load Custom Character\\\", \\\"Nana\\\"),false); }\\r\\n    if(selection == 1) { LoadCharacter(\\\"Empty\\\",false); }\\r\\n    if(selection > 1) { LoadCharacter(ds_list_find_value(global.CustomCharacters,selection-2),false) }\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:9:53",
+      "binding": "[{\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 605, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"UPDATE CAMERA\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [[\"str\", \"UPDATE CAMERA\"]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/53/1\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"if(ds_list_size(global.Dolls)==0)\\r\\n{\\r\\n    exit;\\r\\n}\\r\\n\\r\\nwith(objDisplay)\\r\\n{\\r\\n    //TARGET = objPlayerDoll.BODY_TOP;\\r\\n    if(global.ControllingDoll > -1)\\r\\n    {\\r\\n        TARGET = ds_list_find_value(global.Dolls,global.ControllingDoll).BODY_TOP\\r\\n    }\\r\\n    else\\r\\n    {\\r\\n        //with(objPlayerDoll)\\r\\n        //{\\r\\n            //TARGET = BODY_TOP;\\r\\n        //}\\r\\n        TARGET = objPlayerDoll.BODY_TOP;\\r\\n    }\\r\\n    //view_xview[0] = TARGET.x-320;\\r\\n    //view_yview[0] = TARGET.y-240;\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 1, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:9:52",
+      "binding": "[{\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 605, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"CONTROL LAST DOLL\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [[\"str\", \"CONTROL LAST DOLL\"]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/52/1\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"if(ds_list_size(global.Dolls)==0)\\r\\n{\\r\\n    exit;\\r\\n}\\r\\n\\r\\nwith(ds_list_find_value(global.Dolls,global.ControllingDoll))\\r\\n{\\r\\n    controlling = false;\\r\\n}\\r\\n\\r\\nglobal.ControllingDoll = ds_list_size(global.Dolls)-1;\\r\\n\\r\\nwith(ds_list_find_value(global.Dolls,global.ControllingDoll))\\r\\n{\\r\\n    controlling = true\\r\\n}\\r\\n\\r\\nwith(objController)\\r\\n{\\r\\n    CtrlTarget = ds_list_find_value(global.Dolls,global.ControllingDoll);\\r\\n}\\r\\n\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 1, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:9:51",
+      "binding": "[{\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 605, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"CONTROL NEXT DOLL\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [[\"str\", \"CONTROL NEXT DOLL\"]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/51/1\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"botNext();\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 1, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:9:50",
+      "binding": "[{\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 605, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"CONTROL PREVIOUS DOLL\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [[\"str\", \"CONTROL PREVIOUS DOLL\"]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/50/1\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"botPrev();\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 1, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:9:49",
+      "binding": "[{\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 605, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"CONTROL PLAYERDOLL\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [[\"str\", \"CONTROL PLAYERDOLL\"]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/49/1\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"if(global.ControllingDoll == -1)\\r\\n{\\r\\n    exit;\\r\\n}\\r\\n\\r\\nif(global.ControllingDoll > -1)\\r\\n{\\r\\n    with(ds_list_find_value(global.Dolls,global.ControllingDoll))\\r\\n    {\\r\\n        controlling = false;\\r\\n    }\\r\\n}\\r\\n\\r\\nglobal.ControllingDoll = -1;\\r\\n\\r\\nwith(objController)\\r\\n{\\r\\n    CtrlTarget = objPlayerDoll;\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 1, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:9:46",
+      "binding": "[{\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 425, \"invert\": false, \"kind\": 4, \"library\": 1, \"parameterCount\": 0, \"parameterStrings\": [\"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/46/1\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"//NPC = instance_create(mouse_x,mouse_y,objDemoDoll2);\\r\\n//ds_list_add(global.Dolls, NPC);\\r\\n\\r\\n//instance_destroy(global.Dolls[ds_list_size(global.Dolls)-1]);\\r\\n//ds_list_size(global.Dolls)\\r\\ntarget = ds_list_size(global.Dolls)-1\\r\\n\\r\\nif(ds_list_size(global.Dolls)>0)\\r\\n{\\r\\n    //with(global.Dolls[ds_list_size(global.Dolls)-1].id)\\r\\n    //with(ds_list_find_value(global.Dolls,0))\\r\\n    if(global.ControllingDoll == target)\\r\\n    {\\r\\n        botPrev();\\r\\n    }\\r\\n    \\r\\n    with(ds_list_find_value(global.Dolls,target))\\r\\n    {\\r\\n        instance_destroy();\\r\\n    }\\r\\n    //ds_list_delete(global.Dolls, ds_list_size(global.Dolls)-1);\\r\\n    //ds_list_delete(global.Dolls, 0);\\r\\n    ds_list_delete(global.Dolls,ds_list_size(global.Dolls)-1);\\r\\n}\\r\\n//global.Dolls[0].event_user(0);\\r\\n//ds_list_delete(global.Dolls, 0);\\r\\n//test = global.Dolls[0];\\r\\n//instance_destroy(test);\\r\\n//ds_list_size(global.Dolls)\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 1, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:9:45",
+      "binding": "[{\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 425, \"invert\": false, \"kind\": 4, \"library\": 1, \"parameterCount\": 0, \"parameterStrings\": [\"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/45/1\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"//instance_create(20,20,objPlayerDoll);\\r\\n\\r\\n//NPC = instance_create(mouse_x,mouse_y,objDemoDoll2);\\r\\n//NPC = instance_create(mouse_x,mouse_y,objDemoDoll2);\\r\\n\\r\\n//NPC = instance_create(mouse_x,mouse_y,objPlayerDoll);\\r\\n//NPC = instance_create(mouse_x,mouse_y,objDemoDoll2);\\r\\n\\r\\n//ds_list_add(global.Dolls, instance_create(mouse_x,mouse_y,objDemoDoll2).id);\\r\\n\\r\\n//with(NPC){ DollChara = \\\"Ryoko\\\";  event_user(1); Direction =  1; }\\r\\n\\r\\n//ds_list_insert(global.Dolls, 0, instance_create(mouse_x,mouse_y,objPlayerDoll).id);\\r\\n//ds_list_insert(global.Dolls, 0, instance_create(mouse_x,mouse_y,objDemoDoll2).id);\\r\\n//ds_list_insert(global.Dolls, 0, instance_create(mouse_x,mouse_y,objDemoDoll2));\\r\\nds_list_add(global.Dolls, instance_create(mouse_x,mouse_y,objDemoDoll2));\\r\\n\\r\\n\\r\\n\\r\\n////////========////////\\r\\n\\r\\nglobal.TItems[0,11]=global.gameData[DATA_ACHIEVEMENT]; \\r\\nglobal.TItems[11,11]=global.gameData[DATA_ACHIEVEMENT]; \\r\\nglobal.TItems[12,11]=global.gameData[DATA_ACHIEVEMENT]; \\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 1, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:9:38",
+      "binding": "[{\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 605, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"Debug Stuff\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [[\"str\", \"Debug Stuff\"]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/38/1\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"with(ds_list_find_value(global.Dolls,0))\\r\\n{\\r\\n    up = 2\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 1, \"target\": -1}, {\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 425, \"invert\": false, \"kind\": 4, \"library\": 1, \"parameterCount\": 0, \"parameterStrings\": [\"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 2, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:9:35",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/35/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"with(objPlayerDoll){\\r\\ndropWeapon();\\r\\n//Macro_CastOff_Hat();\\r\\n//Macro_CastOff_Shoe_Above();\\r\\n//Macro_CastOff_Shoe_Below();\\r\\n}\\r\\n\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}, {\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 425, \"invert\": false, \"kind\": 4, \"library\": 1, \"parameterCount\": 0, \"parameterStrings\": [\"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 1, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/35/2\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"switch(room){\\r\\n    case Stage1_1 : \\r\\n    case Stage1_2 : \\r\\n    case Stage1_3 : \\r\\n        new = instance_create(x,y,objChangeRoom);\\r\\n        new.nextRoom = Stage1_Boss;\\r\\n        break;\\r\\n    case Stage2_0 : \\r\\n    case Stage2_1 : \\r\\n    case Stage2_2 : \\r\\n    case Stage2_3 : \\r\\n        new = instance_create(x,y,objChangeRoom);\\r\\n        new.nextRoom = Stage2_Boss;\\r\\n        break;\\r\\n    case Stage3_0 : \\r\\n    case Stage3_1 : \\r\\n    case Stage3_2 : \\r\\n    case Stage3_3 : \\r\\n    case Stage3_4 :\\r\\n        new = instance_create(x,y,objChangeRoom);\\r\\n        new.nextRoom = Stage3_Loading2;\\r\\n        break;\\r\\n    case Stage4_0 : \\r\\n    case Stage4_1 : \\r\\n    case Stage4_2 : \\r\\n    case Stage4_3 : \\r\\n    case Stage4_4 :\\r\\n    case Stage4_5 :\\r\\n        new = instance_create(x,y,objChangeRoom);\\r\\n        new.nextRoom = Stage4_Loading4;\\r\\n        break;\\r\\n    case Stage5_0 : \\r\\n    case Stage5_1 : \\r\\n    case Stage5_2 : \\r\\n    case Stage5_3 : \\r\\n    case Stage5_4 :\\r\\n        bGM_stop(global.bgm);\\r\\n        bGM_close(global.bgm);\\r\\n        global.bgm = -1;\\r\\n        if(global.bgm==-1) global.bgm = bGM_play(\\\"Sound/BGM/Stage5_Boss.mp3\\\", global.config_BGMVolume, true, 0.0, 1.0);\\r\\n        global.StartArea = 1;\\r\\n        new = instance_create(x,y,objChangeRoom);\\r\\n        new.nextRoom = Stage5_Loading3;\\r\\n        break;\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 2, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:9:34",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/34/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"Flash(c_red,1.0,0.01);\\r\\n\\r\\nwith(objPlayerDoll){\\r\\nif(!isGameOver()){\\r\\nsound_play(sndHit02)\\r\\nif(!BINDED){\\r\\nif(random(100)<50){\\r\\n    addDamage(1000,FLYING_0, 0, 1, FLYING_0, 0, 2);\\r\\n}else{\\r\\n    addDamage(1000,FLYING_1, 0, 1, FLYING_1, 0, 2);\\r\\n}\\r\\n}else{\\r\\naddDamage(1000,-1, -1, -1, -1, -1, -1);\\r\\n}\\r\\n/*if(!BINDED){\\r\\naddDamage(0,DAMAGE_1, 0, 1, FLYING_0, 0, 2);\\r\\n}else{\\r\\naddDamage(0,-1, -1, -1, -1, -1, -1);\\r\\n}*/\\r\\n}\\r\\n}\\r\\n/*\\r\\nwith(objPlayerDoll){\\r\\nDeathPoison=100\\r\\n}\\r\\n*/\\r\\n//instance_create(mouse_x,mouse_y,objSpring);\\r\\n\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}, {\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 425, \"invert\": false, \"kind\": 4, \"library\": 1, \"parameterCount\": 0, \"parameterStrings\": [\"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 1, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/34/2\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"Flash(c_white,1.0,0.01);\\r\\nwith(objEnemyDoll){\\r\\n    if(HP > 0) HP = 1;\\r\\n}\\r\\n\\r\\ninstance_create(mouse_x,mouse_y,objSpring);\\r\\n\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 2, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:9:13",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/13/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"CharaStatusResetRest();\\r\\n\\r\\n//instance_create(x,y,objSwampReload);\\r\\n\\r\\n//LoadBody(\\\"Nana\\\",true);\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}, {\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 425, \"invert\": false, \"kind\": 4, \"library\": 1, \"parameterCount\": 0, \"parameterStrings\": [\"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 1, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/13/2\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"debug = !debug;\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 2, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:9:8",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objDisplay/9/8/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"if((room == EnemyTestRoom) && keyboard_check(vk_shift)){\\r\\n    CharaStatusReset();\\r\\n    room_goto(TestRoom_Loading);\\r\\n}\\r\\nif((room == EnemyTestRoom2) && keyboard_check(vk_shift)){  \\r\\n    CharaStatusReset();\\r\\n    room_goto(TestRoom2_Loading);\\r\\n}\\r\\n\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:10:40",
+      "binding": "[{\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 605, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"Debug Stuff\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [[\"str\", \"Debug Stuff\"]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/10/40/1\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"with(ds_list_find_value(global.Dolls,0))\\r\\n{\\r\\n    down = 0\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 1, \"target\": -1}, {\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 425, \"invert\": false, \"kind\": 4, \"library\": 1, \"parameterCount\": 0, \"parameterStrings\": [\"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 2, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:10:39",
+      "binding": "[{\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 605, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"Debug Stuff\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [[\"str\", \"Debug Stuff\"]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/10/39/1\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"with(ds_list_find_value(global.Dolls,0))\\r\\n{\\r\\n    right = 0\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 1, \"target\": -1}, {\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 425, \"invert\": false, \"kind\": 4, \"library\": 1, \"parameterCount\": 0, \"parameterStrings\": [\"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 2, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:10:38",
+      "binding": "[{\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 605, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"Debug Stuff\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [[\"str\", \"Debug Stuff\"]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/10/38/1\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"with(ds_list_find_value(global.Dolls,0))\\r\\n{\\r\\n    up = 0\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 1, \"target\": -1}, {\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 425, \"invert\": false, \"kind\": 4, \"library\": 1, \"parameterCount\": 0, \"parameterStrings\": [\"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 2, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objDisplay",
+      "input": "event:10:37",
+      "binding": "[{\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 605, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"Debug Stuff\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [[\"str\", \"Debug Stuff\"]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}, {\"appliesToSomething\": true, \"code\": \"objects/objDisplay/10/37/1\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"with(ds_list_find_value(global.Dolls,0))\\r\\n{\\r\\n    left = 0\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 1, \"target\": -1}, {\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 425, \"invert\": false, \"kind\": 4, \"library\": 1, \"parameterCount\": 0, \"parameterStrings\": [\"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 2, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objEnemyEdit",
+      "input": "event:9:107",
+      "binding": "[{\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 605, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [[\"str\", \"\"]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objEnemyEdit",
+      "input": "event:9:69",
+      "binding": "[{\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 605, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [[\"str\", \"\"]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objEnemyEdit",
+      "input": "event:9:50",
+      "binding": "[{\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 605, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [[\"str\", \"\"]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objEnemyEdit",
+      "input": "event:9:49",
+      "binding": "[{\"appliesToSomething\": false, \"code\": null, \"condition\": false, \"execution\": 0, \"function\": \"\", \"id\": 605, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [[\"str\", \"\"]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objBlurFox",
+      "input": "event:5:40",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objBlurFox/5/40/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 611, \"invert\": false, \"kind\": 6, \"library\": 1, \"parameterCount\": 2, \"parameterStrings\": [\"rot_speed\", \"-1\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1, 0], \"parameters\": [], \"rawCode\": \"\", \"relative\": true, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objBlurFox",
+      "input": "event:5:38",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objBlurFox/5/38/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 611, \"invert\": false, \"kind\": 6, \"library\": 1, \"parameterCount\": 2, \"parameterStrings\": [\"rot_speed\", \"1\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1, 0], \"parameters\": [], \"rawCode\": \"\", \"relative\": true, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objTimer",
+      "input": "event:9:32",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objTimer/9/32/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"event_user(0);\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objCaution",
+      "input": "event:9:1",
+      "binding": "[{\"appliesToSomething\": true, \"code\": null, \"condition\": false, \"execution\": 1, \"function\": \"action_set_alarm\", \"id\": 301, \"invert\": false, \"kind\": 0, \"library\": 1, \"parameterCount\": 2, \"parameterStrings\": [\"1\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [0, 4], \"parameters\": [[\"num\", 1.0], [\"num\", 0.0]], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objHeldItemManager",
+      "input": "event:6:54",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objHeldItemManager/6/54/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"/* output[0] Result: -1 = Fail (Didn't Use), 0 = Success (Used), 1 = Success (Became New Item) */\\r\\n/* output[1] New Item Given (if Result == 1) */\\r\\n\\r\\nif(isGameOver()) { exit; }\\r\\n\\r\\noutput = UseItem(t.rhand)\\r\\n\\r\\nif(output[0] == 0)\\r\\n{\\r\\n    t.rhand = -1;\\r\\n}\\r\\nif(output[0] == 1)\\r\\n{\\r\\n    t.rhand = output[1];\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objHeldItemManager",
+      "input": "event:6:53",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objHeldItemManager/6/53/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"/* output[0] Result: -1 = Fail (Didn't Use), 0 = Success (Used), 1 = Success (Became New Item) */\\r\\n/* output[1] New Item Given (if Result == 1) */\\r\\n\\r\\nif(isGameOver()) { exit; }\\r\\n\\r\\noutput = UseItem(t.lhand)\\r\\n\\r\\nif(output[0] == 0)\\r\\n{\\r\\n    t.lhand = -1;\\r\\n}\\r\\nif(output[0] == 1)\\r\\n{\\r\\n    t.lhand = output[1];\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objHeldItemManager",
+      "input": "event:9:81",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objHeldItemManager/9/81/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"if(isGameOver()) { exit; }\\r\\n\\r\\noutput = Craft(t.lhand, t.rhand);\\r\\n\\r\\n/*\\r\\noutput[0] = 0; // Result. 0 = Success (Double), 1 = Success (Single), -1 = Failure\\r\\noutput[1] = -1; // Item (Double)\\r\\noutput[2] = -1; // lhand (Single)\\r\\noutput[3] = -1; // rhand (Single)\\r\\n*/\\r\\n\\r\\nif (output[0] == -1)\\r\\n{\\r\\n    sound_play(sndFail)\\r\\n    exit;\\r\\n}\\r\\nelse\\r\\n{\\r\\n    if(output[1] == 5) /* Special Rope-Crafting Sound! */\\r\\n    {\\r\\n        sound_play(sndCraft);\\r\\n    }\\r\\n    else\\r\\n    {\\r\\n        sound_play(sndSuccess);\\r\\n    }\\r\\n    \\r\\n    if(output[0] == 0)\\r\\n    {\\r\\n        t.lhand = output[1];\\r\\n        t.rhand = -1;\\r\\n        exit;\\r\\n    }\\r\\n    if(output[0] == 1)\\r\\n    {\\r\\n        if(output[2] != -1) { t.lhand = output[2]; }\\r\\n        if(output[3] != -1) { t.rhand = output[3]; }\\r\\n        exit;\\r\\n    }\\r\\n    \\r\\n    /*\\r\\n    if(result != -2)\\r\\n    {\\r\\n        t.lhand = result;\\r\\n        t.rhand = -1;\\r\\n    }\\r\\n    exit;\\r\\n    */\\r\\n}\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objHeldItemManager",
+      "input": "event:9:72",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objHeldItemManager/9/72/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"if(isGameOver()) { exit; }\\r\\n\\r\\nif(t.rhand < 0 and t.lhand < 0) { sound_play(sndFail); exit; }\\r\\n\\r\\nlhandOld = t.lhand;\\r\\nt.lhand = t.rhand;\\r\\nt.rhand = lhandOld\\r\\n\\r\\nsound_play(sndSwitchItems);\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objHeldItemManager",
+      "input": "event:9:71",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objHeldItemManager/9/71/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"if(isGameOver()) { exit; }\\r\\n\\r\\nif(t.rhand < 0 and t.offhand < 0) { sound_play(sndFail); exit; }\\r\\n\\r\\noffhandOld = t.offhand;\\r\\nt.offhand = t.rhand;\\r\\nt.rhand = offhandOld\\r\\n\\r\\nsound_play(sndSwitchItems);\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "objHeldItemManager",
+      "input": "event:9:70",
+      "binding": "[{\"appliesToSomething\": true, \"code\": \"objects/objHeldItemManager/9/70/0\", \"condition\": false, \"execution\": 2, \"function\": \"\", \"id\": 603, \"invert\": false, \"kind\": 7, \"library\": 1, \"parameterCount\": 1, \"parameterStrings\": [\"if(isGameOver()) { exit; }\\r\\n\\r\\nif(t.lhand < 0 and t.offhand < 0) { sound_play(sndFail); exit; }\\r\\n\\r\\noffhandOld = t.offhand;\\r\\nt.offhand = t.lhand;\\r\\nt.lhand = offhandOld\\r\\n\\r\\nsound_play(sndSwitchItems);\\r\\n\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\", \"0\"], \"parameterTypes\": [1], \"parameters\": [], \"rawCode\": \"\", \"relative\": false, \"sourceIndex\": 0, \"target\": -1}]",
+      "evidence": "已枚举；待专项验证"
+    },
+    {
+      "context": "external/Chara/BossHitoBrain/step.txt",
+      "input": "keyboard_check",
+      "binding": "[[\"id\", \"vk_space\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/3/0/10",
+      "input": "mouse_check_button",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/3/0/10",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_right\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/3/0/10",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/3/0/8",
+      "input": "mouse_check_button",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/3/0/8",
+      "input": "mouse_check_button",
+      "binding": "[[\"id\", \"mb_right\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/3/0/8",
+      "input": "mouse_check_button",
+      "binding": "[[\"id\", \"mb_middle\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/3/0/8",
+      "input": "mouse_check_button",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/3/0/8",
+      "input": "mouse_check_button",
+      "binding": "[[\"id\", \"mb_middle\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/3/0/8",
+      "input": "mouse_check_button",
+      "binding": "[[\"id\", \"mb_right\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/3/0/8",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/3/0/8",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_right\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/3/0/8",
+      "input": "mouse_wheel_down",
+      "binding": "[]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/3/0/8",
+      "input": "mouse_wheel_up",
+      "binding": "[]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/3/2/0",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"id\", \"vk_delete\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/3/2/1",
+      "input": "keyboard_check",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"M\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/3/2/1",
+      "input": "keyboard_check",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"N\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/3/2/1",
+      "input": "keyboard_check_released",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"M\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/7/13/1",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"id\", \"vk_space\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/7/13/1",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"P\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/7/13/1",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"B\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/7/13/1",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"Q\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/7/13/1",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"W\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/7/13/1",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"Z\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/7/13/1",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"X\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/7/13/1",
+      "input": "keyboard_check",
+      "binding": "[[\"id\", \"vk_control\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/7/13/1",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"id\", \"vk_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/7/13/1",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"id\", \"vk_right\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/7/13/1",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"id\", \"vk_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/7/13/1",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"id\", \"vk_right\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/7/13/1",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"A\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/7/13/1",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"S\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/7/13/1",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"id\", \"vk_shift\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/7/13/1",
+      "input": "keyboard_check",
+      "binding": "[[\"id\", \"vk_control\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/7/13/1",
+      "input": "keyboard_check",
+      "binding": "[[\"id\", \"vk_alt\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/7/13/1",
+      "input": "keyboard_check",
+      "binding": "[[\"id\", \"vk_end\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/7/13/1",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"id\", \"vk_delete\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/7/13/1",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"C\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/7/13/1",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"V\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/7/13/1",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"S\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objCharaEdit/9/8/0",
+      "input": "keyboard_check",
+      "binding": "[[\"id\", \"vk_shift\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objControllableDoll/4/385/0",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"E\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objControllableDoll/4/390/0",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"E\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objControllableDoll/4/398/0",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"E\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objControllableDoll/4/399/0",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"E\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objControllableDoll/4/400/0",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"E\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objController/3/0/18",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objController/3/0/18",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objController/3/0/18",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objController/3/0/18",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objController/3/0/18",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objController/3/0/18",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objController/3/0/18",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objController/3/0/18",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objController/3/0/18",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objController/3/0/23",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objController/3/0/23",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_right\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objController/3/0/27",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objController/3/0/27",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objController/3/0/27",
+      "input": "mouse_check_button",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objController/3/2/6",
+      "input": "mouse_check_button",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objController/3/2/6",
+      "input": "mouse_check_button",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objController/3/2/6",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_right\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objController/3/2/6",
+      "input": "mouse_check_button",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objController/3/2/6",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objController/3/2/6",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_right\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objController/3/2/6",
+      "input": "mouse_check_button",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objDisplay/5/1/5",
+      "input": "keyboard_check",
+      "binding": "[[\"id\", \"vk_up\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objDisplay/5/1/5",
+      "input": "keyboard_check",
+      "binding": "[[\"id\", \"vk_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objDisplay/5/1/5",
+      "input": "keyboard_check",
+      "binding": "[[\"id\", \"vk_down\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objDisplay/5/1/5",
+      "input": "keyboard_check",
+      "binding": "[[\"id\", \"vk_right\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objDisplay/5/1/9",
+      "input": "keyboard_check",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"W\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objDisplay/5/1/9",
+      "input": "keyboard_check",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"A\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objDisplay/5/1/9",
+      "input": "keyboard_check",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"S\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objDisplay/5/1/9",
+      "input": "keyboard_check",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"D\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objDisplay/5/38/1",
+      "input": "keyboard_check",
+      "binding": "[[\"id\", \"vk_control\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objDisplay/5/40/1",
+      "input": "keyboard_check",
+      "binding": "[[\"id\", \"vk_control\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objDisplay/9/112/0",
+      "input": "keyboard_check",
+      "binding": "[[\"id\", \"vk_control\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objDisplay/9/112/0",
+      "input": "keyboard_check",
+      "binding": "[[\"id\", \"vk_alt\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objDisplay/9/116/0",
+      "input": "keyboard_check",
+      "binding": "[[\"id\", \"vk_control\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objDisplay/9/117/0",
+      "input": "keyboard_check",
+      "binding": "[[\"id\", \"vk_control\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objDisplay/9/8/0",
+      "input": "keyboard_check",
+      "binding": "[[\"id\", \"vk_shift\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objDisplay/9/8/0",
+      "input": "keyboard_check",
+      "binding": "[[\"id\", \"vk_shift\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objDisplay/9/86/0",
+      "input": "keyboard_check",
+      "binding": "[[\"id\", \"vk_control\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objDoll/8/0/0",
+      "input": "keyboard_check",
+      "binding": "[[\"id\", \"vk_home\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objEnemyEdit/3/2/1",
+      "input": "keyboard_check",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"M\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objEnemyEdit/3/2/1",
+      "input": "keyboard_check_released",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"M\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objItemMessage/3/0/1",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objItemMessage/3/0/1",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_right\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objItemPanel/3/0/3",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objItemPanel/3/0/3",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_right\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objTitle/3/0/1",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"id\", \"vk_anykey\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objTitle/3/0/1",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"id\", \"vk_anykey\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objTitle/3/0/1",
+      "input": "joystick_check_button",
+      "binding": "[[\"num\", 0.0], [\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 30.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "objects/objTitle/3/0/1",
+      "input": "joystick_check_button",
+      "binding": "[[\"num\", 0.0], [\"id\", \"i\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/EnemyBuster",
+      "input": "keyboard_check",
+      "binding": "[[\"id\", \"vk_control\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/EnemyBuster",
+      "input": "keyboard_check",
+      "binding": "[[\"id\", \"vk_alt\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/EnemyBuster",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"N\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/EnemyBuster",
+      "input": "keyboard_check",
+      "binding": "[[\"id\", \"vk_control\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/EnemyBuster",
+      "input": "keyboard_check",
+      "binding": "[[\"id\", \"vk_alt\"]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/EnemyBuster",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"call\", \"ord\", [[\"str\", \"B\"]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 0.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 1.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 2.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 3.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 4.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 5.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 6.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 7.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 8.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 9.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 10.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 11.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 0.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 1.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 2.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 3.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 4.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 5.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 6.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 7.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 8.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 9.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 10.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 11.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_released",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 0.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_released",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 1.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_released",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 2.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_released",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 3.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_released",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 4.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_released",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 5.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_released",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 6.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_released",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 7.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_released",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 8.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_released",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 9.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_released",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 10.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_released",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 11.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 12.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 13.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 14.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 15.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 16.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 17.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 18.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 19.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 20.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 21.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 22.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 23.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 12.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 13.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 14.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 15.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 16.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 17.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 18.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 19.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 20.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 21.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 22.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_pressed",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 23.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_released",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 12.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_released",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 13.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_released",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 14.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_released",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 15.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_released",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 16.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_released",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 17.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_released",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 18.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_released",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 19.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_released",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 20.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_released",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 21.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_released",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 22.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "keyboard_check_released",
+      "binding": "[[\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 23.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "joystick_xpos",
+      "binding": "[[\"num\", 1.0]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "joystick_ypos",
+      "binding": "[[\"num\", 1.0]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "joystick_check_button",
+      "binding": "[[\"num\", 1.0], [\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 24.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "joystick_check_button",
+      "binding": "[[\"num\", 1.0], [\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 25.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "joystick_check_button",
+      "binding": "[[\"num\", 1.0], [\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 26.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "joystick_check_button",
+      "binding": "[[\"num\", 1.0], [\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 27.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "joystick_check_button",
+      "binding": "[[\"num\", 1.0], [\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 28.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "joystick_check_button",
+      "binding": "[[\"num\", 1.0], [\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 29.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "joystick_check_button",
+      "binding": "[[\"num\", 1.0], [\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 30.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/KeyMapGet",
+      "input": "joystick_check_button",
+      "binding": "[[\"num\", 1.0], [\"binary\", \"Index\", [\"binary\", \"Deref\", [\"id\", \"global\"], [\"id\", \"key\"]], [\"group\", [[\"num\", 31.0]]]]]",
+      "evidence": "待专项验证"
+    },
+    {
+      "context": "scripts/StopGrenade",
+      "input": "mouse_check_button_pressed",
+      "binding": "[[\"id\", \"mb_left\"]]",
+      "evidence": "待专项验证"
+    }
+  ]
+}

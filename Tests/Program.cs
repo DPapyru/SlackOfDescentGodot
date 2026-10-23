@@ -8,6 +8,7 @@ var self=new GmInstance{Id=999999,Object=-1};
 world.Instances.Add(self);
 var context=new GmContext(self);
 int assertions=0;
+assertions+=FixedClockTests.Run();
 void Equal(GmValue actual,GmValue expected,string name)
 {
     if(!actual.Equals(expected))throw new Exception($"{name}: expected {expected}, got {actual}");

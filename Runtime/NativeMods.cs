@@ -18,7 +18,6 @@ public sealed class NativeModManifest
 public sealed record NativeModResult(bool Success, string Id, string Diagnostics, WeakReference? PreviousContext = null);
 public sealed record NativeModInfo(string Id, string Directory, string Diagnostics);
 
-/// <summary>Compiles C# inside the shipped runtime; an installed SDK is never needed.</summary>
 public sealed class NativeModManager : IDisposable
 {
     private readonly ContentRegistry content;
@@ -60,7 +59,6 @@ public sealed class NativeModManager : IDisposable
             candidate = Activate(id, directory, manifest, assembly.ToArray(), dependencies, diagnostics);
             loaded.TryGetValue(id, out var previous);
             Validate(candidate, previous);
-            // Registry subscribers detach their instances before any old assembly is released.
             if (previous is not null) Remove(previous);
             Add(candidate);
             loaded[id] = candidate;
@@ -121,7 +119,6 @@ public sealed class NativeModManager : IDisposable
         }
         else
         {
-            // Editor/development fallback uses the running runtime, never searches for an SDK.
             foreach (string path in ((string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)) yield return path;
         }
         yield return AssemblyFile(typeof(NativeModManager).Assembly);
@@ -220,7 +217,6 @@ public sealed class NativeModManager : IDisposable
             if (name.Name == typeof(Godot.Node).Assembly.GetName().Name) return typeof(Godot.Node).Assembly;
             string? dependency = dependencies.FirstOrDefault(p => AssemblyName.GetAssemblyName(p).Name == name.Name);
             if (dependency is not null) { using var stream = File.OpenRead(dependency); return LoadFromStream(stream); }
-            // Only framework/host assemblies can fall through; undeclared sibling DLLs never load.
             return null;
         }
     }

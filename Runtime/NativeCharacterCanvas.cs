@@ -105,7 +105,6 @@ public partial class NativeCharacterPixelCanvas : Control
     }
 }
 
-/// <summary>Composition only; all gameplay preview physics are delegated to the real runtime actor.</summary>
 public partial class NativeCharacterComposite : Control
 {
     public NativeCharacterDocument? Document { get; set; }

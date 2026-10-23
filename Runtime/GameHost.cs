@@ -603,7 +603,6 @@ public partial class GameHost : Node2D
             UpdateMouse();
             if(world.IsLoadingRoom)
             {
-                // Loading rooms are cooperative jobs, independent of gameplay time.
                 long loadingStarted=Stopwatch.GetTimestamp();
                 for(int jobs=0;jobs<128&&world.IsLoadingRoom&&Stopwatch.GetElapsedTime(loadingStarted).TotalMilliseconds<8;jobs++)
                 {

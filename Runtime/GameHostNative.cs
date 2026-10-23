@@ -200,7 +200,6 @@ public partial class GameHost
         }
         var context=new GmContext(actor);world.Evaluator.ResetBudget();
         if(definition.BasePreset is not ("Nana" or "Yuki" or "Ryoko"))throw new InvalidDataException("未知基础行为："+definition.BasePreset);
-        // Snapshot the costume before any Destroy event mutates the shared loop variables.
         var previousParts=actor.Scope.Values.Where(p=>p.Key=="PartsList"||p.Key.StartsWith("PartsList[",StringComparison.Ordinal)).Select(p=>p.Value.Int).Where(id=>id>=100000).Distinct().ToArray();
         foreach(int id in previousParts)
         {

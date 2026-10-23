@@ -5,7 +5,6 @@ namespace SlackOfDescent;
 
 public readonly record struct NativeCharacterPreviewInput(bool Left, bool Right, bool Jump, bool Dash);
 
-/// <summary>Native editor; runtime preview is driven by the host's actual actor and fixed-step world.</summary>
 public partial class NativeCharacterEditor : Window
 {
     private readonly GmWorld world;
@@ -257,7 +256,6 @@ public partial class NativeCharacterEditor : Window
         if (handled) GetViewport().SetInputAsHandled();
     }
 
-    /// <summary>Runs actual Godot control callbacks and exports source/paste/load PNGs for a separate pixel-only audit.</summary>
     public string RunUiAudit(string outputDirectory)
     {
         if (!IsNodeReady()) throw new InvalidOperationException("编辑器必须先加入场景树。");

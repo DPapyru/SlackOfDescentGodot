@@ -2,7 +2,6 @@ using Godot;
 
 namespace SlackOfDescent;
 
-/// <summary>Resources registered through ModContext are disposed in reverse order on reload and load failure.</summary>
 public sealed class NativeModResources : IDisposable
 {
     private readonly CancellationTokenSource cancellation = new();
@@ -43,7 +42,6 @@ public static class NativeModContextExtensions
         parent.AddChild(timer); context.ConnectSignal(timer, Godot.Timer.SignalName.Timeout, Callable.From(callback)); timer.Start();
         return timer;
     }
-    /// <summary>Task callbacks must observe Cancellation and must not access Godot objects from a worker thread.</summary>
     public static Task RunTask(this ModContext context, Func<CancellationToken, Task> operation)
     {
         var cancellation = CancellationTokenSource.CreateLinkedTokenSource(context.Cancellation);

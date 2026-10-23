@@ -2,8 +2,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
-// Run after export: node Tools/package-mod-toolchain.mjs <export-directory> <managed-directory>
-// Roslyn runs in-process; only framework references and matching host assemblies are needed.
 export function packageModToolchain(output, managed, root = path.resolve(import.meta.dirname, '..')) {
     const dotnet = process.env.DOTNET_ROOT ?? '/usr/lib/dotnet';
     const packs = path.join(dotnet, 'packs', 'Microsoft.NETCore.App.Ref');

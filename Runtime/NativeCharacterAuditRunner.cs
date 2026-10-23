@@ -2,7 +2,6 @@ using Godot;
 
 namespace SlackOfDescent;
 
-/// <summary>Standalone UI regression scene; the game host separately tests runtime preview binding.</summary>
 public partial class NativeCharacterAuditRunner : Node
 {
     public override async void _Ready()

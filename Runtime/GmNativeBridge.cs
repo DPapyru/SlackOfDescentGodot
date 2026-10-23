@@ -3,7 +3,6 @@ using System.Text.Json.Nodes;
 
 namespace SlackOfDescent;
 
-/// <summary>Native actions read/write the live GM actor and retain GM collision and damage handling.</summary>
 public sealed class GmNativeBridge : IDisposable
 {
     private readonly GmWorld world;
@@ -58,7 +57,6 @@ public sealed class GmNativeBridge : IDisposable
         }
         SetControllerFlags();
     }
-    // Reserved evaluator interception point. Movement is gated per slot inside the shared script.
     public bool TrySuppressCode(string key, GmContext context)
     {
         if (key is "objects/objController/3/0/13" or "objects/objController/3/0/17" or "objects/objController/3/0/22") SetControllerFlags();
@@ -110,8 +108,6 @@ public sealed class GmNativeBridge : IDisposable
     }
     private void PatchMovementSlots()
     {
-        // Nana, Ryoko and Yuki combine walking, jumping and dashing in these scripts.
-        // Gate only the initiating JumpNum branch and native DASH case, preserving the rest.
         foreach (string key in new[] { "objects/objController/3/0/13", "objects/objController/3/0/17", "objects/objController/3/0/22" })
         {
             if (!world.Code.TryGetValue(key, out var original)) continue;
@@ -159,7 +155,6 @@ public sealed class GmNativeBridge : IDisposable
     }
 }
 
-/// <summary>Shared movement queries use the actor's original GM collision and motion data.</summary>
 public static class NativeActorActions
 {
     public static GmInstance? Controller(ActorContext actor) => actor.World.Constants.TryGetValue("objController", out var kind)
@@ -196,7 +191,6 @@ public static class NativeActorActions
     { if (actor.Instance.Scope.Values.ContainsKey(motion)) actor.Call("MotionChange", actor.Read(motion), 0, 1); }
     public static bool MoveHorizontal(ActorContext actor, double distance)
     {
-        // Sweep at one-pixel intervals; the original dash only checked the endpoint.
         double direction = Math.Sign(distance), remaining = Math.Abs(distance);
         while (remaining > 0)
         {

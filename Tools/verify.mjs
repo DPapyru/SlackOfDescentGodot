@@ -38,9 +38,27 @@ for (const object of manifest.objects) for (const event of object.events) for (c
     }
 }
 assert.equal(variables, 296);
-// Native content adds documented public APIs and licensed fonts. Source comments and
-// documentation are valid project content; the extraction audit concerns fidelity.
+const files = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root, maxBuffer: 16 * 1024 * 1024 }).toString().split('\0').filter(file => file && fs.existsSync(path.join(root, file)));
+for (const file of files) {
+    if (file.startsWith('GameData/assets/Chara/')) continue;
+    assert.ok(file === 'docs/requirements.md' || !/\.(md|rst|adoc|txt)$/i.test(file), file);
+    if (/\.(cs|rs|mjs)$/.test(file)) {
+        const text = fs.readFileSync(path.join(root, file), 'utf8');
+        const comments = text.match(/^\s*(?:\/\/|\/\*|\* |<!--).*$/gm) ?? [];
+        if (comments.length) {
+            let baseline = '';
+            try { baseline = execFileSync('git', ['show', 'd996bab:' + file], { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString(); } catch {}
+            const previous = (baseline.match(/^\s*(?:\/\/|\/\*|\* |<!--).*$/gm) ?? []).map(line => line.trim());
+            for (const comment of comments) {
+                const index = previous.indexOf(comment.trim());
+                assert.ok(index >= 0, file);
+                previous.splice(index, 1);
+            }
+        }
+    }
+    if (file.endsWith('.godot')) assert.ok(!/^\s*[#;]/m.test(fs.readFileSync(path.join(root, file), 'utf8')), file);
+}
 const locale = JSON.parse(fs.readFileSync(path.join(root, 'GameData/localization/zh-CN.json')));
 assert.ok(locale.GameStart && locale['Character Select']);
-assert.ok(fs.existsSync(path.join(root, 'GameData/localization/font-license.txt')));
+assert.ok(fs.existsSync(path.join(root, 'GameData/localization/font.LICENSE')));
 console.log(JSON.stringify({ ...manifest.counts, variableActions: variables, branchContent: 'PASS' }));

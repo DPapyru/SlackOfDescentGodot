@@ -73,7 +73,6 @@ public partial class NativeModPanel : Window
         foreach (string path in Directory.EnumerateFiles(examples, "*", SearchOption.AllDirectories))
         {
             string target = Path.Combine(store.Mods, Path.GetRelativePath(examples, path));
-            // Keep user edits when examples have already been installed.
             if (!File.Exists(target)) NativeContentStore.WriteAtomic(target, File.ReadAllBytes(path));
         }
         diagnostics.Text = "示例已安装，可选择并编译。"; Refresh();

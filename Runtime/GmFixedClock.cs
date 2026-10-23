@@ -1,6 +1,5 @@
 namespace SlackOfDescent;
 
-/// <summary>A bounded fixed clock. Modal/focus pauses discard wall time explicitly.</summary>
 public sealed class GmFixedClock
 {
     public const double Delta = 1.0 / 60;
@@ -12,8 +11,6 @@ public sealed class GmFixedClock
     {
         if (!double.IsFinite(wallDelta) || wallDelta < 0) throw new ArgumentOutOfRangeException(nameof(wallDelta));
         accumulated += wallDelta;
-        // Limit work per callback while preserving the unprocessed simulation time.
-        // Only explicit modal/focus suspension discards the backlog.
         int ticks = Math.Min(15, (int)Math.Floor((accumulated + 1e-12) / Delta));
         accumulated = Math.Max(0, accumulated - ticks * Delta);
         return ticks;

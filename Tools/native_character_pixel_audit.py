@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-"""Read UI-exported PNGs and report exact RGBA differences. Never generates or edits images."""
 import argparse
 import json
 from pathlib import Path

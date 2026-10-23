@@ -60,7 +60,6 @@ public sealed record NativePixelClipboard(int Width, int Height, byte[] Rgba)
     }
 }
 
-/// <summary>Editing uses unassociated, byte-exact RGBA. Paste replaces pixels, including invisible RGB.</summary>
 public sealed class NativeCharacterDocument
 {
     public CharacterDefinition Definition { get; private set; }
@@ -218,7 +217,6 @@ public sealed class NativeCharacterDocument
     }
 }
 
-/// <summary>Each save writes immutable PNG assets before atomically replacing the character manifest.</summary>
 public sealed class NativeCharacterRepository(NativeContentStore store)
 {
     public NativeContentStore Store { get; } = store;
@@ -279,7 +277,6 @@ public sealed class NativeCharacterRepository(NativeContentStore store)
                 int frameIndex = 0;
                 foreach (var frame in part.Frames)
                 {
-                    // An unavailable frame keeps its original dependency until the user paints replacement pixels.
                     if(staged.MissingFrames.ContainsKey(frame.Id)&&staged.Pixels(frame.Id).All(b=>b==0)){frameIndex++;continue;}
                     frame.Png = Path.Combine(staged.Definition.Id, revision, $"{partIndex:D2}-{frameIndex++:D3}.png").Replace('\\', '/');
                     NativeContentStore.WriteAtomic(FramePath(frame), NativeCharacterPng.Encode(part.Width, part.Height, staged.Pixels(part, part.Frames.IndexOf(frame))));
@@ -298,7 +295,6 @@ public sealed class NativeCharacterRepository(NativeContentStore store)
     public IReadOnlyList<string> Discover(ContentRegistry registry) => Store.DiscoverCharacters(registry);
 }
 
-/// <summary>A small PNG codec for this editor's RGBA8 files; never premultiplies or drops transparent RGB.</summary>
 public static class NativeCharacterPng
 {
     private static readonly byte[] Signature = [137, 80, 78, 71, 13, 10, 26, 10];

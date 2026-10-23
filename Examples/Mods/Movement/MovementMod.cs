@@ -37,7 +37,6 @@ public sealed class TripleJump : ICharacterAction
         if (!NativeActorActions.CanAct(actor)) { ResetSpin(actor); return; }
         if (frame.Input.JustPressed(NativeActorActions.Key(actor, 5)) && jumps < 3)
         {
-            // All three impulses use the selected preset's first-jump velocity.
             jumps++; airborne = true;
             actor.VerticalSpeed = NativeActorActions.FirstJumpVelocity(actor);
             actor.Write("air", 1); actor.Write("gravity", actor.World.Globals.ReadOr("G", 1).Number);
@@ -80,7 +79,6 @@ public sealed class NanaSpinJump : ICharacterAction
         }
         if (spinning && actor.VerticalSpeed >= 0) Reset(actor);
         if (!spinning) return;
-        // Land, bind, damage, replacement and unload restore the original rotation.
         if (NativeActorActions.MotionMatches(actor, "DASH")) { Reset(actor); return; }
         elapsed += frame.Delta;
         actor.Write("Angle", originalAngle + 360 * Math.Min(elapsed / .5, 1));
@@ -94,12 +92,8 @@ public sealed class NanaLongDash : ICharacterAction
 {
     public string Id => "example.nana-long-dash";
     public CharacterActionSlot Slot => CharacterActionSlot.Dash;
-    // Original Nana dash moves 40+20+12 = 72 pixels; this moves 108 pixels.
     public const double Distance = 72 * 1.5;
-    // Original controller's alarm window is 7 ticks at 30 Hz. Keep that window.
     public const double DoubleTapWindow = 7.0 / 30;
-    // The original PlayerCommon/Dash motion lasts 10 ticks at 30 Hz.
-    // Its next-dash interval is halved to 5 legacy ticks, measured start to start.
     public const double Cooldown = (10.0 / 30) * .5;
     private double lastLeft = double.NegativeInfinity, lastRight = double.NegativeInfinity;
     private double cooldown, elapsed, moved;

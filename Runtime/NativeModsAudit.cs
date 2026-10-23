@@ -3,7 +3,6 @@ using System.Runtime.CompilerServices;
 
 namespace SlackOfDescent;
 
-/// <summary>Run res://Runtime/NativeModsAudit.tscn in a real Godot .NET process.</summary>
 public partial class NativeModsAudit : Node
 {
     private int assertions;
@@ -96,14 +95,12 @@ public partial class NativeModsAudit : Node
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void VerifyMovement(GmWorld world, ContentRegistry content, GmNativeBridge bridge, GmInstance actor)
     {
-        // Use the actual registry delegates compiled from the user's example sources.
         actor.Scope.Write("MotionNum", 100); actor.Scope.Write("STAND_0", 100); actor.Scope.Write("JUMPUP", 101);
         actor.Scope.Write("JUMPUP2", 102); actor.Scope.Write("JUMPDOWN", 103); actor.Scope.Write("DASH", 104);
         actor.Scope.Write("x", 400); actor.Scope.Write("y", 100); actor.Scope.Write("Angle", 17);
         world.Globals.Write("Chara", "Yuki"); world.Globals.Write("PlayerHP", 100); world.Globals.Write("G", 1);
         world.Globals.Write("key", 32, [5]); world.Globals.Write("key", 37, [0]); world.Globals.Write("key", 39, [1]);
         world.Globals.Write("controllMode", -999);
-        // Replace motion/collision only at the platform boundary, preserving live actor field writes.
         actor.Scope.Write("mask_index", world.Constants["sprMask"]);
         var floor = new GmInstance { Id = 900002, Object = -1, Active = false };
         floor.Scope.Write("mask_index", world.Constants["sprMask"]); floor.Scope.Write("solid", 1);
@@ -149,7 +146,6 @@ public partial class NativeModsAudit : Node
         bridge.Update(Frame(60, 39)); bridge.Update(Frame(61)); bridge.Update(Frame(66, 39));
         for (int i = 67; i <= 77; i++) bridge.Update(Frame(i));
         Expect(Math.Abs(actor.Scope.ReadOr("x").Number - 508) < 1e-5, "Nana dash covers 1.5 times original 72 pixels");
-        // Seven original 30 Hz ticks retain the original double-tap window.
         actor.Scope.Write("x", 400); bridge.Update(Frame(100, 37)); bridge.Update(Frame(115, 37));
         Expect(actor.Scope.ReadOr("x").Number == 400, "dash rejects taps outside original seven-tick window");
         bridge.UnbindCharacter(actor.Id);
@@ -174,8 +170,6 @@ public partial class NativeModsAudit : Node
         live.LoadRoom(live.Constants["Playground_Loading"].Int);
         for (int i = 0; i < 30; i++) live.Step();
         var player = live.Instances.First(i => !i.Destroyed && live.IsObject(i.Object, live.Constants["objPlayerDoll"].Int));
-        // Isolate the player/control/multipart actor while retaining the real room solids.
-        // Enemy callbacks are covered by the separate original gameplay regression suite.
         foreach (var instance in live.Instances)
             if (instance != player && !instance.Scope.ReadOr("solid").Truth
                 && !live.IsObject(instance.Object, live.Constants["objController"].Int)

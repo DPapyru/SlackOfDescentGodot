@@ -14,7 +14,6 @@ public readonly record struct FrameContext(double Delta, double GameTime, long T
 
 public enum CharacterActionSlot { Jump, Dash }
 
-/// <summary>Actions use the same fields and collision queries as the GM actor.</summary>
 public sealed class ActorContext(GmWorld world, GmInstance instance)
 {
     public GmWorld World { get; } = world;

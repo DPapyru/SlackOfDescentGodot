@@ -1,4 +1,3 @@
-"""Rebuild text-only UI art in Chinese while preserving source assets and attribution."""
 import json
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
@@ -36,7 +35,6 @@ for sprite in manifest['sprites']:
         elif name in ['sprMissionStart', 'sprMissionClear']:
             label('任务开始！' if name == 'sprMissionStart' else '任务完成！', -5, 40)
         else:
-            # Preserve the creator logo; replace the title and embedded finish hint.
             image = Image.open(root / frame['path']).convert('RGBA')
             draw = ImageDraw.Draw(image)
             draw.rectangle((300, 0, width, 220), fill=(0, 0, 0, 0))

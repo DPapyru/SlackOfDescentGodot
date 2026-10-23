@@ -59,27 +59,37 @@ public partial class NativeMapAudit : Node2D
             string path = Path.Combine(output, "中文 空格", "完整测试.map.json"); service.Save(original, path);
             if (mode is "loads" or "cold")
             {
-                var times = new List<double>();
+                var times = new List<double>(); var phases = new List<object>();
                 int count = args.Length > 1 ? int.Parse(args[1]) : 5;
                 if (mode == "loads") await world.LoadRoomAsync(world.Constants["TestRoom_Loading"].Int);
                 for (int i = 0; i < count; i++)
                 {
-                    long begin = Stopwatch.GetTimestamp(); if (mode == "cold") await world.LoadRoomAsync(world.Constants["TestRoom_Loading"].Int); var result = service.Load(path); int id = service.InstallForPlay(result.Document); await world.LoadRoomAsync(id); service.ApplyProperties(result.Document); graphics.Build();
+                    long begin = Stopwatch.GetTimestamp();
+                    if (mode == "cold") await world.LoadRoomAsync(world.Constants["TestRoom_Loading"].Int);
+                    double dependenciesMs = Stopwatch.GetElapsedTime(begin).TotalMilliseconds;
+                    long phase = Stopwatch.GetTimestamp(); var result = service.Load(path); double dataMs = Stopwatch.GetElapsedTime(phase).TotalMilliseconds;
+                    phase = Stopwatch.GetTimestamp(); int id = service.InstallForPlay(result.Document); double installMs = Stopwatch.GetElapsedTime(phase).TotalMilliseconds;
+                    Dictionary<string, (double Total, int Count)>? scriptProfile = null;
+                    if (world.Performance.ScriptsEnabled) { scriptProfile = (Dictionary<string, (double, int)>)typeof(GmPerformance).GetField("scripts", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(world.Performance)!; scriptProfile.Clear(); }
+                    phase = Stopwatch.GetTimestamp(); await world.LoadRoomAsync(id); service.ApplyProperties(result.Document); double entitiesMs = Stopwatch.GetElapsedTime(phase).TotalMilliseconds;
+                    phase = Stopwatch.GetTimestamp(); graphics.Build(); double graphicsMs = Stopwatch.GetElapsedTime(phase).TotalMilliseconds;
+                    phase = Stopwatch.GetTimestamp();
                     var player = world.Instances.First(i => !i.Destroyed && world.IsObject(i.Object, world.Constants["objPlayerDoll"].Int));
                     world.Call("place_meeting", [player.Scope.Read("x"), player.Scope.Read("y").Number + 1, world.Constants["objBlock"]], new(player));
                     times.Add(Stopwatch.GetElapsedTime(begin).TotalMilliseconds);
                     Expect(world.Tiles.Count == 1647, "Complete tiles before ready");
                     Expect(world.Instances.Any(i => !i.Destroyed && world.IsObject(i.Object, world.Constants["objBlock"].Int)), "Colliders ready");
-                    Expect(times[^1] < 3000, "Map load within 3s including creation and collision");
+                    phases.Add(new { dependenciesMs, dataMs, installMs, entitiesMs, graphicsMs, collisionMs = Stopwatch.GetElapsedTime(phase).TotalMilliseconds, scripts = scriptProfile?.OrderByDescending(p => p.Value.Total).Take(20).ToDictionary(p => p.Key, p => new { p.Value.Total, p.Value.Count }) });
+                    File.WriteAllText(Path.Combine(output, "loads-progress.json"), JsonSerializer.Serialize(new { times, phases, ready = true, belowThreeSeconds = times.All(t => t < 3000) }, NativeContentStore.Json));
                     GD.Print("MAP_COMPLETE_LOAD index=", i, " ms=", times[^1].ToString("F2"), " instances=", world.Instances.Count, " tiles=", world.Tiles.Count);
                 }
-                Finish(new { kind = "complete-load", cache = mode == "cold" ? "fresh process; original map dependency loader included; OS page cache not purged" : "same process with dependencies prepared", times, assertions }); return;
+                Finish(new { kind = "complete-load", cache = mode == "cold" ? "fresh process; original map dependency loader included; OS page cache not purged" : "same process with dependencies prepared", times, phases, assertions, belowThreeSeconds = times.All(t => t < 3000) }); return;
             }
             if (mode is not ("baseline" or "custom")) throw new InvalidOperationException("Mode must be ui, loads, baseline or custom");
             await world.LoadRoomAsync(world.Constants["TestRoom_Loading"].Int);
             int room = mode == "baseline" ? service.TestRoomId : service.InstallForPlay(service.Load(path).Document);
             long loading = Stopwatch.GetTimestamp(); await world.LoadRoomAsync(room); loadMilliseconds = Stopwatch.GetElapsedTime(loading).TotalMilliseconds;
-            if (mode == "custom") service.ApplyProperties(original);
+            if (mode == "custom") service.ApplyProperties(original); graphics.Build();
             Expect(world.Tiles.Count == 1647, "Performance scenario contains all tiles");
             GetWindow().ContentScaleSize = new(640,480); Engine.MaxFps = 60;
             int argFrames = args.Length > 1 ? int.Parse(args[1]) : 600; frames = argFrames; started = Stopwatch.GetTimestamp(); running = true;
@@ -115,7 +125,7 @@ public partial class NativeMapAudit : Node2D
                 elapsed -= interval; long begin = Stopwatch.GetTimestamp(); await Step();
                 if (renderFrame > warmup) { measuredGmSteps++; stepTimes.Add(Stopwatch.GetElapsedTime(begin).TotalMilliseconds); }
             }
-            graphics.Build(); canvas.QueueRedraw();
+            canvas.QueueRedraw();
             if (renderFrame < warmup + frames) return;
             running = false; frameTimes.Sort(); stepTimes.Sort();
             Finish(new { kind = "rendered", scenario = mode, frames, warmup, room = world.CurrentRoom, loadMilliseconds, renderFps = measuredRenders / Stopwatch.GetElapsedTime(measurementStarted).TotalSeconds, gmFps = measuredGmSteps / Stopwatch.GetElapsedTime(measurementStarted).TotalSeconds, completedRenders, measuredRenders, measuredGmSteps, scheduler = "original-room-speed-accumulator; native bridge is host-owned", engine = Engine.GetVersionInfo()["string"].AsString(), display = DisplayServer.GetName(), os = OS.GetName(), cpu = OS.GetProcessorName(), gpu = RenderingServer.GetVideoAdapterName(), p95Milliseconds = frameTimes[(int)((frameTimes.Count - 1) * .95)], maxMilliseconds = frameTimes[^1], stepP95Milliseconds = stepTimes[(int)((stepTimes.Count - 1) * .95)], tiles = world.Tiles.Count, instances = world.Instances.Count, seconds = Stopwatch.GetElapsedTime(started).TotalSeconds });

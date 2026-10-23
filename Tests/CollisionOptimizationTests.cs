@@ -282,11 +282,25 @@ public static class CollisionOptimizationTests
         Compare(actor, -8192, -32768, targetType, "large collider side index");
         Transform(mutable, 8192, 8192);
         Compare(actor, -8192, -32768, targetType, "shrunk collider removes old large membership");
+        actor.Scope.Write("sprite_index", point);
+        Transform(mutable, 8272, 8192, 40000, 1);
+        Compare(actor, 8193, 8192, targetType, "cached region first misses large collider");
+        Compare(actor, 8292, 8192, targetType, "same cached region includes distant edge of large collider");
+        Transform(mutable, 8192, 8192);
+        Transform(actor, 8192, 8192);
+        actor.Scope.Write("mask_index", empty);
+        Compare(actor, 8192, 8192, targetType, "query self keeps temporary mask pending");
+        Compare(mutable, 8192, 8192, actorType, "next query observes pending target mask");
+        actor.Scope.Write("mask_index", -1);
+        actor.Scope.Write("x", 8320);
+        Compare(mutable, 8320, 8192, actorType, "next query observes restored mask and moved target");
         mutable.Destroyed = true;
         world.Step();
         var replacement = world.Create(targetType, 8192, 8192, run: false);
         replacement.Scope.Write("sprite_index", point);
         Compare(actor, 8192, 8192, targetType, "removed collider replaced without changing final count");
+        world.Instances.Clear();
+        Compare(actor, 8192, 8192, targetType, "clearing the scene discards cached region members");
         Check(positiveQueries > 100 && negativeQueries > 100, "differential samples exercise both hits and misses");
         return count;
     }

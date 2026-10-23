@@ -491,6 +491,7 @@ public sealed partial class GmWorld
                 {
                     while(!i.Destroyed)
                     {
+                        EnsureCollisionIndex();
                         if(version!=geometryVersion)
                         {
                             Nearby(Bounds(i),nearby);version=geometryVersion;

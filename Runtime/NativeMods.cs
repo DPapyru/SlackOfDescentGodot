@@ -64,9 +64,16 @@ public sealed class NativeModManager : IDisposable
             if (previous is not null) Remove(previous);
             Add(candidate);
             loaded[id] = candidate;
-            content.Refresh();
+            try { content.Refresh(); }
+            catch
+            {
+                Remove(candidate); loaded.Remove(id);
+                if (previous is not null) { Add(previous); loaded[id] = previous; }
+                try { content.Refresh(); } catch (Exception rollback) { Console.Error.WriteLine("MOD_ROLLBACK " + rollback.Message); }
+                throw;
+            }
             WeakReference? retiredContext = previous is null ? null : Retire(previous);
-            Changed?.Invoke();
+            NotifyChanged();
             return new(true, id, diagnostics.Length == 0 ? "编译并加载成功。" : diagnostics, retiredContext);
         }
         catch (Exception error)
@@ -80,8 +87,15 @@ public sealed class NativeModManager : IDisposable
     {
         if (!loaded.Remove(id, out var mod)) return new(false, id, "模组尚未加载。");
         Remove(mod); content.Refresh();
-        var weak = Retire(mod); Changed?.Invoke();
+        var weak = Retire(mod); NotifyChanged();
         return new(true, id, "模组已卸载。", weak);
+    }
+
+    private void NotifyChanged()
+    {
+        if (Changed is null) return;
+        foreach (Action subscriber in Changed.GetInvocationList())
+            try { subscriber(); } catch (Exception error) { Console.Error.WriteLine("MOD_OBSERVER " + error.Message); }
     }
 
     public static bool VerifyUnloaded(WeakReference context, int attempts = 8)
@@ -94,7 +108,8 @@ public sealed class NativeModManager : IDisposable
     {
         string? packaged = referencesDirectory;
         if (packaged is null)
-            packaged = new[] { AppContext.BaseDirectory, Path.GetDirectoryName(AssemblyFile(typeof(NativeModManager).Assembly))!, Environment.CurrentDirectory }
+            packaged = new[] { AppContext.BaseDirectory, Path.GetDirectoryName(AssemblyFile(typeof(NativeModManager).Assembly))!, Environment.CurrentDirectory,
+                Path.GetDirectoryName(Godot.OS.GetExecutablePath())!, Directory.GetParent(AppContext.BaseDirectory)?.FullName ?? AppContext.BaseDirectory }
                 .SelectMany(p => new[] { Path.Combine(p, "Tools", "ModCompiler", "References"), Path.Combine(p, "ModCompiler", "References") })
                 .FirstOrDefault(Directory.Exists);
         if (packaged is not null && Directory.Exists(packaged))

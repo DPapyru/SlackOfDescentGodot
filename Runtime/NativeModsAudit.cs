@@ -54,12 +54,25 @@ public partial class NativeModsAudit : Node
             var movementResult = manager.Reload(movement);
             Expect(movementResult.Success, "movement examples compile: " + movementResult.Diagnostics);
             Expect(content.Actions.Count == 3 && content.Characters.Count == 2, "movement registers three real actions and two characters");
+            VerifyLiveGameplay(root, temporary, content);
             string movementSource = Path.Combine(movement, "MovementMod.cs");
             File.AppendAllText(movementSource, "\nthis is not valid C# !!!\n");
             var failed = manager.Reload(movement);
             Expect(!failed.Success && failed.Diagnostics.Contains("MovementMod.cs"), "compile error reports source diagnostics");
             Expect(content.Actions.Count == 3 && manager.LoadedMods.Count == 1, "failed compile preserves active registry");
             VerifyMovement(world, content, bridge, actor);
+            string validMovement = File.ReadAllText(Path.Combine(root, "Examples", "Mods", "Movement", "MovementMod.cs"));
+            bridge.BindCharacter(actor, content.Characters["example.triple-yuki"]);
+            File.WriteAllText(movementSource, validMovement.Replace("() => new TripleJump()", "() => throw new InvalidOperationException(\"factory-failed\")"));
+            var factoryFailed = manager.Reload(movement);
+            Expect(!factoryFailed.Success && factoryFailed.Diagnostics.Contains("factory-failed"), "activation failure rolls back live action factories");
+            Expect(content.Actions.Count == 3 && manager.LoadedMods.Count == 1, "activation rollback preserves previous active registry");
+            File.WriteAllText(Path.Combine(lifecycle, "LifecycleMod.cs"), File.ReadAllText(Path.Combine(root, "Examples", "Mods", "ResourceLifecycle", "LifecycleMod.cs"))
+                .Replace("context.Content.RegisterEntity", "throw new InvalidOperationException(\"load-failed\"); context.Content.RegisterEntity"));
+            var loadFailed = manager.Reload(lifecycle);
+            Expect(!loadFailed.Success && loadFailed.Diagnostics.Contains("load-failed"), "mod Load failure reports diagnostics");
+            await Frames(3);
+            Expect(GetTree().GetNodesInGroup("native_lifecycle").Count == 0, "failed Load cleans partial nodes signals timers tasks");
             var moveUnload = manager.Unload("example.movement");
             await Frames(3);
             Expect(NativeModManager.VerifyUnloaded(moveUnload.PreviousContext!), "movement context releases bound action references");
@@ -102,7 +115,11 @@ public partial class NativeModsAudit : Node
         };
         FrameContext Frame(int tick, params int[] pressed) => new(FrameContext.FixedDelta, tick / 60.0, tick,
             new InputSnapshot(new HashSet<int>(pressed), new HashSet<int>(pressed), new HashSet<int>()));
+        actor.Object = world.Constants["objPlayerDoll"].Int;
+        var controller = new GmInstance { Id = 900003, Object = world.Constants["objController"].Int };
+        controller.Scope.Write("CtrlTarget", actor.Object); world.Instances.Add(controller);
         bridge.BindCharacter(actor, content.Characters["example.triple-yuki"]);
+        Expect(controller.Scope.ReadOr("slackNativeJump").Truth && !controller.Scope.ReadOr("slackNativeDash").Truth, "slot flags resolve GM object target to live actor");
         for (int jump = 0; jump < 4; jump++)
         {
             world.Write(actor, "vspeed", 7); bridge.Update(Frame(jump * 2, 32));
@@ -127,7 +144,52 @@ public partial class NativeModsAudit : Node
         actor.Scope.Write("x", 400); bridge.Update(Frame(100, 37)); bridge.Update(Frame(115, 37));
         Expect(actor.Scope.ReadOr("x").Number == 400, "dash rejects taps outside original seven-tick window");
         bridge.UnbindCharacter(actor.Id);
+        Expect(!controller.Scope.ReadOr("slackNativeJump").Truth && !controller.Scope.ReadOr("slackNativeDash").Truth, "unbind restores original GM action slots");
         Expect(actor.Scope.ReadOr("Angle").Number == 17, "unbind restores actor rotation");
+    }
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void VerifyLiveGameplay(string root, string temporary, ContentRegistry content)
+    {
+        var live = new GmWorld(Path.Combine(root, "GameData"), Path.Combine(root, "GameData", "assets"), Path.Combine(temporary, "live"));
+        var input = new GmInput();
+        live.Platform = (name, arguments, context) => input.Call(name, arguments, live) ?? (GmValue?)0;
+        live.Wait = (name, arguments, context) => new ValueTask<GmValue>(1);
+        live.LoadRoom(live.Manifest.GetProperty("roomOrder")[0].GetInt32());
+        for (int i = 0; i < 180; i++) live.Step();
+        var title = live.Instances.First(i => !i.Destroyed && live.IsObject(i.Object, live.Constants["objTitle"].Int));
+        live.Globals.Write("StartArea", 0);
+        live.Evaluator.ResetBudget(); live.Call("DataItemReset", [], new(title)); live.Call("DataItemLoad", [], new(title));
+        live.LoadRoom(live.Constants["Playground_Loading"].Int);
+        for (int i = 0; i < 30; i++) live.Step();
+        var player = live.Instances.First(i => !i.Destroyed && live.IsObject(i.Object, live.Constants["objPlayerDoll"].Int));
+        // Isolate the player/control/multipart actor while retaining the real room solids.
+        // Enemy callbacks are covered by the separate original gameplay regression suite.
+        foreach (var instance in live.Instances)
+            if (instance != player && !instance.Scope.ReadOr("solid").Truth
+                && !live.IsObject(instance.Object, live.Constants["objController"].Int)
+                && !live.IsObject(instance.Object, live.Constants["objPlayerParts"].Int)) instance.Active = false;
+        using var bridge = new GmNativeBridge(live, content);
+        live.Evaluator.ResetBudget(); live.Call("YukiLoad", [], new(player));
+        bridge.BindCharacter(player, content.Characters["example.triple-yuki"]);
+        int jumpKey = NativeActorActions.Key(new(live, player), 5);
+        long tick = 0;
+        void Tick(bool jump = false)
+        {
+            input.Key(live, jumpKey, jump);
+            bridge.Update(new(FrameContext.FixedDelta, tick / 60.0, tick,
+                new InputSnapshot(jump ? new HashSet<int> { jumpKey } : new HashSet<int>(), jump ? new HashSet<int> { jumpKey } : new HashSet<int>(), new HashSet<int>())));
+            if (tick % 2 == 0) { live.Step(); input.EndStep(); }
+            tick++;
+        }
+        for (int jump = 0; jump < 4; jump++)
+        {
+            Tick(true); Tick();
+            Expect(player.Scope.ReadOr("nativeJumpCount").Int == Math.Min(jump + 1, 3), "live Yuki native jump does not stack original GM jump " + jump);
+            Expect(player.Scope.ReadOr("vspeed").Number >= -18.001, "live preset first jump impulse remains -18 " + jump);
+        }
+        bridge.UnbindCharacter(player.Id);
+        var controller = NativeActorActions.Controller(new(live, player))!;
+        Expect(!controller.Scope.ReadOr("slackNativeJump").Truth, "live original GM jump resumes after replacement removed");
     }
     private static GmValue SetMotion(GmWorld world, GmInstance actor, GmValue value) { world.Write(actor, "MotionNum", value); return 0; }
 }

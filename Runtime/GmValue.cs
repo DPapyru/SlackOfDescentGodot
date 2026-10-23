@@ -30,35 +30,169 @@ public readonly struct GmValue : IEquatable<GmValue>
 
 public sealed class GmScope
 {
-    public readonly Dictionary<string, GmValue> Values = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, GmValue> values = new(StringComparer.Ordinal);
+    private readonly Dictionary<(string,int),int> lengths = new();
+    private readonly Dictionary<string, Dictionary<int, ArrayRow>> arrays = new(StringComparer.Ordinal);
+    public readonly ValueDictionary Values;
     internal Action<string>? Changed;
-    private readonly Dictionary<(string,int),int> lengths=new();
+
+    public GmScope() => Values = new(this);
+
+    private sealed class ArrayRow
+    {
+        public int Length, DefaultLength;
+        public GmValue Default;
+        public readonly Dictionary<int,GmValue> Entries = new();
+        public bool TryGetValue(int column,out GmValue value)
+        {
+            if(Entries.TryGetValue(column,out value))return true;
+            if(column<DefaultLength){value=Default;return true;}
+            return false;
+        }
+        public int Count => DefaultLength + Entries.Count(p=>p.Key>=DefaultLength);
+        public void Fill(int count,GmValue value)
+        {
+            if(count<DefaultLength)
+                for(int column=count;column<DefaultLength;column++)Entries.TryAdd(column,Default);
+            foreach(int column in Entries.Keys.Where(c=>c<count).ToArray())Entries.Remove(column);
+            DefaultLength=count;Default=value;Length=Math.Max(Length,count);
+        }
+        public IEnumerable<KeyValuePair<int,GmValue>> Defined()
+        {
+            for(int column=0;column<DefaultLength;column++)
+                yield return new(column,Entries.GetValueOrDefault(column,Default));
+            foreach(var entry in Entries)if(entry.Key>=DefaultLength)yield return entry;
+        }
+    }
+
     private static (int Row,int Column) Position(IReadOnlyList<int>? indices)
     {
         int row=indices is {Count:>1}?indices[0]:0,column=indices is {Count:>1}?indices[1]:indices is {Count:1}?indices[0]:0;
         if(row<0||row>=32000||column<0||column>=32000)throw new IndexOutOfRangeException("GML array index outside 0..31999");
         return (row,column);
     }
+    private static string Key(string name,int row,int column) => row==0&&column==0?name:row==0?$"{name}[{column}]":$"{name}[{row},{column}]";
     public static string Key(string name,IReadOnlyList<int>? indices)
     {
         var (row,column)=Position(indices);
-        return row==0&&column==0?name:row==0?$"{name}[{column}]":$"{name}[{row},{column}]";
+        return Key(name,row,column);
+    }
+    private static bool SplitKey(string key,out string name,out int row,out int column)
+    {
+        name=key;row=column=0;
+        if(key.Length==0||key[^1]!=']')return false;
+        int bracket=key.LastIndexOf('[');
+        if(bracket<0)return false;
+        var indices=key.AsSpan(bracket+1,key.Length-bracket-2);
+        int comma=indices.IndexOf(',');
+        if(comma<0)
+        {
+            if(!int.TryParse(indices,out column)||column<=0||column>=32000)return false;
+        }
+        else if(!int.TryParse(indices[..comma],out row)||!int.TryParse(indices[(comma+1)..],out column)||row<=0||row>=32000||column<0||column>=32000)return false;
+        string parsedName=key[..bracket];
+        if(Key(parsedName,row,column)!=key)return false;
+        name=parsedName;return true;
+    }
+    private bool TryGetDefined(string key,out GmValue value)
+    {
+        if(values.TryGetValue(key,out value))return true;
+        if(arrays.Count==0)return false;
+        SplitKey(key,out string name,out int row,out int column);
+        return arrays.TryGetValue(name,out var rows)&&rows.TryGetValue(row,out var data)&&data.TryGetValue(column,out value);
     }
     public GmValue Read(string name,IReadOnlyList<int>? indices=null)
     {
-        if(Values.TryGetValue(Key(name,indices),out var value))return value;
         var (row,column)=Position(indices);
+        if(arrays.TryGetValue(name,out var rows)&&rows.TryGetValue(row,out var data))
+        {
+            if(data.TryGetValue(column,out var entry))return entry;
+            if(column<data.Length)return 0;
+        }
+        string key=Key(name,row,column);
+        if(TryGetDefined(key,out var value))return value;
         if(lengths.TryGetValue((name,row),out var length)&&column<length)return 0;
-        throw new KeyNotFoundException("Uninitialized variable "+Key(name,indices));
+        throw new KeyNotFoundException("Uninitialized variable "+key);
     }
-    public GmValue ReadOr(string name, GmValue fallback = default) => Values.GetValueOrDefault(name, fallback);
+    public GmValue ReadOr(string name,GmValue fallback=default) => TryGetDefined(name,out var value)?value:fallback;
     public void Write(string name,GmValue value,IReadOnlyList<int>? indices=null)
     {
-        string key=Key(name,indices);
-        if(Values.TryGetValue(key,out var previous)&&previous.Equals(value))return;
-        Values[key]=value;
         var (row,column)=Position(indices);
-        if(!lengths.TryGetValue((name,row),out var length)||length<=column)lengths[(name,row)]=column+1;
+        string field=name;
+        bool sparse=arrays.TryGetValue(field,out var rows);
+        if(!sparse&&row==0&&column==0&&SplitKey(name,out var parsed,out int parsedRow,out int parsedColumn)&&arrays.TryGetValue(parsed,out rows))
+        {field=parsed;row=parsedRow;column=parsedColumn;sparse=true;}
+        if(sparse)
+        {
+            if(!rows!.TryGetValue(row,out var data))rows[row]=data=new();
+            if(data.TryGetValue(column,out var previous)&&previous.Equals(value))return;
+            if(column<data.DefaultLength&&data.Default.Equals(value))data.Entries.Remove(column);
+            else data.Entries[column]=value;
+            data.Length=Math.Max(data.Length,column+1);
+        }
+        else
+        {
+            string key=Key(name,row,column);
+            if(values.TryGetValue(key,out var previous)&&previous.Equals(value))return;
+            values[key]=value;
+            if(!lengths.TryGetValue((name,row),out var length)||length<=column)lengths[(name,row)]=column+1;
+        }
         Changed?.Invoke(name);
+    }
+
+    private Dictionary<int,ArrayRow> ArrayRows(string name)
+    {
+        if(arrays.TryGetValue(name,out var rows))return rows;
+        arrays[name]=rows=new();
+        string prefix=name+"[";
+        foreach(var entry in values.Where(p=>p.Key==name||p.Key.StartsWith(prefix,StringComparison.Ordinal)).ToArray())
+        {
+            SplitKey(entry.Key,out string field,out int row,out int column);
+            if(field!=name)continue;
+            if(!rows.TryGetValue(row,out var data))rows[row]=data=new(){Length=lengths.GetValueOrDefault((name,row))};
+            data.Entries[column]=entry.Value;values.Remove(entry.Key);
+        }
+        return rows;
+    }
+    internal void FillArrayPrefix(string name,int row,int count,GmValue value)
+    {
+        if(count<=0)return;
+        Position([row,count-1]);
+        var rows=ArrayRows(name);
+        if(!rows.TryGetValue(row,out var data))rows[row]=data=new(){Length=lengths.GetValueOrDefault((name,row))};
+        data.Fill(count,value);
+        Changed?.Invoke(name);
+    }
+    internal void CopyArrayPrefix(string source,string target,int targetRow,int count)
+    {
+        if(count<=0)return;
+        Position([targetRow,count-1]);
+        if(arrays.TryGetValue(source,out var sourceRows)&&sourceRows.TryGetValue(0,out var sourceData)&&sourceData.DefaultLength>=count)
+        {
+            var overrides=sourceData.Entries.Where(p=>p.Key<count).ToArray();
+            FillArrayPrefix(target,targetRow,count,sourceData.Default);
+            foreach(var entry in overrides)Write(target,entry.Value,[targetRow,entry.Key]);
+            return;
+        }
+        for(int column=0;column<count;column++)Write(target,Read(source,[column]),[targetRow,column]);
+    }
+
+    public sealed class ValueDictionary : IReadOnlyDictionary<string,GmValue>
+    {
+        private readonly GmScope scope;
+        internal ValueDictionary(GmScope scope)=>this.scope=scope;
+        public GmValue this[string key]=>TryGetValue(key,out var value)?value:throw new KeyNotFoundException(key);
+        public int Count=>scope.values.Count+scope.arrays.Values.Sum(rows=>rows.Values.Sum(row=>row.Count));
+        public IEnumerable<string> Keys=>this.Select(p=>p.Key);
+        public IEnumerable<GmValue> Values=>this.Select(p=>p.Value);
+        public bool ContainsKey(string key)=>TryGetValue(key,out _);
+        public bool TryGetValue(string key,out GmValue value)=>scope.TryGetDefined(key,out value);
+        public IEnumerator<KeyValuePair<string,GmValue>> GetEnumerator()
+        {
+            foreach(var entry in scope.values)yield return entry;
+            foreach(var field in scope.arrays)foreach(var row in field.Value)foreach(var entry in row.Value.Defined())
+                yield return new(Key(field.Key,row.Key,entry.Key),entry.Value);
+        }
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()=>GetEnumerator();
     }
 }

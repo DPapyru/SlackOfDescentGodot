@@ -100,8 +100,10 @@ public sealed partial class GmWorld
 
     internal static bool HasFixedArguments(string name,int count)=>count switch
     {
-        1=>name is "abs" or "ceil" or "floor" or "round" or "sign" or "sqrt" or "sqr" or "sin" or "cos" or "arccos" or "degtorad" or "radtodeg" or "random" or "irandom",
+        1=>name is "abs" or "ceil" or "floor" or "round" or "sign" or "sqrt" or "sqr" or "sin" or "cos" or "arccos" or "degtorad" or "radtodeg" or "random" or "irandom"
+            or "sprite_get_number" or "sprite_get_width" or "sprite_get_height" or "sprite_get_xoffset" or "sprite_get_yoffset" or "instance_number" or "instance_exists" or "variable_local_exists",
         2=>name is "power" or "min" or "max" or "random_range" or "irandom_range" or "lengthdir_x" or "lengthdir_y",
+        3=>name is "place_meeting" or "instance_place",
         _=>false
     };
 
@@ -109,10 +111,18 @@ public sealed partial class GmWorld
     {
         if(Scripts.ContainsKey(name))return Call(name,count==1?[first]:[first,second],context);
         Calls[name]=Calls.GetValueOrDefault(name)+1;
-        return FixedResult(name,first,second);
+        return FixedResult(name,first,second,context);
     }
 
-    private GmValue FixedResult(string name,GmValue first,GmValue second)=>name switch
+    internal GmValue CallFixed(string name,GmValue first,GmValue second,GmValue third,GmContext context)
+    {
+        if(Scripts.ContainsKey(name)||Platform is not null)return Call(name,[first,second,third],context);
+        Calls[name]=Calls.GetValueOrDefault(name)+1;
+        var instance=InstanceAt(first.Number,second.Number,third.Int,context);
+        return name switch{"place_meeting"=>instance is not null,"instance_place"=>instance?.Id??-4,_=>throw new InvalidOperationException("Unsupported fixed argument call "+name)};
+    }
+
+    private GmValue FixedResult(string name,GmValue first,GmValue second,GmContext context)=>name switch
     {
         "abs"=>Math.Abs(first.Number),"ceil"=>Math.Ceiling(first.Number),"floor"=>Math.Floor(first.Number),"round"=>Math.Round(first.Number,MidpointRounding.ToEven),
         "sign"=>Math.Sign(first.Number),"sqrt"=>Math.Sqrt(first.Number),"sqr"=>first.Number*first.Number,"power"=>Math.Pow(first.Number,second.Number),
@@ -124,6 +134,11 @@ public sealed partial class GmWorld
         "irandom"=>Random.NextInt(unchecked((uint)first.Int)),
         "irandom_range"=>unchecked(Math.Min(first.Int,second.Int)+Random.NextInt((uint)Math.Abs((long)second.Int-first.Int))),
         "lengthdir_x"=>Math.Cos(second.Number*Math.PI/180)*first.Number,"lengthdir_y"=>-Math.Sin(second.Number*Math.PI/180)*first.Number,
+        "sprite_get_number"=>Sprites.TryGetValue(first.Int,out var sprite)?sprite.GetProperty("frames").GetArrayLength():0,
+        "sprite_get_width" or "sprite_get_height"=>Sprites.TryGetValue(first.Int,out var sizedSprite)&&sizedSprite.GetProperty("frames").GetArrayLength()>0?sizedSprite.GetProperty("frames")[0].GetProperty(name=="sprite_get_width"?"width":"height").GetInt32():0,
+        "sprite_get_xoffset" or "sprite_get_yoffset"=>Sprites.TryGetValue(first.Int,out var offsetSprite)?offsetSprite.GetProperty(name=="sprite_get_xoffset"?"originX":"originY").GetInt32():0,
+        "instance_number"=>InstanceCount(first.Int,context),"instance_exists"=>Select(first.Int,context).Any(),
+        "variable_local_exists"=>context.Self.Scope.Values.ContainsKey(first.ToString()),
         _=>throw new InvalidOperationException("Unsupported fixed argument call "+name)
     };
 
@@ -178,7 +193,7 @@ public sealed partial class GmWorld
             case "action_end_sound":return Call("sound_stop",a,c);
             case "abs":case "ceil":case "floor":case "round":case "sign":case "sqrt":case "sqr":case "power":
             case "sin":case "cos":case "arccos":case "degtorad":case "radtodeg":case "random":case "random_range":
-            case "irandom":case "irandom_range":case "lengthdir_x":case "lengthdir_y":return FixedResult(name,V(0),V(1));
+            case "irandom":case "irandom_range":case "lengthdir_x":case "lengthdir_y":return FixedResult(name,V(0),V(1),c);
             case "min":return a.Min(v=>v.Number);case "max":return a.Max(v=>v.Number);
             case "choose":return a.Length>0?a[Random.NextInt((uint)(a.Length-1))]:0;
             case "random_get_seed":return Random.Seed;
@@ -224,7 +239,7 @@ public sealed partial class GmWorld
             case "variable_local_array_get":return Self.Scope.Values.GetValueOrDefault(GmScope.Key(S(0),[I(1)]));case "variable_local_array2_get":return Self.Scope.Values.GetValueOrDefault(GmScope.Key(S(0),[I(1),I(2)]));
             case "instance_create":return Create(I(2),N(0),N(1)).Id;
             case "instance_destroy":Event(Self,1,0);Self.Destroyed=true;return 0;
-            case "instance_exists":return Select(I(0),c).Any();case "instance_number":return InstanceCount(I(0),c);
+            case "instance_exists":case "instance_number":return FixedResult(name,V(0),default,c);
             case "instance_find":return Select(I(0),c).Skip(Math.Max(0,I(1))).FirstOrDefault()?.Id??-4;
             case "instance_nearest":return Select(I(2),c).OrderBy(i=>Math.Pow(i.Scope.ReadOr("x").Number-N(0),2)+Math.Pow(i.Scope.ReadOr("y").Number-N(1),2)).FirstOrDefault()?.Id??-4;
             case "instance_activate_object":foreach(var i in ActivationInstances(I(0)))i.Active=true;return 0;
@@ -233,9 +248,13 @@ public sealed partial class GmWorld
             {
                 var region=new GmBounds(N(0),N(1),N(0)+N(2),N(1)+N(3));
                 bool activate=name=="instance_activate_region";
-                IEnumerable<GmInstance> candidates=N(4)>=0.5?Nearby(region):Instances;
+                IEnumerable<GmInstance> candidates=N(4)>=0.5?Nearby(region).Concat(Instances.Where(i=>!i.Destroyed&&i.Active!=activate&&Bounds(i).Empty)):Instances;
                 foreach(var i in candidates.Where(i=>!i.Destroyed&&i.Active!=activate&&!(name=="instance_deactivate_region"&&N(5)>=0.5&&i==Self)))
-                    if(Bounds(i).Overlaps(region)==(N(4)>=0.5))i.Active=activate;
+                {
+                    var bounds=Bounds(i);
+                    if(bounds.Empty){double x=i.Scope.ReadOr("x").Number,y=i.Scope.ReadOr("y").Number;bounds=new(x,y,x,y);}
+                    if(bounds.Overlaps(region)==(N(4)>=0.5))i.Active=activate;
+                }
                 return 0;
             }
             case "instance_change":{if(N(1)>=0.5)Event(Self,1,0);ChangeObject(Self,I(0));if(N(1)>=0.5)Event(Self,0,0);return 0;}
@@ -285,9 +304,7 @@ public sealed partial class GmWorld
             case "motion_set":Write(Self,"direction",V(0));Write(Self,"speed",V(1));return 0;
             case "motion_add":Write(Self,"hspeed",Self.Scope.ReadOr("hspeed").Number+Math.Cos(N(0)*Math.PI/180)*N(1));Write(Self,"vspeed",Self.Scope.ReadOr("vspeed").Number-Math.Sin(N(0)*Math.PI/180)*N(1));return 0;
             case "sprite_exists":return Sprites.ContainsKey(I(0));
-            case "sprite_get_number":return Sprites.TryGetValue(I(0),out var sprite)?sprite.GetProperty("frames").GetArrayLength():0;
-            case "sprite_get_width":case "sprite_get_height":{if(!Sprites.TryGetValue(I(0),out var s)||s.GetProperty("frames").GetArrayLength()==0)return 0;return s.GetProperty("frames")[0].GetProperty(name=="sprite_get_width"?"width":"height").GetInt32();}
-            case "sprite_get_xoffset":case "sprite_get_yoffset":return Sprites.TryGetValue(I(0),out var offsetSprite)?offsetSprite.GetProperty(name=="sprite_get_xoffset"?"originX":"originY").GetInt32():0;
+            case "sprite_get_number":case "sprite_get_width":case "sprite_get_height":case "sprite_get_xoffset":case "sprite_get_yoffset":return FixedResult(name,V(0),default,c);
             case "sprite_get_bbox_left":case "sprite_get_bbox_right":case "sprite_get_bbox_top":case "sprite_get_bbox_bottom":return Sprites[I(0)].GetProperty("masks")[0].GetProperty(name[16..]).GetInt32();
             case "background_get_width":case "background_get_height":{var b=Manifest.GetProperty("backgrounds").EnumerateArray().First(b=>b.GetProperty("id").GetInt32()==I(0));return b.GetProperty(name=="background_get_width"?"width":"height").GetInt32();}
         }

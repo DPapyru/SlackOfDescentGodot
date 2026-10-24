@@ -241,13 +241,20 @@ public sealed partial class GmWorld
         return false;
     }
 
+    private GmInstance? InstanceAt(double x,double y,int target,GmContext context,bool solids=false)
+    {
+        foreach(var instance in CollisionCandidates(Bounds(context.Self,x,y),target,context))
+            if((!solids||instance.Scope.ReadOr("solid").Truth)&&Touches(context.Self,instance,x,y))return instance;
+        return null;
+    }
+
     private GmValue? Collision(string name,GmValue[] a,GmContext c)
     {
         double N(int i)=>i<a.Length?a[i].Number:0;
         int I(int i)=>i<a.Length?a[i].Int:0;
         var self=c.Self;
         IEnumerable<GmInstance> Targets(int target,bool notMe=true)=>Select(target,c).Where(i=>!notMe||i!=self);
-        GmInstance? At(double x,double y,int target,bool solids=false)=>CollisionCandidates(Bounds(self,x,y),target,c).FirstOrDefault(i=>(!solids||i.Scope.ReadOr("solid").Truth)&&Touches(self,i,x,y));
+        GmInstance? At(double x,double y,int target,bool solids=false)=>InstanceAt(x,y,target,c,solids);
         switch(name)
         {
             case "move_bounce_solid":case "move_bounce_all":

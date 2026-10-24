@@ -94,7 +94,8 @@ public sealed partial class GmEvaluator
                 if(GmWorld.HasFixedArguments(name,arguments.Length))
                 {
                     if(arguments.Length==1)return c=>world.CallFixed(name,arguments[0](c),default,1,c);
-                    return c=>world.CallFixed(name,arguments[0](c),arguments[1](c),2,c);
+                    if(arguments.Length==2)return c=>world.CallFixed(name,arguments[0](c),arguments[1](c),2,c);
+                    return c=>world.CallFixed(name,arguments[0](c),arguments[1](c),arguments[2](c),c);
                 }
                 return c=>{var values=arguments.Length==0?Array.Empty<GmValue>():new GmValue[arguments.Length];for(int i=0;i<values.Length;i++)values[i]=arguments[i](c);return world.Call(name,values,c);};
             }

@@ -100,7 +100,11 @@ public sealed partial class GmEvaluator
             case "call":
             {
                 string name=e[1].GetString()!;var arguments=e[2];int argumentCount=arguments.GetArrayLength();
-                if(GmWorld.HasFixedArguments(name,argumentCount))return world.CallFixed(name,Eval(arguments[0],c),argumentCount==2?Eval(arguments[1],c):default,argumentCount,c);
+                if(GmWorld.HasFixedArguments(name,argumentCount))
+                {
+                    if(argumentCount==3)return world.CallFixed(name,Eval(arguments[0],c),Eval(arguments[1],c),Eval(arguments[2],c),c);
+                    return world.CallFixed(name,Eval(arguments[0],c),argumentCount==2?Eval(arguments[1],c):default,argumentCount,c);
+                }
                 return world.Call(name,arguments.EnumerateArray().Select(p=>Eval(p,c)).ToArray(),c);
             }
             case "if":

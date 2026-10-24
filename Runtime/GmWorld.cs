@@ -182,7 +182,7 @@ public sealed partial class GmWorld
             return name switch {"sprite_width"=>s.GetProperty("frames")[0].GetProperty("width").GetInt32(),"sprite_height"=>s.GetProperty("frames")[0].GetProperty("height").GetInt32(),"sprite_xoffset"=>s.GetProperty("originX").GetInt32(),_=>s.GetProperty("originY").GetInt32()};
         }
         if(name=="image_number")return Sprites.TryGetValue(instance.Scope.ReadOr("sprite_index",-1).Int,out var sp)?sp.GetProperty("frames").GetArrayLength():0;
-        if(Engine.Values.ContainsKey(GmScope.Key(name,indices)))return Engine.Read(name,indices);
+        if(Engine.Contains(name,indices))return Engine.Read(name,indices);
         return instance.Scope.Read(name,indices);
     }
 
@@ -191,7 +191,7 @@ public sealed partial class GmWorld
     {
         if(name=="debug_mode")throw new InvalidOperationException("Read-only variable debug_mode");
         if(name=="room"){PendingRoom=value.Int;return;}
-        if(Engine.Values.ContainsKey(GmScope.Key(name,indices))){Engine.Write(name,value,indices);return;}
+        if(Engine.Contains(name,indices)){Engine.Write(name,value,indices);return;}
         if(name is "hspeed" or "vspeed"&&instance.Scope.ReadOr(name).Equals(value))return;
         if(name=="direction"){double direction=value.Number%360;value=direction<0?direction+360:direction;}
         instance.Scope.Write(name,value,indices);

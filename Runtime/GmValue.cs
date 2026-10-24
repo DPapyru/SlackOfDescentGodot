@@ -115,6 +115,13 @@ public sealed class GmScope
         SplitKey(key,out string name,out int row,out int column);
         return arrays.TryGetValue(name,out var rows)&&rows.TryGetValue(row,out var data)&&data.TryGetValue(column,out value);
     }
+    internal bool Contains(string name,GmIndices indices)
+    {
+        var (row,column)=Position(indices);
+        if(name.IndexOf('[')>=0)return TryGetDefined(Key(name,row,column),out _);
+        if(arrays.TryGetValue(name,out var rows))return rows.TryGetValue(row,out var data)&&data.TryGetValue(column,out _);
+        return values.ContainsKey(Key(name,row,column));
+    }
     public GmValue Read(string name,IReadOnlyList<int>? indices=null)=>Read(name,new GmIndices(indices));
     public GmValue Read(string name,int index)=>Read(name,new GmIndices(index));
     public GmValue Read(string name,int row,int column)=>Read(name,new GmIndices(row,column));
@@ -142,6 +149,7 @@ public sealed class GmScope
         bool sparse=arrays.TryGetValue(field,out var rows);
         if(!sparse&&row==0&&column==0&&SplitKey(name,out var parsed,out int parsedRow,out int parsedColumn)&&arrays.TryGetValue(parsed,out rows))
         {field=parsed;row=parsedRow;column=parsedColumn;sparse=true;}
+        if(!sparse&&(row!=0||column!=0)&&name.IndexOf('[')<0){rows=ArrayRows(name);sparse=true;}
         if(sparse)
         {
             if(!rows!.TryGetValue(row,out var data))rows[row]=data=new();

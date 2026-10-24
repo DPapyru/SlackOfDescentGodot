@@ -11,6 +11,22 @@ int assertions=0;
 assertions+=ObjectPerformanceTests.Run(world);
 assertions+=FixedClockTests.Run();
 assertions+=CollisionOptimizationTests.Run(project,source);
+assertions+=ScopeArrayAllocationTests.Run();
+assertions+=GmlCallAllocationTests.Run(world);
+var engineRouting=new GmInstance();
+world.Engine.Write("routing_array",99,[3]);
+engineRouting.Scope.Write("routing_array",7,[1]);
+engineRouting.Scope.Write("routing_array",11,[0]);
+engineRouting.Scope.Write("routing_array",9,[3]);
+Equal(world.Read(engineRouting,"routing_array",[1]),7,"undefined engine array gaps resolve to instance values");
+Equal(world.Read(engineRouting,"routing_array",[3]),99,"defined engine array entries override instance values");
+Equal(world.Read(engineRouting,"routing_array",[0]),11,"undefined engine array scalar alias resolves to instance value");
+world.Write(engineRouting,"routing_array",17,[1]);
+Equal(engineRouting.Scope.Read("routing_array",1),17,"engine array gaps route writes to instance");
+Equal(world.Engine.Read("routing_array",1),0,"instance writes preserve implicit engine array gaps");
+world.Write(engineRouting,"routing_array",19,[3]);
+Equal(world.Engine.Read("routing_array",3),19,"defined engine array entries receive writes");
+Equal(engineRouting.Scope.Read("routing_array",3),9,"engine writes preserve shadowed instance array values");
 void Equal(GmValue actual,GmValue expected,string name)
 {
     if(!actual.Equals(expected))throw new Exception($"{name}: expected {expected}, got {actual}");
@@ -903,6 +919,21 @@ Equal(nearActivation.Active,true,"region deactivation respects notme");
 Equal(farActivation.Active,false,"region deactivation affects other colliders");
 particleWorld.Call("instance_activate_object",[activationParent],particleContext);
 Equal(farActivation.Active,true,"cached parent activation includes inactive objects");
+int spriteLessObject=particleWorld.Call("object_add",[],particleContext).Int;
+var nearSpriteLess=particleWorld.Create(spriteLessObject,100,100);
+var farSpriteLess=particleWorld.Create(spriteLessObject,1000,1000);
+particleWorld.Call("instance_deactivate_object",[spriteLessObject],particleContext);
+particleWorld.Call("instance_activate_region",[90,90,20,20,1],particleContext);
+Equal(nearSpriteLess.Active,true,"region activation restores nearby instances without sprites");
+Equal(farSpriteLess.Active,false,"region activation keeps distant sprite-less instances inactive");
+Equal(particleWorld.Bounds(nearSpriteLess).Empty,true,"sprite-less activation preserves empty collision bounds");
+particleWorld.Call("instance_activate_region",[90,90,20,20,0],particleContext);
+Equal(farSpriteLess.Active,true,"outside activation restores distant sprite-less instances");
+particleWorld.Call("instance_deactivate_region",[90,90,20,20,1,1],new(nearSpriteLess));
+Equal(nearSpriteLess.Active,true,"sprite-less region deactivation respects notme");
+particleWorld.Call("instance_deactivate_region",[90,90,20,20,0,0],particleContext);
+Equal(nearSpriteLess.Active,true,"outside deactivation preserves nearby sprite-less instances");
+Equal(farSpriteLess.Active,false,"outside deactivation stops distant sprite-less instances");
 var inactiveEffects=new List<GmInstance>();
 foreach(string kind in new[]{"objFluid","objFluidInWater"})
 {

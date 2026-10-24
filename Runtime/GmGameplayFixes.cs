@@ -95,6 +95,13 @@ public sealed partial class GmWorld
                 }
             }
         });
+        Patch("objects/objController/3/0/29",tree=>
+        {
+            foreach(var assignment in Nodes(tree).Where(n=>n.Count==4&&n[0]?.ToString()=="binary"&&n[1]?.ToString()=="Assign"
+                &&n[2]?[0]?.ToString()=="binary"&&n[2]?[1]?.ToString()=="Index"&&n[2]?[2]?[1]?.ToString()=="alarm"
+                &&n[3]?[0]?.ToString()=="num"&&n[3]?[1]?.GetValue<double>()==7).ToArray())
+                assignment[3]=JsonNode.Parse("[\"binary\",\"Divide\",[\"binary\",\"Multiply\",[\"num\",7],[\"call\",\"max\",[[\"num\",30],[\"call\",\"min\",[[\"id\",\"room_speed\"],[\"num\",60]]]]]],[\"num\",30]]");
+        });
         Patch("objects/objController/3/2/6",tree=>
         {
             var statements=Nodes(tree).Single(n=>n.Count>0&&n[0] is JsonArray&&n.OfType<JsonArray>().Any(s=>s[0]?.ToString()=="case"&&s[1]?[1]?.ToString()=="WP_NANA_AR")&&n.OfType<JsonArray>().Any(s=>s[0]?.ToString()=="binary"&&s[2]?[1]?.ToString()=="ShotCheck"));

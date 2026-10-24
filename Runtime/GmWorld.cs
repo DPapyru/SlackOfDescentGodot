@@ -160,7 +160,7 @@ public sealed partial class GmWorld
         }
         foreach(var pair in new Dictionary<string,GmValue> { ["room_speed"]=30,["room_width"]=640,["room_height"]=480,["mouse_x"]=0,["mouse_y"]=0,["current_time"]=0,["fps"]=30,["game_id"]=0,["working_directory"]=sourceRoot+Path.DirectorySeparatorChar,["program_directory"]=sourceRoot+Path.DirectorySeparatorChar,["temp_directory"]=Path.GetTempPath(),["keyboard_key"]=0,["keyboard_lastkey"]=0,["keyboard_string"]="",["mouse_button"]=0,["mouse_lastbutton"]=0,["cursor_sprite"]=-1,["view_enabled"]=0,["view_current"]=0,["background_color"]=0,["background_showcolor"]=1,["show_score"]=0,["show_lives"]=0,["show_health"]=0,["score"]=0,["lives"]=0,["health"]=100 }) Engine.Write(pair.Key,pair.Value);
         foreach (string name in new[] {"view_xview","view_yview","view_wview","view_hview","view_xport","view_yport","view_wport","view_hport","view_hborder","view_vborder","view_hspeed","view_vspeed","view_object","view_angle","view_visible","background_visible","background_foreground","background_index","background_x","background_y","background_width","background_height","background_htiled","background_vtiled","background_xscale","background_yscale","background_hspeed","background_vspeed","background_blend","background_alpha"})
-            for(int i=0;i<8;i++) Engine.Write(name,name.Contains("scale")||name.Contains("alpha")?1:0,[i]);
+            for(int i=0;i<8;i++) Engine.Write(name,name.Contains("scale")||name.Contains("alpha")?1:0,i);
     }
 
     public GmValue Read(GmInstance instance,string name,IReadOnlyList<int>? indices=null)=>Read(instance,name,new GmIndices(indices));
@@ -255,7 +255,7 @@ public sealed partial class GmWorld
         if(!Objects.TryGetValue(obj,out var o))throw new InvalidOperationException("Missing object "+obj);
         var instance=new GmInstance{Id=id??NextId++,Object=obj};
         foreach(var pair in new Dictionary<string,GmValue>{["x"]=x,["y"]=y,["xprevious"]=x,["yprevious"]=y,["xstart"]=x,["ystart"]=y,["sprite_index"]=o.GetProperty("sprite").GetInt32(),["mask_index"]=o.GetProperty("mask").GetInt32(),["solid"]=o.GetProperty("solid").GetBoolean(),["visible"]=o.GetProperty("visible").GetBoolean(),["persistent"]=o.GetProperty("persistent").GetBoolean(),["depth"]=o.GetProperty("depth").GetInt32(),["image_index"]=0,["image_speed"]=1,["image_xscale"]=1,["image_yscale"]=1,["image_angle"]=0,["image_alpha"]=1,["image_blend"]=16777215,["hspeed"]=0,["vspeed"]=0,["speed"]=0,["direction"]=0,["friction"]=0,["gravity"]=0,["gravity_direction"]=270,["path_index"]=-1,["timeline_index"]=-1})instance.Scope.Write(pair.Key,pair.Value);
-        for(int i=0;i<12;i++)instance.Scope.Write("alarm",-1,[i]);
+        for(int i=0;i<12;i++)instance.Scope.Write("alarm",-1,i);
         if(indexedCount==Instances.Count)
         {
             instanceLookup[instance.Id]=instance;
@@ -271,7 +271,7 @@ public sealed partial class GmWorld
             collisionSnapshots.Clear();geometryVersion++;
             instanceCounts.Clear();if(instance.Destroyed)changedColliders.Add(instance);
             if(instance.Object==Constants["objFluid"].Int||instance.Object==Constants["objFluidInWater"].Int)
-                instance.InactiveEffectExpiry=instance.Active?0:Frame+Math.Max(1,instance.Scope.Read("alarm",[0]).Int);
+                instance.InactiveEffectExpiry=instance.Active?0:Frame+Math.Max(1,instance.Scope.Read("alarm",0).Int);
         };
         WatchCollider(instance);
         if(collisionIndexedCount==Instances.Count-1){instance.CollisionOrder=nextCollisionOrder++;changedColliders.Add(instance);collisionIndexedCount++;}
@@ -402,8 +402,8 @@ public sealed partial class GmWorld
         int vi=0;
         foreach(var view in room.GetProperty("views").EnumerateArray())
         {
-            foreach(var pair in new Dictionary<string,string>{{"xview","x"},{"yview","y"},{"wview","width"},{"hview","height"},{"xport","portX"},{"yport","portY"},{"wport","portWidth"},{"hport","portHeight"},{"hborder","hborder"},{"vborder","vborder"},{"hspeed","hspeed"},{"vspeed","vspeed"},{"object","target"}})Engine.Write("view_"+pair.Key,view.GetProperty(pair.Value).GetDouble(),[vi]);
-            Engine.Write("view_visible",view.GetProperty("visible").GetBoolean(),[vi++]);
+            foreach(var pair in new Dictionary<string,string>{{"xview","x"},{"yview","y"},{"wview","width"},{"hview","height"},{"xport","portX"},{"yport","portY"},{"wport","portWidth"},{"hport","portHeight"},{"hborder","hborder"},{"vborder","vborder"},{"hspeed","hspeed"},{"vspeed","vspeed"},{"object","target"}})Engine.Write("view_"+pair.Key,view.GetProperty(pair.Value).GetDouble(),vi);
+            Engine.Write("view_visible",view.GetProperty("visible").GetBoolean(),vi++);
         }
         var created=new List<(GmInstance Instance,JsonElement Data)>();
         foreach(var data in room.GetProperty("instances").EnumerateArray())
@@ -436,8 +436,8 @@ public sealed partial class GmWorld
         for(int a=0;a<12;a++)foreach(var i in EventInstances(2,a))
         {
             if(i.Destroyed||!i.Active)continue;
-            var t=i.Scope.Read("alarm",[a]).Int;
-            if(t>=0){i.Scope.Write("alarm",t-1,[a]);if(t==1)await EventAsync(i,2,a);}
+            var t=i.Scope.Read("alarm",a).Int;
+            if(t>=0){i.Scope.Write("alarm",t-1,a);if(t==1)await EventAsync(i,2,a);}
         }
         if(InputEventsAsync is not null)await InputEventsAsync();else InputEvents?.Invoke();
         Performance.End("begin_input",phase);phase=Performance.Start();

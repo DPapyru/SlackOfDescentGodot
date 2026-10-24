@@ -183,8 +183,8 @@ public sealed partial class GmWorld
         Dispatch(1,0,0,Engine.Read("room_width").Number,Engine.Read("room_height").Number,true);
         for(int kind=0;kind<2;kind++)for(int view=0;view<8;view++)
         {
-            double x=Engine.Read("view_xview",[view]).Number,y=Engine.Read("view_yview",[view]).Number;
-            Dispatch(40+kind*10+view,x,y,x+Engine.Read("view_wview",[view]).Number,y+Engine.Read("view_hview",[view]).Number,kind==1);
+            double x=Engine.Read("view_xview",view).Number,y=Engine.Read("view_yview",view).Number;
+            Dispatch(40+kind*10+view,x,y,x+Engine.Read("view_wview",view).Number,y+Engine.Read("view_hview",view).Number,kind==1);
         }
     }
 

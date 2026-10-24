@@ -17,7 +17,7 @@ public sealed partial class GmWorld
     private GmInstance[] MotionParts(GmScope scope,int count,GmContext context)
     {
         var parts=new List<GmInstance>();
-        for(int p=0;p<count;p++)parts.AddRange(Select(scope.Read("Process",[p]).Int,context));
+        for(int p=0;p<count;p++)parts.AddRange(Select(scope.Read("Process",p).Int,context));
         return parts.ToArray();
     }
     private GmValue LoadPlayerMotion(GmValue[] args,GmContext caller)
@@ -35,8 +35,8 @@ public sealed partial class GmWorld
             if(node[0].GetString()=="if")Evaluator.Eval(node,context);
         frames=MotionLoopCount(scope.Read("KEYFRM_MAX"));parts=MotionLoopCount(scope.Read("PARTS_MAX"));
         int motion=args[0].Int;
-        scope.Write("motString","Chara/Motion/"+args[1]+".txt",[motion]);
-        scope.Write("motLong",scope.Read("data_motLong"),[motion]);
+        scope.Write("motString","Chara/Motion/"+args[1]+".txt",motion);
+        scope.Write("motLong",scope.Read("data_motLong"),motion);
         foreach(string field in new[]{"motStep","motPosX","motPosY"})scope.CopyArrayPrefix("data_"+field,field,motion,frames);
         if(frames>0)foreach(var part in MotionParts(scope,parts,context))
             foreach(var field in MotionPartRows)part.Scope.CopyArrayPrefix("data_"+field.Field,field.Field,motion,frames);

@@ -635,8 +635,7 @@ public partial class GameHost : Node2D
                 if(!pendingFrame.IsCompleted){nativeClock.Pause();break;}
                 pendingFrame.GetAwaiter().GetResult();pendingFrame=null;
                 if(world.IsLoadingRoom){nativeClock.RoomChanged();break;}
-                if(count>1)nativeClock.Pause();
-                break;
+                if(world.Ended)break;
             }
             if(world.Ended){audio.Shutdown();GetTree().Quit();}
             QueueRedraw();canvas.QueueRedraw();

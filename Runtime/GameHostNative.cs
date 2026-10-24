@@ -24,12 +24,21 @@ public partial class GameHost
     private SubViewport? previewViewport;
     private GmCanvas? previewCanvas;
     private readonly Dictionary<int, CharacterDefinition> characterVisuals = new();
+    private NativeCharacterRepository nativeDrawRepository=null!;
+    private sealed class NativeDrawBuffer
+    {
+        public readonly List<KeyValuePair<int,CharacterDefinition>> Characters=new();
+        public readonly List<NativeCharacterPart> Parts=new();
+    }
+    private readonly List<NativeDrawBuffer> nativeDrawBuffers=new();
+    private int nativeDrawLevel;
 
     private string ExamplesDirectory => OS.HasFeature("editor") ? ProjectSettings.GlobalizePath("res://Examples/Mods")
         : Path.Combine(Path.GetDirectoryName(OS.GetExecutablePath())!,"Examples","Mods");
     private void InitializeNative()
     {
         contentStore = new(world.UserRoot);
+        nativeDrawRepository=new(contentStore);
         mods = new(content);
         nativeBridge = new(world, content);
         world.SuppressCode = nativeBridge.TrySuppressCode;
@@ -42,7 +51,7 @@ public partial class GameHost
                 if(!result.Success)GD.Print("MOD_LOAD_FAILED ",result.Id," ",result.Diagnostics);
             }
         mods.Changed += ()=>NativeContentStore.Save(enabled,mods.LoadedMods.Select(m=>m.Directory).ToArray());
-        graphics.AdditionalDraws = NativeCharacterDraws;
+        graphics.AdditionalDrawCommands = NativeCharacterDraws;
         GetWindow().FocusExited += ResetNativeInput;
     }
     private void ResetNativeInput()
@@ -237,27 +246,42 @@ public partial class GameHost
         if(selected>=original&&selected<original+characters.Length){await BindFullCharacter(characters[selected-original]);return fallback;}
         return selected;
     }
-    private IEnumerable<(double Depth, Action Draw)> NativeCharacterDraws()
+    private void NativeCharacterDraws(List<GmGraphics.DepthDraw> draws)
     {
-        var repository=new NativeCharacterRepository(contentStore);
-        foreach(var item in characterVisuals.ToArray())
+        if(nativeDrawLevel==nativeDrawBuffers.Count)nativeDrawBuffers.Add(new());
+        var buffer=nativeDrawBuffers[nativeDrawLevel++];
+        try
         {
-            var actor=world.Instances.FirstOrDefault(i=>i.Id==item.Key&&!i.Destroyed);
+        foreach(var item in characterVisuals)buffer.Characters.Add(item);
+        foreach(var item in buffer.Characters)
+        {
+            GmInstance? actor=null;
+            foreach(var candidate in world.Instances)if(candidate.Id==item.Key&&!candidate.Destroyed){actor=candidate;break;}
             if(actor is null){characterVisuals.Remove(item.Key);continue;}
             if(!actor.Active||!actor.Scope.ReadOr("visible",true).Truth)continue;
             var definition=item.Value;
-            foreach(var part in definition.Parts.Where(p=>p.Visible&&p.Frames.Count>0).OrderBy(p=>p.Layer))
+            buffer.Parts.Clear();
+            foreach(var part in definition.Parts)
+            {
+                if(!part.Visible||part.Frames.Count==0)continue;
+                int index=buffer.Parts.Count;buffer.Parts.Add(part);
+                while(index>0&&buffer.Parts[index-1].Layer>part.Layer){buffer.Parts[index]=buffer.Parts[index-1];index--;}
+                buffer.Parts[index]=part;
+            }
+            foreach(var part in buffer.Parts)
             {
                 int total=part.Frames.Sum(f=>f.Duration);if(total<=0)continue;
                 int tick=(int)(nativeClock.GameTime*definition.AnimationFps)%total;
                 var frame=part.Frames[0];foreach(var f in part.Frames){frame=f;if(tick<f.Duration)break;tick-=f.Duration;}
-                string path=repository.FramePath(frame);if(!File.Exists(path))continue;
+                string path=nativeDrawRepository.FramePath(frame);if(!File.Exists(path))continue;
                 Vector2 position=new((float)actor.Scope.ReadOr("x").Number,(float)actor.Scope.ReadOr("y").Number);
                 var origin=new Vector2(part.AnchorX-part.OffsetX,part.AnchorY-part.OffsetY);
                 var scale=new Vector2((float)actor.Scope.ReadOr("Direction",1).Number,1);
                 float angle=-Mathf.DegToRad((float)actor.Scope.ReadOr("Angle").Number);
-                yield return(actor.Scope.ReadOr("depth").Number-part.Layer,()=>graphics.DrawExternal(path,origin,position,scale,angle));
+                draws.Add(new(actor.Scope.ReadOr("depth").Number-part.Layer,actor,path,origin,position,scale,angle));
             }
         }
+        }
+        finally{buffer.Characters.Clear();buffer.Parts.Clear();nativeDrawLevel--;}
     }
 }

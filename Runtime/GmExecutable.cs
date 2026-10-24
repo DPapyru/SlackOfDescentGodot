@@ -10,12 +10,12 @@ public sealed partial class GmEvaluator
         private readonly GmContext? context;
         private readonly GmScope? scope;
         private readonly string name;
-        private readonly int[]? indices;
+        private readonly GmIndices indices;
         private readonly int target;
         private readonly int argument;
-        public Location(GmScope scope,string name,int[]? indices){this.scope=scope;this.name=name;this.indices=indices;world=null;context=null;target=0;argument=-1;}
-        public Location(GmWorld world,GmContext context,string name,int[]? indices,int target=int.MinValue){this.world=world;this.context=context;this.name=name;this.indices=indices;this.target=target;scope=null;argument=-1;}
-        public Location(GmContext context,int argument){this.context=context;this.argument=argument;world=null;scope=null;name="";indices=null;target=0;}
+        public Location(GmScope scope,string name,GmIndices indices){this.scope=scope;this.name=name;this.indices=indices;world=null;context=null;target=0;argument=-1;}
+        public Location(GmWorld world,GmContext context,string name,GmIndices indices,int target=int.MinValue){this.world=world;this.context=context;this.name=name;this.indices=indices;this.target=target;scope=null;argument=-1;}
+        public Location(GmContext context,int argument){this.context=context;this.argument=argument;world=null;scope=null;name="";indices=default;target=0;}
         public GmValue Get()
         {
             if(scope is not null)return scope.Read(name,indices);
@@ -80,17 +80,22 @@ public sealed partial class GmEvaluator
             case "binary":
             {
                 string op=node[1].GetString()!;
-                if(op is "Deref" or "Index"){var reference=CompileReference(node);return c=>reference(c,null).Get();}
+                if(op is "Deref" or "Index"){var reference=CompileReference(node);return c=>reference(c,default).Get();}
                 if(op.StartsWith("Assign",StringComparison.Ordinal))
                 {
                     var reference=CompileReference(node[2]);var right=Executable(node[3]);string operation=op[6..];
-                    return c=>{var location=reference(c,null);var value=right(c);if(operation.Length>0)value=Apply(operation,location.Get(),value);location.Set(value);return value;};
+                    return c=>{var location=reference(c,default);var value=right(c);if(operation.Length>0)value=Apply(operation,location.Get(),value);location.Set(value);return value;};
                 }
                 var left=Executable(node[2]);var rhs=Executable(node[3]);return c=>Apply(op,left(c),rhs(c));
             }
             case "call":
             {
                 string name=node[1].GetString()!;var arguments=node[2].EnumerateArray().Select(Executable).ToArray();
+                if(GmWorld.HasFixedArguments(name,arguments.Length))
+                {
+                    if(arguments.Length==1)return c=>world.CallFixed(name,arguments[0](c),default,1,c);
+                    return c=>world.CallFixed(name,arguments[0](c),arguments[1](c),2,c);
+                }
                 return c=>{var values=arguments.Length==0?Array.Empty<GmValue>():new GmValue[arguments.Length];for(int i=0;i<values.Length;i++)values[i]=arguments[i](c);return world.Call(name,values,c);};
             }
             case "if":
@@ -121,7 +126,7 @@ public sealed partial class GmEvaluator
                 {
                     foreach(var instance in world.Select(target(c).Int,c).ToArray())
                     {
-                        var next=new GmContext(instance,c.Self,c.Arguments){Locals=c.Locals,EventObject=c.EventObject,EventKind=c.EventKind,EventSub=c.EventSub};
+                        var next=new GmContext(instance,c.Self,c.Arguments,c.Locals){EventObject=c.EventObject,EventKind=c.EventKind,EventSub=c.EventSub};
                         if(!ExecuteLoop(body,next)){c.Flow=next.Flow;c.Result=next.Result;break;}
                     }
                     return 0;
@@ -157,14 +162,16 @@ public sealed partial class GmEvaluator
             default:throw new NotSupportedException("AST "+tag);
         }
     }
-    private Func<GmContext,int[]?,Location> CompileReference(JsonElement node)
+    private Func<GmContext,GmIndices,Location> CompileReference(JsonElement node)
     {
         string tag=Tag(node);
         if(tag=="binary"&&node[1].GetString()=="Index")
         {
             var index=node[3];var items=(Tag(index)=="group"?index[1].EnumerateArray().ToArray():[index]).Select(Executable).ToArray();
             var reference=CompileReference(node[2]);
-            return (c,_)=>{var indices=new int[items.Length];for(int i=0;i<indices.Length;i++)indices[i]=items[i](c).Int;return reference(c,indices);};
+            if(items.Length==1)return (c,_)=>reference(c,new GmIndices(items[0](c).Int));
+            if(items.Length==2)return (c,_)=>reference(c,new GmIndices(items[0](c).Int,items[1](c).Int));
+            return (c,_)=>{var indices=new int[items.Length];for(int i=0;i<indices.Length;i++)indices[i]=items[i](c).Int;return reference(c,new GmIndices(indices));};
         }
         if(tag=="binary"&&node[1].GetString()=="Deref")
         {
@@ -181,7 +188,7 @@ public sealed partial class GmEvaluator
             string name=node[1].GetString()!;
             if(name=="argument"||name.StartsWith("argument",StringComparison.Ordinal)&&int.TryParse(name[8..],out _))return (c,indices)=>
             {
-                int index=indices?[0]??(name=="argument"?0:int.Parse(name[8..]));
+                int index=indices.FirstOr(name=="argument"?0:int.Parse(name[8..]));
                 return new(c,index);
             };
             return (c,indices)=>

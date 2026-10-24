@@ -4,18 +4,89 @@ using System.Text.Json.Nodes;
 
 namespace SlackOfDescent;
 
+public readonly struct GmDrawCommand
+{
+    private enum Kind{Action,Texture,Rectangle,Line,Circle,Ellipse,Triangles,Text}
+    private readonly Kind kind;
+    private readonly Action<GmCanvas>? action;
+    private readonly Texture2D? texture;
+    private readonly Vector2 origin,position,scale;
+    private readonly Rect2 source;
+    private readonly float angle;
+    private readonly Color tint;
+    private readonly bool filled;
+    private readonly Vector2[]? points,coords;
+    private readonly Color[]? colours;
+    private readonly int[]? indices;
+    private readonly GmValue[]? arguments;
+    private readonly Font? font;
+    private readonly string? text;
+    private readonly int fontSize;
+    private bool Batched{get;init;}
+    private int Blend{get;init;}
+    private int Filter{get;init;}
+    public GmDrawCommand(Action<GmCanvas> action){this=default;this.action=action;}
+    public GmDrawCommand(Texture2D texture,Vector2 origin,Rect2 source,Vector2 position,Vector2 scale,float angle,Color tint)
+    {
+        this=default;kind=Kind.Texture;this.texture=texture;this.origin=origin;this.source=source;this.position=position;this.scale=scale;this.angle=angle;this.tint=tint;
+    }
+    public GmDrawCommand(Rect2 rectangle,Color tint,bool filled=true)
+    {this=default;kind=Kind.Rectangle;source=rectangle;this.tint=tint;this.filled=filled;}
+    public GmDrawCommand(Vector2 start,Vector2 end,Color tint,float width=-1)
+    {this=default;kind=Kind.Line;position=start;origin=end;this.tint=tint;angle=width;}
+    public GmDrawCommand(Vector2 centre,float radius,Color tint,bool filled)
+    {this=default;kind=Kind.Circle;position=centre;angle=radius;this.tint=tint;this.filled=filled;}
+    public GmDrawCommand(Vector2 centre,Vector2 radius,Color tint,GmValue[] arguments)
+    {this=default;kind=Kind.Ellipse;position=centre;scale=radius;this.tint=tint;this.arguments=arguments;}
+    public GmDrawCommand(int[] indices,Vector2[] points,Color[] colours,Vector2[] coords,Texture2D? texture)
+    {this=default;kind=Kind.Triangles;this.indices=indices;this.points=points;this.colours=colours;this.coords=coords;this.texture=texture;}
+    public GmDrawCommand(Font font,string text,int fontSize,Vector2 position,float offset,Vector2 scale,float angle,Color tint)
+    {this=default;kind=Kind.Text;this.font=font;this.text=text;this.fontSize=fontSize;this.position=position;origin=new(offset,0);this.scale=scale;this.angle=angle;this.tint=tint;}
+    public GmDrawCommand InBatch(int blend,int filter)=>this with{Batched=true,Blend=blend,Filter=filter};
+    public void Execute(GmCanvas canvas)
+    {
+        if(Batched){canvas.Batch(this with{Batched=false},Blend,Filter);return;}
+        switch(kind)
+        {
+            case Kind.Action:action?.Invoke(canvas);break;
+            case Kind.Texture:
+                canvas.DrawSetTransform(position,angle,scale);
+                canvas.DrawTextureRectRegion(texture!,new Rect2(-origin,source.Size),source,tint);
+                canvas.DrawSetTransform(Vector2.Zero);break;
+            case Kind.Rectangle:canvas.DrawRect(source,tint,filled);break;
+            case Kind.Line:canvas.DrawLine(position,origin,tint,angle);break;
+            case Kind.Circle:canvas.DrawCircle(position,angle,tint,filled);break;
+            case Kind.Ellipse:canvas.DrawEllipse(position,scale,tint,arguments!.Length<=6||arguments[6].Number<0.5);break;
+            case Kind.Triangles:RenderingServer.CanvasItemAddTriangleArray(canvas.GetCanvasItem(),indices!,points!,colours!,coords!,texture:texture?.GetRid()??default);break;
+            case Kind.Text:
+                canvas.DrawSetTransform(position,angle,scale);
+                canvas.DrawString(font!,new(origin.X,font!.GetAscent(fontSize)),text!,HorizontalAlignment.Left,-1,fontSize,tint);
+                canvas.DrawSetTransform(Vector2.Zero);break;
+        }
+    }
+}
+
 public partial class GmCanvas : Node2D
 {
-    public readonly List<Action<GmCanvas>> Commands=new();
+    public readonly List<GmDrawCommand> Commands=new();
     public Action<GmCanvas>? Paint;
+    private readonly List<GmDrawCommand> drawing=new();
+    private Vector2[]? ellipsePoints;
     private readonly List<GmCanvas> batches=new();
     private readonly Dictionary<int,Material> materials=new();
     private BackBufferCopy? screenCopy;
     private int batchIndex;
     private int lastBlend=-1;
     private int lastFilter=-1;
+    internal void DrawEllipse(Vector2 centre,Vector2 radius,Color tint,bool filled)
+    {
+        ellipsePoints??=new Vector2[65];
+        for(int i=0;i<ellipsePoints.Length;i++)ellipsePoints[i]=centre+new Vector2(Mathf.Cos(i*Mathf.Tau/64)*radius.X,Mathf.Sin(i*Mathf.Tau/64)*radius.Y);
+        if(filled)DrawColoredPolygon(ellipsePoints,tint);else DrawPolyline(ellipsePoints,tint);
+    }
     public void StartBatches(){batchIndex=0;lastBlend=-1;foreach(var batch in batches){batch.Visible=false;batch.Commands.Clear();if(batch.screenCopy is not null)batch.screenCopy.Visible=false;}}
-    public void Batch(Action<GmCanvas> command,int blend,int filter=0)
+    public void Batch(Action<GmCanvas> command,int blend,int filter=0)=>Batch(new GmDrawCommand(command),blend,filter);
+    public void Batch(GmDrawCommand command,int blend,int filter=0)
     {
         if(batchIndex>0&&lastBlend==blend&&lastFilter==filter&&blend is not (5 or 6)){batches[batchIndex-1].Commands.Add(command);batches[batchIndex-1].QueueRedraw();return;}
         lastBlend=blend;lastFilter=filter;
@@ -45,11 +116,63 @@ public partial class GmCanvas : Node2D
         batch.Material=material;
         batch.Commands.Add(command);batch.QueueRedraw();
     }
-    public override void _Draw(){if(Commands.Count>0)StartBatches();Paint?.Invoke(this);foreach(var command in Commands.ToArray())command(this);}
+    public override void _Draw()
+    {
+        if(Commands.Count>0)StartBatches();
+        Paint?.Invoke(this);
+        drawing.Clear();drawing.AddRange(Commands);
+        try{foreach(var command in drawing)command.Execute(this);}
+        finally{drawing.Clear();}
+    }
 }
 
 public sealed partial class GmGraphics
 {
+    internal readonly struct DepthDraw
+    {
+        public readonly double Depth;
+        public int Order{get;init;}
+        private readonly Action? action;
+        private readonly GmParticleSystem? particles;
+        private readonly GmInstance? instance;
+        private readonly Texture2D? texture;
+        private readonly string? path;
+        private readonly Rect2 source;
+        private readonly Vector2 origin,position,scale;
+        private readonly Color tint;
+        private readonly float angle;
+        public DepthDraw(double depth,Action action){this=default;Depth=depth;this.action=action;}
+        public DepthDraw(GmParticleSystem particles){this=default;Depth=particles.Depth;this.particles=particles;}
+        public DepthDraw(GmInstance instance){this=default;Depth=instance.Scope.ReadOr("depth").Number;this.instance=instance;}
+        public DepthDraw(double depth,Texture2D texture,Rect2 source,Vector2 position,Vector2 scale,Color tint)
+        {this=default;Depth=depth;this.texture=texture;this.source=source;this.position=position;this.scale=scale;this.tint=tint;}
+        public DepthDraw(double depth,GmInstance instance,string path,Vector2 origin,Vector2 position,Vector2 scale,float angle)
+        {this=default;Depth=depth;this.instance=instance;this.path=path;this.origin=origin;this.position=position;this.scale=scale;this.angle=angle;}
+        public void Execute(GmGraphics graphics)
+        {
+            if(action is not null){action();return;}
+            if(particles is not null){graphics.DrawParticles(particles);return;}
+            if(instance is not null)
+            {
+                using var measurement=graphics.world.Performance.Objects.Begin(instance.Object,8);
+                if(path is not null)graphics.DrawExternal(path,origin,position,scale,angle);
+                else if(!instance.Destroyed&&!graphics.world.Event(instance,8,0))graphics.Instance(instance);
+                return;
+            }
+            graphics.Textured(texture!,Vector2.Zero,source,position,scale,0,tint);
+        }
+    }
+    private sealed class DepthDrawBuffer
+    {
+        public readonly List<DepthDraw> Draws=new();
+        public readonly List<GmInstance> Instances=new();
+    }
+    private readonly List<DepthDrawBuffer> depthDrawBuffers=new();
+    private int depthDrawLevel;
+    private static readonly IComparer<DepthDraw> depthDrawOrder=Comparer<DepthDraw>.Create(static(a,b)=>
+    {
+        int depth=b.Depth.CompareTo(a.Depth);return depth!=0?depth:a.Order.CompareTo(b.Order);
+    });
     public int AuditResourceImages()
     {
         var media=JsonDocument.Parse(File.ReadAllText(Path.Combine(world.Root,"media.json")));
@@ -80,7 +203,7 @@ public sealed partial class GmGraphics
     private readonly List<(double Depth,Texture2D Texture,Rect2 Source,Vector2 Position,Vector2 Scale,Color Tint,Rect2 Bounds)> tileData=new();
     private int tilesVersion=-1;
     private readonly Dictionary<int,string> backgroundPaths=new();
-    private readonly List<Action<GmCanvas>> main=new();
+    private readonly List<GmDrawCommand> main=new();
     private int nextSurface=1;
     private int target=-1;
     private Color colour=Colors.White;
@@ -96,6 +219,7 @@ public sealed partial class GmGraphics
     private int primitive;
     private Texture2D? primitiveTexture;
     public Func<IEnumerable<(double Depth,Action Draw)>>? AdditionalDraws;
+    internal Action<List<DepthDraw>>? AdditionalDrawCommands;
     public void DrawExternal(string path,Vector2 origin,Vector2 position,Vector2 scale,float angle)
     {var texture=Texture(path);Textured(texture,origin,new(Vector2.Zero,texture.GetSize()),position,scale,angle,Colors.White);}
     private Texture2D[]? particleShapes;
@@ -135,11 +259,11 @@ public sealed partial class GmGraphics
         return new Color((n&255)/255f,((n>>8)&255)/255f,((n>>16)&255)/255f,(float)Math.Clamp(opacity,0,1));
     }
     private Color Tint=>new(colour.R,colour.G,colour.B,Math.Clamp(alpha,0,1));
-    private void Add(Action<GmCanvas> command)
+    private void Add(Action<GmCanvas> command)=>Add(new GmDrawCommand(command));
+    private void Add(GmDrawCommand command)
     {
         if(target>=0&&effects.ContainsKey(target))SoftwareEffect(target);
-        int mode=blend,filter=drawFilter;
-        Action<GmCanvas> draw=c=>c.Batch(command,mode,filter);
+        var draw=command.InBatch(blend,drawFilter);
         if(target<0)main.Add(draw);
         else if(surfaces.TryGetValue(target,out var surface)){surface.Canvas.Commands.Add(draw);surface.Canvas.QueueRedraw();}
     }
@@ -152,19 +276,26 @@ public sealed partial class GmGraphics
             var view=world.View(0);var zero=view.ToScreen(Camera.X,Camera.Y);var right=view.ToScreen(Camera.X+1,Camera.Y);var down=view.ToScreen(Camera.X,Camera.Y+1);
             canvas.Transform=new(new((float)(right.X-zero.X),(float)(right.Y-zero.Y)),new((float)(down.X-zero.X),(float)(down.Y-zero.Y)),new((float)zero.X,(float)zero.Y));
         }
-        canvas.StartBatches();foreach(var command in main)command(canvas);
+        canvas.StartBatches();foreach(var command in main)command.Execute(canvas);
     }
     public void Build()
     {
+        using var measurement=world.Performance.Objects.Begin(-2,8);
         Begin();
         Camera=world.Engine.ReadOr("view_enabled").Truth?new((float)world.Engine.Read("view_xview",[0]).Number,(float)world.Engine.Read("view_yview",[0]).Number):Vector2.Zero;
         viewSize=world.Engine.ReadOr("view_enabled").Truth?new((float)world.Engine.Read("view_wview",[0]).Number,(float)world.Engine.Read("view_hview",[0]).Number):new(world.Engine.Read("room_width").Int,world.Engine.Read("room_height").Int);
         RoomBackgrounds(false);
-        var draws=new List<(double Depth,Action Draw)>();
-        if(AdditionalDraws is not null)draws.AddRange(AdditionalDraws());
-        foreach(var system in world.Particles.Systems.Values.Where(s=>s.AutoDraw))draws.Add((system.Depth,()=>DrawParticles(system)));
-        foreach(var instance in world.Instances.Where(i=>!i.Destroyed&&i.Active&&i.Scope.ReadOr("visible").Truth).ToArray())
-            draws.Add((instance.Scope.ReadOr("depth").Number,()=>{if(!instance.Destroyed&&!world.Event(instance,8,0))Instance(instance);}));
+        if(depthDrawLevel==depthDrawBuffers.Count)depthDrawBuffers.Add(new());
+        var buffer=depthDrawBuffers[depthDrawLevel++];
+        var draws=buffer.Draws;
+        try
+        {
+        AdditionalDrawCommands?.Invoke(draws);
+        if(AdditionalDraws is not null)foreach(var draw in AdditionalDraws())draws.Add(new(draw.Depth,draw.Draw));
+        foreach(var system in world.Particles.Systems.Values)if(system.AutoDraw)draws.Add(new(system));
+        foreach(var instance in world.Instances)if(!instance.Destroyed&&instance.Active&&instance.Scope.ReadOr("visible").Truth)buffer.Instances.Add(instance);
+        foreach(var instance in buffer.Instances)
+            draws.Add(new(instance));
         if(tilesVersion!=world.TilesVersion)
         {
             tileData.Clear();tilesVersion=world.TilesVersion;
@@ -182,11 +313,14 @@ public sealed partial class GmGraphics
         foreach(var tile in tileData)
         {
             if(!visible.Intersects(tile.Bounds,true))continue;
-            var data=tile;
-            draws.Add((data.Depth,()=>Textured(data.Texture,Vector2.Zero,data.Source,data.Position,data.Scale,0,data.Tint)));
+            draws.Add(new(tile.Depth,tile.Texture,tile.Source,tile.Position,tile.Scale,tile.Tint));
         }
-        foreach(var draw in draws.OrderByDescending(d=>d.Depth))draw.Draw();
+        for(int i=0;i<draws.Count;i++)draws[i]=draws[i] with{Order=i};
+        draws.Sort(depthDrawOrder);
+        foreach(var draw in draws)draw.Execute(this);
         RoomBackgrounds(true);
+        }
+        finally{draws.Clear();buffer.Instances.Clear();depthDrawLevel--;}
     }
     private void Tiled(Texture2D texture,Vector2 position,Vector2 scale,Color tint,bool horizontal=true,bool vertical=true)
     {
@@ -299,7 +433,7 @@ public sealed partial class GmGraphics
             var c=transform*(source.Size-origin);var d=transform*(new Vector2(0,source.Size.Y)-origin);
             if(Math.Max(Math.Max(a.X,b.X),Math.Max(c.X,d.X))<0||Math.Max(Math.Max(a.Y,b.Y),Math.Max(c.Y,d.Y))<0||Math.Min(Math.Min(a.X,b.X),Math.Min(c.X,d.X))>viewSize.X||Math.Min(Math.Min(a.Y,b.Y),Math.Min(c.Y,d.Y))>viewSize.Y)return;
         }
-        Add(c=>{c.DrawSetTransform(position-camera,angle,scale);c.DrawTextureRectRegion(texture,new Rect2(-origin,source.Size),source,tint);c.DrawSetTransform(Vector2.Zero);});
+        Add(new GmDrawCommand(texture,origin,source,position-camera,scale,angle,tint));
     }
     private Image SurfaceImage(int id)
     {
@@ -415,14 +549,14 @@ public sealed partial class GmGraphics
     }
     private void Primitive(Vector2[] points,Color[] colours,Vector2[] coords,Texture2D? texture,int mode)
     {
-        if(mode==1){for(int i=0;i<points.Length;i++){var point=points[i];var tint=colours[i];if(target>=0)Textured(White,Vector2.Zero,new(0,0,1,1),point,Vector2.One,0,tint);else Add(c=>c.DrawRect(new(point,Vector2.One),tint));}return;}
+        if(mode==1){for(int i=0;i<points.Length;i++){var point=points[i];var tint=colours[i];if(target>=0)Textured(White,Vector2.Zero,new(0,0,1,1),point,Vector2.One,0,tint);else Add(new GmDrawCommand(new Rect2(point,Vector2.One),tint));}return;}
         if(mode is 2 or 3)
         {
             for(int i=0;i+1<points.Length;i+=mode==2?2:1)
             {
                 var a=points[i];var b=points[i+1];var tint=colours[i];
                 if(target>=0)Textured(White,new(0,0.5f),new(0,0,1,1),a,new(a.DistanceTo(b),1),(b-a).Angle(),tint);
-                else Add(c=>c.DrawLine(a,b,tint));
+                else Add(new GmDrawCommand(a,b,tint));
             }
             return;
         }
@@ -448,7 +582,7 @@ public sealed partial class GmGraphics
                 finally{world.Performance.End(fast?"surface_triangle_opaque":"surface_triangle_general",started);}
             }
         }
-        else Add(c=>RenderingServer.CanvasItemAddTriangleArray(c.GetCanvasItem(),indices,points,colours,coords,texture:texture?.GetRid()??default));
+        else Add(new GmDrawCommand(indices,points,colours,coords,texture));
     }
     public void Sprite(int id,double frame,Vector2 position,Vector2 scale,float angle,Color tint)
     {
@@ -580,7 +714,7 @@ public sealed partial class GmGraphics
                 string captured=line;Vector2 baseline=position-camera;
                 float width=chinese.GetStringSize(line,HorizontalAlignment.Left,-1,height).X;
                 float offset=halign==1?-width/2:halign==2?-width:0;
-                Add(c=>{c.DrawSetTransform(baseline,rotation,new(scaleX,scaleY));c.DrawString(chinese,new(offset,chinese.GetAscent(height)),captured,HorizontalAlignment.Left,-1,height,tint);c.DrawSetTransform(Vector2.Zero);});
+                Add(new GmDrawCommand(chinese,captured,height,baseline,offset,new(scaleX,scaleY),rotation,tint));
                 position.Y+=(lineSpacing<0?height:lineSpacing)*scaleY;
             }
             return;
@@ -602,6 +736,7 @@ public sealed partial class GmGraphics
             position.Y+=height;
         }
     }
+    private readonly string? mudExperiment=System.Environment.GetEnvironmentVariable("SLACK_MUD_EXPERIMENT");
     public GmValue? Call(string name,GmValue[] a,GmContext context)
     {
         double N(int i)=>i<a.Length?a[i].Number:0;
@@ -685,7 +820,10 @@ public sealed partial class GmGraphics
             case "draw_set_halign":halign=I(0);return 0;
             case "action_font":font=I(0);halign=I(1);return 0;
             case "draw_sprite":Sprite(I(0),N(1)<0?context.Self.Scope.ReadOr("image_index").Number:N(1),P(2),Vector2.One,0,Colors.White);return 0;
-            case "draw_sprite_ext":Sprite(I(0),N(1)<0?context.Self.Scope.ReadOr("image_index").Number:N(1),P(2),P(4),-Mathf.DegToRad(F(6)),Colour(N(7),N(8)));return 0;
+            case "draw_sprite_ext":
+                if(mudExperiment is "no-sprites" or "no-state"
+                    &&context.Self.Object==world.Constants["objSwampSurface"].Int&&context.EventKind==8)return 0;
+                Sprite(I(0),N(1)<0?context.Self.Scope.ReadOr("image_index").Number:N(1),P(2),P(4),-Mathf.DegToRad(F(6)),Colour(N(7),N(8)));return 0;
             case "draw_sprite_stretched":case "draw_sprite_stretched_ext":
             {
                 var frames=world.Sprites[I(0)].GetProperty("frames");if(frames.GetArrayLength()==0)return 0;
@@ -728,16 +866,16 @@ public sealed partial class GmGraphics
                     }
                     return 0;
                 }
-                Add(c=>c.DrawRect(new Rect2(p1,p2-p1).Abs(),tint,filled));return 0;
+                Add(new GmDrawCommand(new Rect2(p1,p2-p1).Abs(),tint,filled));return 0;
             }
             case "draw_line_width":case "draw_line_width_color":
-            {var offset=target<0?Camera:Vector2.Zero;var p1=P(0)-offset;var p2=P(2)-offset;float width=F(4);var tint=name=="draw_line_width"?Tint:Colour(N(5),alpha);Add(c=>c.DrawLine(p1,p2,tint,width));return 0;}
+            {var offset=target<0?Camera:Vector2.Zero;var p1=P(0)-offset;var p2=P(2)-offset;float width=F(4);var tint=name=="draw_line_width"?Tint:Colour(N(5),alpha);Add(new GmDrawCommand(p1,p2,tint,width));return 0;}
             case "draw_point":case "draw_point_color":
-            {var p=P(0)-(target<0?Camera:Vector2.Zero);var tint=name=="draw_point"?Tint:Colour(N(2),alpha);if(target>=0){SoftwareEffect(target);var image=surfacePixels[target];if(p.X>=0&&p.Y>=0&&p.X<image.GetWidth()&&p.Y<image.GetHeight()){int offset=((int)p.Y*image.GetWidth()+(int)p.X)*4;BlendPixel(surfaceData[target],offset,tint.R,tint.G,tint.B,tint.A);DirtySurface(target);}}else Add(c=>c.DrawRect(new Rect2(p,Vector2.One),tint));return 0;}
+            {var p=P(0)-(target<0?Camera:Vector2.Zero);var tint=name=="draw_point"?Tint:Colour(N(2),alpha);if(target>=0){SoftwareEffect(target);var image=surfacePixels[target];if(p.X>=0&&p.Y>=0&&p.X<image.GetWidth()&&p.Y<image.GetHeight()){int offset=((int)p.Y*image.GetWidth()+(int)p.X)*4;BlendPixel(surfaceData[target],offset,tint.R,tint.G,tint.B,tint.A);DirtySurface(target);}}else Add(new GmDrawCommand(new Rect2(p,Vector2.One),tint));return 0;}
             case "draw_circle":case "draw_circle_color":
-            {var p=P(0)-(target<0?Camera:Vector2.Zero);float radius=F(2);var tint=name=="draw_circle"?Tint:Colour(N(3),alpha);bool filled=N(name=="draw_circle"?3:5)<0.5;Add(c=>c.DrawCircle(p,radius,tint,filled));return 0;}
+            {var p=P(0)-(target<0?Camera:Vector2.Zero);float radius=F(2);var tint=name=="draw_circle"?Tint:Colour(N(3),alpha);bool filled=N(name=="draw_circle"?3:5)<0.5;Add(new GmDrawCommand(p,radius,tint,filled));return 0;}
             case "draw_ellipse_color":
-            {var p1=P(0)-(target<0?Camera:Vector2.Zero);var p2=P(2)-(target<0?Camera:Vector2.Zero);var centre=(p1+p2)/2;var radius=(p2-p1).Abs()/2;var tint=Colour(N(4),alpha);var points=Enumerable.Range(0,65).Select(i=>centre+new Vector2(Mathf.Cos(i*Mathf.Tau/64)*radius.X,Mathf.Sin(i*Mathf.Tau/64)*radius.Y)).ToArray();Add(c=>{if(N(6)<0.5)c.DrawColoredPolygon(points,tint);else c.DrawPolyline(points,tint);});return 0;}
+            {var p1=P(0)-(target<0?Camera:Vector2.Zero);var p2=P(2)-(target<0?Camera:Vector2.Zero);var centre=(p1+p2)/2;var radius=(p2-p1).Abs()/2;var tint=Colour(N(4),alpha);Add(new GmDrawCommand(centre,radius,tint,a));return 0;}
             case "surface_create":
             {
                 int id=nextSurface++;

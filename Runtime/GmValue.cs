@@ -28,6 +28,19 @@ public readonly struct GmValue : IEquatable<GmValue>
     public int CompareTo(GmValue other) => IsString && other.IsString ? string.CompareOrdinal(Text, other.Text) : Number.CompareTo(other.Number);
 }
 
+internal readonly struct GmIndices
+{
+    private readonly IReadOnlyList<int>? indices;
+    private readonly int first,second;
+    public readonly int Count;
+    public bool IsSpecified=>indices is not null||Count>0;
+    public GmIndices(IReadOnlyList<int>? indices){this.indices=indices;Count=indices?.Count??0;first=second=0;}
+    public GmIndices(int first){this.first=first;second=0;Count=1;indices=null;}
+    public GmIndices(int first,int second){this.first=first;this.second=second;Count=2;indices=null;}
+    public int this[int index]=>indices is not null?indices[index]:index switch{0 when Count>0=>first,1 when Count>1=>second,_=>throw new IndexOutOfRangeException()};
+    public int FirstOr(int fallback)=>IsSpecified?this[0]:fallback;
+}
+
 public sealed class GmScope
 {
     private readonly Dictionary<string, GmValue> values = new(StringComparer.Ordinal);
@@ -65,14 +78,15 @@ public sealed class GmScope
         }
     }
 
-    private static (int Row,int Column) Position(IReadOnlyList<int>? indices)
+    private static (int Row,int Column) Position(GmIndices indices)
     {
         int row=indices is {Count:>1}?indices[0]:0,column=indices is {Count:>1}?indices[1]:indices is {Count:1}?indices[0]:0;
         if(row<0||row>=32000||column<0||column>=32000)throw new IndexOutOfRangeException("GML array index outside 0..31999");
         return (row,column);
     }
     private static string Key(string name,int row,int column) => row==0&&column==0?name:row==0?$"{name}[{column}]":$"{name}[{row},{column}]";
-    public static string Key(string name,IReadOnlyList<int>? indices)
+    public static string Key(string name,IReadOnlyList<int>? indices)=>Key(name,new GmIndices(indices));
+    internal static string Key(string name,GmIndices indices)
     {
         var (row,column)=Position(indices);
         return Key(name,row,column);
@@ -101,7 +115,10 @@ public sealed class GmScope
         SplitKey(key,out string name,out int row,out int column);
         return arrays.TryGetValue(name,out var rows)&&rows.TryGetValue(row,out var data)&&data.TryGetValue(column,out value);
     }
-    public GmValue Read(string name,IReadOnlyList<int>? indices=null)
+    public GmValue Read(string name,IReadOnlyList<int>? indices=null)=>Read(name,new GmIndices(indices));
+    public GmValue Read(string name,int index)=>Read(name,new GmIndices(index));
+    public GmValue Read(string name,int row,int column)=>Read(name,new GmIndices(row,column));
+    internal GmValue Read(string name,GmIndices indices)
     {
         var (row,column)=Position(indices);
         if(arrays.TryGetValue(name,out var rows)&&rows.TryGetValue(row,out var data))
@@ -115,7 +132,10 @@ public sealed class GmScope
         throw new KeyNotFoundException("Uninitialized variable "+key);
     }
     public GmValue ReadOr(string name,GmValue fallback=default) => TryGetDefined(name,out var value)?value:fallback;
-    public void Write(string name,GmValue value,IReadOnlyList<int>? indices=null)
+    public void Write(string name,GmValue value,IReadOnlyList<int>? indices=null)=>Write(name,value,new GmIndices(indices));
+    public void Write(string name,GmValue value,int index)=>Write(name,value,new GmIndices(index));
+    public void Write(string name,GmValue value,int row,int column)=>Write(name,value,new GmIndices(row,column));
+    internal void Write(string name,GmValue value,GmIndices indices)
     {
         var (row,column)=Position(indices);
         string field=name;
@@ -157,7 +177,7 @@ public sealed class GmScope
     internal void FillArrayPrefix(string name,int row,int count,GmValue value)
     {
         if(count<=0)return;
-        Position([row,count-1]);
+        Position(new GmIndices(row,count-1));
         var rows=ArrayRows(name);
         if(!rows.TryGetValue(row,out var data))rows[row]=data=new(){Length=lengths.GetValueOrDefault((name,row))};
         data.Fill(count,value);
@@ -166,15 +186,15 @@ public sealed class GmScope
     internal void CopyArrayPrefix(string source,string target,int targetRow,int count)
     {
         if(count<=0)return;
-        Position([targetRow,count-1]);
+        Position(new GmIndices(targetRow,count-1));
         if(arrays.TryGetValue(source,out var sourceRows)&&sourceRows.TryGetValue(0,out var sourceData)&&sourceData.DefaultLength>=count)
         {
             var overrides=sourceData.Entries.Where(p=>p.Key<count).ToArray();
             FillArrayPrefix(target,targetRow,count,sourceData.Default);
-            foreach(var entry in overrides)Write(target,entry.Value,[targetRow,entry.Key]);
+            foreach(var entry in overrides)Write(target,entry.Value,targetRow,entry.Key);
             return;
         }
-        for(int column=0;column<count;column++)Write(target,Read(source,[column]),[targetRow,column]);
+        for(int column=0;column<count;column++)Write(target,Read(source,column),targetRow,column);
     }
 
     public sealed class ValueDictionary : IReadOnlyDictionary<string,GmValue>

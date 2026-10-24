@@ -35,6 +35,10 @@ public sealed partial class GmEvaluator
         if(world.SuppressCode?.Invoke(key,context)==true)return 0;
         var code=world.Code[key];if(!CanWait(code))return Run(key,context);
         long started=world.Performance.ScriptsEnabled?System.Diagnostics.Stopwatch.GetTimestamp():0;
+        var diagnostic=DiagnosticSample;
+        bool measure=diagnostic is not null&&key.StartsWith("objects/objSwamp",StringComparison.Ordinal);
+        long diagnosticStart=measure?System.Diagnostics.Stopwatch.GetTimestamp():0;
+        long allocated=measure?GC.GetAllocatedBytesForCurrentThread():0;
         try
         {
             var result=await WaitNode(code,context);
@@ -43,7 +47,11 @@ public sealed partial class GmEvaluator
         }
         catch(GmFlow flow){return flow.Value;}
         catch(Exception e){throw new InvalidOperationException(key+": "+e.Message,e);}
-        finally{world.Performance.Script(key,started);}
+        finally
+        {
+            if(measure)diagnostic!(key,System.Diagnostics.Stopwatch.GetElapsedTime(diagnosticStart).TotalMilliseconds,GC.GetAllocatedBytesForCurrentThread()-allocated);
+            world.Performance.Script(key,started);
+        }
     }
     private async ValueTask<bool> WaitLoop(JsonElement body,GmContext context)
     {
@@ -94,14 +102,20 @@ public sealed partial class GmEvaluator
             return await RunAsync(key,new(context.Self,context.Other,arguments){EventObject=context.EventObject,EventKind=context.EventKind,EventSub=context.EventSub});
         return world.Call(name,arguments,context);
     }
-    private async ValueTask<Location> WaitReference(JsonElement node,GmContext context,int[]? indices=null)
+    private async ValueTask<Location> WaitReference(JsonElement node,GmContext context,GmIndices indices=default)
     {
         if(!CanWait(node))return CompileReference(node)(context,indices);
         if(Tag(node)=="binary"&&node[1].GetString()=="Index")
         {
             var items=Tag(node[3])=="group"?node[3][1].EnumerateArray().ToArray():[node[3]];
+            if(items.Length==1)return await WaitReference(node[2],context,new GmIndices((await WaitNode(items[0],context)).Int));
+            if(items.Length==2)
+            {
+                int first=(await WaitNode(items[0],context)).Int,second=(await WaitNode(items[1],context)).Int;
+                return await WaitReference(node[2],context,new GmIndices(first,second));
+            }
             var values=new int[items.Length];for(int i=0;i<items.Length;i++)values[i]=(await WaitNode(items[i],context)).Int;
-            return await WaitReference(node[2],context,values);
+            return await WaitReference(node[2],context,new GmIndices(values));
         }
         if(Tag(node)=="binary"&&node[1].GetString()=="Deref")
         {
@@ -163,7 +177,7 @@ public sealed partial class GmEvaluator
             case "with":
                 foreach(var instance in world.Select((await WaitNode(node[1],context)).Int,context).ToArray())
                 {
-                    var next=new GmContext(instance,context.Self,context.Arguments){Locals=context.Locals,EventObject=context.EventObject,EventKind=context.EventKind,EventSub=context.EventSub};
+                    var next=new GmContext(instance,context.Self,context.Arguments,context.Locals){EventObject=context.EventObject,EventKind=context.EventKind,EventSub=context.EventSub};
                     if(!await WaitLoop(node[2],next)){context.Flow=next.Flow;context.Result=next.Result;break;}
                 }
                 return 0;
@@ -193,7 +207,16 @@ public sealed partial class GmEvaluator
 public sealed partial class GmWorld
 {
     public Func<string,GmValue[],GmContext,ValueTask<GmValue>>? Wait;
-    public async ValueTask<bool> EventAsync(GmInstance instance,int kind,int sub,GmInstance? other=null,int? start=null)
+    public ValueTask<bool> EventAsync(GmInstance instance,int kind,int sub,GmInstance? other=null,int? start=null)
+    {
+        var measurement=Performance.Objects.Begin(EventOwner(start??instance.Object,kind,sub)<0?-1:instance.Object,kind);
+        ValueTask<bool> result;
+        try{result=EventAsyncCore(instance,kind,sub,other,start);}
+        catch{measurement.Dispose();throw;}
+        if(result.IsCompleted)measurement.Dispose();else measurement.Skip();
+        return result;
+    }
+    private async ValueTask<bool> EventAsyncCore(GmInstance instance,int kind,int sub,GmInstance? other,int? start)
     {
         int obj=EventOwner(start??instance.Object,kind,sub);
         if(obj<0)return false;
@@ -228,7 +251,7 @@ public sealed partial class GmWorld
             var targets=action.GetProperty("target").GetInt32()==-1?[context.Self]:Select(action.GetProperty("target").GetInt32(),context).ToArray();
             foreach(var target in targets)
             {
-                var c=new GmContext(target,context.Other,context.Arguments){EventObject=context.EventObject,EventKind=context.EventKind,EventSub=context.EventSub,Locals=context.Locals};
+                var c=new GmContext(target,context.Other,context.Arguments,context.Locals){EventObject=context.EventObject,EventKind=context.EventKind,EventSub=context.EventSub};
                 if(action.GetProperty("code").ValueKind==JsonValueKind.String)result=await Evaluator.RunAsync(action.GetProperty("code").GetString()!,c);
                 else if(action.GetProperty("execution").GetInt32()==1)
                 {

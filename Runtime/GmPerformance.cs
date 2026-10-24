@@ -16,6 +16,15 @@ public sealed class GmPerformance
     private long processSteps;
     private int catchUpProcesses,maxSteps;
     private long lastRender;
+    public readonly GmObjectPerformance Objects=new();
+    private long allocatedBaseline;
+    private TimeSpan pauseBaseline;
+    private readonly int[] collectionBaseline=new int[3];
+    private void ResetGcBaseline()
+    {
+        allocatedBaseline=GC.GetTotalAllocatedBytes(true);pauseBaseline=GC.GetTotalPauseDuration();
+        for(int generation=0;generation<3;generation++)collectionBaseline[generation]=GC.CollectionCount(generation);
+    }
     public void Process(long started,long steps)
     {
         if(!Enabled)return;
@@ -30,10 +39,21 @@ public sealed class GmPerformance
         if(lastRender!=0)renderIntervals.Add(Stopwatch.GetElapsedTime(lastRender,now).TotalMilliseconds);
         lastRender=now;
     }
-    public void ResetCadence(){processTimes.Clear();renderIntervals.Clear();processSteps=0;catchUpProcesses=maxSteps=0;lastRender=0;}
+    public void ResetCadence(){processTimes.Clear();renderIntervals.Clear();processSteps=0;catchUpProcesses=maxSteps=0;lastRender=0;Objects.Clear();if(Enabled)ResetGcBaseline();}
     public void Cadence(GmFrameSample sample,GmWorld world,Func<object> graphics)
     {
         if(!Enabled)return;
+        long allocated=GC.GetTotalAllocatedBytes(true);
+        var pause=GC.GetTotalPauseDuration();
+        var collections=Enumerable.Range(0,3).Select(GC.CollectionCount).ToArray();
+        long allocatedBytes=allocated-allocatedBaseline;
+        double pauseMs=(pause-pauseBaseline).TotalMilliseconds;
+        var gc=new{allocatedBytes,allocatedBytesPerSecond=allocatedBytes/sample.Seconds,
+            allocatedBytesPerLogicStep=processSteps==0?0:allocatedBytes/(double)processSteps,
+            collections=collections.Select((count,generation)=>count-collectionBaseline[generation]).ToArray(),
+            pauseMs,pausePercent=pauseMs/(sample.Seconds*1000)*100};
+        allocatedBaseline=allocated;pauseBaseline=pause;
+        Array.Copy(collections,collectionBaseline,3);
         object Summary(List<double> values)
         {
             values.Sort();int count=values.Count;
@@ -42,6 +62,7 @@ public sealed class GmPerformance
         WriteLog(new{type="cadence",time=DateTimeOffset.UtcNow,frame=world.Frame,room=world.CurrentRoom,
             targetLogicFps=world.Engine.Read("room_speed").Number,logicFps=sample.LogicFps,processFps=sample.RenderFps,
             completedRenderFps=renderIntervals.Count/sample.Seconds,process=Summary(processTimes),renderInterval=Summary(renderIntervals),
+            seconds=sample.Seconds,gc,objectProfile=Objects.Enabled?Objects.Snapshot(world,sample.Seconds,processSteps,allocatedBytes,processTimes.Sum()):null,
             logicSteps=processSteps,catchUpProcesses,maxStepsPerProcess=maxSteps,graphics=graphics(),
             dynamicDark=world.Globals.ReadOr("DynamicDark").Truth,darkness=world.Globals.ReadOr("Darkness").Number,
             collision=new{snapshotRebuilds=world.CollisionSnapshotRebuilds,candidateVisits=world.CollisionCandidateVisits,exactTests=world.CollisionExactTests}});
@@ -50,6 +71,8 @@ public sealed class GmPerformance
     public void Configure(string userRoot,bool debug)
     {
         Enabled=Environment.GetEnvironmentVariable("SLACK_PERF") switch{"0"=>false,"1"=>true,_=>debug};
+        Objects.Enabled=Enabled&&Environment.GetEnvironmentVariable("SLACK_PERF_OBJECTS")=="1";
+        if(Enabled)ResetGcBaseline();
         LogPath=Enabled?Path.Combine(userRoot,"logs",$"performance-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Environment.ProcessId}.jsonl"):null;
         if(Enabled)WriteLog(new{type="session",time=DateTimeOffset.UtcNow,dropFps=5,warmupSeconds=3,baselineWindows=5,repeatSeconds=5});
     }

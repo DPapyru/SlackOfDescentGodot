@@ -98,6 +98,35 @@ public sealed partial class GmWorld
         return saved is not null?Compile(File.ReadAllText(saved)):External.TryGetValue(path,out var external)?external:Compile(File.ReadAllText(Resolve(path)));
     }
 
+    internal static bool HasFixedArguments(string name,int count)=>count switch
+    {
+        1=>name is "abs" or "ceil" or "floor" or "round" or "sign" or "sqrt" or "sqr" or "sin" or "cos" or "arccos" or "degtorad" or "radtodeg" or "random" or "irandom",
+        2=>name is "power" or "min" or "max" or "random_range" or "irandom_range" or "lengthdir_x" or "lengthdir_y",
+        _=>false
+    };
+
+    internal GmValue CallFixed(string name,GmValue first,GmValue second,int count,GmContext context)
+    {
+        if(Scripts.ContainsKey(name))return Call(name,count==1?[first]:[first,second],context);
+        Calls[name]=Calls.GetValueOrDefault(name)+1;
+        return FixedResult(name,first,second);
+    }
+
+    private GmValue FixedResult(string name,GmValue first,GmValue second)=>name switch
+    {
+        "abs"=>Math.Abs(first.Number),"ceil"=>Math.Ceiling(first.Number),"floor"=>Math.Floor(first.Number),"round"=>Math.Round(first.Number,MidpointRounding.ToEven),
+        "sign"=>Math.Sign(first.Number),"sqrt"=>Math.Sqrt(first.Number),"sqr"=>first.Number*first.Number,"power"=>Math.Pow(first.Number,second.Number),
+        "sin"=>Math.Sin(first.Number),"cos"=>Math.Cos(first.Number),"arccos"=>Math.Acos(first.Number),"degtorad"=>first.Number*Math.PI/180,"radtodeg"=>first.Number*180/Math.PI,
+        "min"=>double.IsNaN(first.Number)||!(second.Number<first.Number||double.IsNaN(second.Number))?first.Number:second.Number,
+        "max"=>double.IsNaN(first.Number)||second.Number>first.Number?second.Number:first.Number,
+        "random"=>Random.Next(first.Number),
+        "random_range"=>Math.Min(first.Number,second.Number)+Random.Next(Math.Abs(second.Number-first.Number)),
+        "irandom"=>Random.NextInt(unchecked((uint)first.Int)),
+        "irandom_range"=>unchecked(Math.Min(first.Int,second.Int)+Random.NextInt((uint)Math.Abs((long)second.Int-first.Int))),
+        "lengthdir_x"=>Math.Cos(second.Number*Math.PI/180)*first.Number,"lengthdir_y"=>-Math.Sin(second.Number*Math.PI/180)*first.Number,
+        _=>throw new InvalidOperationException("Unsupported fixed argument call "+name)
+    };
+
     public GmValue Call(string name,GmValue[] a,GmContext c)
     {
         Calls[name]=Calls.GetValueOrDefault(name)+1;
@@ -147,20 +176,15 @@ public sealed partial class GmWorld
             case "action_sprite_transform":Write(Self,"image_xscale",V(0));Write(Self,"image_yscale",V(1));Write(Self,"image_angle",V(2));return 0;
             case "action_sound":return Call(I(1)==0?"sound_play":"sound_loop",[V(0)],c);
             case "action_end_sound":return Call("sound_stop",a,c);
-            case "abs":return Math.Abs(N(0));case "ceil":return Math.Ceiling(N(0));case "floor":return Math.Floor(N(0));case "round":return Math.Round(N(0),MidpointRounding.ToEven);
-            case "sign":return Math.Sign(N(0));case "sqrt":return Math.Sqrt(N(0));case "sqr":return N(0)*N(0);case "power":return Math.Pow(N(0),N(1));
-            case "sin":return Math.Sin(N(0));case "cos":return Math.Cos(N(0));case "arccos":return Math.Acos(N(0));case "degtorad":return N(0)*Math.PI/180;case "radtodeg":return N(0)*180/Math.PI;
+            case "abs":case "ceil":case "floor":case "round":case "sign":case "sqrt":case "sqr":case "power":
+            case "sin":case "cos":case "arccos":case "degtorad":case "radtodeg":case "random":case "random_range":
+            case "irandom":case "irandom_range":case "lengthdir_x":case "lengthdir_y":return FixedResult(name,V(0),V(1));
             case "min":return a.Min(v=>v.Number);case "max":return a.Max(v=>v.Number);
-            case "random":return Random.Next(N(0));
-            case "random_range":return Math.Min(N(0),N(1))+Random.Next(Math.Abs(N(1)-N(0)));
-            case "irandom":return Random.NextInt(unchecked((uint)I(0)));
-            case "irandom_range":return unchecked(Math.Min(I(0),I(1))+Random.NextInt((uint)Math.Abs((long)I(1)-I(0))));
             case "choose":return a.Length>0?a[Random.NextInt((uint)(a.Length-1))]:0;
             case "random_get_seed":return Random.Seed;
             case "random_set_seed":Random.Seed=I(0);return 0;
             case "randomize":Random.Randomize();return 0;
             case "point_distance":return Math.Sqrt(Math.Pow(N(2)-N(0),2)+Math.Pow(N(3)-N(1),2));case "point_direction":return Direction(N(0),N(1),N(2),N(3));
-            case "lengthdir_x":return Math.Cos(N(1)*Math.PI/180)*N(0);case "lengthdir_y":return -Math.Sin(N(1)*Math.PI/180)*N(0);
             case "distance_to_point":return Math.Sqrt(Math.Pow(N(0)-Self.Scope.ReadOr("x").Number,2)+Math.Pow(N(1)-Self.Scope.ReadOr("y").Number,2));
             case "string":return S(0);case "real":return double.Parse(S(0),CultureInfo.InvariantCulture);case "is_real":return !V(0).IsString;case "is_string":return V(0).IsString;case "ord":return S(0).Length>0?(int)S(0)[0]:0;
             case "string_length":return S(0).Length;case "string_lower":return S(0).ToLowerInvariant();case "string_pos":return S(1).IndexOf(S(0),StringComparison.Ordinal)+1;

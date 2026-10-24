@@ -210,11 +210,14 @@ public sealed partial class GmGraphics
 
     private sealed class EffectBatch
     {
+        public readonly GmDrawCommand Command;
+        private readonly int divisor;
         public Texture2D? Texture;
         public int Blend,Count;
         public Vector2[] Points=new Vector2[96],Uvs=new Vector2[96];
         public Color[] Colours=new Color[96];
         private int[] indices=Enumerable.Range(0,96).ToArray();
+        public EffectBatch(int divisor){this.divisor=divisor;Command=new(Draw);}
         public void Vertex(Vector2 point,Color colour,Vector2 uv)
         {
             if(Count==Points.Length)
@@ -224,7 +227,7 @@ public sealed partial class GmGraphics
             }
             Points[Count]=point;Colours[Count]=colour;Uvs[Count++]=uv;
         }
-        public void Draw(GmCanvas canvas,int divisor)
+        private void Draw(GmCanvas canvas)
         {
             canvas.DrawSetTransform(Vector2.Zero,0,new Vector2(1f/divisor,1f/divisor));
             RenderingServer.CanvasItemAddTriangleArray(canvas.GetCanvasItem(),indices.AsSpan(0,Count),Points.AsSpan(0,Count),Colours.AsSpan(0,Count),Uvs.AsSpan(0,Count),ReadOnlySpan<int>.Empty,ReadOnlySpan<float>.Empty,Texture?.GetRid()??default,-1);
@@ -250,7 +253,7 @@ public sealed partial class GmGraphics
             if(BatchCount>0&&batches[BatchCount-1].Texture==texture&&batches[BatchCount-1].Blend==blend)batch=batches[BatchCount-1];
             else
             {
-                if(BatchCount==batches.Count)batches.Add(new());
+                if(BatchCount==batches.Count)batches.Add(new(Divisor));
                 batch=batches[BatchCount++];batch.Texture=texture;batch.Blend=blend;batch.Count=0;
             }
             batch.Vertex(a,ca,ua);batch.Vertex(b,cb,ub);batch.Vertex(c,cc,uc);TriangleCount++;
@@ -263,7 +266,7 @@ public sealed partial class GmGraphics
             try
             {
                 canvas.StartBatches();
-                for(int n=0;n<BatchCount;n++){var batch=batches[n];canvas.Batch(c=>batch.Draw(c,Divisor),batch.Blend);}
+                for(int n=0;n<BatchCount;n++){var batch=batches[n];canvas.Batch(batch.Command,batch.Blend);}
             }
             finally{performance.End("effect_cpu_submit",started);}
         }

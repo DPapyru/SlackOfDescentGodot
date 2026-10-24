@@ -163,7 +163,8 @@ public sealed partial class GmWorld
             for(int i=0;i<8;i++) Engine.Write(name,name.Contains("scale")||name.Contains("alpha")?1:0,[i]);
     }
 
-    public GmValue Read(GmInstance instance,string name,IReadOnlyList<int>? indices=null)
+    public GmValue Read(GmInstance instance,string name,IReadOnlyList<int>? indices=null)=>Read(instance,name,new GmIndices(indices));
+    internal GmValue Read(GmInstance instance,string name,GmIndices indices)
     {
         if(name=="id") return instance.Id;
         if(name=="object_index") return instance.Object;
@@ -172,7 +173,7 @@ public sealed partial class GmWorld
         if(name=="room") return CurrentRoom;
         if(name=="debug_mode")return false;
         if(name=="instance_count") return Instances.Count(i=>!i.Destroyed);
-        if(name=="instance_id") return Instances.Where(i=>!i.Destroyed).ElementAt(indices?[0]??0).Id;
+        if(name=="instance_id") return Instances.Where(i=>!i.Destroyed).ElementAt(indices.FirstOr(0)).Id;
         if(name=="event_type"||name=="event_number") return 0;
         if(name.StartsWith("sprite_",StringComparison.Ordinal)&&name is "sprite_width" or "sprite_height" or "sprite_xoffset" or "sprite_yoffset")
         {
@@ -185,7 +186,8 @@ public sealed partial class GmWorld
         return instance.Scope.Read(name,indices);
     }
 
-    public void Write(GmInstance instance,string name,GmValue value,IReadOnlyList<int>? indices=null)
+    public void Write(GmInstance instance,string name,GmValue value,IReadOnlyList<int>? indices=null)=>Write(instance,name,value,new GmIndices(indices));
+    internal void Write(GmInstance instance,string name,GmValue value,GmIndices indices)
     {
         if(name=="debug_mode")throw new InvalidOperationException("Read-only variable debug_mode");
         if(name=="room"){PendingRoom=value.Int;return;}
@@ -249,6 +251,7 @@ public sealed partial class GmWorld
     }
     public GmInstance Create(int obj,double x,double y,int? id=null,bool run=true)
     {
+        using var measurement=Performance.Objects.Begin(obj,0);
         if(!Objects.TryGetValue(obj,out var o))throw new InvalidOperationException("Missing object "+obj);
         var instance=new GmInstance{Id=id??NextId++,Object=obj};
         foreach(var pair in new Dictionary<string,GmValue>{["x"]=x,["y"]=y,["xprevious"]=x,["yprevious"]=y,["xstart"]=x,["ystart"]=y,["sprite_index"]=o.GetProperty("sprite").GetInt32(),["mask_index"]=o.GetProperty("mask").GetInt32(),["solid"]=o.GetProperty("solid").GetBoolean(),["visible"]=o.GetProperty("visible").GetBoolean(),["persistent"]=o.GetProperty("persistent").GetBoolean(),["depth"]=o.GetProperty("depth").GetInt32(),["image_index"]=0,["image_speed"]=1,["image_xscale"]=1,["image_yscale"]=1,["image_angle"]=0,["image_alpha"]=1,["image_blend"]=16777215,["hspeed"]=0,["vspeed"]=0,["speed"]=0,["direction"]=0,["friction"]=0,["gravity"]=0,["gravity_direction"]=270,["path_index"]=-1,["timeline_index"]=-1})instance.Scope.Write(pair.Key,pair.Value);
@@ -304,6 +307,7 @@ public sealed partial class GmWorld
     public bool Event(GmInstance instance,int kind,int sub,GmInstance? other=null,int? start=null)
     {
         int obj=EventOwner(start??instance.Object,kind,sub);
+        using var measurement=Performance.Objects.Begin(obj<0?-1:instance.Object,kind);
         while(Objects.TryGetValue(obj,out var definition))
         {
             if(addedEvents.TryGetValue((obj,kind,sub),out var added))
@@ -365,7 +369,7 @@ public sealed partial class GmWorld
         var targets=action.GetProperty("target").GetInt32()==-1?[context.Self]:Select(action.GetProperty("target").GetInt32(),context).ToArray();
         foreach(var target in targets)
         {
-            var c=new GmContext(target,context.Other,context.Arguments){EventObject=context.EventObject,EventKind=context.EventKind,EventSub=context.EventSub,Locals=context.Locals};
+            var c=new GmContext(target,context.Other,context.Arguments,context.Locals){EventObject=context.EventObject,EventKind=context.EventKind,EventSub=context.EventSub};
             if(action.GetProperty("code").ValueKind==JsonValueKind.String)result=Evaluator.Run(action.GetProperty("code").GetString()!,c);
             else if(action.GetProperty("execution").GetInt32()==1)
             {

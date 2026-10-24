@@ -190,6 +190,13 @@ public partial class GameHost : Node2D
                     world.LoadRoom(int.Parse(commandArgs[roomIndex+1]));
                 }
                 for(int i=0;i<frames;i++)StepFrame();
+                if(commandArgs.Contains("--mud-window"))
+                {
+                    mudWindowPlayer=world.Select(world.Constants["objPlayerDoll"].Int,new(new GmInstance())).Single();
+                    for(int i=0;i<120;i++)StepFrame();
+                    GetWindow().Mode=Window.ModeEnum.Windowed;GetWindow().Show();GetWindow().GrabFocus();
+                }
+                if(commandArgs.Contains("--mud-profile"))AuditMudProfile();
                 ContentAudit(commandArgs);
                 if(commandArgs.Contains("--transition-audit")){SetProcess(false);AuditTransitions();return;}
                 if(commandArgs.Contains("--controls-ui-audit")){SetProcess(false);AuditInteractiveControls();return;}
@@ -234,8 +241,15 @@ public partial class GameHost : Node2D
         var position=GetGlobalMousePosition();var mouse=world.MouseToRoom(position.X,position.Y);
         world.Engine.Write("mouse_x",mouse.X);world.Engine.Write("mouse_y",mouse.Y);
     }
-    private void StepFrame(){controls.Poll(world);world.Step();controls.EndStep();SyncViewport();}
-    private async Task StepFrameAsync(){controls.Poll(world);await world.StepAsync();controls.EndStep();SyncViewport();}
+    private GmInstance? mudWindowPlayer;
+    private void PositionMudWindow()
+    {
+        if(mudWindowPlayer is not { } player)return;
+        world.Write(player,"x",2478);world.Write(player,"y",1628);
+        world.Write(player,"hspeed",0);world.Write(player,"vspeed",0);
+    }
+    private void StepFrame(){PositionMudWindow();controls.Poll(world);world.Step();controls.EndStep();SyncViewport();}
+    private async Task StepFrameAsync(){PositionMudWindow();controls.Poll(world);await world.StepAsync();controls.EndStep();SyncViewport();}
     private async ValueTask<GmValue> Wait(string name,GmValue[] args,GmContext context)
     {
         switch(name)
@@ -621,6 +635,8 @@ public partial class GameHost : Node2D
                 if(!pendingFrame.IsCompleted){nativeClock.Pause();break;}
                 pendingFrame.GetAwaiter().GetResult();pendingFrame=null;
                 if(world.IsLoadingRoom){nativeClock.RoomChanged();break;}
+                if(count>1)nativeClock.Pause();
+                break;
             }
             if(world.Ended){audio.Shutdown();GetTree().Quit();}
             QueueRedraw();canvas.QueueRedraw();

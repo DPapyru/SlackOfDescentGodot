@@ -6,18 +6,19 @@ public sealed class GmContext
 {
     public GmInstance Self;
     public GmInstance Other;
-    public GmScope Locals = new();
+    public GmScope Locals;
     public GmValue[] Arguments;
     public int EventObject = -1;
     public int EventKind;
     public int EventSub;
     public string? Flow;
     public GmValue Result;
-    public GmContext(GmInstance self, GmInstance? other = null, GmValue[]? args = null)
+    public GmContext(GmInstance self, GmInstance? other = null, GmValue[]? args = null, GmScope? locals = null)
     {
         Self = self;
         Other = other ?? self;
         Arguments = args ?? [];
+        Locals = locals ?? new();
     }
 }
 
@@ -34,6 +35,7 @@ public sealed partial class GmEvaluator
     private long remaining;
     private long reportTime=Environment.TickCount64;
     private readonly bool profiling=Environment.GetEnvironmentVariable("SLACK_PROFILE")=="1";
+    public Action<string,double,long>? DiagnosticSample;
     public GmEvaluator(GmWorld world) { this.world = world; }
     public void ResetBudget(long budget = 20_000_000) => remaining = budget;
     private static string Tag(JsonElement e) => e[0].GetString()!;
@@ -44,6 +46,10 @@ public sealed partial class GmEvaluator
         if (!world.Code.TryGetValue(key, out var code)) throw new InvalidOperationException("Missing compiled code " + key);
         if(profiling&&Environment.TickCount64-reportTime>=5000){reportTime=Environment.TickCount64;Console.WriteLine("GML_PROFILE "+key+" frame="+world.Frame+" budget="+remaining);}
         long started=world.Performance.ScriptsEnabled?System.Diagnostics.Stopwatch.GetTimestamp():0;
+        var diagnostic=DiagnosticSample;
+        bool measure=diagnostic is not null&&key.StartsWith("objects/objSwamp",StringComparison.Ordinal);
+        long diagnosticStart=measure?System.Diagnostics.Stopwatch.GetTimestamp():0;
+        long allocated=measure?GC.GetAllocatedBytesForCurrentThread():0;
         try
         {
             var result=Eval(code,context);
@@ -52,7 +58,11 @@ public sealed partial class GmEvaluator
         }
         catch (GmFlow f) { return f.Value; }
         catch (Exception e) when (e is not GmFlow) { throw new InvalidOperationException(key + ": " + e.Message, e); }
-        finally{world.Performance.Script(key,started);}
+        finally
+        {
+            if(measure)diagnostic!(key,System.Diagnostics.Stopwatch.GetElapsedTime(diagnosticStart).TotalMilliseconds,GC.GetAllocatedBytesForCurrentThread()-allocated);
+            world.Performance.Script(key,started);
+        }
     }
 
     public bool CompiledExecution=Environment.GetEnvironmentVariable("SLACK_INTERPRET")!="1";
@@ -87,7 +97,12 @@ public sealed partial class GmEvaluator
                     _ => throw new NotSupportedException("Unary " + e[1])
                 };
             case "binary": return Binary(e, c);
-            case "call": return world.Call(e[1].GetString()!, e[2].EnumerateArray().Select(p => Eval(p, c)).ToArray(), c);
+            case "call":
+            {
+                string name=e[1].GetString()!;var arguments=e[2];int argumentCount=arguments.GetArrayLength();
+                if(GmWorld.HasFixedArguments(name,argumentCount))return world.CallFixed(name,Eval(arguments[0],c),argumentCount==2?Eval(arguments[1],c):default,argumentCount,c);
+                return world.Call(name,arguments.EnumerateArray().Select(p=>Eval(p,c)).ToArray(),c);
+            }
             case "if":
                 if (Eval(e[1], c).Truth) Eval(e[2], c);
                 else if (e[3].ValueKind != JsonValueKind.Null) Eval(e[3], c);
@@ -113,7 +128,7 @@ public sealed partial class GmEvaluator
             case "with":
                 foreach (var instance in world.Select(Eval(e[1], c).Int, c).ToArray())
                 {
-                    var next = new GmContext(instance, c.Self, c.Arguments) { Locals = c.Locals, EventObject = c.EventObject, EventKind = c.EventKind, EventSub = c.EventSub };
+                    var next = new GmContext(instance, c.Self, c.Arguments, c.Locals) { EventObject = c.EventObject, EventKind = c.EventKind, EventSub = c.EventSub };
                     if (!Loop(e[2], next)) break;
                 }
                 return 0;
@@ -193,13 +208,15 @@ public sealed partial class GmEvaluator
         return world.Read(c.Self, name, indices);
     }
 
-    private (Func<GmValue> Get, Action<GmValue> Set) Reference(JsonElement e, GmContext c, IReadOnlyList<int>? indices = null)
+    private (Func<GmValue> Get, Action<GmValue> Set) Reference(JsonElement e, GmContext c, GmIndices indices = default)
     {
         if (Tag(e) == "binary" && e[1].GetString() == "Index")
         {
             var node = e[3];
             var items = Tag(node) == "group" ? node[1].EnumerateArray().ToArray() : [node];
-            return Reference(e[2], c, items.Select(i => Eval(i, c).Int).ToArray());
+            if(items.Length==1)return Reference(e[2],c,new GmIndices(Eval(items[0],c).Int));
+            if(items.Length==2)return Reference(e[2],c,new GmIndices(Eval(items[0],c).Int,Eval(items[1],c).Int));
+            return Reference(e[2], c, new GmIndices(items.Select(i => Eval(i, c).Int).ToArray()));
         }
         if (Tag(e) == "binary" && e[1].GetString() == "Deref")
         {
@@ -214,7 +231,7 @@ public sealed partial class GmEvaluator
             var name = e[1].GetString()!;
             if(name=="argument"||name.StartsWith("argument",StringComparison.Ordinal)&&int.TryParse(name[8..],out _))
             {
-                int argumentIndex=indices?[0]??(name=="argument"?0:int.Parse(name[8..]));
+                int argumentIndex=indices.FirstOr(name=="argument"?0:int.Parse(name[8..]));
                 return (()=>argumentIndex>=0&&argumentIndex<c.Arguments.Length?c.Arguments[argumentIndex]:0,v=>
                 {
                     if(argumentIndex<0||argumentIndex>=16)throw new IndexOutOfRangeException("Argument index");

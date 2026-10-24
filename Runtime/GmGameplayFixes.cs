@@ -17,6 +17,18 @@ public sealed partial class GmWorld
             yield return node;
             foreach(var child in node.OfType<JsonArray>())foreach(var descendant in Nodes(child))yield return descendant;
         }
+        if(Environment.GetEnvironmentVariable("SLACK_MUD_EXPERIMENT")=="no-state")Patch("objects/objSwampSurface/8/0/0",tree=>
+        {
+            var assignments=Nodes(tree).Where(n=>n.Count==4&&n[0]?.ToString()=="binary"&&n[1]?.ToString()=="Assign"
+                &&n[2]?[0]?.ToString()=="binary"&&n[2]?[1]?.ToString()=="Index"
+                &&n[2]?[2]?[0]?.ToString()=="id"&&n[2]?[2]?[1]?.ToString() is "moss_m" or "moss_mt").ToArray();
+            if(assignments.Length!=2)throw new InvalidOperationException("Expected two mud surface Draw state assignments");
+            foreach(var assignment in assignments)
+            {
+                var value=assignment[3]!.DeepClone();
+                assignment.Clear();foreach(var item in value.AsArray())assignment.Add(item?.DeepClone());
+            }
+        });
         Patch("external/Chara/SlimePlant/endstep.txt",tree=>
         {
             foreach(var statements in Nodes(tree).Where(n=>n.Count>0&&n[0] is JsonArray).ToArray())

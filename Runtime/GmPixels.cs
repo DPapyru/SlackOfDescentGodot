@@ -71,8 +71,6 @@ public static class GmPixels
         for(int y=top;y<bottom;y++)
         {
             int start=left,end=right;
-            // Intersect the three edge half-planes at pixel centers. Binary searches
-            // use the same float edge expression as the general rasterizer.
             Clip(ax,ay,bx,by,y+0.5f,ref start,ref end);
             Clip(bx,by,cx,cy,y+0.5f,ref start,ref end);
             Clip(cx,cy,ax,ay,y+0.5f,ref start,ref end);

@@ -61,7 +61,6 @@ public sealed partial class GmGraphics
             }
         }
         finally{target=savedTarget;blend=savedBlend;}
-        // Already-recorded main draws may still reference the viewport texture this frame.
         effect.Schedule();
         DirtySurface(id);
     }
@@ -102,7 +101,6 @@ public sealed partial class GmGraphics
             int divisor=effect.Divisor;
             int expectedWidth=(size.X+divisor-1)/divisor,expectedHeight=(size.Y+divisor-1)/divisor;
             if(actual.GetWidth()!=expectedWidth||actual.GetHeight()!=expectedHeight)errors.Add(kind+"-size");
-            // Rasterize the recorded version at the same sampling resolution without executing GM.
             int reference=nextSurface++;
             var referenceImage=Image.CreateEmpty(expectedWidth,expectedHeight,false,Image.Format.Rgba8);referenceImage.Fill(Colors.Black);
             surfacePixels[reference]=referenceImage;surfaceData[reference]=referenceImage.GetData();target=reference;
@@ -196,7 +194,6 @@ public sealed partial class GmGraphics
         if(world.Random.Seed!=expectedRandom.Seed)throw new InvalidOperationException("Dark flicker random order changed");
         var darkEffect=effects[darkId];await AuditDrawFrames();
         using var dim=darkEffect.View.GetTexture().GetImage();
-        // No new GM step during a pause: redrawing must not add another halo.
         darkEffect.Schedule();await AuditDrawFrames();using var paused=darkEffect.View.GetTexture().GetImage();
         if(!dim.GetData().SequenceEqual(paused.GetData()))throw new InvalidOperationException("Paused darkness accumulated light");
         world.Globals.Write("LightAdd_Flash",0.8);world.Event(dark,3,0);

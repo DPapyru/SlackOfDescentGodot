@@ -292,7 +292,6 @@ var dispatchSecond=dispatch.Create(dispatchChild,-1024,-256,run:false);
 dispatch.Globals.Write("first",dispatchFirst.Id);dispatch.Globals.Write("contacts","");
 dispatch.Step();
 Equal(dispatch.Globals.Read("contacts"),$"{dispatchFirst.Id},{dispatchSecond.Id},","collision callback nested query cannot consume outer geometry change");
-// A running traversal retains membership and order; later traversals see mutations.
 foreach(string mutation in new[]{"create","destroy","deactivate","type","parent","move","large","solid"})
 {
     var w=new GmWorld(Path.Combine(project,"GameData"),source);

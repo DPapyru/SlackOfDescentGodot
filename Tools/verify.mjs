@@ -41,20 +41,11 @@ assert.equal(variables, 296);
 const files = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root, maxBuffer: 16 * 1024 * 1024 }).toString().split('\0').filter(file => file && fs.existsSync(path.join(root, file)));
 for (const file of files) {
     if (file.startsWith('GameData/assets/Chara/')) continue;
-    assert.ok(file === 'docs/requirements.md' || file === 'docs/performance.md' || !/\.(md|rst|adoc|txt)$/i.test(file), file);
+    assert.ok(!/\.(md|rst|adoc|txt)$/i.test(file), file);
     if (/\.(cs|rs|mjs)$/.test(file)) {
         const text = fs.readFileSync(path.join(root, file), 'utf8');
         const comments = text.match(/^\s*(?:\/\/|\/\*|\* |<!--).*$/gm) ?? [];
-        if (comments.length) {
-            let baseline = '';
-            try { baseline = execFileSync('git', ['show', 'd996bab:' + file], { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString(); } catch {}
-            const previous = (baseline.match(/^\s*(?:\/\/|\/\*|\* |<!--).*$/gm) ?? []).map(line => line.trim());
-            for (const comment of comments) {
-                const index = previous.indexOf(comment.trim());
-                assert.ok(index >= 0, file);
-                previous.splice(index, 1);
-            }
-        }
+        assert.equal(comments.length, 0, file);
     }
     if (file.endsWith('.godot')) assert.ok(!/^\s*[#;]/m.test(fs.readFileSync(path.join(root, file), 'utf8')), file);
 }

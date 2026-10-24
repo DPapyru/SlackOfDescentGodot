@@ -20,7 +20,6 @@ public sealed class GmTriangleCache
         else
         {
             Misses++;spans=GmPixels.TriangleSpans(width,height,ax,ay,bx,by,cx,cy);
-            // Bound both entry overhead and coverage storage during camera movement.
             if(spans.Length<=MaxStoredInts)
             {
                 while(entries.Count>=MaxEntries||storedInts+spans.Length>MaxStoredInts)

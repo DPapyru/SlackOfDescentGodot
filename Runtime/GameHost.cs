@@ -261,7 +261,6 @@ public partial class GameHost : Node2D
     private async Task<int> ShowPopupMenu(string text,int fallback,string[]? names=null)
     {
         var completion=new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        // Native popups avoid broken parent-signal cleanup in the 4.7.2 release template.
         var popup=new PopupMenu{Name="CharacterMenu",ForceNative=true,MaxSize=new Vector2I(420,Math.Max(120,(int)GetViewportRect().Size.Y-32))};
         var original=text.Split('|');var entries=original.Concat(names??[]).ToArray();
         for(int i=0;i<entries.Length;i++)

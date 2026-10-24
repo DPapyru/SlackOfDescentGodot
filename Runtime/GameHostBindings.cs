@@ -16,18 +16,19 @@ public partial class GameHost
         bool visible=title is not null&&title.Scope.Values.ContainsKey("VIEW_KEYCONFIG")&&title.Scope.ReadOr("View").Equals(title.Scope.Read("VIEW_KEYCONFIG"))&&!title.Scope.ReadOr("KeyWaiting").Truth;
         if(grenadeBinding is null)
         {
-            grenadeBinding=new Button{Name="GrenadeBinding",TooltipText="手榴弹／次要射击"};
+            grenadeBinding=new Button{Name="GrenadeBinding",AutoTranslateMode=AutoTranslateModeEnum.Disabled};
             grenadeBinding.Pressed+=OpenGrenadeBinding;AddChild(grenadeBinding);
         }
         grenadeBinding.Visible=visible;
-        grenadeBinding.Text="手榴弹："+OS.GetKeycodeString(GodotKey(controls.SecondaryKey));
+        grenadeBinding.TooltipText=NativeLocalization.Text("手榴弹／次要射击");
+        grenadeBinding.Text=NativeLocalization.Text("手榴弹：")+OS.GetKeycodeString(GodotKey(controls.SecondaryKey));
         grenadeBinding.Position=new Vector2((float)GetViewportRect().Size.X-180,4);
         grenadeBinding.Size=new Vector2(172,28);
     }
     private void OpenGrenadeBinding()
     {
         if(bindingDialog is not null)return;
-        bindingDialog=new ConfirmationDialog{Name="GrenadeKeyDialog",Title="手榴弹／次要射击",DialogText="请按一个键",MinSize=new Vector2I(300,100)};
+        bindingDialog=new ConfirmationDialog{Name="GrenadeKeyDialog",Title=NativeLocalization.Text("手榴弹／次要射击"),DialogText=NativeLocalization.Text("请按一个键"),OkButtonText=NativeLocalization.Text("确定"),CancelButtonText=NativeLocalization.Text("取消"),MinSize=new Vector2I(300,100)};
         bindingDialog.GetOkButton().Hide();
         bindingDialog.WindowInput+=CaptureGrenadeBinding;
         bindingDialog.Canceled+=()=>bindingDialog?.Hide();

@@ -10,6 +10,7 @@ public partial class GameHost
     private NativeModManager mods = null!;
     private GmNativeBridge nativeBridge = null!;
     private HBoxContainer? nativeMenu;
+    private OptionButton? languageChoice;
     private NativeMapEditor? mapEditor;
     private NativeCharacterEditor? characterEditor;
     private NativeModPanel? modPanel;
@@ -53,6 +54,18 @@ public partial class GameHost
             nativeMenu=new HBoxContainer{Name="NativeMainMenu",Position=new(8,8)};AddChild(nativeMenu);
             void Add(string text,Action action){var button=new Button{Text=text};button.Pressed+=action;nativeMenu.AddChild(button);}
             Add("C# 模组",OpenMods);Add("角色编辑器",OpenCharacterEditor);Add("地图编辑器",OpenMapEditor);
+            languageChoice=new OptionButton{Name="LanguageChoice",TooltipText=NativeLocalization.Text("语言"),AutoTranslateMode=AutoTranslateModeEnum.Disabled};
+            languageChoice.AddItem(NativeLocalization.IsChinese?"简体中文":"Chinese");languageChoice.AddItem("English");
+            languageChoice.Select(NativeLocalization.IsChinese?0:1);nativeMenu.AddChild(languageChoice);
+            languageChoice.GetPopup().AboutToPopup+=ResetNativeInput;
+            languageChoice.GetPopup().PopupHide+=ResetNativeInput;
+            languageChoice.ItemSelected+=index=>
+            {
+                NativeLocalization.SetLanguage(index==0?"zh_CN":"en");
+                languageChoice.SetItemText(0,NativeLocalization.IsChinese?"简体中文":"Chinese");
+                languageChoice.TooltipText=NativeLocalization.Text("语言");
+                ResetNativeInput();graphics.Build();canvas.QueueRedraw();
+            };
         }
         var title=world.Instances.FirstOrDefault(i=>!i.Destroyed&&world.IsObject(i.Object,world.Constants["objTitle"].Int));
         nativeMenu.Visible=title is not null&&modalDepth==0&&!mapPlaytest;
@@ -163,9 +176,9 @@ public partial class GameHost
         {
             if(!previewReady){await PrepareTestingRoom();previewReady=true;}
             previewDefinition=definition;await BindFullCharacter(definition);graphics.Build();previewCanvas?.QueueRedraw();
-            characterEditor?.SetPreviewState("真实运行时："+definition.BasePreset+"；动作与碰撞已绑定。");
+            characterEditor?.SetPreviewState(string.Format(NativeLocalization.Text("真实运行时：{0}；动作与碰撞已绑定。"),definition.BasePreset));
         }
-        catch(Exception e){characterEditor?.SetPreviewState("预览失败："+e.Message);}
+        catch(Exception e){characterEditor?.SetPreviewState(NativeLocalization.Text("预览失败：")+NativeLocalization.Text(e.Message));}
         finally{previewBusy=false;}
     }
     private async void AdvanceCharacterPreview(NativeCharacterPreviewInput input)
@@ -182,9 +195,9 @@ public partial class GameHost
             nativeBridge.Update(new(FrameContext.FixedDelta,nativeClock.GameTime,nativeClock.Tick,new(state.Held,state.Pressed,state.Released)));
             if(nativeClock.LegacyDue(world.Engine.Read("room_speed").Number))await StepFrameAsync();
             graphics.Build();previewCanvas?.QueueRedraw();
-            var actor=Player();if(actor is not null)characterEditor?.SetPreviewState($"真实运行时　动作 {actor.Scope.ReadOr("MotionNum")}　位置 {actor.Scope.ReadOr("x").Number:F1}, {actor.Scope.ReadOr("y").Number:F1}　竖直速度 {actor.Scope.ReadOr("vspeed").Number:F1}");
+            var actor=Player();if(actor is not null)characterEditor?.SetPreviewState(string.Format(NativeLocalization.Text("真实运行时　动作 {0}　位置 {1:F1}, {2:F1}　竖直速度 {3:F1}"),actor.Scope.ReadOr("MotionNum"),actor.Scope.ReadOr("x").Number,actor.Scope.ReadOr("y").Number,actor.Scope.ReadOr("vspeed").Number));
         }
-        catch(Exception e){characterEditor?.SetPreviewState("预览失败："+e.Message);}
+        catch(Exception e){characterEditor?.SetPreviewState(NativeLocalization.Text("预览失败：")+NativeLocalization.Text(e.Message));}
         finally{previewBusy=false;}
     }
     private async Task BindFullCharacter(CharacterDefinition definition)
@@ -219,7 +232,7 @@ public partial class GameHost
         bool full=text.StartsWith("<Input Custom Character Name>",StringComparison.Ordinal)&&!controls.Call("keyboard_check",[17],world)!.Value.Truth;
         var characters=full?content.Characters.Values.OrderBy(c=>c.Name).ToArray():[];
         string expanded=text+string.Concat(characters.Select(c=>"|编辑器："+c.Name));
-        int selected=audit&&!nativeAuditUi&&!OS.GetCmdlineUserArgs().Contains("--controls-ui-audit")?Menu(expanded,fallback):await ShowPopupMenu(expanded,fallback);
+        int selected=audit&&!nativeAuditUi&&!OS.GetCmdlineUserArgs().Contains("--controls-ui-audit")?Menu(expanded,fallback):await ShowPopupMenu(text,fallback,characters.Select(c=>NativeLocalization.Text("编辑器：")+c.Name).ToArray());
         int original=text.Split('|').Length;
         if(selected>=original&&selected<original+characters.Length){await BindFullCharacter(characters[selected-original]);return fallback;}
         return selected;

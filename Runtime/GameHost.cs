@@ -96,7 +96,7 @@ public partial class GameHost : Node2D
     public override void _Input(InputEvent input)
     {
         if(bindingDialog is not null){CaptureGrenadeBinding(input);return;}
-        if(world is null||modalDepth>0)return;
+        if(world is null||modalDepth>0||languageChoice?.GetPopup().Visible==true)return;
         if(input is InputEventMouseButton button)
         {
             int code=button.ButtonIndex switch{MouseButton.Left=>1,MouseButton.Right=>2,MouseButton.Middle=>3,_=>0};
@@ -122,7 +122,7 @@ public partial class GameHost : Node2D
             var root=OS.HasFeature("editor")?ProjectSettings.GlobalizePath("res://GameData"):GmPaths.FindData(Path.GetDirectoryName(OS.GetExecutablePath())!,AppContext.BaseDirectory);
             var source=System.Environment.GetEnvironmentVariable("SLACK_SOURCE")??Path.Combine(root,"assets");
             world=new(root,source,System.Environment.GetEnvironmentVariable("SLACK_USER_ROOT"));
-            NativeLocalization.Initialize(root);
+            NativeLocalization.Initialize(root,world.UserRoot);
             world.Performance.Configure(world.UserRoot,OS.IsDebugBuild());
             if(DisplayServer.GetName()!="headless"){RenderingServer.FramePostDraw+=OnFramePostDraw;renderSignalConnected=true;}
             controls.LoadBindings(world);
@@ -258,15 +258,16 @@ public partial class GameHost : Node2D
             default:throw new NotSupportedException(name);
         }
     }
-    private async Task<int> ShowPopupMenu(string text,int fallback)
+    private async Task<int> ShowPopupMenu(string text,int fallback,string[]? names=null)
     {
         var completion=new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         // Native popups avoid broken parent-signal cleanup in the 4.7.2 release template.
         var popup=new PopupMenu{Name="CharacterMenu",ForceNative=true,MaxSize=new Vector2I(420,Math.Max(120,(int)GetViewportRect().Size.Y-32))};
-        var entries=text.Split('|');
+        var original=text.Split('|');var entries=original.Concat(names??[]).ToArray();
         for(int i=0;i<entries.Length;i++)
         {
-            if(entries[i].Length==0)popup.AddSeparator();
+            if(i>=original.Length)popup.AddItem(entries[i],i);
+            else if(entries[i].Length==0)popup.AddSeparator();
             else if(entries[i][0]=='-')popup.AddSeparator(entries[i][1..],i);
             else{popup.AddItem(NativeLocalization.Text(entries[i][0]=='/'?entries[i][1..]:entries[i]),i);if(entries[i][0]=='/')popup.SetItemDisabled(popup.ItemCount-1,true);}
         }
@@ -283,8 +284,8 @@ public partial class GameHost : Node2D
     private async Task<string> InputText(string text,string initial)
     {
         var completion=new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var dialog=new ConfirmationDialog{Name="CharacterInput",Title="沉降之暇",DialogText=NativeLocalization.Text(text)};
-        dialog.GetOkButton().Text="确定";dialog.GetCancelButton().Text="取消";
+        var dialog=new ConfirmationDialog{Name="CharacterInput",Title="Slack Of Descent",DialogText=NativeLocalization.Text(text)};
+        dialog.GetOkButton().Text=NativeLocalization.Text("确定");dialog.GetCancelButton().Text=NativeLocalization.Text("取消");
         var entry=new LineEdit{Text=initial,CustomMinimumSize=new Vector2(300,32)};dialog.AddChild(entry);
         dialog.Confirmed+=()=>completion.TrySetResult(entry.Text);
         dialog.Canceled+=()=>completion.TrySetResult(initial);
@@ -297,7 +298,7 @@ public partial class GameHost : Node2D
     private async Task<int> ShowDialog(string text,string[] choices)
     {
         var completion=new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var dialog=new AcceptDialog{Title="沉降之暇",DialogText=NativeLocalization.Text(text).Replace('#','\n')};
+        var dialog=new AcceptDialog{Title="Slack Of Descent",DialogText=NativeLocalization.Text(text).Replace('#','\n')};
         dialog.GetOkButton().Hide();
         for(int i=0;i<choices.Length;i++)if(choices[i].Length>0)dialog.AddButton(NativeLocalization.Text(choices[i]),false,(i+1).ToString());
         dialog.CustomAction+=action=>completion.TrySetResult(int.Parse(action));

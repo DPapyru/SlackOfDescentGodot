@@ -32,7 +32,7 @@ public partial class NativeCharacterPixelCanvas : Control
     public override void _ExitTree() { FinishStroke(); texture?.Dispose(); }
     public override void _Draw()
     {
-        if (Part is not { } part || document is null) { DrawString(ThemeDB.FallbackFont, new(10, 28), "请添加一个部件", fontSize: 16); return; }
+        if (Part is not { } part || document is null) { DrawString(ThemeDB.FallbackFont, new(10, 28), NativeLocalization.Text("请添加一个部件"), fontSize: 16); return; }
         for (int y = 0; y < part.Height; y++) for (int x = 0; x < part.Width; x++) DrawRect(new(x * Zoom, y * Zoom, Zoom, Zoom), ((x / 4 + y / 4) & 1) == 0 ? new Color(0.27f, 0.28f, 0.31f) : new Color(0.36f, 0.37f, 0.4f));
         if (dirty)
         {

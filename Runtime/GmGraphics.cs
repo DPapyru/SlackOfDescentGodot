@@ -113,7 +113,7 @@ public sealed partial class GmGraphics
     private void ReleaseTexture(string path)
     {
         if(world.Sprites.Values.Any(s=>s.GetProperty("frames").EnumerateArray().Any(f=>f.GetProperty("path").GetString()==path)))return;
-        if(textures.Remove(path,out var texture))textureData.Remove(texture);
+        foreach(string key in new[]{path,"localization/"+path})if(textures.Remove(key,out var texture))textureData.Remove(texture);
     }
     private ImageTexture White
     {
@@ -210,9 +210,9 @@ public sealed partial class GmGraphics
     }
     private Texture2D Texture(string path)
     {
+        path=NativeLocalization.AssetPath(path);
         if(textures.TryGetValue(path,out var texture))return texture;
-        string localized=Path.Combine(world.Root,"localization",path);
-        using var image=Image.LoadFromFile(File.Exists(localized)?localized:Path.Combine(world.Root,path));
+        using var image=Image.LoadFromFile(Path.Combine(world.Root,path));
         return textures[path]=ImageTexture.CreateFromImage(image);
     }
     private void DrawParticles(GmParticleSystem system)
@@ -558,7 +558,7 @@ public sealed partial class GmGraphics
         var map=selected.GetProperty("map");
         int height=selected.GetProperty("size").GetInt32();
         var tint=Tint;
-        if(text.Any(ch=>ch>=256)&&NativeLocalization.Font is {} chinese)
+        if(NativeLocalization.IsChinese&&text.Any(ch=>ch>=256)&&NativeLocalization.Font is {} chinese)
         {
             var camera=target<0?Camera:Vector2.Zero;
             IEnumerable<string> Lines()

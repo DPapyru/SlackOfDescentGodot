@@ -44,7 +44,7 @@ public partial class NativeMapEditor : Window
         Title = "地图编辑器"; Size = new(1180, 780); MinSize = new(900, 600); Transient = true; Exclusive = false;
         var root = new VBoxContainer { Name = "EditorLayout" }; AddChild(root); root.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
         var bar = new HBoxContainer(); root.AddChild(bar);
-        rooms = new OptionButton { Name = "OriginalRooms", CustomMinimumSize = new(190, 0) }; bar.AddChild(rooms);
+        rooms = new OptionButton { Name = "OriginalRooms", AutoTranslateMode = AutoTranslateModeEnum.Disabled, CustomMinimumSize = new(190, 0) }; bar.AddChild(rooms);
         foreach (var pair in world.Rooms.OrderBy(p => p.Key)) { rooms.AddItem($"{RoomLabel(pair.Value.GetProperty("name").GetString()!)}", pair.Key); if (pair.Key == Service.TestRoomId) rooms.Select(rooms.ItemCount - 1); }
         Button(bar, "导入原版", "ImportOriginal", () => Guard(() => Import(rooms.GetSelectedId())));
         Button(bar, "打开…", "OpenMap", () => Guard(OpenDialog));
@@ -61,7 +61,7 @@ public partial class NativeMapEditor : Window
         grid = Field(left, "网格大小", "GridSize", 1, 128, 32); grid.ValueChanged += value => { if (MapCanvas is not null) { MapCanvas.GridSize = (float)value; MapCanvas.QueueRedraw(); } };
         var tabs = new TabContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill }; left.AddChild(tabs);
         var tilePanel = new VBoxContainer { Name = "图块" }; tabs.AddChild(tilePanel);
-        backgrounds = new OptionButton { Name = "TileBackground" }; tilePanel.AddChild(backgrounds);
+        backgrounds = new OptionButton { Name = "TileBackground", AutoTranslateMode = AutoTranslateModeEnum.Disabled }; tilePanel.AddChild(backgrounds);
         foreach (var background in world.Manifest.GetProperty("backgrounds").EnumerateArray()) backgrounds.AddItem(background.GetProperty("name").GetString()!, background.GetProperty("id").GetInt32());
         int defaultBackground = Array.FindIndex(world.Manifest.GetProperty("backgrounds").EnumerateArray().ToArray(), b => b.GetProperty("id").GetInt32() == 20); if (defaultBackground >= 0) backgrounds.Select(defaultBackground);
         sourceX = Field(tilePanel, "图集横坐标", "TileSourceX", 0, 16384, 0); sourceY = Field(tilePanel, "图集纵坐标", "TileSourceY", 0, 16384, 0);
@@ -70,7 +70,7 @@ public partial class NativeMapEditor : Window
         tilePanel.AddChild(new Label { Text = "同一网格、同一图层再次绘制会替换图块。\n碰撞工具使用左侧实体列表中的区块。", AutowrapMode = TextServer.AutowrapMode.WordSmart });
         var entityPanel = new VBoxContainer { Name = "实体" }; tabs.AddChild(entityPanel);
         var filter = new LineEdit { Name = "EntityFilter", PlaceholderText = "搜索实体／扩展" }; entityPanel.AddChild(filter);
-        entities = new ItemList { Name = "EntityPalette", SizeFlagsVertical = Control.SizeFlags.ExpandFill }; entityPanel.AddChild(entities);
+        entities = new ItemList { Name = "EntityPalette", AutoTranslateMode = AutoTranslateModeEnum.Disabled, SizeFlagsVertical = Control.SizeFlags.ExpandFill }; entityPanel.AddChild(entities);
         filter.TextChanged += PopulateEntities; PopulateEntities("");
         var right = new HSplitContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; split.AddChild(right); right.SplitOffsets = [650];
         var canvasFrame = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; right.AddChild(canvasFrame);
@@ -81,15 +81,15 @@ public partial class NativeMapEditor : Window
         canvasFrame.AddChild(MapCanvas);
         MapCanvas.EditStarted = Remember; MapCanvas.Edited = Changed; MapCanvas.Selected = Select; MapCanvas.PaintAt = PaintAt;
         var inspector = new VBoxContainer { CustomMinimumSize = new(230, 0) }; right.AddChild(inspector);
-        selectedTitle = new Label { Text = "未选择区块或实体", Name = "SelectionTitle" }; inspector.AddChild(selectedTitle);
+        selectedTitle = new Label { AutoTranslateMode = AutoTranslateModeEnum.Disabled, Text = NativeLocalization.Text("未选择区块或实体"), Name = "SelectionTitle" }; inspector.AddChild(selectedTitle);
         propX = Field(inspector, "横坐标", "PropertyX", -1000000, 1000000, 0); propY = Field(inspector, "纵坐标", "PropertyY", -1000000, 1000000, 0);
         propScaleX = Field(inspector, "横向缩放", "PropertyScaleX", -1000, 1000, 1, .1); propScaleY = Field(inspector, "纵向缩放", "PropertyScaleY", -1000, 1000, 1, .1); propAngle = Field(inspector, "旋转角度", "PropertyAngle", -36000, 36000, 0);
         foreach (var field in new[] { propX, propY, propScaleX, propScaleY, propAngle }) field.ValueChanged += _ => ApplyBasicProperties();
         inspector.AddChild(new Label { Text = "实体自定义属性（JSON）" });
-        properties = new TextEdit { Name = "EntityProperties", SizeFlagsVertical = Control.SizeFlags.ExpandFill, CustomMinimumSize = new(220, 140), Text = "{}" }; inspector.AddChild(properties);
+        properties = new TextEdit { Name = "EntityProperties", AutoTranslateMode = AutoTranslateModeEnum.Disabled, SizeFlagsVertical = Control.SizeFlags.ExpandFill, CustomMinimumSize = new(220, 140), Text = "{}" }; inspector.AddChild(properties);
         Button(inspector, "应用属性", "ApplyProperties", ApplyCustomProperties); Button(inspector, "编辑完整数据…", "EditRawSelection", OpenRawSelection); Button(inspector, "删除所选", "DeleteSelection", DeleteSelection);
-        status = new Label { Name = "MapStatus" }; root.AddChild(status);
-        fileDialog = new FileDialog { Name = "MapFileDialog", Title = "选择地图文件", Access = FileDialog.AccessEnum.Filesystem, UseNativeDialog = true, Filters = ["*.map.json ; 地图文件"], CurrentDir = store.Maps, Size = new(800, 560) }; AddChild(fileDialog);
+        status = new Label { Name = "MapStatus", AutoTranslateMode = AutoTranslateModeEnum.Disabled }; root.AddChild(status);
+        fileDialog = new FileDialog { Name = "MapFileDialog", Title = NativeLocalization.Text("选择地图文件"), Access = FileDialog.AccessEnum.Filesystem, UseNativeDialog = true, Filters = ["*.map.json ; " + NativeLocalization.Text("地图文件")], CurrentDir = store.Maps, Size = new(800, 560) }; AddChild(fileDialog);
         fileDialog.FileSelected += FileSelected;
         unsaved = new ConfirmationDialog { Name = "MapUnsaved", Title = "尚未保存", DialogText = "地图有未保存的修改。要先保存吗？", OkButtonText = "保存", CancelButtonText = "取消" }; AddChild(unsaved);
         unsaved.AddButton("放弃修改", false, "discard"); unsaved.CustomAction += _ => { var action = afterDiscard; afterDiscard = null; unsaved.Hide(); action?.Invoke(); };
@@ -102,7 +102,7 @@ public partial class NativeMapEditor : Window
         uiStarted = System.Diagnostics.Stopwatch.GetTimestamp();
     }
     public override void _ExitTree() { registry.Changed -= RegistryChanged; }
-    private static string RoomLabel(string name) => name switch { "EnemyTestRoom" => "测试地图（原版 TestRoom）", "Playground" => "自由练习场", "Title" => "主界面", _ => name };
+    private static string RoomLabel(string name) => name;
     private static void Button(Node parent, string label, string name, Action action) { var button = new Button { Text = label, Name = name }; parent.AddChild(button); button.Pressed += action; }
     private static SpinBox Field(Node parent, string label, string name, double min, double max, double value, double step = 1)
     {
@@ -117,17 +117,17 @@ public partial class NativeMapEditor : Window
             string name = pair.Value.GetProperty("name").GetString()!; if (!name.Contains(filter, StringComparison.OrdinalIgnoreCase)) continue;
             int index = entities.AddItem((pair.Value.GetProperty("solid").GetBoolean() ? "▣ " : "● ") + name); entities.SetItemMetadata(index, "object:" + pair.Key);
         }
-        foreach (string id in registry.Entities.Keys.Order()) if (id.Contains(filter, StringComparison.OrdinalIgnoreCase)) { int index = entities.AddItem("扩展：" + id); entities.SetItemMetadata(index, "native:" + id); }
+        foreach (string id in registry.Entities.Keys.Order()) if (id.Contains(filter, StringComparison.OrdinalIgnoreCase)) { int index = entities.AddItem(NativeLocalization.Text("扩展：") + id); entities.SetItemMetadata(index, "native:" + id); }
         if (entities.ItemCount > 0) entities.Select(0);
     }
     private void RegistryChanged() { if (IsInsideTree()) { PopulateEntities(""); if (Document is not null) { Service.Validate(Document); UpdateStatus(); } } }
     public void Import(int roomId)
     {
-        var result = Service.ImportOriginal(roomId); SetDocument(result.Document, null); status.Text += $"　导入 {result.Milliseconds:F1} 毫秒";
+        var result = Service.ImportOriginal(roomId); SetDocument(result.Document, null); status.Text += string.Format(NativeLocalization.Text("　导入 {0:F1} 毫秒"), result.Milliseconds);
     }
     public void LoadPath(string path)
     {
-        try { var result = Service.Load(path); SetDocument(result.Document, Path.GetFullPath(path)); status.Text += $"　读取 {result.Milliseconds:F1} 毫秒"; }
+        try { var result = Service.Load(path); SetDocument(result.Document, Path.GetFullPath(path)); status.Text += string.Format(NativeLocalization.Text("　读取 {0:F1} 毫秒"), result.Milliseconds); }
         catch (Exception exception) { Message(exception.Message); }
     }
     private void SetDocument(NativeMapDocument document, string? path)
@@ -142,14 +142,14 @@ public partial class NativeMapEditor : Window
     private void UpdateStatus()
     {
         if (Document is null || status is null) return;
-        var warnings = Service.LastWarnings; status.Text = $"{Document.Name}{(Dirty ? " *" : "")}　{Int(Document.Room, "width")}×{Int(Document.Room, "height")}　实体 {Document.Instances.Count}　图块 {Document.Tiles.Count}　{(FilePath ?? "尚未保存")}";
-        if (warnings.Count > 0) status.Text += $"　缺少依赖 {warnings.Count} 项（数据已保留）";
-        Title = "地图编辑器 — " + Document.Name + (Dirty ? " *" : ""); MapCanvas.GridSize = (float)grid.Value;
+        var warnings = Service.LastWarnings; status.Text = string.Format(NativeLocalization.Text("{0}{1}　{2}×{3}　实体 {4}　图块 {5}　{6}"), Document.Name, Dirty ? " *" : "", Int(Document.Room, "width"), Int(Document.Room, "height"), Document.Instances.Count, Document.Tiles.Count, FilePath ?? NativeLocalization.Text("尚未保存"));
+        if (warnings.Count > 0) status.Text += string.Format(NativeLocalization.Text("　缺少依赖 {0} 项（数据已保留）"), warnings.Count);
+        Title = NativeLocalization.Text("地图编辑器") + " — " + Document.Name + (Dirty ? " *" : ""); MapCanvas.GridSize = (float)grid.Value;
     }
     private void Select(JsonObject? item, bool tile)
     {
         selected = item; selectedTile = tile; MapCanvas.Selection = item; MapCanvas.SelectionIsTile = tile; updating = true;
-        selectedTitle.Text = item is null ? "未选择区块或实体" : (tile ? "图块 #" : "实体 #") + Int(item, "id");
+        selectedTitle.Text = item is null ? NativeLocalization.Text("未选择区块或实体") : NativeLocalization.Text(tile ? "图块" : "实体") + " #" + Int(item, "id");
         propX.Value = item is null ? 0 : Number(item, "x"); propY.Value = item is null ? 0 : Number(item, "y"); propScaleX.Value = item is null ? 1 : Number(item, "xscale", 1); propScaleY.Value = item is null ? 1 : Number(item, "yscale", 1); propAngle.Value = item is null ? 0 : Number(item, "angle");
         properties.Text = item?["properties"]?.ToJsonString(NativeContentStore.Json) ?? "{}"; updating = false; MapCanvas.QueueRedraw();
     }
@@ -161,7 +161,7 @@ public partial class NativeMapEditor : Window
     {
         if (selected is null) return;
         try { var values = JsonNode.Parse(properties.Text) as JsonObject ?? throw new InvalidDataException("属性必须是 JSON 对象。"); if (values.Any(p => !IsIdentifier(p.Key) || p.Value is not JsonValue)) throw new InvalidDataException("属性名必须是有效变量名；值可以为数字、文字或布尔值。"); Remember(); selected["properties"] = values; Changed(); }
-        catch (Exception exception) { Message("无法应用属性：" + exception.Message); }
+        catch (Exception exception) { Message(NativeLocalization.Text("无法应用属性：") + NativeLocalization.Text(exception.Message)); }
     }
     public void DeleteSelection() { if (selected is null) return; Remember(); (selectedTile ? Document.Tiles : Document.Instances).Remove(selected); Select(null, false); Changed(); }
     private void PaintAt(Vector2 point, bool erase)
@@ -185,11 +185,11 @@ public partial class NativeMapEditor : Window
             var item = Service.AddEntity(Document, obj, x, y, native ? choice[7..] : null); Select(item, false); Changed();
         }
     }
-    private void OpenDialog() { fileDialog.FileMode = FileDialog.FileModeEnum.OpenFile; fileDialog.Title = "打开地图"; fileDialog.CurrentDir = FilePath is null ? store.Maps : Path.GetDirectoryName(FilePath)!; fileDialog.PopupCentered(); }
+    private void OpenDialog() { fileDialog.FileMode = FileDialog.FileModeEnum.OpenFile; fileDialog.Title = NativeLocalization.Text("打开地图"); fileDialog.CurrentDir = FilePath is null ? store.Maps : Path.GetDirectoryName(FilePath)!; fileDialog.PopupCentered(); }
     private void SaveRequested(bool saveAs)
     {
         if (!saveAs && FilePath is not null) { SavePath(FilePath, true); return; }
-        fileDialog.FileMode = FileDialog.FileModeEnum.SaveFile; fileDialog.Title = "保存地图"; fileDialog.CurrentDir = FilePath is null ? store.Maps : Path.GetDirectoryName(FilePath)!; fileDialog.CurrentFile = FilePath is null ? Document.Name + ".map.json" : Path.GetFileName(FilePath); fileDialog.PopupCentered();
+        fileDialog.FileMode = FileDialog.FileModeEnum.SaveFile; fileDialog.Title = NativeLocalization.Text("保存地图"); fileDialog.CurrentDir = FilePath is null ? store.Maps : Path.GetDirectoryName(FilePath)!; fileDialog.CurrentFile = FilePath is null ? Document.Name + ".map.json" : Path.GetFileName(FilePath); fileDialog.PopupCentered();
     }
     private void FileSelected(string path) { if (fileDialog.FileMode == FileDialog.FileModeEnum.OpenFile) LoadPath(path); else SavePath(path, false); }
     public void SavePath(string path, bool overwriteConfirmed = false)
@@ -197,27 +197,27 @@ public partial class NativeMapEditor : Window
         if (!path.EndsWith(".map.json", StringComparison.OrdinalIgnoreCase)) path += ".map.json";
         if (File.Exists(path) && !overwriteConfirmed) { pendingSave = path; overwrite.PopupCentered(); return; }
         try { Service.Save(Document, path); FilePath = Path.GetFullPath(path); Dirty = false; UpdateStatus(); if (closeAfterSave) { closeAfterSave = false; var action = afterDiscard; afterDiscard = null; action?.Invoke(); } }
-        catch (Exception exception) { closeAfterSave = false; Message("保存失败，原文件未被替换：" + exception.Message); }
+        catch (Exception exception) { closeAfterSave = false; Message(NativeLocalization.Text("保存失败，原文件未被替换：") + NativeLocalization.Text(exception.Message)); }
     }
     private void Guard(Action action) { if (!Dirty) { action(); return; } afterDiscard = action; closeAfterSave = false; unsaved.PopupCentered(); }
     private void FinishClose() { Hide(); Closed?.Invoke(); QueueFree(); }
-    private void Message(string text) { error.DialogText = text; error.PopupCentered(new(600, 240)); }
+    private void Message(string text) { error.DialogText = NativeLocalization.Text(text); error.PopupCentered(new(600, 240)); }
     private async void Play()
     {
         if (PlayRequested is null) { Message("当前宿主没有连接试玩功能。"); return; }
         try { Hide(); await PlayRequested(Document); }
-        catch (Exception exception) { Show(); Message("试玩启动失败：" + exception.Message); }
+        catch (Exception exception) { Show(); Message(NativeLocalization.Text("试玩启动失败：") + NativeLocalization.Text(exception.Message)); }
     }
     public void ResumeAfterPlaytest() { Show(); GrabFocus(); MapCanvas.QueueRedraw(); UpdateStatus(); }
     private void OpenRoomSettings()
     {
         var dialog = new ConfirmationDialog { Name = "MapRoomSettings", Title = "房间、出生点与相机", OkButtonText = "应用", CancelButtonText = "取消", Size = new(680, 660) }; AddChild(dialog);
         var box = new VBoxContainer(); dialog.AddChild(box);
-        var name = new LineEdit { Text = Document.Name, PlaceholderText = "地图名称" }; box.AddChild(name);
+        var name = new LineEdit { AutoTranslateMode = AutoTranslateModeEnum.Disabled, Text = Document.Name, PlaceholderText = NativeLocalization.Text("地图名称") }; box.AddChild(name);
         var width = Field(box, "地图宽度", "RoomWidth", 1, 1000000, Int(Document.Room, "width")); var height = Field(box, "地图高度", "RoomHeight", 1, 1000000, Int(Document.Room, "height"));
         box.AddChild(new Label { Text = "相机、背景、房间初始化与切换数据\n出生点通过画布中的出生实体位置设置；保留全部原版字段。" });
         var metadata = Document.Room.DeepClone().AsObject(); metadata.Remove("instances"); metadata.Remove("tiles");
-        var text = new TextEdit { Text = metadata.ToJsonString(NativeContentStore.Json), CustomMinimumSize = new(640, 430), SizeFlagsVertical = Control.SizeFlags.ExpandFill }; box.AddChild(text);
+        var text = new TextEdit { AutoTranslateMode = AutoTranslateModeEnum.Disabled, Text = metadata.ToJsonString(NativeContentStore.Json), CustomMinimumSize = new(640, 430), SizeFlagsVertical = Control.SizeFlags.ExpandFill }; box.AddChild(text);
         dialog.Confirmed += () =>
         {
             try
@@ -233,7 +233,7 @@ public partial class NativeMapEditor : Window
     {
         if (selected is null) return; var original = selected; bool tile = selectedTile;
         var dialog = new ConfirmationDialog { Name = "MapRawSelection", Title = "完整属性（保留未知字段）", OkButtonText = "应用", CancelButtonText = "取消", Size = new(650, 520) }; AddChild(dialog);
-        var text = new TextEdit { Text = selected.ToJsonString(NativeContentStore.Json), CustomMinimumSize = new(620, 440) }; dialog.AddChild(text);
+        var text = new TextEdit { AutoTranslateMode = AutoTranslateModeEnum.Disabled, Text = selected.ToJsonString(NativeContentStore.Json), CustomMinimumSize = new(620, 440) }; dialog.AddChild(text);
         dialog.Confirmed += () => { try { var replacement = JsonNode.Parse(text.Text)!.AsObject(); replacement["id"] = Int(original, "id"); var candidate = Document.Clone(); var candidateCollection = tile ? candidate.Tiles : candidate.Instances; int index = (tile ? Document.Tiles : Document.Instances).IndexOf(original); candidateCollection[index] = replacement.DeepClone(); Service.Validate(candidate); Remember(); var collection = tile ? Document.Tiles : Document.Instances; collection[index] = replacement; Select(replacement, tile); Changed(); dialog.QueueFree(); } catch (Exception exception) { Message(exception.Message); } };
         dialog.Canceled += dialog.QueueFree; dialog.PopupCentered();
     }

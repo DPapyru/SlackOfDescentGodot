@@ -46,13 +46,13 @@ public partial class NativeCharacterEditor : Window
         var root = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; page.AddChild(root);
         var file = Row(root);
         Button(file, "新建角色", () => ConfirmUnsaved(NewDocument));
-        savedCharacters = new OptionButton { CustomMinimumSize = new(170, 32) }; file.AddChild(savedCharacters);
+        savedCharacters = new OptionButton { AutoTranslateMode = AutoTranslateModeEnum.Disabled, CustomMinimumSize = new(170, 32) }; file.AddChild(savedCharacters);
         Button(file, "载入", () => ConfirmUnsaved(LoadSelected)); Button(file, "保存", SaveRequested);
-        characterName = new LineEdit { PlaceholderText = "角色名称", CustomMinimumSize = new(160, 32), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; file.AddChild(characterName);
+        characterName = new LineEdit { AutoTranslateMode = AutoTranslateModeEnum.Disabled, PlaceholderText = NativeLocalization.Text("角色名称"), CustomMinimumSize = new(160, 32), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; file.AddChild(characterName);
         characterName.TextChanged += value => Change(() => Document.Definition.Name = value);
         Button(file, "关闭", RequestClose);
         var settings = Row(root); settings.AddChild(new Label { Text = "基础行为" });
-        preset = new OptionButton(); foreach (var value in Presets) preset.AddItem(value); settings.AddChild(preset);
+        preset = new OptionButton { AutoTranslateMode = AutoTranslateModeEnum.Disabled }; foreach (var value in Presets) preset.AddItem(value); settings.AddChild(preset);
         preset.ItemSelected += index => Change(() => { Document.Definition.BasePreset = preset.GetItemText((int)index); Document.Definition.Appearance = "Character-" + Document.Definition.BasePreset; });
         settings.AddChild(new Label { Text = "跳跃动作" }); jump = ActionChoice(settings, CharacterActionSlot.Jump);
         settings.AddChild(new Label { Text = "冲刺动作" }); dash = ActionChoice(settings, CharacterActionSlot.Dash);
@@ -60,12 +60,12 @@ public partial class NativeCharacterEditor : Window
         var columns = new HSplitContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill, SplitOffsets = [220] }; root.AddChild(columns);
         var sidebar = new VBoxContainer { CustomMinimumSize = new(220, 0) }; columns.AddChild(sidebar);
         sidebar.AddChild(new Label { Text = "独立部件（按图层叠加）" });
-        parts = new ItemList { CustomMinimumSize = new(210, 140), SizeFlagsVertical = Control.SizeFlags.ExpandFill }; sidebar.AddChild(parts);
+        parts = new ItemList { AutoTranslateMode = AutoTranslateModeEnum.Disabled, CustomMinimumSize = new(210, 140), SizeFlagsVertical = Control.SizeFlags.ExpandFill }; sidebar.AddChild(parts);
         parts.ItemSelected += index => SelectPart((int)index);
         var add = Row(sidebar); Button(add, "＋帽子", () => AddPart("帽子", 20)); Button(add, "＋尾巴", () => AddPart("尾巴", -10)); Button(add, "＋部件", () => AddPart("部件", 0));
         var dimensions = Row(sidebar); dimensions.AddChild(new Label { Text = "新部件尺寸" }); newWidth = Spin(dimensions, 1, 256, _ => { }); newHeight = Spin(dimensions, 1, 256, _ => { }); newWidth.Value = newHeight.Value = 32;
         Button(sidebar, "删除当前部件", () => Confirm("删除当前部件及全部动画帧？", () => { if (CurrentPart is { } part) Document.RemovePart(part.Id); selectedPart = Math.Max(0, selectedPart - 1); Refresh(); }));
-        partName = new LineEdit { PlaceholderText = "部件名称" }; sidebar.AddChild(partName); partName.TextChanged += value => { if (CurrentPart is { } part) Change(() => part.Name = value); };
+        partName = new LineEdit { AutoTranslateMode = AutoTranslateModeEnum.Disabled, PlaceholderText = NativeLocalization.Text("部件名称") }; sidebar.AddChild(partName); partName.TextChanged += value => { if (CurrentPart is { } part) Change(() => part.Name = value); };
         partVisible = new CheckBox { Text = "显示部件" }; sidebar.AddChild(partVisible); partVisible.Toggled += value => { if (CurrentPart is { } part) Change(() => part.Visible = value); };
         anchorX = PropertySpin(sidebar, "锚点 X", value => { if (CurrentPart is { } p) Change(() => p.AnchorX = (int)value); });
         anchorY = PropertySpin(sidebar, "锚点 Y", value => { if (CurrentPart is { } p) Change(() => p.AnchorY = (int)value); });
@@ -89,14 +89,14 @@ public partial class NativeCharacterEditor : Window
         composite = new NativeCharacterComposite { CustomMinimumSize = new(260, 150) }; preview.AddChild(composite);
         animate = new CheckButton { Text = "播放部件动画", ButtonPressed = true }; preview.AddChild(animate);
         preview.AddChild(new Label { Text = "游戏中的真实角色" }); preview.AddChild(PreviewSurface);
-        runtimeState = new Label { Text = "点击“应用到预览”绑定真实角色。", AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new(260, 42) }; preview.AddChild(runtimeState);
+        runtimeState = new Label { AutoTranslateMode = AutoTranslateModeEnum.Disabled, Text = NativeLocalization.Text("点击“应用到预览”绑定真实角色。"), AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new(260, 42) }; preview.AddChild(runtimeState);
         var runtimeButtons = Row(preview); Button(runtimeButtons, "应用到预览", ApplyRuntimePreview); Button(runtimeButtons, "重置", () => PreviewResetRequested?.Invoke());
         runtimePlay = new CheckButton { Text = "运行预览（实际碰撞与动作）" }; preview.AddChild(runtimePlay);
         var movement = Row(preview); left = new CheckButton { Text = "左" }; movement.AddChild(left); right = new CheckButton { Text = "右" }; movement.AddChild(right); Button(movement, "跳跃", () => { jumpQueued = true; StepRuntime(); }); Button(movement, "冲刺", () => { dashQueued = true; StepRuntime(); }); Button(preview, "单步", StepRuntime);
         var timeline = Row(center); timeline.AddChild(new Label { Text = "当前动画帧" }); frames = new OptionButton { CustomMinimumSize = new(100, 32) }; timeline.AddChild(frames); frames.ItemSelected += index => { selectedFrame = (int)index; Refresh(); };
         Button(timeline, "＋空白帧", () => AddFrame(false)); Button(timeline, "复制帧", () => AddFrame(true)); Button(timeline, "删除帧", DeleteFrame);
         timeline.AddChild(new Label { Text = "持续拍数" }); duration = Spin(timeline, 1, 600, value => { if (CurrentPart is { } p) Change(() => p.Frames[selectedFrame].Duration = (int)value); });
-        status = new Label { Text = "", AutowrapMode = TextServer.AutowrapMode.WordSmart }; root.AddChild(status);
+        status = new Label { AutoTranslateMode = AutoTranslateModeEnum.Disabled, Text = "", AutowrapMode = TextServer.AutowrapMode.WordSmart }; root.AddChild(status);
         root.AddChild(new Label { Text = "Ctrl+C 复制选区／整帧　Ctrl+V 原样替换 RGBA　Ctrl+Z 撤销　Ctrl+Shift+Z 重做　Ctrl+S 保存　滚轮缩放" });
         confirmation = new ConfirmationDialog { Title = "请确认", OkButtonText = "确定", CancelButtonText = "取消" }; AddChild(confirmation);
         confirmation.Confirmed += () => { var action = pendingConfirmation; pendingConfirmation = null; action?.Invoke(); };
@@ -111,7 +111,7 @@ public partial class NativeCharacterEditor : Window
     private static SpinBox PropertySpin(Node parent, string name, Action<double> changed) { var row = Row(parent); row.AddChild(new Label { Text = name, CustomMinimumSize = new(70, 0) }); return Spin(row, -1024, 1024, changed); }
     private OptionButton ActionChoice(Node parent, CharacterActionSlot slot)
     {
-        var choice = new OptionButton(); parent.AddChild(choice); choice.AddItem("原作动作（保持基础行为）"); choice.SetItemMetadata(0, "");
+        var choice = new OptionButton { AutoTranslateMode = AutoTranslateModeEnum.Disabled }; parent.AddChild(choice); choice.AddItem(NativeLocalization.Text("原作动作（保持基础行为）")); choice.SetItemMetadata(0, "");
         foreach (var pair in registry.Actions.OrderBy(p => p.Key, StringComparer.Ordinal))
             try { if (pair.Value().Slot == slot) { choice.AddItem(pair.Key); choice.SetItemMetadata(choice.ItemCount - 1, pair.Key); } } catch { }
         choice.ItemSelected += index => Change(() => { string id = choice.GetItemMetadata((int)index).AsString(); if (id.Length == 0) Document.Definition.Actions.Remove(slot); else Document.Definition.Actions[slot] = id; });
@@ -152,13 +152,13 @@ public partial class NativeCharacterEditor : Window
     {
         string id = Document.Definition.Actions.GetValueOrDefault(slot, "");
         for (int i = 0; i < choice.ItemCount; i++) if (choice.GetItemMetadata(i).AsString() == id) { choice.Select(i); return; }
-        choice.AddItem(id + "（缺少依赖，保留配置）"); choice.SetItemMetadata(choice.ItemCount - 1, id); choice.Select(choice.ItemCount - 1);
+        choice.AddItem(id + NativeLocalization.Text("（缺少依赖，保留配置）")); choice.SetItemMetadata(choice.ItemCount - 1, id); choice.Select(choice.ItemCount - 1);
     }
     private void RefreshTitle()
     {
-        Title = (Document.Dirty ? "＊ " : "") + "像素角色编辑器 — " + Document.Definition.Name;
-        if (status is not null) status.Text = $"{(Document.Dirty ? "尚未保存" : "已保存")}　ID：{Document.Definition.Id}　部件：{Document.Definition.Parts.Count}　撤销：{Document.UndoCount}　依赖：{string.Join("、", Document.Definition.Dependencies)}";
-        if(status is not null&&Document.MissingFrames.Count>0)status.Text+="\n缺少或损坏的帧（保留原始引用）："+string.Join("、",Document.MissingFrames.Values);
+        Title = (Document.Dirty ? "＊ " : "") + NativeLocalization.Text("像素角色编辑器") + " — " + Document.Definition.Name;
+        if (status is not null) status.Text = string.Format(NativeLocalization.Text("{0}　ID：{1}　部件：{2}　撤销：{3}　依赖：{4}"), NativeLocalization.Text(Document.Dirty ? "尚未保存" : "已保存"), Document.Definition.Id, Document.Definition.Parts.Count, Document.UndoCount, string.Join("、", Document.Definition.Dependencies));
+        if(status is not null&&Document.MissingFrames.Count>0)status.Text+="\n"+NativeLocalization.Text("缺少或损坏的帧（保留原始引用）：")+string.Join("、",Document.MissingFrames.Values);
     }
     private void RefreshSaved()
     {
@@ -186,7 +186,7 @@ public partial class NativeCharacterEditor : Window
             else Document=repository.Load(id);
             selectedPart=selectedFrame=0;canvas.Selection=null;Refresh();
         }
-        catch (Exception e) { ShowMessage("载入失败：" + e.Message); }
+        catch (Exception e) { ShowMessage(NativeLocalization.Text("载入失败：") + NativeLocalization.Text(e.Message)); }
     }
     private void SaveRequested()
     {
@@ -197,18 +197,18 @@ public partial class NativeCharacterEditor : Window
     private void Save(bool overwrite)
     {
         try { repository.Save(Document, registry, overwrite); RefreshSaved(); RefreshTitle(); }
-        catch (Exception e) { ShowMessage("保存失败：" + e.Message); }
+        catch (Exception e) { ShowMessage(NativeLocalization.Text("保存失败：") + NativeLocalization.Text(e.Message)); }
     }
     private void ConfirmUnsaved(Action action) { canvas.FinishStroke(); if (Document.Dirty) Confirm("当前角色有未保存的修改。确定放弃这些修改？", action); else action(); }
-    private void Confirm(string text, Action action) { pendingConfirmation = action; confirmation.DialogText = text; confirmation.PopupCentered(); }
-    private void ShowMessage(string text) { message.DialogText = text; message.PopupCentered(); }
+    private void Confirm(string text, Action action) { pendingConfirmation = action; confirmation.DialogText = NativeLocalization.Text(text); confirmation.PopupCentered(); }
+    private void ShowMessage(string text) { message.DialogText = NativeLocalization.Text(text); message.PopupCentered(); }
     private void RequestClose() => ConfirmUnsaved(() => { runtimePlay.ButtonPressed = false; Hide(); Closed?.Invoke(); QueueFree(); });
     private void Undo() { canvas.FinishStroke(); Document.Undo(); Refresh(); }
     private void Redo() { canvas.FinishStroke(); Document.Redo(); Refresh(); }
     private void Copy()
     {
         if (CurrentPart is not { } part) return;
-        try { clipboard = Document.Copy(part.Id, selectedFrame, canvas.Selection); if (DisplayServer.GetName() != "headless") DisplayServer.ClipboardSet(clipboard.Encode()); status.Text = $"已复制 {clipboard.Width}×{clipboard.Height}，包含全部 RGBA 通道。"; }
+        try { clipboard = Document.Copy(part.Id, selectedFrame, canvas.Selection); if (DisplayServer.GetName() != "headless") DisplayServer.ClipboardSet(clipboard.Encode()); status.Text = string.Format(NativeLocalization.Text("已复制 {0}×{1}，包含全部 RGBA 通道。"), clipboard.Width, clipboard.Height); }
         catch (Exception e) { ShowMessage(e.Message); }
     }
     private void Paste()
@@ -220,7 +220,7 @@ public partial class NativeCharacterEditor : Window
         canvas.Selection = Document.Paste(part.Id, selectedFrame, data, position.X, position.Y); OnPixelsEdited();
     }
     private void OnPixelsEdited() { canvas.Invalidate(); composite.Invalidate(); RefreshTitle(); }
-    public void SetPreviewState(string text) { if (runtimeState is not null) runtimeState.Text = text; }
+    public void SetPreviewState(string text) { if (runtimeState is not null) runtimeState.Text = NativeLocalization.Text(text); }
     public void ApplyRuntimePreview()
     {
         try
@@ -235,7 +235,7 @@ public partial class NativeCharacterEditor : Window
             PreviewRequested?.Invoke(staged.Definition);
             SetPreviewState("已将当前部件与动作配置应用到真实角色。");
         }
-        catch (Exception e) { ShowMessage("预览失败：" + e.Message); }
+        catch (Exception e) { ShowMessage(NativeLocalization.Text("预览失败：") + NativeLocalization.Text(e.Message)); }
     }
     private void StepRuntime() { PreviewAdvanceRequested?.Invoke(new(left.ButtonPressed, right.ButtonPressed, jumpQueued, dashQueued)); jumpQueued = dashQueued = false; }
     public override void _Process(double delta)

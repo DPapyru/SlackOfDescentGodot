@@ -96,7 +96,7 @@ public partial class GameHost : Node2D
     public override void _Input(InputEvent input)
     {
         if(bindingDialog is not null){CaptureGrenadeBinding(input);return;}
-        if(world is null||modalDepth>0||languageChoice?.GetPopup().Visible==true)return;
+        if(world is null||modalDepth>0)return;
         if(input is InputEventMouseButton button)
         {
             int code=button.ButtonIndex switch{MouseButton.Left=>1,MouseButton.Right=>2,MouseButton.Middle=>3,_=>0};
@@ -570,7 +570,7 @@ public partial class GameHost : Node2D
         try
         {
             SyncGrenadeBinding();
-            SyncNativeMenu();
+            SyncNativeUi();
             if(cadenceRoom!=world.CurrentRoom){cadenceRoom=world.CurrentRoom;world.Performance.ResetCadence();nativeClock.RoomChanged();}
             if(!audit&&!GetWindow().HasFocus()&&modalDepth==0){ResetNativeInput();canvas.QueueRedraw();return;}
             if(modalDepth>0&&pendingFrame is null){elapsed=0;nativeClock.Pause();frameMonitor.Reset();world.Performance.ResetCadence();canvas.QueueRedraw();return;}
@@ -689,6 +689,8 @@ public partial class GameHost : Node2D
         int I(int i)=>i<args.Length?args[i].Int:0;
         switch(name)
         {
+            case "slack_mod_menu":OpenModMenuEntry(I(0));return 0;
+            case "slack_language":return MenuLanguage(I(0)!=0);
             case "show_menu":return Menu(args[0].ToString(),args[1].Int);
             case "get_string":return Prompt("--input-text",args[0].ToString(),args[1].ToString())??args[1];
             case "show_message_ext":return Dialog(args[0].ToString(),args.Skip(1).Select(v=>v.ToString()).ToArray());

@@ -225,6 +225,8 @@ public sealed partial class GmGraphics
     private Texture2D[]? particleShapes;
     private ImageTexture? white;
     internal List<(int Sprite,double Frame,float Alpha)>? SpriteAudit;
+    internal List<(string Text,Vector2 Position,Vector2 Scale)>? TextAudit;
+    internal List<(int Sprite,Vector2 Position,Vector2 Scale)>? SpriteGeometryAudit;
     internal int SpriteOpaquePixels(int id,double frame)
     {
         if(!world.Sprites.TryGetValue(id,out var sprite))return 0;
@@ -587,7 +589,7 @@ public sealed partial class GmGraphics
     public void Sprite(int id,double frame,Vector2 position,Vector2 scale,float angle,Color tint)
     {
         if(!world.Sprites.TryGetValue(id,out var s))return;
-        if(target<0)SpriteAudit?.Add((id,frame,tint.A));
+        if(target<0){SpriteAudit?.Add((id,frame,tint.A));SpriteGeometryAudit?.Add((id,position,scale));}
         var frames=s.GetProperty("frames");
         if(frames.GetArrayLength()==0)return;
         int f=((int)Math.Floor(frame)%frames.GetArrayLength()+frames.GetArrayLength())%frames.GetArrayLength();
@@ -711,6 +713,7 @@ public sealed partial class GmGraphics
             }
             foreach(string line in Lines())
             {
+                TextAudit?.Add((line,position,new(scaleX,scaleY)));
                 string captured=line;Vector2 baseline=position-camera;
                 float width=chinese.GetStringSize(line,HorizontalAlignment.Left,-1,height).X;
                 float offset=halign==1?-width/2:halign==2?-width:0;
@@ -721,6 +724,7 @@ public sealed partial class GmGraphics
         }
         foreach(var line in text.Replace('#','\n').Split('\n'))
         {
+            TextAudit?.Add((line,position,new(scaleX,scaleY)));
             float width=0;
             foreach(char ch in line)if(ch<256)width+=unchecked((int)map[ch*6+4].GetUInt32());
             float x=halign==1?-width/2:halign==2?-width:0;

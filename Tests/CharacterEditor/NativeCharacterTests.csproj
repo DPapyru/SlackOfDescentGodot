@@ -3,6 +3,7 @@
   <ItemGroup>
     <Compile Include="Program.cs.test" />
     <Compile Include="../../Runtime/Gm*.cs" Exclude="../../Runtime/GmAudio.cs;../../Runtime/GmGraphics.cs;../../Runtime/GmEffectSurfaces.cs" />
+    <Compile Include="../../Runtime/Mods/GmModMenu.cs" />
     <Compile Include="../../Runtime/NativeContracts.cs;../../Runtime/NativeContent.cs;../../Runtime/NativeCharacterModel.cs" />
   </ItemGroup>
 </Project>

@@ -109,5 +109,6 @@ public sealed partial class GmWorld
             int end=start+1;while(statements[end]?[0]?.ToString()!="break")end++;
             statements.Insert(end,JsonNode.Parse("[\"if\",[\"call\",\"slack_secondary_fire\",[]],[\"binary\",\"Assign\",[\"id\",\"ShotCheck\"],[\"num\",2]],null]"));
         });
+        ApplyModMenu();
     }
 }

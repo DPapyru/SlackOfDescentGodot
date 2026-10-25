@@ -9,8 +9,6 @@ public partial class GameHost
     private NativeContentStore contentStore = null!;
     private NativeModManager mods = null!;
     private GmNativeBridge nativeBridge = null!;
-    private HBoxContainer? nativeMenu;
-    private OptionButton? languageChoice;
     private NativeMapEditor? mapEditor;
     private NativeCharacterEditor? characterEditor;
     private NativeModPanel? modPanel;
@@ -56,28 +54,8 @@ public partial class GameHost
     }
     private void ResetNativeInput()
     { nativeClock.Pause(); controls.Clear(world); elapsed=0; frameMonitor.Reset(); }
-    private void SyncNativeMenu()
+    private void SyncNativeUi()
     {
-        if(nativeMenu is null)
-        {
-            nativeMenu=new HBoxContainer{Name="NativeMainMenu",Position=new(8,8)};AddChild(nativeMenu);
-            void Add(string text,Action action){var button=new Button{Text=text};button.Pressed+=action;nativeMenu.AddChild(button);}
-            Add("C# 模组",OpenMods);Add("角色编辑器",OpenCharacterEditor);Add("地图编辑器",OpenMapEditor);
-            languageChoice=new OptionButton{Name="LanguageChoice",TooltipText=NativeLocalization.Text("语言"),AutoTranslateMode=AutoTranslateModeEnum.Disabled};
-            languageChoice.AddItem(NativeLocalization.IsChinese?"简体中文":"Chinese");languageChoice.AddItem("English");
-            languageChoice.Select(NativeLocalization.IsChinese?0:1);nativeMenu.AddChild(languageChoice);
-            languageChoice.GetPopup().AboutToPopup+=ResetNativeInput;
-            languageChoice.GetPopup().PopupHide+=ResetNativeInput;
-            languageChoice.ItemSelected+=index=>
-            {
-                NativeLocalization.SetLanguage(index==0?"zh_CN":"en");
-                languageChoice.SetItemText(0,NativeLocalization.IsChinese?"简体中文":"Chinese");
-                languageChoice.TooltipText=NativeLocalization.Text("语言");
-                ResetNativeInput();graphics.Build();canvas.QueueRedraw();
-            };
-        }
-        var title=world.Instances.FirstOrDefault(i=>!i.Destroyed&&world.IsObject(i.Object,world.Constants["objTitle"].Int));
-        nativeMenu.Visible=title is not null&&modalDepth==0&&!mapPlaytest;
         if(returnFromTest is not null)returnFromTest.Visible=mapPlaytest;
     }
     private void OpenMods()

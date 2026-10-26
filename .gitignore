@@ -1,4 +1,6 @@
 ./docs/
+.playtest/
+.agent-lock/
 .godot/
 .nuget/
 Tools/ModCompiler/References/

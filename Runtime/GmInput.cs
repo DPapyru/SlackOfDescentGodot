@@ -48,8 +48,10 @@ public sealed class GmInput
     }
     public void Key(GmWorld world,int code,bool down)
     {
-        if(down){held.Add(code);if(physicalHeld.Add(code)){pressed.Add(code);nativePressed.Add(code);}world.Engine.Write("keyboard_key",code);world.Engine.Write("keyboard_lastkey",code);}
-        else{held.Remove(code);if(physicalHeld.Remove(code)){released.Add(code);nativeReleased.Add(code);}if(world.Engine.ReadOr("keyboard_key").Int==code)world.Engine.Write("keyboard_key",0);}
+        bool changed=down?physicalHeld.Add(code):physicalHeld.Remove(code);
+        if(down){held.Add(code);if(changed){pressed.Add(code);nativePressed.Add(code);}world.Engine.Write("keyboard_key",code);world.Engine.Write("keyboard_lastkey",code);}
+        else{held.Remove(code);if(changed){released.Add(code);nativeReleased.Add(code);}if(world.Engine.ReadOr("keyboard_key").Int==code)world.Engine.Write("keyboard_key",0);}
+        if(world.KeyObserver is not null){if(down)world.KeyObserver(code,NativeKeyPhase.Down);if(changed)world.KeyObserver(code,down?NativeKeyPhase.Pressed:NativeKeyPhase.Released);}
     }
     public void Mouse(GmWorld world,int code,bool down)
     {

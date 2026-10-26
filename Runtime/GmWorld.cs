@@ -17,6 +17,7 @@ public sealed class GmInstance
     public bool HasBounds;
     internal int CollisionOrder;
     internal long InactiveEffectExpiry;
+    internal bool DestroyedNotified;
 }
 
 public sealed partial class GmWorld
@@ -271,13 +272,14 @@ public sealed partial class GmWorld
         instanceCounts.Clear();instance.VisibilityChanged=()=>
         {
             collisionSnapshots.Clear();geometryVersion++;
-            instanceCounts.Clear();if(instance.Destroyed)changedColliders.Add(instance);
+            instanceCounts.Clear();if(instance.Destroyed){changedColliders.Add(instance);NotifyDestroyed(instance);}
             if(instance.Object==Constants["objFluid"].Int||instance.Object==Constants["objFluidInWater"].Int)
                 instance.InactiveEffectExpiry=instance.Active?0:Frame+Math.Max(1,instance.Scope.Read("alarm",0).Int);
         };
         WatchCollider(instance);
         if(collisionIndexedCount==Instances.Count-1){instance.CollisionOrder=nextCollisionOrder++;changedColliders.Add(instance);collisionIndexedCount++;}
         Created[obj]=Created.GetValueOrDefault(obj)+1;
+        CreatedObserver?.Invoke(instance);
         if(run)Event(instance,0,0);
         return instance;
     }
@@ -391,12 +393,13 @@ public sealed partial class GmWorld
     {
         id=NativeServices?.Maps.ResolveRoom(id)??id;
         if(!Rooms.TryGetValue(id,out var room))throw new InvalidOperationException("Missing room "+id);
-        var roomEvent=new NativeGameEvent("room",Instances.FirstOrDefault(i=>!i.Destroyed) is {} actor?new(this,actor):null);
+        var roomEvent=new NativeGameEvent(NativeEventNames.Room,Instances.FirstOrDefault(i=>!i.Destroyed) is {} actor?new(this,actor):null);
         roomEvent.Arguments["previous"]=CurrentRoom;roomEvent.Arguments["next"]=id;
         NativeServices?.Dispatch(roomEvent,NativeEventPhase.Before);
         NativeServices?.Maps.BeforeRoomLoad(id);
         Evaluator.ResetBudget();
         foreach(var i in Instances.Where(i=>!i.Destroyed).ToArray())await EventAsync(i,7,5);
+        if(DestroyedObserver is not null)foreach(var i in Instances.ToArray())if(!i.Scope.ReadOr("persistent").Truth||i.Destroyed)NotifyDestroyed(i);
         Instances.RemoveAll(i=>!i.Scope.ReadOr("persistent").Truth||i.Destroyed);
         ResetInstanceLookup();
         InvalidateCollisionSprites();
@@ -437,6 +440,7 @@ public sealed partial class GmWorld
         Evaluator.ResetBudget();
         if(PendingRoom is int next){await LoadRoomAsync(next);return;}
         Frame++;
+        StepBeginObserver?.Invoke();
         if (!IsLoadingRoom) GameTime += 1 / Math.Max(1, Engine.Read("room_speed").Number);
         Engine.Write("current_time", GameTime * 1000);
         var live=Instances.Where(i=>!i.Destroyed&&i.Active).ToArray();
@@ -446,7 +450,7 @@ public sealed partial class GmWorld
         {
             if(i.Destroyed||!i.Active)continue;
             var t=i.Scope.Read("alarm",a).Int;
-            if(t>=0){i.Scope.Write("alarm",t-1,a);if(t==1)await EventAsync(i,2,a);}
+            if(t>=0){i.Scope.Write("alarm",t-1,a);if(t==1){NotifyAlarm(i,a);await EventAsync(i,2,a);}}
         }
         if(InputEventsAsync is not null)await InputEventsAsync();else InputEvents?.Invoke();
         Performance.End("begin_input",phase);phase=Performance.Start();
@@ -492,6 +496,7 @@ public sealed partial class GmWorld
                         CollisionCandidateVisits++;CollisionExactTests++;
                         if(!Touches(i,other,i.Scope.ReadOr("x").Number,i.Scope.ReadOr("y").Number))continue;
                         if(other.Scope.ReadOr("solid").Truth){Write(i,"x",i.Scope.ReadOr("xprevious"));Write(i,"y",i.Scope.ReadOr("yprevious"));}
+                        NotifyCollision(i,other,target);
                         await EventAsync(i,4,target,other);
                     }
                     continue;
@@ -518,6 +523,7 @@ public sealed partial class GmWorld
                         CollisionCandidateVisits++;CollisionExactTests++;
                         if(!Touches(i,other,i.Scope.ReadOr("x").Number,i.Scope.ReadOr("y").Number))continue;
                         if(other.Scope.ReadOr("solid").Truth){Write(i,"x",i.Scope.ReadOr("xprevious"));Write(i,"y",i.Scope.ReadOr("yprevious"));}
+                        NotifyCollision(i,other,target);
                         await EventAsync(i,4,target,other);
                     }
                 }
@@ -547,6 +553,7 @@ public sealed partial class GmWorld
         if(PendingRoom is int destination)await LoadRoomAsync(destination);
         NativeServices?.Maps.Update();
         Performance.End("animation_room",phase);
+        StepEndObserver?.Invoke();
         Performance.End("total",total);Performance.Report(Frame,CurrentRoom);
     }
 

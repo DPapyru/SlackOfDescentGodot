@@ -50,6 +50,46 @@ public sealed partial class ContentRegistry
         Actions.Clear(); Entities.Clear(); Characters.Clear(); Resources.Clear();
         Maps.Clear(); Languages.Clear(); CharacterDirectories.Clear(); Translations.Clear(); ClearSdk();
     }
+    private Dictionary<(string Event,NativeEventPhase Phase),string[]> eventIndex=new();
+    private readonly HashSet<string> callFunctions=new(StringComparer.Ordinal);
+    private int eventIndexCount=-1;
+    private bool eventIndexStale;
+    internal void RebuildEventIndex()
+    {
+        if(!eventIndexStale&&eventIndexCount==EventHandlers.Count)return;
+        var index=new Dictionary<(string Event,NativeEventPhase Phase),List<string>>();
+        foreach(var pair in EventHandlers)
+        {
+            var key=(pair.Value.Event,pair.Value.Phase);
+            if(!index.TryGetValue(key,out var ids))index[key]=ids=new();
+            ids.Add(pair.Key);
+        }
+        var built=new Dictionary<(string Event,NativeEventPhase Phase),string[]>(index.Count);
+        foreach(var pair in index)built[pair.Key]=pair.Value.ToArray();
+        eventIndex=built;eventIndexCount=EventHandlers.Count;eventIndexStale=false;
+        callFunctions.Clear();
+        foreach(var pair in built.Keys)if(pair.Event.StartsWith("call.",StringComparison.Ordinal))callFunctions.Add(pair.Event[5..]);
+    }
+    internal string[] HandlersFor(string eventName,NativeEventPhase phase)
+    {
+        RebuildEventIndex();
+        return eventIndex.TryGetValue((eventName,phase),out var ids)?ids:[];
+    }
+    internal int CountEventHandlers(string eventName)
+    {
+        RebuildEventIndex();
+        return (eventIndex.TryGetValue((eventName,NativeEventPhase.Before),out var before)?before.Length:0)+(eventIndex.TryGetValue((eventName,NativeEventPhase.After),out var after)?after.Length:0);
+    }
+    internal bool HasEventHandlers(string eventName)=>CountEventHandlers(eventName)>0;
+    internal bool HasEventPrefix(string prefix,NativeEventPhase phase)
+    {
+        RebuildEventIndex();
+        foreach(var pair in eventIndex)if(pair.Key.Phase==phase&&pair.Key.Event.StartsWith(prefix,StringComparison.Ordinal))return true;
+        return false;
+    }
+    internal int IndexedHandlerCount=>eventIndexCount;
+    internal bool HasCallFunction(string function){RebuildEventIndex();return callFunctions.Contains(function);}
+    internal void InvalidateEventIndex(){eventIndexStale=true;}
     partial void AppendSdkIds(List<(string Kind, string Id)> ids);
     partial void CopySdkTo(ContentRegistry target);
     partial void RemoveSdkFrom(ContentRegistry target);

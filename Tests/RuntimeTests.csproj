@@ -11,6 +11,7 @@
     <Compile Include="../Runtime/NativeContracts.cs;../Runtime/NativeContent.cs;../Runtime/NativeCharacterModel.cs" />
     <Compile Include="../Runtime/NativeModSdk.cs;../Runtime/NativeModAudio.cs;../Runtime/NativeModAnimation.cs;../Runtime/NativeModContentRegistry.cs" />
     <Compile Include="../Runtime/NativeMapEvents.cs;../Runtime/NativeMapService.cs;../Runtime/NativeMapRuntime.cs" />
+    <Compile Include="../Runtime/NativeModWorld.cs;../Runtime/NativeModActors.cs;../Runtime/NativeModEvents.cs" />
     <Compile Remove="CharacterEditor/**/*.cs;Map/**/*.cs" />
   </ItemGroup>
 </Project>

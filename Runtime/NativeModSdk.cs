@@ -213,6 +213,9 @@ public sealed partial class NativeModServices : IDisposable
     public NativePresentation Presentation { get; }
     public NativeAudioService Audio { get; }
     public NativeMapFlowService Maps { get; }
+    public NativeInstanceService Instances { get; }
+    public NativeEventService Events { get; }
+    public NativeActorService Actors { get; }
     internal NativeResourceScope CurrentScope { get; private set; }
     internal IDisposable EnterScope(NativeResourceScope scope)
     {
@@ -220,15 +223,15 @@ public sealed partial class NativeModServices : IDisposable
     }
     private sealed class ScopeLease(NativeModServices services, NativeResourceScope previous) : IDisposable
     { public void Dispose() => services.CurrentScope = previous; }
-    internal void ClearScope(NativeResourceScope scope) { Entities.ClearScope(scope); Presentation.ClearScope(scope); Audio.ClearScope(scope); }
-    private void ClearOwner(NativeModOwner owner) { Entities.ClearOwner(owner); Presentation.ClearOwner(owner); Audio.ClearOwner(owner); }
+    internal void ClearScope(NativeResourceScope scope) { Entities.ClearScope(scope); Presentation.ClearScope(scope); Audio.ClearScope(scope); Instances.ClearScope(scope); Actors.ClearScope(scope); }
+    private void ClearOwner(NativeModOwner owner) { Entities.ClearOwner(owner); Presentation.ClearOwner(owner); Audio.ClearOwner(owner); Instances.ClearOwner(owner); Actors.ClearOwner(owner); }
     internal Action? LeaveRoom;
     internal Action? EnterRoom;
     public FrameContext Frame { get; internal set; }
     public NativeModServices(GmWorld world, ContentRegistry registry)
     {
         World = world; Registry = registry; registry.ModDataRoot = Path.Combine(world.UserRoot, "Content", "ModData"); Input = new(registry, world.UserRoot);
-        Entities = new(this); Combat = new(this); Presentation = new(this); Audio = new(this); Maps = new(this); world.NativeServices = this; registry.OwnerRetired += ClearOwner;
+        Entities = new(this); Combat = new(this); Presentation = new(this); Audio = new(this); Maps = new(this); world.NativeServices = this; Instances = new(this); Events = new(this); Actors = new(this); registry.OwnerRetired += ClearOwner;
     }
     public NativeGameEvent Dispatch(NativeGameEvent value, NativeEventPhase phase)
     {
@@ -242,7 +245,7 @@ public sealed partial class NativeModServices : IDisposable
     internal NativeGameEvent? BeforeCode(string key,GmContext context)
     {
         string name="engine."+(key.StartsWith("scripts/",StringComparison.Ordinal)?key[8..].ToLowerInvariant():key);
-        if(!Registry.EventHandlers.Values.Any(handler=>handler.Event==name))return null;
+        if(!Registry.HasEventHandlers(name))return null;
         var value=new NativeGameEvent(name,new(World,context.Self));
         value.Arguments["code"]=key;value.Arguments["other"]=context.Other.Id;
         value.Arguments["eventKind"]=context.EventKind;value.Arguments["eventSub"]=context.EventSub;
@@ -261,7 +264,7 @@ public sealed partial class NativeModServices : IDisposable
         Dispatch(value, NativeEventPhase.After); return value.Result;
     }
     internal void ClearActor(int id) { Presentation.ClearActor(id); Audio.ClearActor(id); Entities.ClearOwned(id); }
-    public void Dispose() { Registry.OwnerRetired -= ClearOwner; Entities.Dispose(); Presentation.ClearAll(); Audio.Dispose(); if (World.NativeServices == this) World.NativeServices = null; }
+    public void Dispose() { Registry.OwnerRetired -= ClearOwner; Events.Dispose(); Entities.Dispose(); Presentation.ClearAll(); Audio.Dispose(); Instances.Dispose(); if (World.NativeServices == this) World.NativeServices = null; }
 }
 
 public sealed class NativeEntityService(NativeModServices services) : IDisposable

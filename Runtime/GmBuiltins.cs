@@ -144,6 +144,13 @@ public sealed partial class GmWorld
 
     public GmValue Call(string name,GmValue[] a,GmContext c)
     {
+        var observed=CallObserver;
+        if(CallInterceptor is not null&&CallInterceptor(name,c,out var intercepted))return observed is null?intercepted:observed(name,c,intercepted);
+        if(observed is not null)return observed(name,c,CallCore(name,a,c));
+        return CallCore(name,a,c);
+    }
+    private GmValue CallCore(string name,GmValue[] a,GmContext c)
+    {
         Calls[name]=Calls.GetValueOrDefault(name)+1;
         if(name=="draw_sprite_blur")return DrawSpriteBlur(a,c);
         if(name is "MotionInitialize" or "DoubleMotionInitialize")return InitializeMotion(name,a,c);

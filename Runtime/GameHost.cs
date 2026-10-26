@@ -166,6 +166,9 @@ public partial class GameHost : Node2D
             graphics.Build();
             if(OS.GetCmdlineUserArgs().Contains("--capture"))for(int i=0;i<120;i++)StepFrame();
             GD.Print("Loaded original room ",world.CurrentRoom);
+            if(audit&&OS.GetCmdlineUserArgs().Contains("--native-jump-audit")){SetProcess(false);AuditNativeJump();return;}
+            if(audit&&OS.GetCmdlineUserArgs().Contains("--native-sniper-audit")){SetProcess(false);AuditNativeSniper();return;}
+            if(audit&&OS.GetCmdlineUserArgs().Contains("--native-map-runtime-audit")){SetProcess(false);AuditNativeMapRuntime();return;}
             if(audit&&OS.GetCmdlineUserArgs().Contains("--native-integration-audit")){SetProcess(false);AuditNativeIntegration();return;}
         }
         catch(Exception e){Fail(e);}
@@ -277,8 +280,10 @@ public partial class GameHost : Node2D
         var completion=new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         var popup=new PopupMenu{Name="CharacterMenu",ForceNative=true,MaxSize=new Vector2I(420,Math.Max(120,(int)GetViewportRect().Size.Y-32))};
         var original=text.Split('|');var entries=original.Concat(names??[]).ToArray();
+        if(names?.Length>0)popup.AddSeparator(NativeLocalization.IsChinese?"原版":"Original");
         for(int i=0;i<entries.Length;i++)
         {
+            if(names?.Length>0&&i==original.Length)popup.AddSeparator("Mod");
             if(i>=original.Length)popup.AddItem(entries[i],i);
             else if(entries[i].Length==0)popup.AddSeparator();
             else if(entries[i][0]=='-')popup.AddSeparator(entries[i][1..],i);
@@ -570,7 +575,10 @@ public partial class GameHost : Node2D
         try
         {
             SyncGrenadeBinding();
+            SyncNativeBindings();
             SyncNativeUi();
+            SyncMapRuntime();
+            nativeBridge.Services.Input.Context=mapEditor is not null||characterEditor is not null?NativeInputContext.Editor:modalDepth>0||world.CurrentRoom==world.Constants["Title"].Int?NativeInputContext.Menu:NativeInputContext.Game;
             if(cadenceRoom!=world.CurrentRoom){cadenceRoom=world.CurrentRoom;world.Performance.ResetCadence();nativeClock.RoomChanged();}
             if(!audit&&!GetWindow().HasFocus()&&modalDepth==0){ResetNativeInput();canvas.QueueRedraw();return;}
             if(modalDepth>0&&pendingFrame is null){elapsed=0;nativeClock.Pause();frameMonitor.Reset();world.Performance.ResetCadence();canvas.QueueRedraw();return;}
@@ -667,7 +675,7 @@ public partial class GameHost : Node2D
         image.SavePng(path);image.Dispose();GD.Print("CAPTURE ",path);audio.Shutdown();GetTree().Quit(failure is null?0:1);
     }
 
-    public override void _ExitTree(){if(renderSignalConnected)RenderingServer.FramePostDraw-=OnFramePostDraw;nativeBridge?.Dispose();mods?.Dispose();graphics?.Shutdown();audio?.Shutdown();}
+    public override void _ExitTree(){if(renderSignalConnected)RenderingServer.FramePostDraw-=OnFramePostDraw;isolatedPreview?.Dispose();nativeBridge?.Dispose();mods?.Dispose();graphics?.Shutdown();audio?.Shutdown();}
 
     public override void _Draw()
     {
@@ -690,6 +698,7 @@ public partial class GameHost : Node2D
         switch(name)
         {
             case "slack_mod_menu":OpenModMenuEntry(I(0));return 0;
+            case "slack_map_select":OpenMapSelector();return 0;
             case "slack_language":return MenuLanguage(I(0)!=0);
             case "show_menu":return Menu(args[0].ToString(),args[1].Int);
             case "get_string":return Prompt("--input-text",args[0].ToString(),args[1].ToString())??args[1];

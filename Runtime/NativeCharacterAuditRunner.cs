@@ -16,6 +16,7 @@ public partial class NativeCharacterAuditRunner : Node
             var editor = new NativeCharacterEditor(world, registry, store); AddChild(editor); editor.PopupCentered();
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             GD.Print(editor.RunUiAudit(output));
+            GD.Print("CHARACTER_RUNTIME_AUDIT_OK checks=", await AuditRuntimeAsync(world, registry, store, output));
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             if (args.Contains("--capture-ui") && DisplayServer.GetName() != "headless")
             {

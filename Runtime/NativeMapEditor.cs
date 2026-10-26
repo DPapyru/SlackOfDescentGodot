@@ -51,6 +51,7 @@ public partial class NativeMapEditor : Window
         Button(bar, "保存", "SaveMap", () => SaveRequested(false)); Button(bar, "另存为…", "SaveMapAs", () => SaveRequested(true));
         Button(bar, "撤销", "Undo", Undo); Button(bar, "重做", "Redo", Redo);
         Button(bar, "房间与相机", "RoomSettings", OpenRoomSettings);
+        Button(bar, "地图目录", "MapLibrary", OpenMapLibrary); Button(bar, "事件", "MapEvents", OpenEventEditor);
         Button(bar, "试玩 ▶", "PlayMap", Play);
         var split = new HSplitContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill }; root.AddChild(split); split.SplitOffsets = [235];
         var left = new VBoxContainer { CustomMinimumSize = new(230, 0) }; split.AddChild(left);
@@ -67,11 +68,12 @@ public partial class NativeMapEditor : Window
         sourceX = Field(tilePanel, "图集横坐标", "TileSourceX", 0, 16384, 0); sourceY = Field(tilePanel, "图集纵坐标", "TileSourceY", 0, 16384, 0);
         tileWidth = Field(tilePanel, "图块宽度", "TileWidth", 1, 4096, 32); tileHeight = Field(tilePanel, "图块高度", "TileHeight", 1, 4096, 32);
         depth = Field(tilePanel, "图层深度", "TileDepth", -1000000, 1000000, 10000);
+        BuildAtlas(tilePanel);
         tilePanel.AddChild(new Label { Text = "同一网格、同一图层再次绘制会替换图块。\n碰撞工具使用左侧实体列表中的区块。", AutowrapMode = TextServer.AutowrapMode.WordSmart });
         var entityPanel = new VBoxContainer { Name = "实体" }; tabs.AddChild(entityPanel);
         var filter = new LineEdit { Name = "EntityFilter", PlaceholderText = "搜索实体／扩展" }; entityPanel.AddChild(filter);
         entities = new ItemList { Name = "EntityPalette", AutoTranslateMode = AutoTranslateModeEnum.Disabled, SizeFlagsVertical = Control.SizeFlags.ExpandFill }; entityPanel.AddChild(entities);
-        filter.TextChanged += PopulateEntities; PopulateEntities("");
+        entityFilter = filter; filter.TextChanged += PopulateEntities; BuildEntityPreview(entityPanel); PopulateEntities("");
         var right = new HSplitContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; split.AddChild(right); right.SplitOffsets = [650];
         var canvasFrame = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; right.AddChild(canvasFrame);
         var canvasBar = new HBoxContainer(); canvasFrame.AddChild(canvasBar);
@@ -85,7 +87,8 @@ public partial class NativeMapEditor : Window
         propX = Field(inspector, "横坐标", "PropertyX", -1000000, 1000000, 0); propY = Field(inspector, "纵坐标", "PropertyY", -1000000, 1000000, 0);
         propScaleX = Field(inspector, "横向缩放", "PropertyScaleX", -1000, 1000, 1, .1); propScaleY = Field(inspector, "纵向缩放", "PropertyScaleY", -1000, 1000, 1, .1); propAngle = Field(inspector, "旋转角度", "PropertyAngle", -36000, 36000, 0);
         foreach (var field in new[] { propX, propY, propScaleX, propScaleY, propAngle }) field.ValueChanged += _ => ApplyBasicProperties();
-        inspector.AddChild(new Label { Text = "实体自定义属性（JSON）" });
+        propertyForm = new VBoxContainer { Name = "EntityPropertyForm" }; inspector.AddChild(propertyForm);
+        inspector.AddChild(new Label { Text = "高级属性（JSON）" });
         properties = new TextEdit { Name = "EntityProperties", AutoTranslateMode = AutoTranslateModeEnum.Disabled, SizeFlagsVertical = Control.SizeFlags.ExpandFill, CustomMinimumSize = new(220, 140), Text = "{}" }; inspector.AddChild(properties);
         Button(inspector, "应用属性", "ApplyProperties", ApplyCustomProperties); Button(inspector, "编辑完整数据…", "EditRawSelection", OpenRawSelection); Button(inspector, "删除所选", "DeleteSelection", DeleteSelection);
         status = new Label { Name = "MapStatus", AutoTranslateMode = AutoTranslateModeEnum.Disabled }; root.AddChild(status);
@@ -101,7 +104,7 @@ public partial class NativeMapEditor : Window
         Import(Service.TestRoomId);
         uiStarted = System.Diagnostics.Stopwatch.GetTimestamp();
     }
-    public override void _ExitTree() { registry.Changed -= RegistryChanged; }
+    public override void _ExitTree() { registry.Changed -= RegistryChanged; foreach (var texture in paletteTextures.Values) texture.Dispose(); }
     private static string RoomLabel(string name) => name;
     private static void Button(Node parent, string label, string name, Action action) { var button = new Button { Text = label, Name = name }; parent.AddChild(button); button.Pressed += action; }
     private static SpinBox Field(Node parent, string label, string name, double min, double max, double value, double step = 1)
@@ -109,25 +112,14 @@ public partial class NativeMapEditor : Window
         var row = new HBoxContainer(); parent.AddChild(row); row.AddChild(new Label { Text = label, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
         var input = new SpinBox { Name = name, MinValue = min, MaxValue = max, Step = step, Value = value, CustomMinimumSize = new(100, 0) }; row.AddChild(input); return input;
     }
-    private void PopulateEntities(string filter)
-    {
-        entities.Clear();
-        foreach (var pair in world.Objects.OrderBy(p => p.Value.GetProperty("name").GetString()))
-        {
-            string name = pair.Value.GetProperty("name").GetString()!; if (!name.Contains(filter, StringComparison.OrdinalIgnoreCase)) continue;
-            int index = entities.AddItem((pair.Value.GetProperty("solid").GetBoolean() ? "▣ " : "● ") + name); entities.SetItemMetadata(index, "object:" + pair.Key);
-        }
-        foreach (string id in registry.Entities.Keys.Order()) if (id.Contains(filter, StringComparison.OrdinalIgnoreCase)) { int index = entities.AddItem(NativeLocalization.Text("扩展：") + id); entities.SetItemMetadata(index, "native:" + id); }
-        if (entities.ItemCount > 0) entities.Select(0);
-    }
-    private void RegistryChanged() { if (IsInsideTree()) { PopulateEntities(""); if (Document is not null) { Service.Validate(Document); UpdateStatus(); } } }
+    private void RegistryChanged() { if (IsInsideTree()) { PopulateEntities(entityFilter?.Text ?? ""); if (Document is not null) { Service.Validate(Document); UpdateStatus(); } } }
     public void Import(int roomId)
     {
         var result = Service.ImportOriginal(roomId); SetDocument(result.Document, null); status.Text += string.Format(NativeLocalization.Text("　导入 {0:F1} 毫秒"), result.Milliseconds);
     }
     public void LoadPath(string path)
     {
-        try { var result = Service.Load(path); SetDocument(result.Document, Path.GetFullPath(path)); status.Text += string.Format(NativeLocalization.Text("　读取 {0:F1} 毫秒"), result.Milliseconds); }
+        try { var result = Service.Load(path); SetDocument(result.Document, IsInstalledMap(path) ? null : Path.GetFullPath(path)); status.Text += string.Format(NativeLocalization.Text("　读取 {0:F1} 毫秒"), result.Milliseconds); }
         catch (Exception exception) { Message(exception.Message); }
     }
     private void SetDocument(NativeMapDocument document, string? path)
@@ -151,7 +143,7 @@ public partial class NativeMapEditor : Window
         selected = item; selectedTile = tile; MapCanvas.Selection = item; MapCanvas.SelectionIsTile = tile; updating = true;
         selectedTitle.Text = item is null ? NativeLocalization.Text("未选择区块或实体") : NativeLocalization.Text(tile ? "图块" : "实体") + " #" + Int(item, "id");
         propX.Value = item is null ? 0 : Number(item, "x"); propY.Value = item is null ? 0 : Number(item, "y"); propScaleX.Value = item is null ? 1 : Number(item, "xscale", 1); propScaleY.Value = item is null ? 1 : Number(item, "yscale", 1); propAngle.Value = item is null ? 0 : Number(item, "angle");
-        properties.Text = item?["properties"]?.ToJsonString(NativeContentStore.Json) ?? "{}"; updating = false; MapCanvas.QueueRedraw();
+        properties.Text = item?["properties"]?.ToJsonString(NativeContentStore.Json) ?? "{}"; updating = false; RefreshPropertyForm(); MapCanvas.QueueRedraw();
     }
     private void ApplyBasicProperties()
     {
@@ -182,7 +174,7 @@ public partial class NativeMapEditor : Window
             bool native = choice.StartsWith("native:", StringComparison.Ordinal); int obj = native ? -1 : int.Parse(choice[7..]);
             if (MapCanvas.Tool == NativeMapTool.Collision && (native || !world.Objects.TryGetValue(obj, out var definition) || !definition.GetProperty("solid").GetBoolean())) { obj = world.Constants["objBlock"].Int; native = false; }
             if (MapCanvas.Tool == NativeMapTool.Collision && Document.Instances.OfType<JsonObject>().Any(t => Int(t, "object") == obj && Number(t, "x") == x && Number(t, "y") == y)) return;
-            var item = Service.AddEntity(Document, obj, x, y, native ? choice[7..] : null); Select(item, false); Changed();
+            var item = Service.AddEntity(Document, obj, x, y, native ? choice[7..] : null); ApplyEntityDefaults(item); Select(item, false); Changed();
         }
     }
     private void OpenDialog() { fileDialog.FileMode = FileDialog.FileModeEnum.OpenFile; fileDialog.Title = NativeLocalization.Text("打开地图"); fileDialog.CurrentDir = FilePath is null ? store.Maps : Path.GetDirectoryName(FilePath)!; fileDialog.PopupCentered(); }
@@ -196,7 +188,7 @@ public partial class NativeMapEditor : Window
     {
         if (!path.EndsWith(".map.json", StringComparison.OrdinalIgnoreCase)) path += ".map.json";
         if (File.Exists(path) && !overwriteConfirmed) { pendingSave = path; overwrite.PopupCentered(); return; }
-        try { Service.Save(Document, path); FilePath = Path.GetFullPath(path); Dirty = false; UpdateStatus(); if (closeAfterSave) { closeAfterSave = false; var action = afterDiscard; afterDiscard = null; action?.Invoke(); } }
+        try { if (IsInstalledMap(path)) throw new InvalidDataException(L("请将已安装地图另存到个人目录或编辑项目。", "Save installed maps to your own folder or an editing project.")); Service.Save(Document, path); FilePath = Path.GetFullPath(path); Dirty = false; UpdateStatus(); if (closeAfterSave) { closeAfterSave = false; var action = afterDiscard; afterDiscard = null; action?.Invoke(); } }
         catch (Exception exception) { closeAfterSave = false; Message(NativeLocalization.Text("保存失败，原文件未被替换：") + NativeLocalization.Text(exception.Message)); }
     }
     private void Guard(Action action) { if (!Dirty) { action(); return; } afterDiscard = action; closeAfterSave = false; unsaved.PopupCentered(); }

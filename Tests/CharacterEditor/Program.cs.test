@@ -28,6 +28,14 @@ document.Paint(tail.Id, copiedFrame, 0, 0, 1, 2, 3, 255);
 Expect(document.Pixels(tail, 0)[3] == 0, "duplicated frames own separate data");
 document.Paste(tail.Id, 0, clipboard, -1, -1);
 Expect(document.Pixels(tail, 0)[0] == 67 && document.Pixels(tail, 0)[3] == 0, "negative paste clips while preserving source rectangle offset");
+var imported = NativeCharacterDocument.Create(); var importedPart = imported.Definition.Parts[0];
+byte[] importedPixels = [255, 30, 40, 255, 11, 22, 33, 0, 40, 255, 80, 128, 90, 80, 255, 255];
+imported.ImportFrames(importedPart.Id, [new(2, 2, importedPixels), new(2, 2, importedPixels.Reverse().ToArray())], anchorX: 11, anchorY: 19);
+Expect(importedPart.Frames.Count == 2 && importedPart.AnchorX == 11 && importedPart.AnchorY == 19, "original frame import retains skeleton anchors");
+importedPixels[0] = 0;
+Expect(imported.Pixels(importedPart, 0)[0] == 255 && imported.Pixels(importedPart, 0)[7] == 0, "imported frames own RGBA data including invisible RGB");
+imported.Undo();
+Expect(imported.Definition.Parts[0].Width == 32 && imported.Definition.Parts[0].Frames.Count == 1, "one undo restores the complete part before frame import");
 var encoded = NativeCharacterPng.Encode(source.Width, source.Height, source.Rgba);
 Expect(NativeCharacterPng.Decode(encoded).Rgba.SequenceEqual(source.Rgba), "PNG roundtrip preserves byte exact transparent RGB");
 encoded[20] ^= 1; bool invalid = false; try { NativeCharacterPng.Decode(encoded); } catch (InvalidDataException) { invalid = true; }

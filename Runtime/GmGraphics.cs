@@ -156,7 +156,12 @@ public sealed partial class GmGraphics
             {
                 using var measurement=graphics.world.Performance.Objects.Begin(instance.Object,8);
                 if(path is not null)graphics.DrawExternal(path,origin,position,scale,angle);
-                else if(!instance.Destroyed&&!graphics.world.Event(instance,8,0))graphics.Instance(instance);
+                else
+                {
+                    var previous = graphics.characterDrawingInstance; graphics.characterDrawingInstance = instance;
+                    try { if(!instance.Destroyed&&!graphics.world.Event(instance,8,0))graphics.Instance(instance); }
+                    finally { graphics.characterDrawingInstance = previous; }
+                }
                 return;
             }
             graphics.Textured(texture!,Vector2.Zero,source,position,scale,0,tint);
@@ -193,6 +198,7 @@ public sealed partial class GmGraphics
     private readonly GmTriangleCache triangleCache=new();
     private int triangleCacheRoom=int.MinValue;
     private readonly Dictionary<string,Texture2D> textures=new();
+    private ContentRegistry? textureRegistry;
     private readonly Dictionary<int,(SubViewport View,GmCanvas Canvas)> surfaces=new();
     private readonly Dictionary<int,Image> surfacePixels=new();
     private readonly Dictionary<int,byte[]> surfaceData=new();
@@ -220,8 +226,8 @@ public sealed partial class GmGraphics
     private Texture2D? primitiveTexture;
     public Func<IEnumerable<(double Depth,Action Draw)>>? AdditionalDraws;
     internal Action<List<DepthDraw>>? AdditionalDrawCommands;
-    public void DrawExternal(string path,Vector2 origin,Vector2 position,Vector2 scale,float angle)
-    {var texture=Texture(path);Textured(texture,origin,new(Vector2.Zero,texture.GetSize()),position,scale,angle,Colors.White);}
+    public void DrawExternal(string path,Vector2 origin,Vector2 position,Vector2 scale,float angle,Color? tint=null)
+    {var texture=Texture(path);Textured(texture,origin,new(Vector2.Zero,texture.GetSize()),position,scale,angle,tint??Colors.White);}
     private Texture2D[]? particleShapes;
     private ImageTexture? white;
     internal List<(int Sprite,double Frame,float Alpha)>? SpriteAudit;
@@ -350,6 +356,22 @@ public sealed partial class GmGraphics
         if(textures.TryGetValue(path,out var texture))return texture;
         using var image=Image.LoadFromFile(Path.Combine(world.Root,path));
         return textures[path]=ImageTexture.CreateFromImage(image);
+    }
+    internal void TrackNativeTextures(ContentRegistry registry)
+    {
+        if(textureRegistry==registry)return;
+        ReleaseNativeTextures();textureRegistry=registry;
+        registry.ResourcesCommitted+=InvalidateNativeTextures;owner.TreeExiting+=ReleaseNativeTextures;
+    }
+    private void InvalidateNativeTextures(IReadOnlyCollection<string> paths)
+    {
+        foreach(string path in paths)
+            if(Path.IsPathRooted(path)&&textures.Remove(Path.GetFullPath(path),out var texture))textureData.Remove(texture);
+    }
+    private void ReleaseNativeTextures()
+    {
+        if(textureRegistry is null)return;
+        textureRegistry.ResourcesCommitted-=InvalidateNativeTextures;textureRegistry=null;owner.TreeExiting-=ReleaseNativeTextures;
     }
     private void DrawParticles(GmParticleSystem system)
     {
@@ -588,6 +610,7 @@ public sealed partial class GmGraphics
     }
     public void Sprite(int id,double frame,Vector2 position,Vector2 scale,float angle,Color tint)
     {
+        if(target<0 && CharacterRendering?.Replace(characterDrawingInstance,position,scale,angle,tint)==true)return;
         if(!world.Sprites.TryGetValue(id,out var s))return;
         if(target<0){SpriteAudit?.Add((id,frame,tint.A));SpriteGeometryAudit?.Add((id,position,scale));}
         var frames=s.GetProperty("frames");

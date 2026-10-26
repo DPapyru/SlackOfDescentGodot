@@ -16,6 +16,8 @@ public sealed class NativeCharacterPart
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = "部件";
+    public string Target { get; set; } = "BODY_TOP";
+    public bool ReplaceOriginal { get; set; }
     public int Width { get; set; } = 32;
     public int Height { get; set; } = 32;
     public int AnchorX { get; set; } = 16;
@@ -69,7 +71,7 @@ public sealed class NativeCharacterDocument
     private readonly Stack<Snapshot> redo = new();
     private Snapshot? transaction;
     private string saved = "";
-    private sealed record Snapshot(CharacterDefinition Definition, Dictionary<string, byte[]> Pixels);
+    private sealed record Snapshot(CharacterDefinition Definition, Dictionary<string, byte[]> Pixels, Dictionary<string, string> Missing);
     public bool Dirty => Fingerprint() != saved;
     public bool CanUndo => undo.Count > 0;
     public bool CanRedo => redo.Count > 0;
@@ -84,8 +86,8 @@ public sealed class NativeCharacterDocument
     {
         var document = new NativeCharacterDocument(new CharacterDefinition());
         document.AddPart("身体", 32, 32, 0);
-        document.AddPart("帽子", 32, 32, 20);
-        document.AddPart("尾巴", 32, 32, -10);
+        document.AddPart("帽子", 32, 32, 20).Target = "HEAD";
+        document.AddPart("尾巴", 32, 32, -10).Target = "BODY_BOTTOM";
         document.undo.Clear(); document.saved = "";
         return document;
     }
@@ -105,6 +107,31 @@ public sealed class NativeCharacterDocument
         var part = new NativeCharacterPart { Name = name, Width = width, Height = height, AnchorX = width / 2, AnchorY = height * 3 / 4, Layer = layer };
         Edit(() => { Definition.Parts.Add(part); AddFrameRaw(part, null); });
         return part;
+    }
+    public void ImportFrames(string partId, IReadOnlyList<NativePixelClipboard> images, bool append = false, int? anchorX = null, int? anchorY = null)
+    {
+        if (images.Count == 0) throw new InvalidDataException("请选择至少一张 PNG。");
+        var part = Definition.Parts.Single(p => p.Id == partId);
+        foreach (var image in images)
+        {
+            CheckSize(image.Width, image.Height);
+            if (image.Rgba.Length != checked(image.Width * image.Height * 4) || image.Width != images[0].Width || image.Height != images[0].Height) throw new InvalidDataException("动画帧尺寸必须一致。");
+        }
+        if (append && (part.Width != images[0].Width || part.Height != images[0].Height)) throw new InvalidDataException("新增帧尺寸必须与部位一致。");
+        if ((append ? part.Frames.Count : 0) + images.Count > 256) throw new InvalidDataException("部件帧数必须为 1–256。");
+        Edit(() =>
+        {
+            if (!append)
+            {
+                foreach (var frame in part.Frames) { pixels.Remove(frame.Id); MissingFrames.Remove(frame.Id); }
+                part.Frames.Clear(); part.Width = images[0].Width; part.Height = images[0].Height;
+                part.AnchorX = anchorX ?? part.Width / 2; part.AnchorY = anchorY ?? part.Height / 2;
+            }
+            foreach (var image in images)
+            {
+                var frame = new NativeCharacterFrame(); part.Frames.Add(frame); pixels.Add(frame.Id, (byte[])image.Rgba.Clone());
+            }
+        });
     }
     public void RemovePart(string partId) => Edit(() =>
     {
@@ -181,13 +208,14 @@ public sealed class NativeCharacterDocument
     }
     public void Validate()
     {
-        if (string.IsNullOrWhiteSpace(Definition.Id) || Definition.Id.Length > 120 || Definition.Id.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '-' or '_'))) throw new InvalidDataException("角色 ID 必须由英文字母、数字、下划线或短横线组成。");
+        if (Definition.Id is "." or ".." || string.IsNullOrWhiteSpace(Definition.Id) || Definition.Id.Length > 120 || Definition.Id.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.'))) throw new InvalidDataException("角色 ID 必须由英文字母、数字、点、下划线或短横线组成。");
         if (!double.IsFinite(Definition.AnimationFps) || Definition.AnimationFps is < 1 or > 60) throw new InvalidDataException("动画帧率必须为 1–60。请保留不支持的数据文件并更新编辑器。");
         if (Definition.FormatVersion != 1) throw new InvalidDataException("不支持的角色格式版本：" + Definition.FormatVersion);
         var ids = new HashSet<string>(StringComparer.Ordinal);
         foreach (var part in Definition.Parts)
         {
             CheckSize(part.Width, part.Height);
+            if (!NativeCharacterTargets.Names.Contains(part.Target, StringComparer.Ordinal)) throw new InvalidDataException("未知角色部位：" + part.Target);
             if (string.IsNullOrWhiteSpace(part.Id) || !ids.Add(part.Id)) throw new InvalidDataException("部件 ID 为空或重复。");
             if (part.Frames.Count is < 1 or > 256) throw new InvalidDataException("部件帧数必须为 1–256。");
             foreach (var frame in part.Frames)
@@ -202,10 +230,10 @@ public sealed class NativeCharacterDocument
     }
     private static void CheckSize(int width, int height)
     { if (width is < 1 or > 256 || height is < 1 or > 256) throw new InvalidDataException("画布宽高必须为 1–256。"); }
-    private Snapshot Capture() => new(Clone(Definition), pixels.ToDictionary(p => p.Key, p => (byte[])p.Value.Clone(), StringComparer.Ordinal));
-    private void Restore(Snapshot state) { Definition = state.Definition; pixels = state.Pixels; }
+    private Snapshot Capture() => new(Clone(Definition), pixels.ToDictionary(p => p.Key, p => (byte[])p.Value.Clone(), StringComparer.Ordinal), new(MissingFrames, StringComparer.Ordinal));
+    private void Restore(Snapshot state) { Definition = state.Definition; pixels = state.Pixels; MissingFrames.Clear(); foreach (var pair in state.Missing) MissingFrames.Add(pair.Key, pair.Value); }
     private static CharacterDefinition Clone(CharacterDefinition source) => JsonSerializer.Deserialize<CharacterDefinition>(JsonSerializer.SerializeToUtf8Bytes(source, NativeContentStore.Json), NativeContentStore.Json)!;
-    private string Fingerprint() => Fingerprint(new(Definition, pixels));
+    private string Fingerprint() => Fingerprint(new(Definition, pixels, MissingFrames));
     private static string Fingerprint(Snapshot value)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
@@ -222,25 +250,25 @@ public sealed class NativeCharacterRepository(NativeContentStore store)
     public NativeContentStore Store { get; } = store;
     public string DefinitionPath(string id)
     {
-        if (string.IsNullOrWhiteSpace(id) || id.Length > 120 || id.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '-' or '_'))) throw new InvalidDataException("无效角色 ID。");
+        if (id is "." or ".." || string.IsNullOrWhiteSpace(id) || id.Length > 120 || id.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.'))) throw new InvalidDataException("无效角色 ID。");
         return Path.Combine(Store.Characters, id + ".character.json");
     }
-    public string FramePath(NativeCharacterFrame frame)
+    public string FramePath(NativeCharacterFrame frame, string? packageDirectory = null)
     {
-        string root = Path.GetFullPath(Store.Characters) + Path.DirectorySeparatorChar;
+        string root = Path.GetFullPath(packageDirectory ?? Store.Characters) + Path.DirectorySeparatorChar;
         string path = Path.GetFullPath(Path.Combine(root, frame.Png));
         if (!path.StartsWith(root, StringComparison.Ordinal)) throw new InvalidDataException("角色图像路径超出内容目录。");
         return path;
     }
     public NativeCharacterDocument Load(string id) => LoadDefinition(NativeContentStore.Load<CharacterDefinition>(DefinitionPath(id)));
-    public NativeCharacterDocument LoadDefinition(CharacterDefinition definition)
+    public NativeCharacterDocument LoadDefinition(CharacterDefinition definition, string? packageDirectory = null)
     {
         var data = new Dictionary<string, byte[]>(StringComparer.Ordinal);
         var missing=new Dictionary<string,string>(StringComparer.Ordinal);
         foreach (var part in definition.Parts)
             foreach (var frame in part.Frames)
             {
-                string path=FramePath(frame);
+                string path=FramePath(frame, packageDirectory);
                 byte[] rgba;
                 try
                 {
@@ -292,7 +320,27 @@ public sealed class NativeCharacterRepository(NativeContentStore store)
         }
         finally { if (!committed && Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
+    public string SavePackage(NativeCharacterDocument document, string packageDirectory)
+    {
+        document.EndEdit(); document.Validate();
+        if (document.MissingFrames.Count > 0) throw new InvalidDataException("请先补齐缺失的角色帧。");
+        var staged = document.Duplicate();
+        string folder = "characters/" + staged.Definition.Id + "/" + Guid.NewGuid().ToString("N");
+        foreach (var part in staged.Definition.Parts) foreach (var frame in part.Frames)
+        {
+            frame.Png = folder + "/" + frame.Id + ".png";
+            NativeContentStore.WriteAtomic(FramePath(frame, packageDirectory), NativeCharacterPng.Encode(part.Width, part.Height, staged.Pixels(frame.Id)));
+        }
+        string relative = "characters/" + staged.Definition.Id + ".character.json";
+        NativeContentStore.Save(Path.Combine(packageDirectory, relative), staged.Definition);
+        return relative;
+    }
     public IReadOnlyList<string> Discover(ContentRegistry registry) => Store.DiscoverCharacters(registry);
+}
+
+public static class NativeCharacterTargets
+{
+    public static readonly string[] Names = ["HEAD", "BODY_TOP", "BODY_BOTTOM", "HAND1_ABOVE", "HAND2_ABOVE", "HAND1_BELOW", "HAND2_BELOW", "FOOT1_ABOVE", "FOOT2_ABOVE", "FOOT1_BELOW", "FOOT2_BELOW", "TAIL"];
 }
 
 public static class NativeCharacterPng

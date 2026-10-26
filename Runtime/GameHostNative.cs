@@ -16,21 +16,13 @@ public partial class GameHost
     private bool mapPlaytest;
     private bool previewBusy;
     private bool previewReady;
-    private int previewReturnRoom;
+    private NativeCharacterPreview? isolatedPreview;
     private CharacterDefinition? previewDefinition;
     private bool nativeAuditUi;
     private SubViewport? previewViewport;
     private GmCanvas? previewCanvas;
     private readonly Dictionary<int, CharacterDefinition> characterVisuals = new();
     private NativeCharacterRepository nativeDrawRepository=null!;
-    private sealed class NativeDrawBuffer
-    {
-        public readonly List<KeyValuePair<int,CharacterDefinition>> Characters=new();
-        public readonly List<NativeCharacterPart> Parts=new();
-    }
-    private readonly List<NativeDrawBuffer> nativeDrawBuffers=new();
-    private int nativeDrawLevel;
-
     private string ExamplesDirectory => OS.HasFeature("editor") ? ProjectSettings.GlobalizePath("res://Examples/Mods")
         : Path.Combine(Path.GetDirectoryName(OS.GetExecutablePath())!,"Examples","Mods");
     private void InitializeNative()
@@ -43,13 +35,18 @@ public partial class GameHost
         contentStore.DiscoverCharacters(content);
         string enabled = Path.Combine(contentStore.Root,"enabled-mods.json");
         if(File.Exists(enabled))
-            foreach(string directory in NativeContentStore.Load<string[]>(enabled))
+        {
+            var directories=NativeContentStore.Load<string[]>(enabled);
+            if(directories.Length>0)
             {
-                var result=mods.Reload(directory);
-                if(!result.Success)GD.Print("MOD_LOAD_FAILED ",result.Id," ",result.Diagnostics);
+                var result=mods.ReloadMany(directories);
+                if(!result.Success)GD.Print("MOD_LOAD_FAILED ",result.Diagnostics);
             }
+        }
         mods.Changed += ()=>NativeContentStore.Save(enabled,mods.LoadedMods.Select(m=>m.Directory).ToArray());
-        graphics.AdditionalDrawCommands = NativeCharacterDraws;
+        mods.Changed += OnMapModsChanged;
+        _ = new NativeCharacterRendering(world,graphics,nativeDrawRepository,content,characterVisuals,()=>nativeClock.GameTime,nativeBridge);
+        graphics.AdditionalDrawCommands += NativeSdkDraws;
         GetWindow().FocusExited += ResetNativeInput;
     }
     private void ResetNativeInput()
@@ -62,7 +59,7 @@ public partial class GameHost
     {
         if(modPanel is not null)return;
         ResetNativeInput();modalDepth++;
-        modPanel=new(mods,contentStore,ExamplesDirectory){Visible=false,ForceNative=true};AddChild(modPanel);
+        modPanel=new(mods,contentStore,ExamplesDirectory,content){Visible=false,ForceNative=true};AddChild(modPanel);
         modPanel.VisibilityChanged+=()=>
         {
             if(modPanel is null||modPanel.Visible)return;
@@ -103,10 +100,10 @@ public partial class GameHost
         try
         {
             ResetNativeInput();
-            await PrepareTestingRoom();
-            int id=mapEditor.Service.InstallForPlay(document);
-            await world.LoadRoomAsync(id);mapEditor.Service.ApplyProperties(document);
-            foreach(var entity in mapEditor.Service.Attachments)nativeBridge.AttachEntity(entity.InstanceId,entity.EntityType);
+            var available=EnabledMaps().ToList();
+            string id="editor:"+document.Id;
+            available.Add(new(id,"editor",document.Clone()));
+            await StartNativeMap(available,id);
             graphics.Build();mapPlaytest=true;modalDepth--;
             if(returnFromTest is null)
             {
@@ -115,29 +112,29 @@ public partial class GameHost
             }
             ResetNativeInput();nativeClock.RoomChanged();
         }
-        catch(Exception e){mapEditor.Service.RestoreAfterPlaytest();await ShowDialog("试玩失败："+e.Message,["OK"]);mapEditor.ResumeAfterPlaytest();}
+        catch(Exception e){EndMapRuntime();await ShowDialog("试玩失败："+e.Message,["OK"]);mapEditor.ResumeAfterPlaytest();}
     }
     private async void ReturnToMapEditor()
     {
         if(!mapPlaytest||mapEditor is null)return;
         mapPlaytest=false;modalDepth++;ResetNativeInput();
         await world.LoadRoomAsync(world.Constants["Title"].Int);graphics.Build();
-        mapEditor.Service.RestoreAfterPlaytest();
+        EndMapRuntime();
         mapEditor.ResumeAfterPlaytest();
     }
     private void OpenCharacterEditor()
     {
         if(characterEditor is not null)return;
-        ResetNativeInput();modalDepth++;previewReady=false;previewReturnRoom=world.CurrentRoom;
+        ResetNativeInput();modalDepth++;previewReady=false;
         characterEditor=new(world,content,contentStore){Visible=false,ForceNative=true};AddChild(characterEditor);
         previewViewport=new SubViewport{Size=new(640,480),TransparentBg=false,RenderTargetUpdateMode=SubViewport.UpdateMode.Always,Disable3D=true};AddChild(previewViewport);
-        previewCanvas=new GmCanvas();previewViewport.AddChild(previewCanvas);previewCanvas.Paint=c=>graphics.Render(c);
+        previewCanvas=new GmCanvas();previewViewport.AddChild(previewCanvas);previewCanvas.Paint=c=>isolatedPreview?.Graphics.Render(c);
         characterEditor.PreviewSurface.Texture=previewViewport.GetTexture();
         characterEditor.PreviewRequested+=ApplyCharacterPreview;
         characterEditor.PreviewAdvanceRequested+=AdvanceCharacterPreview;
-        characterEditor.PreviewResetRequested+=()=>{var player=Player();if(player is not null){world.Write(player,"x",96);world.Write(player,"y",0);world.Write(player,"vspeed",0);}};
+        characterEditor.PreviewResetRequested+=()=>{isolatedPreview?.Reset();previewCanvas?.QueueRedraw();};
         characterEditor.Closed+=CloseCharacterEditor;
-        ShowEditorWindow(characterEditor);
+        ShowEditorWindow(characterEditor);characterEditor.ApplyRuntimePreview();
     }
     private static void ShowEditorWindow(Window window)
     {
@@ -149,9 +146,8 @@ public partial class GameHost
         if(characterEditor is null)return;
         var closed=characterEditor;characterEditor=null;
         while(previewBusy)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
-        characterVisuals.Clear();previewDefinition=null;previewReady=false;
+        isolatedPreview?.Dispose();isolatedPreview=null;previewDefinition=null;previewReady=false;
         previewViewport?.QueueFree();previewViewport=null;previewCanvas=null;
-        if(world.CurrentRoom!=previewReturnRoom)await world.LoadRoomAsync(previewReturnRoom);
         graphics.Build();modalDepth--;ResetNativeInput();closed.QueueFree();
     }
     private GmInstance? Player()=>world.Instances.FirstOrDefault(i=>!i.Destroyed&&world.IsObject(i.Object,world.Constants["objPlayerDoll"].Int));
@@ -161,8 +157,14 @@ public partial class GameHost
         previewBusy=true;
         try
         {
-            if(!previewReady){await PrepareTestingRoom();previewReady=true;}
-            previewDefinition=definition;await BindFullCharacter(definition);graphics.Build();previewCanvas?.QueueRedraw();
+            if(isolatedPreview is null)
+            {
+                isolatedPreview=new(previewViewport!,world,content,nativeDrawRepository,mods.LoadedMods.Select(m=>m.Directory));
+                await isolatedPreview.InitializeAsync();previewReady=true;
+            }
+            if(characterEditor is null)return;
+            isolatedPreview.Registry.CharacterDirectories[definition.Id]=characterEditor.PreviewDirectory;
+            previewDefinition=definition;await isolatedPreview.ApplyAsync(definition);previewCanvas?.QueueRedraw();
             characterEditor?.SetPreviewState(string.Format(NativeLocalization.Text("真实运行时：{0}；动作与碰撞已绑定。"),definition.BasePreset));
         }
         catch(Exception e){characterEditor?.SetPreviewState(NativeLocalization.Text("预览失败：")+NativeLocalization.Text(e.Message));}
@@ -170,19 +172,12 @@ public partial class GameHost
     }
     private async void AdvanceCharacterPreview(NativeCharacterPreviewInput input)
     {
-        if(previewBusy||!previewReady||characterEditor is null)return;
+        if(previewBusy||!previewReady||characterEditor is null||isolatedPreview is null)return;
         previewBusy=true;
         try
         {
-            int offset=world.Globals.ReadOr("controllMode").Equals(world.Constants["CTRL_KEY"])?12:0;
-            void Key(int slot,bool held)=>controls.Key(world,world.Globals.Read("key",[offset+slot]).Int,held);
-            Key(0,input.Left);Key(1,input.Right);Key(5,input.Jump);
-            if(input.Dash){Key(1,true);Key(1,false);Key(1,true);}
-            nativeClock.BeginTick();var state=controls.TakeNativeInput();
-            nativeBridge.Update(new(FrameContext.FixedDelta,nativeClock.GameTime,nativeClock.Tick,new(state.Held,state.Pressed,state.Released)));
-            if(nativeClock.LegacyDue(world.Engine.Read("room_speed").Number))await StepFrameAsync();
-            graphics.Build();previewCanvas?.QueueRedraw();
-            var actor=Player();if(actor is not null)characterEditor?.SetPreviewState(string.Format(NativeLocalization.Text("真实运行时　动作 {0}　位置 {1:F1}, {2:F1}　竖直速度 {3:F1}"),actor.Scope.ReadOr("MotionNum"),actor.Scope.ReadOr("x").Number,actor.Scope.ReadOr("y").Number,actor.Scope.ReadOr("vspeed").Number));
+            await isolatedPreview.AdvanceAsync(input);previewCanvas?.QueueRedraw();
+            var actor=isolatedPreview.Player;if(actor is not null)characterEditor?.SetPreviewState(string.Format(NativeLocalization.Text("真实运行时　动作 {0}　位置 {1:F1}, {2:F1}　竖直速度 {3:F1}"),actor.Scope.ReadOr("MotionNum"),actor.Scope.ReadOr("x").Number,actor.Scope.ReadOr("y").Number,actor.Scope.ReadOr("vspeed").Number));
         }
         catch(Exception e){characterEditor?.SetPreviewState(NativeLocalization.Text("预览失败：")+NativeLocalization.Text(e.Message));}
         finally{previewBusy=false;}
@@ -192,74 +187,22 @@ public partial class GameHost
         var actor=Player()??throw new InvalidOperationException("没有可控制的角色");
         var missing=definition.Actions.Values.Where(id=>!content.Actions.ContainsKey(id))
             .Concat(definition.Dependencies.Where(id=>!mods.LoadedMods.Any(m=>m.Id==id)&&!content.Resources.ContainsKey(id)))
-            .Concat(definition.Parts.SelectMany(p=>p.Frames).Where(f=>!File.Exists(new NativeCharacterRepository(contentStore).FramePath(f))).Select(f=>f.Png)).Distinct().ToArray();
+            .Concat(definition.Parts.SelectMany(p=>p.Frames).Where(f=>!File.Exists(nativeDrawRepository.FramePath(f,content.CharacterDirectories.GetValueOrDefault(definition.Id)))).Select(f=>f.Png)).Distinct().ToArray();
         if(missing.Length>0)
         {
             string message="角色缺少以下资源或扩展，配置会保留：\n"+string.Join('\n',missing);
             if(audit)GD.Print("CONTENT_MISSING ",message);else await ShowDialog(message,["OK"]);
         }
-        var context=new GmContext(actor);world.Evaluator.ResetBudget();
-        if(definition.BasePreset is not ("Nana" or "Yuki" or "Ryoko"))throw new InvalidDataException("未知基础行为："+definition.BasePreset);
-        var previousParts=actor.Scope.Values.Where(p=>p.Key=="PartsList"||p.Key.StartsWith("PartsList[",StringComparison.Ordinal)).Select(p=>p.Value.Int).Where(id=>id>=100000).Distinct().ToArray();
-        foreach(int id in previousParts)
-        {
-            var part=world.Instances.FirstOrDefault(i=>i.Id==id&&!i.Destroyed);
-            if(part is not null)await world.Evaluator.CallAsync("instance_destroy",[],new(part));
-        }
-        actor.Scope.Write("PartsNumber",0);actor.Scope.Write("PartsList",world.Constants["noone"]);
-        await world.Evaluator.CallAsync(definition.BasePreset+"Load",[],context);
-        actor.Scope.Write("HEAD_EXT",world.Constants["obj"+definition.BasePreset+"_Head"]);
-        actor.Scope.Write("MotionNum",actor.Scope.ReadOr("STAND_0"));actor.Scope.Write("KeyFrmNum",0);
-        var display=world.Instances.FirstOrDefault(i=>!i.Destroyed&&world.IsObject(i.Object,world.Constants["objDisplay"].Int));
-        if(display is not null)await world.Evaluator.CallAsync("LoadCharacter",[definition.Appearance,false],new(display));
-        nativeBridge.BindCharacter(actor,definition);characterVisuals[actor.Id]=definition;
+        await NativeCharacterRuntime.BindAsync(world,nativeBridge,definition);characterVisuals[actor.Id]=definition;
     }
     private async Task<int> NativeCharacterMenu(string text,int fallback,GmContext context)
     {
         bool full=text.StartsWith("<Input Custom Character Name>",StringComparison.Ordinal)&&!controls.Call("keyboard_check",[17],world)!.Value.Truth;
         var characters=full?content.Characters.Values.OrderBy(c=>c.Name).ToArray():[];
         string expanded=text+string.Concat(characters.Select(c=>"|编辑器："+c.Name));
-        int selected=audit&&!nativeAuditUi&&!OS.GetCmdlineUserArgs().Contains("--controls-ui-audit")?Menu(expanded,fallback):await ShowPopupMenu(text,fallback,characters.Select(c=>NativeLocalization.Text("编辑器：")+c.Name).ToArray());
+        int selected=audit&&!nativeAuditUi&&!OS.GetCmdlineUserArgs().Contains("--controls-ui-audit")?Menu(expanded,fallback):await ShowPopupMenu(text,fallback,characters.Select(c=>NativeLocalization.Text("编辑器：")+NativeContentLocalization.Display(content,c.Id,c.Name)).ToArray());
         int original=text.Split('|').Length;
         if(selected>=original&&selected<original+characters.Length){await BindFullCharacter(characters[selected-original]);return fallback;}
         return selected;
-    }
-    private void NativeCharacterDraws(List<GmGraphics.DepthDraw> draws)
-    {
-        if(nativeDrawLevel==nativeDrawBuffers.Count)nativeDrawBuffers.Add(new());
-        var buffer=nativeDrawBuffers[nativeDrawLevel++];
-        try
-        {
-        foreach(var item in characterVisuals)buffer.Characters.Add(item);
-        foreach(var item in buffer.Characters)
-        {
-            GmInstance? actor=null;
-            foreach(var candidate in world.Instances)if(candidate.Id==item.Key&&!candidate.Destroyed){actor=candidate;break;}
-            if(actor is null){characterVisuals.Remove(item.Key);continue;}
-            if(!actor.Active||!actor.Scope.ReadOr("visible",true).Truth)continue;
-            var definition=item.Value;
-            buffer.Parts.Clear();
-            foreach(var part in definition.Parts)
-            {
-                if(!part.Visible||part.Frames.Count==0)continue;
-                int index=buffer.Parts.Count;buffer.Parts.Add(part);
-                while(index>0&&buffer.Parts[index-1].Layer>part.Layer){buffer.Parts[index]=buffer.Parts[index-1];index--;}
-                buffer.Parts[index]=part;
-            }
-            foreach(var part in buffer.Parts)
-            {
-                int total=part.Frames.Sum(f=>f.Duration);if(total<=0)continue;
-                int tick=(int)(nativeClock.GameTime*definition.AnimationFps)%total;
-                var frame=part.Frames[0];foreach(var f in part.Frames){frame=f;if(tick<f.Duration)break;tick-=f.Duration;}
-                string path=nativeDrawRepository.FramePath(frame);if(!File.Exists(path))continue;
-                Vector2 position=new((float)actor.Scope.ReadOr("x").Number,(float)actor.Scope.ReadOr("y").Number);
-                var origin=new Vector2(part.AnchorX-part.OffsetX,part.AnchorY-part.OffsetY);
-                var scale=new Vector2((float)actor.Scope.ReadOr("Direction",1).Number,1);
-                float angle=-Mathf.DegToRad((float)actor.Scope.ReadOr("Angle").Number);
-                draws.Add(new(actor.Scope.ReadOr("depth").Number-part.Layer,actor,path,origin,position,scale,angle));
-            }
-        }
-        }
-        finally{buffer.Characters.Clear();buffer.Parts.Clear();nativeDrawLevel--;}
     }
 }

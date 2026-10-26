@@ -51,30 +51,39 @@ public partial class GameHost
             await AuditNativeMenuDraw(("ToggleBlood",14),("ScreenShake",46),("StartWeather",78),("ArrowCamera",110),("Save and Back",142));
             await RegressionSelect("SAVEANDBACK");RegressionView("VIEW_TITLE");
             await RegressionSelect("MOD");RegressionView("VIEW_MOD");
-            await AuditNativeMenuDraw(("地图编辑器",160),("角色编辑器",192),("CSharp 模组",224),("Back",256));
+            await AuditNativeMenuDraw(("地图编辑器",160),("角色编辑器",192),("Mod列表",224),("Back",256));
             NativeLocalization.SetLanguage("en",false);
-            await AuditNativeMenuDraw(("地图编辑器",160),("角色编辑器",192),("CSharp 模组",224),("Back",256));
+            await AuditNativeMenuDraw(("地图编辑器",160),("角色编辑器",192),("Mod列表",224),("Back",256));
             NativeLocalization.SetLanguage("zh_CN",false);
             await RegressionTap(RegressionKey(11));RegressionView("VIEW_TITLE");
             RegressionExpect(RegressionTitle().Scope.Read("Cursor").Equals(RegressionTitle().Scope.Read("MOD")),"Mod cancel restores main menu cursor");
             await RegressionSelect("MOD");RegressionView("VIEW_MOD");
             await RegressionSelect("MOD_CSHARP");
             RegressionExpect(modPanel is not null&&modalDepth==1,"mod menu suspends gameplay");
-            if(nativeMenuWindowAudit)await AuditNativeMenuWindow(modPanel!,"CSharp");
-            modPanel!.InstallExamples();
-            modPanel.GetChildren().SelectMany(Flatten).OfType<LineEdit>().Single().Text=Path.Combine(contentStore.Mods,"Movement");
-            modPanel.ReloadSelected();
+            if(nativeMenuWindowAudit)await AuditNativeMenuWindow(modPanel!,"Mod");
+            var modTabs=Flatten(modPanel!).OfType<TabContainer>().Single(t=>t.Name=="ModTabs");
+            RegressionExpect(modTabs.GetTabCount()==2&&modTabs.GetTabTitle(0)=="Mod列表"&&modTabs.GetTabTitle(1)=="Mod编辑","fixed Mod list and editor tabs");
+            Flatten(modPanel!).OfType<Button>().Single(b=>b.Name=="InstallExamples").EmitSignal(BaseButton.SignalName.Pressed);
+            var installedMods=Flatten(modPanel!).OfType<ItemList>().Single(l=>l.Name=="InstalledMods");
+            int movement=Enumerable.Range(0,installedMods.ItemCount).Single(i=>installedMods.GetItemTooltip(i).Contains("ID: example.movement",StringComparison.Ordinal));
+            installedMods.Select(movement);installedMods.EmitSignal(ItemList.SignalName.ItemSelected,movement);
+            Flatten(modPanel!).OfType<Button>().Single(b=>b.Name=="EnableMod").EmitSignal(BaseButton.SignalName.Pressed);
             RegressionExpect(content.Actions.Count==3,"mod panel compiles all three movement actions");
-            modPanel.EmitSignal(Window.SignalName.CloseRequested);await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
+            Flatten(modPanel!).OfType<Button>().Single(b=>b.Name=="CloneMod").EmitSignal(BaseButton.SignalName.Pressed);
+            var projectDirectory=Flatten(modPanel!).OfType<LineEdit>().Single(l=>l.Name=="ModProjectDirectory");
+            RegressionExpect(modTabs.CurrentTab==1&&!projectDirectory.Editable&&projectDirectory.Text.StartsWith(contentStore.Projects+Path.DirectorySeparatorChar,StringComparison.Ordinal),"editing an installed mod opens its project copy");
+            Flatten(modPanel!).OfType<Button>().Single(b=>b.Name=="ReloadModProject").EmitSignal(BaseButton.SignalName.Pressed);
+            RegressionExpect(content.Actions.Count==3&&mods.LoadedMods.Single(m=>m.Id=="example.movement").Directory==projectDirectory.Text,"project copy compiles through Mod editor");
+            modPanel!.EmitSignal(Window.SignalName.CloseRequested);await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
             RegressionExpect(modalDepth==0,"mod panel releases modal input");
-            if(nativeMenuWindowAudit)await AuditNativeMenuDraw(("地图编辑器",160),("角色编辑器",192),("CSharp 模组",224),("Back",256));
+            if(nativeMenuWindowAudit)await AuditNativeMenuDraw(("地图编辑器",160),("角色编辑器",192),("Mod列表",224),("Back",256));
 
             await RegressionSelect("MOD_MAP");
             RegressionExpect(mapEditor is not null&&modalDepth==1&&mapEditor.Document.Instances.Count==1227&&mapEditor.Document.Tiles.Count==1647,"map editor opened from Mod menu");
             if(nativeMenuWindowAudit)await AuditNativeMenuWindow(mapEditor!,"map");
             mapEditor!.EmitSignal(Window.SignalName.CloseRequested);
             await AuditWait(()=>mapEditor is null&&modalDepth==0?this:null,"map editor menu return");
-            if(nativeMenuWindowAudit)await AuditNativeMenuDraw(("地图编辑器",160),("角色编辑器",192),("CSharp 模组",224),("Back",256));
+            if(nativeMenuWindowAudit)await AuditNativeMenuDraw(("地图编辑器",160),("角色编辑器",192),("Mod列表",224),("Back",256));
             await RegressionSelect("MOD_CHARACTER");
             RegressionExpect(characterEditor is not null&&modalDepth==1,"character editor opened from Mod menu");
             if(nativeMenuWindowAudit)
@@ -85,11 +94,11 @@ public partial class GameHost
                 discard?.EmitSignal(ConfirmationDialog.SignalName.Confirmed);
                 await AuditWait(()=>characterEditor is null&&modalDepth==0?this:null,"character editor returns to Mod");
                 RegressionView("VIEW_MOD");
-                await AuditNativeMenuDraw(("地图编辑器",160),("角色编辑器",192),("CSharp 模组",224),("Back",256));
+                await AuditNativeMenuDraw(("地图编辑器",160),("角色编辑器",192),("Mod列表",224),("Back",256));
                 NativeLocalization.SetLanguage("en");
                 GD.Print("NATIVE_MENU_WINDOW_OK editors=3 returns=3 language_saved=en");
             }
-            GD.Print("NATIVE_MENU_OK settings=visible language=zh_CN,en persistence=PASS mod=map,character,CSharp logo=0.75 menu_y=312");
+            GD.Print("NATIVE_MENU_OK settings=visible language=zh_CN,en persistence=PASS mod=map,character,list,editor logo=0.75 menu_y=312");
             if(nativeMenuWindowAudit||OS.GetCmdlineUserArgs().Contains("--native-menu-only"))
             {
                 audio.Shutdown();GetTree().Quit();return;
@@ -99,10 +108,46 @@ public partial class GameHost
             RegressionExpect(content.Characters.Values.Any(c=>c.Parts.Count>=2),"saved editor character immediately registered");
             var rediscovered=new ContentRegistry();new NativeContentStore(world.UserRoot).DiscoverCharacters(rediscovered);
             RegressionExpect(rediscovered.Characters.Values.Any(c=>c.Parts.Count==3&&c.Name=="UI 像素审核"),"saved character discovered by fresh content service");
+            int liveRoom=world.CurrentRoom,liveNext=world.NextId;long liveFrame=world.Frame,liveTick=nativeClock.Tick;
             characterEditor.ApplyRuntimePreview();
-            await AuditWait(()=>previewReady&&!previewBusy?Player():null,"actual character preview initialization");
-            var previewActor=Player()!;
-            RegressionExpect(nativeBridge.BoundCharacter(previewActor.Id) is not null,"preview bound to real GM actor");
+            await AuditWait(()=>previewReady&&!previewBusy?isolatedPreview?.Player:null,"actual character preview initialization");
+            var preview=isolatedPreview!;var previewWorld=preview.World;var previewActor=preview.Player!;
+            RegressionExpect(preview.Bridge.BoundCharacter(previewActor.Id) is not null,"preview bound to real GM actor");
+            var previewController=NativeActorActions.Controller(new(previewWorld,previewActor))!;
+            for(int wait=0;wait<240&&(!NativeActorActions.Grounded(new(previewWorld,previewActor))||previewActor.Scope.ReadOr("ChangeMotion").Truth||!NativeActorActions.MotionMatches(new(previewWorld,previewActor),"STAND_0"));wait++)
+            {
+                AdvanceCharacterPreview(new(false,false,false,false));
+                await AuditWait(()=>!previewBusy?previewActor:null,"preview settles before jump buttons");
+            }
+            RegressionExpect(NativeActorActions.Grounded(new(previewWorld,previewActor))&&previewController.Scope.ReadOr("JumpNum").Int==2,"preview jump buttons begin grounded with original jump count");
+            preview.Input.Clear(previewWorld);
+            var previewJumps=new List<double>();
+            void RecordPreviewJump(GmInstance instance){if(instance==previewActor)previewJumps.Add(instance.Scope.ReadOr("vspeed").Number);}
+            previewWorld.CharacterJumped+=RecordPreviewJump;
+            var jumpButton=Flatten(characterEditor).OfType<Button>().Single(button=>button.Text=="跳跃");
+            int previewKeyOffset=previewWorld.Globals.ReadOr("controllMode").Equals(previewWorld.Constants["CTRL_KEY"])?12:0;
+            int previewJumpKey=previewWorld.Globals.Read("key",[previewKeyOffset+5]).Int;
+            for(int click=0;click<2;click++)
+            {
+                preview.Clock.RoomChanged();
+                if(click==1)preview.Clock.LegacyDue(previewWorld.Engine.Read("room_speed").Number);
+                jumpButton.EmitSignal(BaseButton.SignalName.Pressed);
+                await AuditWait(()=>!previewBusy?previewActor:null,"paused preview jump click");
+                RegressionExpect(previewJumps.Count==click+1&&previewJumps[^1]<0,"paused preview jump click applies one original impulse at clock phase "+click);
+                var released=preview.Input.TakeNativeInput();
+                RegressionExpect(!released.Held.Contains(previewJumpKey)&&previewController.Scope.ReadOr("b2").Int==3,"paused preview jump click releases mapped key "+click);
+            }
+            previewBusy=true;
+            jumpButton.EmitSignal(BaseButton.SignalName.Pressed);
+            previewBusy=false;
+            var busyInput=preview.Input.TakeNativeInput();
+            RegressionExpect(!busyInput.Held.Contains(previewJumpKey)&&!busyInput.Pressed.Contains(previewJumpKey),"busy preview discards jump without holding key");
+            jumpButton.EmitSignal(BaseButton.SignalName.Pressed);
+            await AuditWait(()=>!previewBusy?previewActor:null,"paused preview jump resumes after busy");
+            var resumedInput=preview.Input.TakeNativeInput();
+            RegressionExpect(!resumedInput.Held.Contains(previewJumpKey)&&previewController.Scope.ReadOr("b2").Int==3,"paused preview jump releases after busy");
+            RegressionExpect(previewJumps.Count==2,"paused preview busy and exhausted clicks do not duplicate jump actions");
+            previewWorld.CharacterJumped-=RecordPreviewJump;
             for(int t=0;t<10;t++)
             {
                 AdvanceCharacterPreview(new(false,true,t==2,false));
@@ -111,7 +156,13 @@ public partial class GameHost
             RegressionExpect(previewActor.Scope.ReadOr("x").Number!=96,"preview controls execute actual movement");
             characterEditor.EmitSignal(Window.SignalName.CloseRequested);
             await AuditWait(()=>characterEditor is null&&modalDepth==0?this:null,"character editor return");
-            RegressionExpect(world.CurrentRoom==world.Constants["Title"].Int,"character preview returns to title");
+            RegressionExpect(isolatedPreview is null&&!Directory.Exists(preview.TemporaryDirectory),"character preview disposes isolated runtime");
+            RegressionExpect(world.CurrentRoom==liveRoom&&world.NextId==liveNext&&world.Frame==liveFrame&&nativeClock.Tick==liveTick,"character preview preserves the live room, instances, frame and clock");
+            GD.Print("NATIVE_PREVIEW_INPUT_AUDIT_OK paused_clicks=3 impulses=",string.Join(',',previewJumps)," clock_phases=2 busy=PASS release=PASS lifecycle=PASS");
+            if(OS.GetCmdlineUserArgs().Contains("--native-preview-input-audit"))
+            {
+                audio.Shutdown();GetTree().Quit();return;
+            }
 
             await PrepareTestingRoom();for(int f=0;f<12;f++)await StepFrameAsync();
             nativeAuditUi=true;controls.Clear(world);

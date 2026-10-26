@@ -1,0 +1,22 @@
+{
+  "formatVersion": 2,
+  "id": "example.double-dash",
+  "name": "Nana · 二段冲刺",
+  "author": "DoubleDash",
+  "description": "冲刺结束后七分之三秒内再按一次方向键可以追加第二段冲刺，方向可不同；落地或停止冲刺后重置，最多两段。",
+  "version": "1.0.0",
+  "content": {
+    "resources": {},
+    "maps": {},
+    "characters": {},
+    "languages": {},
+    "code": {
+      "entryType": "DoubleDash.DoubleDashMod",
+      "sources": [
+        "DoubleDashState.cs",
+        "DoubleDashMod.cs"
+      ],
+      "managedDependencies": []
+    }
+  }
+}

@@ -352,6 +352,10 @@ foreach(string mutation in new[]{"create","destroy","deactivate","type","parent"
         Equal(w.Globals.Read("contacts").ToString().Contains(second.Id.ToString()+","),false,"later collision snapshot excludes "+mutation);
 }
 assertions+=MotionArrayTests.Run(world,dynamicObject);
+assertions+=DoubleDashTests.Run();
+assertions+=FrameSeparationTests.Run();
+assertions+=FrameBenchmarkTests.Run();
+assertions+=ActionEditorTests.Run();
 var originalMotion=world.Create(dynamicObject,500,500,run:false);
 var nativeMotion=world.Create(dynamicObject,500,500,run:false);
 var originalPart=world.Create(dynamicObject,500,500,run:false);

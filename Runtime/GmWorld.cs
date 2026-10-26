@@ -98,6 +98,8 @@ public sealed partial class GmWorld
     public event Action<GmInstance>? CharacterJumped;
     public bool Ended;
     public Action? Redraw;
+    public GmFramePlan? FramePlan;
+    public void PublishFrame(){if(FramePlan is not null){FramePlan.Publish(Frame,CurrentRoom);return;}Redraw?.Invoke();}
     public Action? InputEvents;
     public Func<ValueTask>? InputEventsAsync;
     public Func<string, GmValue[], GmContext, GmValue?>? Platform;
@@ -535,7 +537,7 @@ public sealed partial class GmWorld
         Performance.End("collision_end",phase);phase=Performance.Start();
         RemoveDestroyed();
         Particles.Update(Random);
-        Redraw?.Invoke();
+        PublishFrame();
         Performance.End("draw",phase);phase=Performance.Start();
         foreach(var i in Instances.Where(i=>!i.Destroyed&&i.Active).ToArray())
         {

@@ -21,11 +21,13 @@ public partial class GameHost : Node2D
     private long liveFirstFrame;
     private readonly List<double> liveTimes=new();
     private readonly GmFrameMonitor frameMonitor=new();
+    private readonly GmFramePlan framePlan=new();
     private int cadenceRoom=int.MinValue;
     private readonly long frameClock=Stopwatch.GetTimestamp();
     private Label? fpsLabel;
     private bool renderSignalConnected;
     private long fpsAuditStart;
+    private long buildCount;
     private bool fpsAuditSlow;
     private readonly List<GmFrameSample> fpsAuditSamples=new();
     private IEnumerator<int>? animationAudit;
@@ -150,6 +152,7 @@ public partial class GameHost : Node2D
             world.Wait=Wait;
             world.InputEventsAsync=()=>controls.DispatchAsync(world);
             world.Redraw=()=>{graphics.Build();canvas.QueueRedraw();};
+            if(!audit||OS.GetCmdlineUserArgs().Contains("--fps-audit")||OS.GetCmdlineUserArgs().Contains("--live-frames"))world.FramePlan=framePlan;
             if(audit)GD.Print("AUDIT_DATA_READY");
             if(audit&&OS.GetCmdlineUserArgs().Contains("--package-resources-audit"))
             {
@@ -209,6 +212,8 @@ public partial class GameHost : Node2D
                 if(animation>=0&&animation+1<commandArgs.Length){animationAudit=(commandArgs[animation+1]=="rain"?AuditRain():commandArgs[animation+1]=="route"?AuditRoute(true):commandArgs[animation+1].StartsWith("bind:",StringComparison.Ordinal)?AuditBinding(commandArgs[animation+1][5..],true):AuditAnimation(commandArgs[animation+1])).GetEnumerator();return;}
                 GD.Print("AUDIT room=",world.CurrentRoom," frames=",world.Frame," instances=",world.Instances.Count);
                 if(world.Performance.Enabled)GD.Print("PERF_CONTENT tiles=",world.Tiles.Count," objects=",string.Join(" ",world.Instances.GroupBy(i=>i.Object).OrderByDescending(g=>g.Count()).Take(12).Select(g=>$"{g.Key}:{g.Count()}")));
+                int updateDraw=Array.IndexOf(commandArgs,"--update-draw-benchmark");
+                if(updateDraw>=0&&updateDraw+1<commandArgs.Length){AuditUpdateDraw(int.Parse(commandArgs[updateDraw+1]),updateDraw+2<commandArgs.Length?int.Parse(commandArgs[updateDraw+2]):1);}
                 int benchmark=Array.IndexOf(commandArgs,"--benchmark");
                 if(benchmark>=0&&benchmark+1<commandArgs.Length)
                 {
@@ -251,7 +256,20 @@ public partial class GameHost : Node2D
         world.Write(player,"x",2478);world.Write(player,"y",1628);
         world.Write(player,"hspeed",0);world.Write(player,"vspeed",0);
     }
-    private void StepFrame(){PositionMudWindow();controls.Poll(world);world.Step();controls.EndStep();SyncViewport();}
+    private void StepFrame(){var plan=world.FramePlan;world.FramePlan=null;PositionMudWindow();controls.Poll(world);world.Step();controls.EndStep();SyncViewport();world.FramePlan=plan;}
+    private bool RenderFrame(){if(framePlan.Consume() is null)return false;buildCount++;graphics.Build();canvas.QueueRedraw();return true;}
+    private bool lastFocus=true;
+    private string? lastFpsText;
+    private Vector2 lastMouse;
+    private bool NativeRefresh()
+    {
+        if(audit||captured||OS.GetCmdlineUserArgs().Contains("--capture")||actionEditor is not null||characterEditor is not null||mapEditor is not null)return true;
+        if(modalDepth>0||mudWindowPlayer is not null||world.IsLoadingRoom)return true;
+        bool focus=GetWindow().HasFocus();if(focus!=lastFocus){lastFocus=focus;return true;}
+        if(fpsLabel is not null&&fpsLabel.Text!=lastFpsText){lastFpsText=fpsLabel.Text;return true;}
+        var mouse=GetGlobalMousePosition();if(mouse!=lastMouse){lastMouse=mouse;return true;}
+        return false;
+    }
     private async Task StepFrameAsync(){PositionMudWindow();controls.Poll(world);await world.StepAsync();controls.EndStep();SyncViewport();}
     private async ValueTask<GmValue> Wait(string name,GmValue[] args,GmContext context)
     {
@@ -578,7 +596,7 @@ public partial class GameHost : Node2D
             SyncNativeBindings();
             SyncNativeUi();
             SyncMapRuntime();
-            nativeBridge.Services.Input.Context=mapEditor is not null||characterEditor is not null?NativeInputContext.Editor:modalDepth>0||world.CurrentRoom==world.Constants["Title"].Int?NativeInputContext.Menu:NativeInputContext.Game;
+            nativeBridge.Services.Input.Context=mapEditor is not null||characterEditor is not null||actionEditor is not null?NativeInputContext.Editor:modalDepth>0||world.CurrentRoom==world.Constants["Title"].Int?NativeInputContext.Menu:NativeInputContext.Game;
             if(cadenceRoom!=world.CurrentRoom){cadenceRoom=world.CurrentRoom;world.Performance.ResetCadence();nativeClock.RoomChanged();}
             if(!audit&&!GetWindow().HasFocus()&&modalDepth==0){ResetNativeInput();canvas.QueueRedraw();return;}
             if(modalDepth>0&&pendingFrame is null){elapsed=0;nativeClock.Pause();frameMonitor.Reset();world.Performance.ResetCadence();canvas.QueueRedraw();return;}
@@ -587,7 +605,7 @@ public partial class GameHost : Node2D
                 if(!pendingFrame.IsCompleted){elapsed=0;nativeClock.Pause();frameMonitor.Reset();world.Performance.ResetCadence();canvas.QueueRedraw();return;}
                 pendingFrame.GetAwaiter().GetResult();pendingFrame=null;elapsed=0;nativeClock.Pause();
             }
-            var measurement=frameMonitor.Update(Stopwatch.GetElapsedTime(frameClock).TotalSeconds,world.Frame,world.CurrentRoom,world.Engine.Read("room_speed").Number,DisplayServer.GetName()!="headless");
+            var measurement=frameMonitor.Update(Stopwatch.GetElapsedTime(frameClock).TotalSeconds,world.Frame,world.CurrentRoom,world.Engine.Read("room_speed").Number,DisplayServer.GetName()!="headless",buildCount);
             if(measurement is not null)
             {
                 world.Engine.Write("fps",measurement.LogicFps);world.Globals.Write("current_fps",measurement.LogicFps);
@@ -646,7 +664,8 @@ public partial class GameHost : Node2D
                 if(world.Ended)break;
             }
             if(world.Ended){audio.Shutdown();GetTree().Quit();}
-            QueueRedraw();canvas.QueueRedraw();
+            bool rebuilt=RenderFrame();
+            if(rebuilt||NativeRefresh()){QueueRedraw();canvas.QueueRedraw();}
             if(liveEnd>0&&world.Frame>=liveEnd)
             {
                 liveTimes.Sort();

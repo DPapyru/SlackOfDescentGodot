@@ -275,6 +275,10 @@ public sealed partial class GmGraphics
         if(target<0)main.Add(draw);
         else if(surfaces.TryGetValue(target,out var surface)){surface.Canvas.Commands.Add(draw);surface.Canvas.QueueRedraw();}
     }
+    public long Builds{get;private set;}
+    public double LastBuildMilliseconds{get;private set;}
+    public double TotalBuildMilliseconds{get;private set;}
+    private bool building;
     public void Begin(){main.Clear();SpriteAudit?.Clear();}
     public void Render(GmCanvas canvas)
     {
@@ -288,6 +292,11 @@ public sealed partial class GmGraphics
     }
     public void Build()
     {
+        if(building)return;
+        building=true;
+        ulong started=Time.GetTicksUsec();
+        try
+        {
         using var measurement=world.Performance.Objects.Begin(-2,8);
         Begin();
         Camera=world.Engine.ReadOr("view_enabled").Truth?new((float)world.Engine.Read("view_xview",[0]).Number,(float)world.Engine.Read("view_yview",[0]).Number):Vector2.Zero;
@@ -329,6 +338,13 @@ public sealed partial class GmGraphics
         RoomBackgrounds(true);
         }
         finally{draws.Clear();buffer.Instances.Clear();depthDrawLevel--;}
+        }
+        finally
+        {
+            building=false;Builds++;
+            LastBuildMilliseconds=(Time.GetTicksUsec()-started)/1000.0;
+            TotalBuildMilliseconds+=LastBuildMilliseconds;
+        }
     }
     private void Tiled(Texture2D texture,Vector2 position,Vector2 scale,Color tint,bool horizontal=true,bool vertical=true)
     {

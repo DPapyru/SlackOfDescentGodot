@@ -25,7 +25,9 @@ public partial class NativeCharacterEditor : Window
     private Label status = null!, runtimeState = null!;
     private SpinBox anchorX = null!, anchorY = null!, offsetX = null!, offsetY = null!, layer = null!, duration = null!, fps = null!, newWidth = null!, newHeight = null!;
     private ColorPickerButton color = null!;
-    private CheckButton animate = null!, runtimePlay = null!, left = null!, right = null!;
+    private CheckButton animate = null!, runtimePlay = null!, left = null!, right = null!, showReference = null!, overallMode = null!;
+    private SpinBox referenceOpacity = null!, zoomSpin = null!;
+    private Button baseButton = null!;
     private CheckBox partVisible = null!, replaceOriginal = null!;
     private OptionButton targetChoice = null!;
     private ItemList originalAssets = null!;
@@ -66,12 +68,16 @@ public partial class NativeCharacterEditor : Window
             var page = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; scroll.AddChild(page); return page;
         }
         var partPage = Page(L("部位", "Parts"));
+        var emptyHint = new VBoxContainer { Name = "EmptyHint" }; partPage.AddChild(emptyHint);
+        Button(emptyHint, L("生成基底角色", "Generate base character"), GenerateBase);
+        emptyHint.AddChild(new Label { Text = L("先一键生成完整基底，再用整体画布描改。", "Generate a complete base first, then trace it on the overall canvas."), AutowrapMode = TextServer.AutowrapMode.WordSmart });
         partPage.AddChild(new Label { Text = L("未替换的部位保留原样", "Unassigned parts keep their original appearance") });
         parts = new ItemList { AutoTranslateMode = AutoTranslateModeEnum.Disabled, CustomMinimumSize = new(245, 240) }; partPage.AddChild(parts); parts.ItemSelected += index => SelectPart((int)index);
         var add = Row(partPage); Button(add, L("＋部位", "+ Part"), () => AddPart(L("部位", "Part"), 0)); Button(add, L("＋装饰", "+ Decoration"), () => AddPart(L("装饰", "Decoration"), 20));
         var dimensions = Row(partPage); dimensions.AddChild(new Label { Text = L("尺寸", "Size") }); newWidth = Spin(dimensions, 1, 256, _ => { }); newHeight = Spin(dimensions, 1, 256, _ => { }); newWidth.Value = newHeight.Value = 32;
         Button(partPage, L("删除当前部位", "Remove selected part"), () => Confirm("删除当前部件及全部动画帧？", () => { if (CurrentPart is { } part) Document.RemovePart(part.Id); selectedPart = Math.Max(0, selectedPart - 1); Refresh(); }));
         var assetPage = Page(L("素材", "Assets"));
+        baseButton = new Button { Text = L("生成基底角色", "Generate base character") }; assetPage.AddChild(baseButton); baseButton.Pressed += GenerateBase;
         Button(assetPage, L("导入 PNG／动画帧…", "Import PNG / animation frames…"), () => ImportPng(false));
         Button(assetPage, L("追加 PNG 动画帧…", "Append PNG frames…"), () => ImportPng(true));
         var search = new LineEdit { AutoTranslateMode = AutoTranslateModeEnum.Disabled, PlaceholderText = L("搜索原版素材 / ID", "Search original assets / ID") }; assetPage.AddChild(search);
@@ -106,10 +112,16 @@ public partial class NativeCharacterEditor : Window
         foreach (var (text, tool) in new[] { (L("画笔 B", "Brush B"), NativeCharacterTool.Brush), (L("橡皮 E", "Eraser E"), NativeCharacterTool.Eraser), (L("选区 S", "Select S"), NativeCharacterTool.Select) })
         { var button = new Button { Text = text, ToggleMode = true, ButtonGroup = group, ButtonPressed = tool == NativeCharacterTool.Brush }; tools.AddChild(button); button.Pressed += () => canvas.Tool = tool; }
         color = new ColorPickerButton { Color = new Color(0.3f, 0.7f, 1, 1), CustomMinimumSize = new(50, 32), EditAlpha = true }; tools.AddChild(color); color.ColorChanged += value => canvas.PaintColor = value;
-        var zoom = Spin(tools, 2, 24, value => { if (canvas is not null) canvas.Zoom = (int)value; }); zoom.Value = 10;
+        zoomSpin = Spin(tools, 2, 24, value => { if (canvas is not null) canvas.Zoom = (int)value; }); zoomSpin.Value = 10;
         Button(tools, L("撤销", "Undo"), Undo); Button(tools, L("重做", "Redo"), Redo); Button(tools, L("复制", "Copy"), Copy); Button(tools, L("粘贴", "Paste"), Paste);
         var canvasScroll = new ScrollContainer { CustomMinimumSize = new(350, 300), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, SizeFlagsVertical = Control.SizeFlags.ExpandFill }; pixel.AddChild(canvasScroll);
         canvas = new NativeCharacterPixelCanvas { Name = "像素画布", PaintColor = color.Color }; canvasScroll.AddChild(canvas); canvas.Edited += OnPixelsEdited;
+        var view = Row(pixel); showReference = new CheckButton { Text = L("显示基底参照", "Show base reference"), ButtonPressed = true }; view.AddChild(showReference);
+        showReference.Toggled += value => { canvas.ShowReference = value; canvas.QueueRedraw(); };
+        var opacity = Spin(view, 5, 100, value => { canvas.ReferenceOpacity = (float)(value / 100); canvas.QueueRedraw(); }); opacity.Value = 35; referenceOpacity = opacity;
+        overallMode = new CheckButton { Text = L("整体画布", "Overall canvas") }; view.AddChild(overallMode);
+        overallMode.Toggled += value => { canvas.Mode = value ? NativeCharacterCanvasMode.Overall : NativeCharacterCanvasMode.Part; if (value) canvas.FitZoom(430, 470); canvas.QueueRedraw(); };
+        view.AddChild(new Label { Name = "CanvasHint", Text = L("整体画布：笔画自动落到命中的部位", "Overall canvas: strokes land on the hit part") });
         composite = new NativeCharacterComposite { CustomMinimumSize = new(240, 100) }; pixel.AddChild(composite);
         animate = new CheckButton { Text = L("播放部位动画", "Play part animation"), ButtonPressed = true }; pixel.AddChild(animate);
         var timeline = Row(pixel); frames = new OptionButton { CustomMinimumSize = new(90, 32) }; timeline.AddChild(frames); frames.ItemSelected += index => { selectedFrame = (int)index; Refresh(); };
@@ -139,7 +151,7 @@ public partial class NativeCharacterEditor : Window
     {
         if (refreshing) return;
         Document.Edit(action); previewDirty = true; previewDirtyTime = 0; RefreshTitle(); composite.Invalidate(); canvas.QueueRedraw();
-        if (CurrentPart is { } part && selectedPart < parts.ItemCount) parts.SetItemText(selectedPart, $"{part.Name}  [{part.Layer}]  {part.Width}×{part.Height}");
+        if (CurrentPart is { } part && selectedPart < parts.ItemCount) parts.SetItemText(selectedPart, $"{part.Name}  [{part.Layer}]  {part.Width}×{part.Height}  {part.Target}");
     }
     private void Refresh()
     {
@@ -147,7 +159,8 @@ public partial class NativeCharacterEditor : Window
         try
         {
             selectedPart = Math.Clamp(selectedPart, 0, Math.Max(0, Document.Definition.Parts.Count - 1));
-            parts.Clear(); foreach (var part in Document.Definition.Parts) parts.AddItem($"{part.Name}  [{part.Layer}]  {part.Width}×{part.Height}");
+            parts.Clear(); foreach (var part in Document.Definition.Parts) parts.AddItem($"{part.Name}  [{part.Layer}]  {part.Width}×{part.Height}  {part.Target}");
+            if (FindChild("EmptyHint", true, false) is CanvasItem hint) hint.Visible = Document.Definition.Parts.Count == 0 || Document.Definition.Parts.All(part => !HasPixels(part));
             if (parts.ItemCount > 0) parts.Select(selectedPart);
             characterName.Text = Document.Definition.Name;
             int presetIndex = Array.IndexOf(Presets, Document.Definition.BasePreset);
@@ -162,6 +175,10 @@ public partial class NativeCharacterEditor : Window
                 partName.Text = p.Name; partVisible.ButtonPressed = p.Visible; replaceOriginal.ButtonPressed = p.ReplaceOriginal; targetChoice.Select(Array.IndexOf(NativeCharacterTargets.Names, p.Target));
                 anchorX.Value = p.AnchorX; anchorY.Value = p.AnchorY; offsetX.Value = p.OffsetX; offsetY.Value = p.OffsetY; layer.Value = p.Layer; duration.Value = p.Frames[selectedFrame].Duration;
             }
+            canvas.ShowReference = showReference.ButtonPressed; canvas.ReferenceOpacity = (float)(referenceOpacity.Value / 100);
+            canvas.Mode = overallMode.ButtonPressed ? NativeCharacterCanvasMode.Overall : NativeCharacterCanvasMode.Part;
+            if (overallMode.ButtonPressed) canvas.FitZoom(430, 470);
+            zoomSpin.Value = canvas.Zoom;
             canvas.Bind(Document, p?.Id, selectedFrame); composite.Document = Document; composite.Invalidate(); RefreshTitle();
         }
         finally { refreshing = false; }
@@ -282,7 +299,7 @@ public partial class NativeCharacterEditor : Window
     public string RunUiAudit(string outputDirectory)
     {
         if (!IsNodeReady()) throw new InvalidOperationException("编辑器必须先加入场景树。");
-        Directory.CreateDirectory(outputDirectory); RunAssetUiAudit(outputDirectory); NewDocument();
+        Directory.CreateDirectory(outputDirectory); RunAssetUiAudit(outputDirectory); RunBaseUiAudit(outputDirectory); NewDocument();
         characterName.Text = "UI 像素审核"; characterName.EmitSignal(LineEdit.SignalName.TextChanged, characterName.Text); Document.Definition.Dependencies.Add("missing.example.dependency");
         Document.Definition.Extra = new() { ["futureMetadata"] = JsonSerializer.SerializeToElement(new { keep = true }) };
         SelectPart(1); canvas.PaintColor = new Color(0.8f, 0.2f, 0.4f, 0.5f); canvas.Tool = NativeCharacterTool.Brush;

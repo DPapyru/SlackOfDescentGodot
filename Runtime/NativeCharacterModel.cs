@@ -404,3 +404,79 @@ public static class NativeCharacterPng
         byte[] chunk = new byte[data.Length + 12]; Write32(chunk, 0, (uint)data.Length); Encoding.ASCII.GetBytes(type, chunk.AsSpan(4, 4)); data.CopyTo(chunk, 8); Write32(chunk, data.Length + 8, Crc(chunk.AsSpan(4, data.Length + 4))); output.Write(chunk);
     }
 }
+public static class NativeCharacterBones
+{
+    public static readonly string[] Order = ["BODY_BOTTOM", "BODY_TOP", "HEAD", "HAND1_ABOVE", "HAND2_ABOVE", "HAND3_ABOVE", "HAND1_BELOW", "HAND2_BELOW", "HAND3_BELOW", "FOOT1_ABOVE", "FOOT2_ABOVE", "FOOT3_ABOVE", "FOOT1_BELOW", "FOOT2_BELOW", "FOOT3_BELOW"];
+    private static readonly (int X, int Y)[] Rest = [(0, 0), (0, 0), (1, -18), (2, -15), (4, -3), (3, 9), (2, -15), (0, -3), (-2, 9), (1, 10), (-4, 32), (5, 55), (1, 10), (1, 32), (0, 57)];
+    public static int Index(string target) => target == "TAIL" ? 2 : Array.IndexOf(Order, target);
+    public static (int X, int Y) RestOffset(string target) { int index = Index(target); return index < 0 ? (0, 0) : Rest[index]; }
+}
+
+public static class NativeCharacterLayout
+{
+    public static (int X, int Y) Place(NativeCharacterPart part) { var rest = NativeCharacterBones.RestOffset(part.Target); return (rest.X + part.OffsetX, rest.Y + part.OffsetY); }
+    public static (int X, int Y) Corner(NativeCharacterPart part) { var place = Place(part); return (place.X - part.AnchorX, place.Y - part.AnchorY); }
+    public static NativePixelRect Bounds(NativeCharacterPart part) { var corner = Corner(part); return new(corner.X, corner.Y, part.Width, part.Height); }
+    public static List<NativeCharacterPart> Ordered(CharacterDefinition definition) => definition.Parts.Where(p => p.Visible && p.Frames.Count > 0).OrderBy(p => p.Layer).ThenBy(definition.Parts.IndexOf).ToList();
+    public static NativePixelRect Bounds(CharacterDefinition definition)
+    {
+        var parts = Ordered(definition);
+        if (parts.Count == 0) return new(0, 0, 0, 0);
+        var rects = parts.Select(Bounds).ToArray();
+        int x = rects.Min(r => r.X), y = rects.Min(r => r.Y);
+        return new(x, y, rects.Max(r => r.X + r.Width) - x, rects.Max(r => r.Y + r.Height) - y);
+    }
+    public static string? Hit(CharacterDefinition definition, Func<NativeCharacterPart, byte[]> frame, int x, int y)
+    {
+        var parts = Ordered(definition);
+        for (int index = parts.Count - 1; index >= 0; index--)
+        {
+            var part = parts[index]; var corner = Corner(part);
+            int localX = x - corner.X, localY = y - corner.Y;
+            if (localX < 0 || localY < 0 || localX >= part.Width || localY >= part.Height) continue;
+            var rgba = frame(part); int offset = (localY * part.Width + localX) * 4;
+            if (offset + 3 < rgba.Length && rgba[offset + 3] != 0) return part.Id;
+        }
+        return null;
+    }
+}
+
+public sealed record NativeCharacterBaseSlot(string Target, int Layer, string Folder, string[] Files);
+
+public sealed record NativeCharacterBasePlacement(NativeCharacterBaseSlot Slot, string Asset, string Part, string? Existing);
+
+public static class NativeCharacterBase
+{
+    public static readonly string[] Presets = ["Nana", "Ryoko", "Yuki"];
+    private static readonly NativeCharacterBaseSlot[] Table =
+    [
+        new("FOOT2_BELOW", -40, "Foot_Below", ["Socks2_below", "Socks0_below"]),
+        new("FOOT1_BELOW", -30, "Foot_Below", ["Shoes_below"]),
+        new("TAIL", -10, "Tail", ["Tail"]),
+        new("BODY_BOTTOM", 0, "Body", ["Body_Bottom", "Body_Bottom_Pants"]),
+        new("BODY_TOP", 10, "Body", ["Body_Top"]),
+        new("HEAD", 30, "Head", ["Hair"]),
+        new("HEAD", 31, "Head", ["Eye"]),
+        new("HEAD", 32, "Head", ["Mouth"]),
+        new("FOOT2_ABOVE", 40, "Foot_Above", ["Socks2_above", "Socks0_above"]),
+        new("FOOT1_ABOVE", 41, "Foot_Above", ["Shoes_above"]),
+        new("HAND2_ABOVE", 50, "Hand_Above", ["Hand2_above"]),
+        new("HAND1_ABOVE", 51, "Hand_Above", ["Hand1_above"]),
+    ];
+    public static string Asset(string preset, NativeCharacterBaseSlot slot, string file) => "Chara/Doll/" + slot.Folder + "/Character-" + preset + "_" + file + ".gif";
+    public static IReadOnlyList<(NativeCharacterBaseSlot Slot, string Asset, string Part)> Resolve(string preset, IReadOnlyCollection<string> available)
+    {
+        var result = new List<(NativeCharacterBaseSlot, string, string)>();
+        foreach (var slot in Table)
+            foreach (string file in slot.Files)
+            {
+                string asset = Asset(preset, slot, file);
+                if (!available.Contains(asset)) continue;
+                result.Add((slot, asset, file)); break;
+            }
+        return result;
+    }
+    public static IReadOnlyList<NativeCharacterBasePlacement> Plan(CharacterDefinition definition, string preset, IReadOnlyCollection<string> available) =>
+        Resolve(preset, available).Select(item => new NativeCharacterBasePlacement(item.Slot, item.Asset, item.Part, definition.Parts.FirstOrDefault(p => p.Name == item.Part)?.Id)).ToList();
+}
+

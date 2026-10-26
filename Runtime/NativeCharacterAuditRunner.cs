@@ -20,6 +20,7 @@ public partial class NativeCharacterAuditRunner : Node
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             if (args.Contains("--capture-ui") && DisplayServer.GetName() != "headless")
             {
+                await editor.CaptureBaseShotsAsync(output);
                 RenderingServer.ForceDraw(true);
                 using var image = editor.GetViewport().GetTexture().GetImage(); image.SavePng(Path.Combine(output, "ui.png"));
             }

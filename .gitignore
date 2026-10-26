@@ -1,6 +1,7 @@
 ./docs/
 .godot/
 .nuget/
+Tools/ModCompiler/References/
 **/bin/
 **/obj/
 **/target/

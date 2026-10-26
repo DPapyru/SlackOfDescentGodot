@@ -22,10 +22,11 @@ public sealed class NativeContentStore
     public string Characters => Path.Combine(Root, "Characters");
     public string Maps => Path.Combine(Root, "Maps");
     public string Mods => Path.Combine(Root, "Mods");
+    public string Projects => Path.Combine(Root, "Projects");
     public NativeContentStore(string userRoot)
     {
         Root = Path.Combine(userRoot, "Content");
-        foreach (var path in new[] { Characters, Maps, Mods }) Directory.CreateDirectory(path);
+        foreach (var path in new[] { Characters, Maps, Mods, Projects }) Directory.CreateDirectory(path);
     }
     public static void WriteAtomic(string path, byte[] data)
     {

@@ -93,6 +93,8 @@ public sealed partial class GmWorld
     public bool IsLoadingRoom => Rooms.TryGetValue(CurrentRoom, out var room) &&
         (room.GetProperty("speed").GetDouble() > 240 || room.GetProperty("name").GetString()!.Contains("_Loading", StringComparison.Ordinal));
     public Func<string, GmContext, bool>? SuppressCode;
+    public Func<GmInstance, bool>? ExtendCharacterJump;
+    public event Action<GmInstance>? CharacterJumped;
     public bool Ended;
     public Action? Redraw;
     public Action? InputEvents;
@@ -387,7 +389,12 @@ public sealed partial class GmWorld
 
     public async ValueTask LoadRoomAsync(int id)
     {
+        id=NativeServices?.Maps.ResolveRoom(id)??id;
         if(!Rooms.TryGetValue(id,out var room))throw new InvalidOperationException("Missing room "+id);
+        var roomEvent=new NativeGameEvent("room",Instances.FirstOrDefault(i=>!i.Destroyed) is {} actor?new(this,actor):null);
+        roomEvent.Arguments["previous"]=CurrentRoom;roomEvent.Arguments["next"]=id;
+        NativeServices?.Dispatch(roomEvent,NativeEventPhase.Before);
+        NativeServices?.Maps.BeforeRoomLoad(id);
         Evaluator.ResetBudget();
         foreach(var i in Instances.Where(i=>!i.Destroyed).ToArray())await EventAsync(i,7,5);
         Instances.RemoveAll(i=>!i.Scope.ReadOr("persistent").Truth||i.Destroyed);
@@ -412,10 +419,12 @@ public sealed partial class GmWorld
             i.Scope.Write("image_xscale",data.GetProperty("xscale").GetDouble());i.Scope.Write("image_yscale",data.GetProperty("yscale").GetDouble());i.Scope.Write("image_angle",data.GetProperty("angle").GetDouble());i.Scope.Write("image_blend",data.GetProperty("blend").GetDouble());
             created.Add((i,data));
         }
-        foreach(var (i,data) in created){await Evaluator.RunAsync(data.GetProperty("code").GetString()!,new(i));await EventAsync(i,0,0);}
+        foreach(var (i,data) in created){await Evaluator.RunAsync(data.GetProperty("code").GetString()!,new(i));await EventAsync(i,0,0);NativeServices?.Maps.EntityCreated(i);}
         var dummy=Instances.FirstOrDefault(i=>!i.Destroyed)??new GmInstance{Id=-1000,Object=-1};
         await Evaluator.RunAsync(room.GetProperty("code").GetString()!,new(dummy));
         foreach(var i in Instances.Where(i=>!i.Destroyed).ToArray())await EventAsync(i,7,4);
+        NativeServices?.Maps.RoomEntered(id);
+        NativeServices?.Dispatch(roomEvent,NativeEventPhase.After);
         Trace.Add("room:"+room.GetProperty("name").GetString());
     }
 
@@ -536,6 +545,7 @@ public sealed partial class GmWorld
         }
         RemoveDestroyed();
         if(PendingRoom is int destination)await LoadRoomAsync(destination);
+        NativeServices?.Maps.Update();
         Performance.End("animation_room",phase);
         Performance.End("total",total);Performance.Report(Frame,CurrentRoom);
     }

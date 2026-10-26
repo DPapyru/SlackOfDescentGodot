@@ -1,0 +1,10 @@
+{
+  "example.nana-sniper.name": "Nana · Sniper rifle",
+  "example.nana-sniper.description": "A semiautomatic sniper rifle with a five-round magazine and unlimited reserve ammunition. Press R to reload; rebind it in Mod controls.",
+  "testmod.nana-sniper.name": "Nana · Sniper rifle",
+  "testmod.reload.name": "Sniper rifle: Reload",
+  "testmod.reload.description": "Fill the five-round magazine in 2.5 seconds.",
+  "testmod.magazine.name": "Sniper rifle magazine",
+  "testmod.magazine.horizontal.name": "Horizontal speed",
+  "testmod.magazine.vertical.name": "Vertical speed"
+}

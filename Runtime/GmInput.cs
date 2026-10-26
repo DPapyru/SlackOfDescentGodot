@@ -25,7 +25,7 @@ public sealed class GmInput
     public Func<int, int>? JoystickButtons;
     public (HashSet<int> Held, HashSet<int> Pressed, HashSet<int> Released) TakeNativeInput()
     {
-        var result=(new HashSet<int>(held),new HashSet<int>(nativePressed),new HashSet<int>(nativeReleased));
+        var result=(new HashSet<int>(held.Concat(mouseHeld.Select(button => -button))),new HashSet<int>(nativePressed),new HashSet<int>(nativeReleased));
         nativePressed.Clear();nativeReleased.Clear();return result;
     }
     public void LoadBindings(GmWorld world)
@@ -54,8 +54,8 @@ public sealed class GmInput
     public void Mouse(GmWorld world,int code,bool down)
     {
         if(code is <1 or >3)return;
-        if(down){mouseHeld.Add(code);if(physicalMouseHeld.Add(code))mousePressed.Add(code);world.Engine.Write("mouse_button",code);world.Engine.Write("mouse_lastbutton",code);}
-        else{mouseHeld.Remove(code);if(physicalMouseHeld.Remove(code))mouseReleased.Add(code);world.Engine.Write("mouse_button",0);}
+        if(down){mouseHeld.Add(code);if(physicalMouseHeld.Add(code)){mousePressed.Add(code);nativePressed.Add(-code);}world.Engine.Write("mouse_button",code);world.Engine.Write("mouse_lastbutton",code);}
+        else{mouseHeld.Remove(code);if(physicalMouseHeld.Remove(code)){mouseReleased.Add(code);nativeReleased.Add(-code);}world.Engine.Write("mouse_button",0);}
     }
     private static bool Check(HashSet<int> state,int code,int any)=>code==any?state.Count>0:code==0?state.Count==0:state.Contains(code);
     public GmValue? Call(string name,GmValue[] args,GmWorld world)

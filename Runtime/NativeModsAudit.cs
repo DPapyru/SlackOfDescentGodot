@@ -120,17 +120,7 @@ public partial class NativeModsAudit : Node
         var controller = new GmInstance { Id = 900003, Object = world.Constants["objController"].Int };
         controller.Scope.Write("CtrlTarget", actor.Object); world.Instances.Add(controller);
         bridge.BindCharacter(actor, content.Characters["example.triple-yuki"]);
-        Expect(controller.Scope.ReadOr("slackNativeJump").Truth && !controller.Scope.ReadOr("slackNativeDash").Truth, "slot flags resolve GM object target to live actor");
-        for (int jump = 0; jump < 4; jump++)
-        {
-            world.Write(actor, "vspeed", 7); bridge.Update(Frame(jump * 2, 32));
-            Expect(actor.Scope.ReadOr("vspeed").Number == (jump < 3 ? -18 : 7), "triple jump impulse/no fourth " + jump);
-            if (jump < 3) Expect(actor.Scope.ReadOr("Angle").Number > 17, "all three jumps start the same rotation " + jump);
-            if (jump < 2) bridge.Update(Frame(jump * 2 + 1));
-        }
-        floor.Active = true; world.Write(actor, "vspeed", 0); bridge.Update(Frame(10));
-        floor.Active = false; bridge.Update(Frame(11, 32));
-        Expect(actor.Scope.ReadOr("nativeJumpCount").Int == 1, "triple jump resets after actual landing");
+        Expect(!controller.Scope.ReadOr("slackNativeJump").Truth && !controller.Scope.ReadOr("slackNativeDash").Truth, "additive jump action preserves original GM action slots");
         world.Globals.Write("Chara", "Nana"); bridge.BindCharacter(actor, content.Characters["example.spin-nana"]);
         world.Write(actor, "vspeed", 0); bridge.Update(Frame(20, 32));
         Expect(actor.Scope.ReadOr("Angle").Number > 17, "Nana first jump starts one full rotation");
@@ -178,21 +168,26 @@ public partial class NativeModsAudit : Node
         live.Evaluator.ResetBudget(); live.Call("YukiLoad", [], new(player));
         bridge.BindCharacter(player, content.Characters["example.triple-yuki"]);
         int jumpKey = NativeActorActions.Key(new(live, player), 5);
+        var clock = new GmFixedClock();
         long tick = 0;
         void Tick(bool jump = false, int extraKey = 0)
         {
+            clock.BeginTick();
             input.Key(live, jumpKey, jump);
             var held = new HashSet<int>(); if (jump) held.Add(jumpKey); if (extraKey != 0) held.Add(extraKey);
             bridge.Update(new(FrameContext.FixedDelta, tick / 60.0, tick,
                 new InputSnapshot(held, held, new HashSet<int>())));
-            if (tick % 2 == 0) { live.Step(); input.EndStep(); }
+            if (clock.LegacyDue(live.Engine.Read("room_speed").Number)) { live.Step(); input.EndStep(); }
             tick++;
         }
         for (int jump = 0; jump < 4; jump++)
         {
-            Tick(true); Tick();
-            Expect(player.Scope.ReadOr("nativeJumpCount").Int == Math.Min(jump + 1, 3), "live Yuki native jump does not stack original GM jump " + jump);
-            Expect(player.Scope.ReadOr("vspeed").Number >= -18.001, "live preset first jump impulse remains -18 " + jump);
+            long before = live.Frame;
+            do { Tick(true); } while (live.Frame == before);
+            before = live.Frame;
+            do { Tick(); } while (live.Frame == before);
+            Expect(player.Scope.ReadOr("nativeJumpCount").Int == Math.Min(jump + 1, 3), "live Yuki extends original jump only once " + jump);
+            Expect(player.Scope.ReadOr("vspeed").Number >= -24.001, "live Yuki preserves original aerial jump impulse " + jump);
         }
         bridge.UnbindCharacter(player.Id);
         var controller = NativeActorActions.Controller(new(live, player))!;

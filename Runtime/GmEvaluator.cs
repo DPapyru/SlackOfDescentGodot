@@ -42,7 +42,12 @@ public sealed partial class GmEvaluator
     public GmValue Run(string key, GmContext context)
     {
         if (string.IsNullOrEmpty(key)) return 0;
-        if (world.SuppressCode?.Invoke(key, context) == true) return 0;
+        var nativeEvent=world.NativeServices?.BeforeCode(key,context);
+        var result=nativeEvent?.Handled==true?nativeEvent.Result:world.SuppressCode?.Invoke(key,context)==true?0:RunCore(key,context);
+        return world.NativeServices?.AfterCode(nativeEvent,result)??result;
+    }
+    private GmValue RunCore(string key,GmContext context)
+    {
         if (!world.Code.TryGetValue(key, out var code)) throw new InvalidOperationException("Missing compiled code " + key);
         if(profiling&&Environment.TickCount64-reportTime>=5000){reportTime=Environment.TickCount64;Console.WriteLine("GML_PROFILE "+key+" frame="+world.Frame+" budget="+remaining);}
         long started=world.Performance.ScriptsEnabled?System.Diagnostics.Stopwatch.GetTimestamp():0;

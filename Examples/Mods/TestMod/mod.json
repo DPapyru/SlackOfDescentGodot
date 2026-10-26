@@ -1,0 +1,13 @@
+{
+  "formatVersion": 2,
+  "id": "example.nana-sniper",
+  "name": "Nana · 狙击枪",
+  "author": "TestMod",
+  "description": "五发弹匣、无限备弹的半自动狙击枪。R 换弹，可在模组按键设置中修改。",
+  "version": "1.0.0",
+  "content": {
+    "resources": { "testmod.sniper": "狙击枪.png", "testmod.magazine": "弹夹.png" },
+    "languages": { "example.nana-sniper.en": "en.json", "example.nana-sniper.zh_CN": "zh_CN.json" },
+    "code": { "entryType": "TestMod.SniperMod", "sources": ["SniperMod.cs"] }
+  }
+}

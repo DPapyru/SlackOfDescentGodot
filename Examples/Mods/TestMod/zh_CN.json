@@ -1,0 +1,10 @@
+{
+  "example.nana-sniper.name": "Nana · 狙击枪",
+  "example.nana-sniper.description": "五发弹匣、无限备弹的半自动狙击枪。R 换弹，可在模组按键设置中修改。",
+  "testmod.nana-sniper.name": "Nana · 狙击枪",
+  "testmod.reload.name": "狙击枪：换弹",
+  "testmod.reload.description": "填满五发弹匣，需要 2.5 秒。",
+  "testmod.magazine.name": "狙击枪弹匣",
+  "testmod.magazine.horizontal.name": "水平速度",
+  "testmod.magazine.vertical.name": "垂直速度"
+}

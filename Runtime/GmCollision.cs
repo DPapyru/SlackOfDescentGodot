@@ -207,6 +207,7 @@ public sealed partial class GmWorld
 
     public GmBounds Bounds(GmInstance instance,double? x=null,double? y=null)
     {
+        if(NativeServices?.Entities.TryBounds(instance,x,y,out var nativeBounds)==true)return nativeBounds;
         if(!Mask(instance,out var mask))return new(0,0,-1,-1);
         double px=x??instance.Scope.ReadOr("x").Number,py=y??instance.Scope.ReadOr("y").Number;
         double sx=instance.Scope.ReadOr("image_xscale",1).Number,sy=instance.Scope.ReadOr("image_yscale",1).Number;
@@ -224,6 +225,7 @@ public sealed partial class GmWorld
 
     private bool Opaque(GmInstance i,double x,double y,double? atX=null,double? atY=null)
     {
+        if(NativeServices?.Entities.TryBounds(i,atX,atY,out var nativeBounds)==true)return nativeBounds.Overlaps(new(x,y,x,y));
         if(!Mask(i,out var mask))return false;
         return new GmMaskSampler(mask,i,atX,atY).Opaque(x,y);
     }

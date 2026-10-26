@@ -12,9 +12,10 @@ public readonly record struct FrameContext(double Delta, double GameTime, long T
     public const double FixedDelta = 1.0 / 60;
 }
 
-public enum CharacterActionSlot { Jump, Dash }
+public enum CharacterActionSlot { Jump, Dash, Attack, Controller }
+public enum CharacterActionMode { Replace, Additive, Controller }
 
-public sealed class ActorContext(GmWorld world, GmInstance instance)
+public sealed partial class ActorContext(GmWorld world, GmInstance instance)
 {
     public GmWorld World { get; } = world;
     public GmInstance Instance { get; } = instance;
@@ -35,7 +36,7 @@ public interface IMod
     void Unload();
 }
 
-public sealed class ModContext(ContentRegistry content, string directory, CancellationToken cancellation, Action<IDisposable> track)
+public sealed partial class ModContext(ContentRegistry content, string directory, CancellationToken cancellation, Action<IDisposable> track)
 {
     public ContentRegistry Content { get; } = content;
     public string Directory { get; } = directory;
@@ -47,18 +48,31 @@ public interface ICharacterAction
 {
     string Id { get; }
     CharacterActionSlot Slot { get; }
+    CharacterActionMode Mode => CharacterActionMode.Replace;
     void Update(ActorContext actor, FrameContext frame);
     void Detach(ActorContext actor) { }
+}
+
+public interface ICharacterJumpExtension : ICharacterAction
+{
+    bool TryExtendJump(ActorContext actor);
+    void Jumped(ActorContext actor);
 }
 
 public interface IEntityBehavior
 {
     string Id { get; }
+    void Created(ActorContext entity) { }
+    void Collided(ActorContext entity, ActorContext other) { }
+    void Interacted(ActorContext entity, ActorContext other) { }
+    void RoomEntered(ActorContext entity) { }
+    void RoomExited(ActorContext entity) { }
+    void Destroyed(ActorContext entity) { }
     void Update(ActorContext entity, FrameContext frame);
     void Detach(ActorContext entity) { }
 }
 
-public sealed class ContentRegistry
+public sealed partial class ContentRegistry
 {
     public Dictionary<string, Func<ICharacterAction>> Actions { get; } = new(StringComparer.Ordinal);
     public Dictionary<string, Func<IEntityBehavior>> Entities { get; } = new(StringComparer.Ordinal);
@@ -66,7 +80,26 @@ public sealed class ContentRegistry
     public Dictionary<string, string> Resources { get; } = new(StringComparer.Ordinal);
     public long Revision { get; private set; }
     public event Action? Changed;
-    public void Refresh() { Revision++; Changed?.Invoke(); }
+    internal event Action? Committed;
+    internal bool DeferredCommit;
+    internal bool CollectingLifecycleDiagnostics;
+    internal void Commit()
+    {
+        LifecycleDiagnostics.Clear();
+        if (Committed is null) return;
+        CollectingLifecycleDiagnostics = true;
+        try
+        {
+            foreach (Action observer in Committed.GetInvocationList())
+                try { observer(); } catch (Exception error)
+                {
+                    string message = "MOD_COMMIT_OBSERVER " + error.GetBaseException().Message;
+                    LifecycleDiagnostics.Add(message); Console.Error.WriteLine(message);
+                }
+        }
+        finally { CollectingLifecycleDiagnostics = false; }
+    }
+    public void Refresh() { Revision++; Changed?.Invoke(); if (!DeferredCommit) Commit(); }
     public void RegisterAction(string id, Func<ICharacterAction> factory) { Actions.Add(id, factory); Refresh(); }
     public void RegisterEntity(string id, Func<IEntityBehavior> factory) { Entities.Add(id, factory); Refresh(); }
     public void RegisterCharacter(CharacterDefinition character) { Characters[character.Id] = character; Refresh(); }

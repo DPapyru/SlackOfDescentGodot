@@ -2,8 +2,10 @@ namespace SlackOfDescent;
 
 public sealed partial class GmWorld
 {
+    internal Func<GmValue[],GmContext,bool>? CharacterSpriteBlur;
     private GmValue DrawSpriteBlur(GmValue[] args,GmContext context)
     {
+        if(CharacterSpriteBlur?.Invoke(args,context)==true)return 0;
         double x=args[2].Number,y=args[3].Number,angle=args[6].Number,alpha=args[8].Number;
         void Draw(double px,double py,double rotation,double opacity)=>Call("draw_sprite_ext",[args[0],args[1],px,py,args[4],args[5],rotation,args[7],opacity],context);
         double length=args[9].Number,rotation=args[11].Number,originalRotation=rotation;

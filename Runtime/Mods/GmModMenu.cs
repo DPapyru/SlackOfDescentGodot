@@ -86,7 +86,7 @@ public sealed partial class GmWorld
         drawViews.Insert(title+7,MenuText(shadow,"Mod",67));drawViews.Insert(title+8,MenuText(text,"Mod",64));
         var modDraw=MenuBranch(drawViews,"VIEW_GAMESTART_CC");
         modDraw[0]![3]=new JsonArray("num",160);
-        string[] labels=["地图编辑器","角色编辑器","CSharp 模组"];
+        string[] labels=["地图编辑器","角色编辑器","Mod列表"];
         int line=0;
         foreach(var statement in modDraw.OfType<JsonArray>())
             if(statement[0]?.ToString()=="call"&&statement[1]?.ToString()=="draw_text_transformed_color")statement[2]![2]=new JsonArray("str",labels[line++/2]);
@@ -118,5 +118,6 @@ public sealed partial class GmWorld
         firstPage.Insert(firstLabel++,languageShadow);firstPage.Insert(firstLabel++,languageText);firstPage.Insert(firstLabel++,valueShadow);firstPage.Insert(firstLabel++,valueText);
         firstPage.Insert(firstLabel,JsonNode.Parse("[\"binary\",\"Assign\",[\"id\",\"option_y\"],[\"binary\",\"Add\",[\"id\",\"option_y\"],[\"num\",32]]]")!);
         Code["objects/objTitle/8/0/0"]=JsonSerializer.SerializeToElement(draw);
+        ApplyMapMenu();
     }
 }

@@ -19,4 +19,7 @@
       <Private>true</Private>
     </Reference>
   </ItemGroup>
+  <Target Name="CopyModReferences" AfterTargets="Build">
+    <Copy SourceFiles="$(TargetPath);$(TargetDir)GodotSharp.dll" DestinationFolder="$(MSBuildProjectDirectory)/Tools/ModCompiler/References" SkipUnchangedFiles="true" />
+  </Target>
 </Project>

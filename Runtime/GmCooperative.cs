@@ -32,8 +32,13 @@ public sealed partial class GmEvaluator
     public async ValueTask<GmValue> RunAsync(string key,GmContext context)
     {
         if(string.IsNullOrEmpty(key))return 0;
-        if(world.SuppressCode?.Invoke(key,context)==true)return 0;
         var code=world.Code[key];if(!CanWait(code))return Run(key,context);
+        var nativeEvent=world.NativeServices?.BeforeCode(key,context);
+        var value=nativeEvent?.Handled==true?nativeEvent.Result:world.SuppressCode?.Invoke(key,context)==true?0:await RunWaiting(key,code,context);
+        return world.NativeServices?.AfterCode(nativeEvent,value)??value;
+    }
+    private async ValueTask<GmValue> RunWaiting(string key,JsonElement code,GmContext context)
+    {
         long started=world.Performance.ScriptsEnabled?System.Diagnostics.Stopwatch.GetTimestamp():0;
         var diagnostic=DiagnosticSample;
         bool measure=diagnostic is not null&&key.StartsWith("objects/objSwamp",StringComparison.Ordinal);

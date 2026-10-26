@@ -21,29 +21,23 @@ public sealed class MovementMod : IMod
     public void Unload() { }
 }
 
-public sealed class TripleJump : ICharacterAction
+public sealed class TripleJump : ICharacterJumpExtension
 {
     public string Id => "example.triple-jump";
     public CharacterActionSlot Slot => CharacterActionSlot.Jump;
     private int jumps;
     private bool airborne;
+    private bool extended;
     private double spinTime;
     private double originalAngle;
     private bool spinning;
     public void Update(ActorContext actor, FrameContext frame)
     {
         bool ground = NativeActorActions.Grounded(actor);
-        if (ground && airborne) { jumps = 0; airborne = false; ResetSpin(actor); }
+        var controller = NativeActorActions.Controller(actor);
+        if ((ground && airborne) || (jumps > 0 && controller is not null && controller.Scope.ReadOr("JumpNum").Number == controller.Scope.ReadOr("JumpAble").Number))
+        { jumps = 0; airborne = false; extended = false; actor.Write("nativeJumpCount", 0); ResetSpin(actor); }
         if (!NativeActorActions.CanAct(actor)) { ResetSpin(actor); return; }
-        if (frame.Input.JustPressed(NativeActorActions.Key(actor, 5)) && jumps < 3)
-        {
-            jumps++; airborne = true;
-            actor.VerticalSpeed = NativeActorActions.FirstJumpVelocity(actor);
-            actor.Write("air", 1); actor.Write("gravity", actor.World.Globals.ReadOr("G", 1).Number);
-            NativeActorActions.Motion(actor, actor.World.Globals.ReadOr("Chara").ToString() == "Yuki" ? "JUMPUP2" : "JUMPUP");
-            ResetSpin(actor); originalAngle = actor.Read("Angle"); spinning = true; spinTime = 0;
-            actor.Write("nativeJumpCount", jumps);
-        }
         if (spinning && actor.VerticalSpeed >= 0) ResetSpin(actor);
         if (spinning)
         {
@@ -51,6 +45,18 @@ public sealed class TripleJump : ICharacterAction
             actor.Write("Angle", originalAngle + 360 * Math.Min(spinTime / .36, 1));
             if (spinTime >= .36) ResetSpin(actor);
         }
+    }
+    public bool TryExtendJump(ActorContext actor)
+    {
+        if (extended) return false;
+        extended = true;
+        return true;
+    }
+    public void Jumped(ActorContext actor)
+    {
+        jumps++; airborne = true;
+        ResetSpin(actor); originalAngle = actor.Read("Angle"); spinning = true; spinTime = 0;
+        actor.Write("nativeJumpCount", jumps);
     }
     private void ResetSpin(ActorContext actor) { if (spinning) actor.Write("Angle", originalAngle); spinning = false; }
     public void Detach(ActorContext actor) { ResetSpin(actor); actor.Write("nativeJumpCount", 0); }

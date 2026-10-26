@@ -162,6 +162,8 @@ public sealed partial class GmWorld
         var Self=c.Self;
         switch(name)
         {
+            case "slack_character_jump_available":return V(0).Truth || (V(1).Truth && (ExtendCharacterJump?.Invoke(Self)??false));
+            case "slack_character_jumped":CharacterJumped?.Invoke(Self);return 0;
             case "action_inherited":return Call("event_inherited",[],c);
             case "action_set_alarm":Self.Scope.Write("alarm",V(0),[I(1)]);return 0;
             case "action_next_room":return Call("room_goto_next",[],c);

@@ -37,6 +37,8 @@ public sealed class GmParticles
     public readonly Dictionary<int,GmParticleSystem> Systems=new();
     private int above=-1,below=-1;
     private int[][]? effectTypes;
+    public int AliveCount{get;private set;}
+    internal void Release(int count)=>AliveCount-=count;
 
     private static int Add<T>(Dictionary<int,T> entries,T value)
     {
@@ -75,6 +77,7 @@ public sealed class GmParticles
             if(t.Sprite>=0&&t.RandomFrame)p.Subimage=random.NextInt(10000);
             p.RandomStart=random.NextInt(100000);system.Particles.Add(p);
         }
+        AliveCount+=count;
     }
     public void Burst(GmParticleSystem system,GmParticleEmitter emitter,int type,int number,GmRandom random)
     {
@@ -109,7 +112,9 @@ public sealed class GmParticles
             if(count<0&&random.NextInt(unchecked((uint)-count))==0)count=1;
             Create(system,p.X,p.Y,p.Timer>=p.Lifetime?t.DeathType:t.StepType,count,random);
         }
+        int before=system.Particles.Count;
         system.Particles.RemoveAll(p=>p.Timer>=p.Lifetime);
+        AliveCount-=before-system.Particles.Count;
         foreach(var p in system.Particles)
         {
             if(!Types.TryGetValue(p.Type,out var t))continue;
@@ -135,6 +140,7 @@ public sealed class GmParticles
     {
         if(Systems.TryGetValue(below,out var b))b.Particles.Clear();
         if(Systems.TryGetValue(above,out var a))a.Particles.Clear();
+        AliveCount=0;
     }
     public void Effect(int kind,double x,double y,int size,int colour,bool isBelow,double fps,int width,int height,GmRandom random)
     {
@@ -226,7 +232,7 @@ public sealed partial class GmWorld
         if(name=="part_type_create")return Particles.CreateType();
         if(name=="part_system_create")return Particles.CreateSystem();
         if(name=="part_type_destroy"){Particles.Types.Remove(I(0));return 0;}
-        if(name=="part_system_destroy"){Particles.Systems.Remove(I(0));return 0;}
+        if(name=="part_system_destroy"){if(Particles.Systems.Remove(I(0),out var gone))Particles.Release(gone.Particles.Count);return 0;}
         if(name=="part_type_exists")return Particles.Types.ContainsKey(I(0));
         if(name=="part_system_exists")return Particles.Systems.ContainsKey(I(0));
         if(name.StartsWith("part_type_",StringComparison.Ordinal))
@@ -259,7 +265,7 @@ public sealed partial class GmWorld
         if(!Particles.Systems.TryGetValue(I(0),out var s))return name=="part_emitter_create"?-1:0;
         switch(name)
         {
-            case "part_system_clear":Particles.Systems[I(0)]=new();return 0;
+            case "part_system_clear":Particles.Release(s.Particles.Count);Particles.Systems[I(0)]=new();return 0;
             case "part_system_depth":s.Depth=N(1);return 0;
             case "part_system_position":s.X=N(1);s.Y=N(2);return 0;
             case "part_system_draw_order":s.OldToNew=N(1)>=0.5;return 0;
@@ -269,7 +275,7 @@ public sealed partial class GmWorld
             case "part_system_drawit":return Platform?.Invoke(name,a,context);
             case "part_particles_create":Particles.Create(s,N(1),N(2),I(3),I(4),Random);return 0;
             case "part_particles_create_color":Particles.Create(s,N(1),N(2),I(3),I(5),Random,I(4));return 0;
-            case "part_particles_clear":s.Particles.Clear();return 0;
+            case "part_particles_clear":Particles.Release(s.Particles.Count);s.Particles.Clear();return 0;
             case "part_particles_count":return s.Particles.Count;
             case "part_emitter_create":{int id=0;while(s.Emitters.ContainsKey(id))id++;s.Emitters[id]=new();return id;}
             case "part_emitter_destroy":s.Emitters.Remove(I(1));return 0;

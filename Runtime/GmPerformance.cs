@@ -8,6 +8,7 @@ public sealed class GmPerformance
     public bool Enabled{get;private set;}=Environment.GetEnvironmentVariable("SLACK_PERF")=="1";
     public readonly bool ScriptsEnabled=Environment.GetEnvironmentVariable("SLACK_PERF_SCRIPTS")=="1";
     private readonly Dictionary<string,(double Total,double Max,int Count)> samples=new();
+    private readonly Dictionary<string,(double Total,double Max,int Count)> cadencePhases=new();
     private readonly Dictionary<string,(double Total,int Count)> scripts=new();
     public string? LogPath{get;private set;}
     private bool logFailed;
@@ -16,7 +17,101 @@ public sealed class GmPerformance
     private long processSteps;
     private int catchUpProcesses,maxSteps;
     private long lastRender;
+    private long lastBuildCount,lastPublished,lastRendered,lastCoalesced,lastSkipped;
+    private readonly List<double> presentDeltas=new();
+    private long presentZero,presentOne,presentMulti,presentPrimitives,presentDrawCalls;
+    private double presentFrameSetupMs;
+    public static int PresentBucket(long drawnDelta)=>drawnDelta<=0?0:(drawnDelta==1?1:2);
+    private readonly List<double> processGaps=new(),processCpuInside=new();
+    private long lastProcessEndTicks;
+    private readonly List<double> processWall=new(),drawLatency=new(),idleWall=new();
+    private long lastPostDrawTicks,pendingExitTicks;
+    public static bool WallPartitionComplete(double segmentsMs,double periodMs)=>segmentsMs>0&&Math.Abs(segmentsMs-periodMs)<=Math.Max(1,periodMs*0.02);
+    public void MarkPostDraw(long ticks)
+    {
+        if(!Enabled)return;
+        if(pendingExitTicks>0&&ticks>=pendingExitTicks)drawLatency.Add(Stopwatch.GetElapsedTime(pendingExitTicks,ticks).TotalMilliseconds);
+        lastPostDrawTicks=ticks;pendingExitTicks=0;
+    }
+    private long entryTicks;
+    public void MarkProcessEntry(long ticks)
+    {
+        if(!Enabled)return;
+        if(lastPostDrawTicks>0&&ticks>=lastPostDrawTicks)idleWall.Add(Stopwatch.GetElapsedTime(lastPostDrawTicks,ticks).TotalMilliseconds);
+        lastPostDrawTicks=0;entryTicks=ticks;
+    }
+    public void MarkProcessExit(long ticks)
+    {
+        if(!Enabled)return;
+        if(entryTicks>0&&ticks>=entryTicks)processWall.Add(Stopwatch.GetElapsedTime(entryTicks,ticks).TotalMilliseconds);
+        entryTicks=0;pendingExitTicks=ticks;
+    }
+    public double MainThreadCpuNowMs()=>ReadMainThreadCpuMs();
+    public void ProcessEnd(long endTicks,double cpuStartMs,double cpuEndMs)
+    {
+        if(!Enabled)return;
+        if(cpuStartMs>=0&&cpuEndMs>=cpuStartMs)processCpuInside.Add(cpuEndMs-cpuStartMs);
+        if(lastProcessEndTicks>0&&endTicks>lastProcessEndTicks)
+            processGaps.Add(Stopwatch.GetElapsedTime(lastProcessEndTicks,endTicks).TotalMilliseconds);
+        lastProcessEndTicks=endTicks;
+    }
+    public void BuildCompleted(double ms)
+    {
+        if(!Enabled)return;
+        if(ms>maxBuildMs)maxBuildMs=ms;
+    }
+    private int presentSeen;
+    public void Present(long drawnDelta,long primitives,long drawCalls,double frameSetupMs)
+    {
+        if(!Enabled)return;
+        presentPrimitives=primitives;presentDrawCalls=drawCalls;presentFrameSetupMs=frameSetupMs;
+        if(presentSeen++==0)return;
+        presentDeltas.Add(drawnDelta);
+        switch(PresentBucket(drawnDelta)){case 0:presentZero++;break;case 1:presentOne++;break;default:presentMulti++;break;}
+    }
+    private double lastBuildTotal,maxBuildMs;
+    private TimeSpan cpuBaseline;
+    private bool cadenceInitialised;
+    private int cachedOsId;
+    private double ReadMainThreadCpuMs()
+    {
+        if(cachedOsId==0)
+        {
+            cachedOsId=NativeThreadId();
+            if(cachedOsId==0)return -1;
+        }
+        try
+        {
+            foreach(var line in File.ReadLines("/proc/self/task/"+cachedOsId+"/stat"))
+            {
+                int close=line.LastIndexOf(')');
+                if(close<0)return -1;
+                var fields=line[(close+1)..].Split(' ',StringSplitOptions.RemoveEmptyEntries);
+                if(fields.Length<13)return -1;
+                double ticks=double.Parse(fields[11])+double.Parse(fields[12]);
+                return ticks*1000.0/100.0;
+            }
+        }
+        catch(Exception e)when(e is IOException or UnauthorizedAccessException or FormatException){return -1;}
+        return -1;
+    }
+    private static int NativeThreadId()
+    {
+        try
+        {
+            string stat=File.ReadAllText("/proc/self/stat");
+            int close=stat.LastIndexOf(')');
+            if(close>0)return int.Parse(stat.Split(' ')[0]);
+        }
+        catch(Exception e)when(e is IOException or FormatException or IndexOutOfRangeException){}
+        return 0;
+    }
+    private double threadBaseline=-1;
     public readonly GmObjectPerformance Objects=new();
+    public (int Width,int Height) RenderTargetSize{get;set;}
+    public (int Width,int Height) CanvasSize{get;set;}
+    public (int Width,int Height) WindowSize{get;set;}
+    public (int Width,int Height) FramebufferSize{get;set;}
     private long allocatedBaseline;
     private TimeSpan pauseBaseline;
     private readonly int[] collectionBaseline=new int[3];
@@ -28,10 +123,16 @@ public sealed class GmPerformance
     public void Process(long started,long steps)
     {
         if(!Enabled)return;
-        processTimes.Add(Stopwatch.GetElapsedTime(started).TotalMilliseconds);processSteps+=steps;
+        double ms=Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+        processTimes.Add(ms);processSteps+=steps;
         if(steps>1)catchUpProcesses++;
         maxSteps=Math.Max(maxSteps,(int)steps);
+        int bucket=ProcessStepBucket(steps);
+        if(!processBySteps.TryGetValue(bucket,out var list))processBySteps[bucket]=list=new List<double>();
+        list.Add(ms);
     }
+    public static int ProcessStepBucket(long steps)=>steps<=0?0:(steps==1?1:(steps==2?2:3));
+    private readonly Dictionary<int,List<double>> processBySteps=new();
     public void RenderCompleted()
     {
         if(!Enabled)return;
@@ -39,7 +140,7 @@ public sealed class GmPerformance
         if(lastRender!=0)renderIntervals.Add(Stopwatch.GetElapsedTime(lastRender,now).TotalMilliseconds);
         lastRender=now;
     }
-    public void ResetCadence(){processTimes.Clear();renderIntervals.Clear();processSteps=0;catchUpProcesses=maxSteps=0;lastRender=0;Objects.Clear();if(Enabled)ResetGcBaseline();}
+    public void ResetCadence(){processTimes.Clear();renderIntervals.Clear();processSteps=0;catchUpProcesses=maxSteps=0;lastRender=0;Objects.Clear();lastBuildCount=0;lastBuildTotal=0;maxBuildMs=0;cadencePhases.Clear();cadenceInitialised=false;lastPublished=lastRendered=lastCoalesced=lastSkipped=0;presentDeltas.Clear();presentZero=presentOne=presentMulti=0;presentSeen=0;processGaps.Clear();processCpuInside.Clear();lastProcessEndTicks=0;processWall.Clear();drawLatency.Clear();idleWall.Clear();processBySteps.Clear();lastPostDrawTicks=0;pendingExitTicks=0;entryTicks=0;if(Enabled)ResetGcBaseline();}
     public void Cadence(GmFrameSample sample,GmWorld world,Func<object> graphics)
     {
         if(!Enabled)return;
@@ -54,19 +155,65 @@ public sealed class GmPerformance
             pauseMs,pausePercent=pauseMs/(sample.Seconds*1000)*100};
         allocatedBaseline=allocated;pauseBaseline=pause;
         Array.Copy(collections,collectionBaseline,3);
-        object Summary(List<double> values)
+        var stats=graphics();
+        long buildCount=0;double buildTotal=0;
+        if(stats is GmGraphicsStats probe){buildCount=probe.Builds;buildTotal=probe.BuildTotalMs;}
+        long buildDelta=buildCount-lastBuildCount;
+        double buildMsDelta=buildTotal-lastBuildTotal;
+        lastBuildCount=buildCount;lastBuildTotal=buildTotal;
+        double windowMaxBuildMs=maxBuildMs;maxBuildMs=0;
+        var cpuNow=System.Diagnostics.Process.GetCurrentProcess().TotalProcessorTime;
+        if(!cadenceInitialised){cpuBaseline=cpuNow;cadenceInitialised=true;}
+        double cpuMs=(cpuNow-cpuBaseline).TotalMilliseconds;
+        cpuBaseline=cpuNow;
+        double threadCpuMs=0;
+        double threadTotal=ReadMainThreadCpuMs();
+        if(threadTotal>=0)
         {
-            values.Sort();int count=values.Count;
-            return new{count,meanMs=count==0?0:values.Average(),p95Ms=count==0?0:values[(int)Math.Ceiling(count*0.95)-1],maxMs=count==0?0:values[^1]};
+            if(threadBaseline<0)threadBaseline=threadTotal;
+            threadCpuMs=Math.Max(0,threadTotal-threadBaseline);
+            threadBaseline=threadTotal;
         }
+        var output=world.OutputSize();
+        var plan=world.FramePlan?.Stats;
+        long published=plan?.Published??0,rendered=plan?.Rendered??0,coalesced=plan?.Coalesced??0,skipped=plan?.Skipped??0;
+        long publishedDelta=published-lastPublished,renderedDelta=rendered-lastRendered,
+             coalescedDelta=coalesced-lastCoalesced,skippedDelta=skipped-lastSkipped;
+        lastPublished=published;lastRendered=rendered;lastCoalesced=coalesced;lastSkipped=skipped;
+        int aliveInstances=world.Instances.Count(i=>!i.Destroyed&&i.Active);
+        int aliveParticles=world.Particles.AliveCount;
+        object Summary(List<double> values)=>GmFrameSummary.From(values);
+
         WriteLog(new{type="cadence",time=DateTimeOffset.UtcNow,frame=world.Frame,room=world.CurrentRoom,
-            targetLogicFps=world.Engine.Read("room_speed").Number,logicFps=sample.LogicFps,processFps=sample.RenderFps,
-            completedRenderFps=renderIntervals.Count/sample.Seconds,process=Summary(processTimes),renderInterval=Summary(renderIntervals),
+            targetLogicFps=world.Engine.Read("room_speed").Number,logicFps=sample.LogicFps,processFps=sample.ProcessFps,
+            completedRenderFps=renderIntervals.Count/sample.Seconds,process=Summary(processTimes),renderInterval=Summary(renderIntervals), // FramePostDraw callback rate = _Process rate, NOT screen present rate
             seconds=sample.Seconds,gc,objectProfile=Objects.Enabled?Objects.Snapshot(world,sample.Seconds,processSteps,allocatedBytes,processTimes.Sum()):null,
-            logicSteps=processSteps,catchUpProcesses,maxStepsPerProcess=maxSteps,graphics=graphics(),
+            logicSteps=processSteps,catchUpProcesses,maxStepsPerProcess=maxSteps,graphics=stats,
+            build=new{count=buildDelta,totalMs=buildMsDelta,meanMs=buildDelta==0?0:buildMsDelta/buildDelta,
+                lastMs=stats is GmGraphicsStats p?p.LastBuildMs:0,maxMs=buildDelta==0?0:windowMaxBuildMs},
+            renderSize=new{width=RenderTargetSize.Width>0?RenderTargetSize.Width:output.Width,
+                height=RenderTargetSize.Height>0?RenderTargetSize.Height:output.Height,
+                pixels=(long)(RenderTargetSize.Width>0?RenderTargetSize.Width:output.Width)*(RenderTargetSize.Height>0?RenderTargetSize.Height:output.Height),
+                canvasWidth=CanvasSize.Width>0?CanvasSize.Width:output.Width,
+                canvasHeight=CanvasSize.Height>0?CanvasSize.Height:output.Height,
+                canvasPixels=(long)(CanvasSize.Width>0?CanvasSize.Width:output.Width)*(CanvasSize.Height>0?CanvasSize.Height:output.Height),
+                windowWidth=WindowSize.Width,windowHeight=WindowSize.Height,
+                windowPixels=(long)WindowSize.Width*WindowSize.Height,
+                framebufferWidth=FramebufferSize.Width,framebufferHeight=FramebufferSize.Height,
+                framebufferPixels=(long)FramebufferSize.Width*FramebufferSize.Height},
+            framePlan=new{published=publishedDelta,rendered=renderedDelta,coalesced=coalescedDelta,skipped=skippedDelta},
+            alive=new{instances=aliveInstances,particles=aliveParticles},
+            cpuMs,cpuScope="process.allThreads",mainThreadCpuMs=threadCpuMs,mainThreadScope="process.mainThreadOnly",
             dynamicDark=world.Globals.ReadOr("DynamicDark").Truth,darkness=world.Globals.ReadOr("Darkness").Number,
-            collision=new{snapshotRebuilds=world.CollisionSnapshotRebuilds,candidateVisits=world.CollisionCandidateVisits,exactTests=world.CollisionExactTests}});
+            collision=new{snapshotRebuilds=world.CollisionSnapshotRebuilds,candidateVisits=world.CollisionCandidateVisits,exactTests=world.CollisionExactTests},
+            present=new{count=presentDeltas.Count,deltaUnit="framesDrawnPerProcess",delta=GmCountSummary.From(presentDeltas),zero=presentZero,one=presentOne,multi=presentMulti,primitives=presentPrimitives,drawCalls=presentDrawCalls,frameSetupMs=presentFrameSetupMs},
+            processBreakdown=new{gap=Summary(processGaps),cpuInside=Summary(processCpuInside),wallUnit="ms",processWall=Summary(processWall),drawLatency=Summary(drawLatency),idleWall=Summary(idleWall),
+                bySteps=processBySteps.Count==0?null:processBySteps.OrderByDescending(p=>p.Key).ToDictionary(p=>p.Key switch{0=>"steps0",1=>"steps1",2=>"steps2",_=>"steps3plus"},p=>Summary(p.Value))},
+            phases=cadencePhases.Count==0?null:cadencePhases.ToDictionary(p=>p.Key,p=>new{meanMs=p.Value.Total/p.Value.Count,maxMs=p.Value.Max,count=p.Value.Count,totalMs=p.Value.Total})});
         processTimes.Clear();renderIntervals.Clear();processSteps=0;catchUpProcesses=maxSteps=0;
+        presentDeltas.Clear();presentZero=presentOne=presentMulti=0;
+        processGaps.Clear();processCpuInside.Clear();lastProcessEndTicks=0;processWall.Clear();drawLatency.Clear();idleWall.Clear();processBySteps.Clear();
+        cadencePhases.Clear();
     }
     public void Configure(string userRoot,bool debug)
     {
@@ -120,6 +267,8 @@ public sealed class GmPerformance
         double ms=Stopwatch.GetElapsedTime(start).TotalMilliseconds;
         var previous=samples.GetValueOrDefault(name);
         samples[name]=(previous.Total+ms,Math.Max(previous.Max,ms),previous.Count+1);
+        var cadence=cadencePhases.GetValueOrDefault(name);
+        cadencePhases[name]=(cadence.Total+ms,Math.Max(cadence.Max,ms),cadence.Count+1);
     }
     public void Report(long frame,int room)
     {

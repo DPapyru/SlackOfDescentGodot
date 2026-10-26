@@ -26,6 +26,9 @@ public partial class GameHost : Node2D
     private readonly long frameClock=Stopwatch.GetTimestamp();
     private Label? fpsLabel;
     private bool renderSignalConnected;
+    private long lastFramesDrawn;
+    private bool traceRooms;
+    private static readonly bool fbDiag=System.Environment.GetEnvironmentVariable("SLACK_FB_DIAG")=="1";
     private long fpsAuditStart;
     private long buildCount;
     private bool fpsAuditSlow;
@@ -113,11 +116,34 @@ public partial class GameHost : Node2D
         }
     }
 
+    private Vector2I? forcedContentScale;
+    private string? stretchMode;
+    private bool stretchReported;
+    private void ApplyStretchOverride()
+    {
+        stretchMode=System.Environment.GetEnvironmentVariable("SLACK_STRETCH");
+        if(stretchMode is null)return;
+        var window=GetWindow();
+        if(stretchMode=="viewport")window.ContentScaleMode=Window.ContentScaleModeEnum.Viewport;
+        else if(stretchMode=="canvas_items")window.ContentScaleMode=Window.ContentScaleModeEnum.CanvasItems;
+        var spec=System.Environment.GetEnvironmentVariable("SLACK_CONTENT_SCALE");
+        if(spec is not null)
+        {
+            var parts=spec.Split('x');
+            if(parts.Length==2&&int.TryParse(parts[0],out var w)&&int.TryParse(parts[1],out var h)&&w>0&&h>0)
+                forcedContentScale=new Vector2I(w,h);
+        }
+        if(forcedContentScale is { } forced)window.ContentScaleSize=forced;
+        Console.Error.WriteLine("STRETCH_REQUEST mode="+stretchMode+" contentScale="+(forcedContentScale is { } f?f.ToString():"auto"));
+    }
+
     public override void _Ready()
     {
         Engine.MaxFps=60;
         TextureFilter=TextureFilterEnum.Linear;
+        ApplyStretchOverride();
         audit=OS.GetCmdlineUserArgs().Contains("--audit");
+        traceRooms=OS.GetCmdlineUserArgs().Contains("--trace-rooms");
         try
         {
             if(audit)GD.Print("AUDIT_START initializing game data");
@@ -194,8 +220,10 @@ public partial class GameHost : Node2D
                     world.Globals.Write("StartArea",0);
                     world.Call("DataItemReset",[],context);world.Call("DataItemLoad",[],context);
                     world.LoadRoom(int.Parse(commandArgs[roomIndex+1]));
+                    if(traceRooms)GD.Print("TRACE_LOADED room=",world.CurrentRoom);
                 }
                 for(int i=0;i<frames;i++)StepFrame();
+                if(traceRooms)GD.Print("TRACE_FINAL room=",world.CurrentRoom);
                 if(commandArgs.Contains("--mud-window"))
                 {
                     mudWindowPlayer=world.Select(world.Constants["objPlayerDoll"].Int,new(new GmInstance())).Single();
@@ -242,7 +270,24 @@ public partial class GameHost : Node2D
     private void SyncViewport()
     {
         var size=world.OutputSize();var window=GetWindow();var wanted=new Vector2I(size.Width,size.Height);
-        if(window.ContentScaleSize!=wanted)window.ContentScaleSize=wanted;
+        if(forcedContentScale is not { } forced&&window.ContentScaleSize!=wanted)window.ContentScaleSize=wanted;
+        if(stretchMode is not null&&world.Performance.Enabled&&!stretchReported)
+        {
+            stretchReported=true;
+            var tex=GetViewport().GetTexture();
+            Console.Error.WriteLine("STRETCH_ACTIVE mode="+window.ContentScaleMode+" contentScale="+window.ContentScaleSize+" winSize="+window.Size+" visRect="+GetViewport().GetVisibleRect().Size+" tex="+tex?.GetWidth()+"x"+tex?.GetHeight());
+        }
+        if(world.Performance.Enabled||fbDiag)
+        {
+            var canvasSize=GetViewport().GetVisibleRect().Size;
+            world.Performance.WindowSize=(window.Size.X,window.Size.Y);
+            world.Performance.CanvasSize=((int)canvasSize.X,(int)canvasSize.Y);
+            world.Performance.RenderTargetSize=(window.ContentScaleSize.X,window.ContentScaleSize.Y);
+            var texture=GetViewport().GetTexture();
+            if(texture is not null)world.Performance.FramebufferSize=(texture.GetWidth(),texture.GetHeight());
+            if(fbDiag&&texture is not null)
+                Console.Error.WriteLine($"FB_DIAG texW={texture.GetWidth()} texH={texture.GetHeight()} visRect={canvasSize} win={window.Size} cs={window.ContentScaleSize}");
+        }
     }
     private void UpdateMouse()
     {
@@ -256,7 +301,7 @@ public partial class GameHost : Node2D
         world.Write(player,"x",2478);world.Write(player,"y",1628);
         world.Write(player,"hspeed",0);world.Write(player,"vspeed",0);
     }
-    private void StepFrame(){var plan=world.FramePlan;world.FramePlan=null;PositionMudWindow();controls.Poll(world);world.Step();controls.EndStep();SyncViewport();world.FramePlan=plan;}
+    private void StepFrame(){var plan=world.FramePlan;world.FramePlan=null;PositionMudWindow();controls.Poll(world);world.Step();controls.EndStep();SyncViewport();world.FramePlan=plan;if(traceRooms)GD.Print("TRACE_ROOM frame=",world.Frame," room=",world.CurrentRoom);}
     private bool RenderFrame(){if(framePlan.Consume() is null)return false;buildCount++;graphics.Build();canvas.QueueRedraw();return true;}
     private bool lastFocus=true;
     private string? lastFpsText;
@@ -590,6 +635,8 @@ public partial class GameHost : Node2D
     {
         if(failure is not null){if(audit)GetTree().Quit(1);return;}
         long processStarted=world.Performance.Start(),firstFrame=world.Frame;
+        if(world.Performance.Enabled)world.Performance.MarkProcessEntry(Stopwatch.GetTimestamp());
+        double processCpuStart=world.Performance.Enabled?world.Performance.MainThreadCpuNowMs():-1;
         try
         {
             SyncGrenadeBinding();
@@ -597,13 +644,22 @@ public partial class GameHost : Node2D
             SyncNativeUi();
             SyncMapRuntime();
             nativeBridge.Services.Input.Context=mapEditor is not null||characterEditor is not null||actionEditor is not null?NativeInputContext.Editor:modalDepth>0||world.CurrentRoom==world.Constants["Title"].Int?NativeInputContext.Menu:NativeInputContext.Game;
-            if(cadenceRoom!=world.CurrentRoom){cadenceRoom=world.CurrentRoom;world.Performance.ResetCadence();nativeClock.RoomChanged();}
-            if(!audit&&!GetWindow().HasFocus()&&modalDepth==0){ResetNativeInput();canvas.QueueRedraw();return;}
-            if(modalDepth>0&&pendingFrame is null){elapsed=0;nativeClock.Pause();frameMonitor.Reset();world.Performance.ResetCadence();canvas.QueueRedraw();return;}
+            if(cadenceRoom!=world.CurrentRoom){cadenceRoom=world.CurrentRoom;world.Performance.ResetCadence();lastFramesDrawn=0;nativeClock.RoomChanged();}
+            if(!audit&&!GetWindow().HasFocus()&&modalDepth==0){ResetNativeInput();lastFramesDrawn=0;canvas.QueueRedraw();return;}
+            if(modalDepth>0&&pendingFrame is null){elapsed=0;nativeClock.Pause();frameMonitor.Reset();world.Performance.ResetCadence();lastFramesDrawn=0;canvas.QueueRedraw();return;}
             if(pendingFrame is not null)
             {
-                if(!pendingFrame.IsCompleted){elapsed=0;nativeClock.Pause();frameMonitor.Reset();world.Performance.ResetCadence();canvas.QueueRedraw();return;}
+                if(!pendingFrame.IsCompleted){elapsed=0;nativeClock.Pause();frameMonitor.Reset();world.Performance.ResetCadence();lastFramesDrawn=0;canvas.QueueRedraw();return;}
                 pendingFrame.GetAwaiter().GetResult();pendingFrame=null;elapsed=0;nativeClock.Pause();
+            }
+            if(world.Performance.Enabled&&DisplayServer.GetName()!="headless")
+            {
+                long drawn=Engine.GetFramesDrawn();
+                world.Performance.Present(drawn-lastFramesDrawn,
+                    (long)RenderingServer.GetRenderingInfo(RenderingServer.RenderingInfo.TotalPrimitivesInFrame),
+                    (long)RenderingServer.GetRenderingInfo(RenderingServer.RenderingInfo.TotalDrawCallsInFrame),
+                    RenderingServer.GetFrameSetupTimeCpu());
+                lastFramesDrawn=drawn;
             }
             var measurement=frameMonitor.Update(Stopwatch.GetElapsedTime(frameClock).TotalSeconds,world.Frame,world.CurrentRoom,world.Engine.Read("room_speed").Number,DisplayServer.GetName()!="headless",buildCount);
             if(measurement is not null)
@@ -679,10 +735,19 @@ public partial class GameHost : Node2D
             {captured=true;Capture();}
         }
         catch(Exception e){Fail(e);QueueRedraw();if(audit){audio.Shutdown();GetTree().Quit(1);}}
-        finally{world.Performance.Process(processStarted,world.Frame-firstFrame);}
+        finally
+        {
+            world.Performance.Process(processStarted,world.Frame-firstFrame);
+            if(world.Performance.Enabled)
+            {
+                long exitTicks=Stopwatch.GetTimestamp();
+                world.Performance.MarkProcessExit(exitTicks);
+                world.Performance.ProcessEnd(exitTicks,processCpuStart,world.Performance.MainThreadCpuNowMs());
+            }
+        }
     }
 
-    private void OnFramePostDraw()=>world.Performance.RenderCompleted();
+    private void OnFramePostDraw(){world.Performance.MarkPostDraw(Stopwatch.GetTimestamp());world.Performance.RenderCompleted();}
 
     private async void Capture()
     {

@@ -57,11 +57,31 @@ public partial class GameHost
     }
     private bool playMapPicked;
     private AcceptDialog? playDialogSeen;
+    private int playModalBranchCount;
+    private int playDialogSeenCount;
+    private int playDialogAnswers;
+    private int playDialogModalAnswers;
+    private int playDialogWaitAnswers;
+    private int playStepTick;
+    private void PlayAnswerDialog(bool modal)
+    {
+        if (playDialogSeen is not { } dialog) return;
+        playDialogSeenCount++;
+        playDialogSeen = null;
+        if (!GodotObject.IsInstanceValid(dialog)) return;
+        playDialogAnswers++;
+        if (modal) playDialogModalAnswers++; else playDialogWaitAnswers++;
+        Callable.From(() => { if (GodotObject.IsInstanceValid(dialog)) dialog.EmitSignal(AcceptDialog.SignalName.CustomAction, "1"); }).CallDeferred();
+    }
+    private void PlayCounters() => playStepTick++;
     private async Task PlayStep()
     {
         if (modalDepth > 0)
         {
+            playModalBranchCount++;
+            PlayCounters();
             PlayResolvePopup();
+            PlayAnswerDialog(true);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             return;
         }
@@ -70,13 +90,9 @@ public partial class GameHost
         while (!task.IsCompleted)
         {
             if (Stopwatch.GetElapsedTime(started).TotalSeconds > 30) throw new InvalidOperationException("Play timed out: step");
+            PlayCounters();
             PlayResolvePopup();
-            if (playDialogSeen is { } dialog)
-            {
-                playDialogSeen = null;
-                var answer = dialog;
-                Callable.From(() => answer.EmitSignal(AcceptDialog.SignalName.CustomAction, "1")).CallDeferred();
-            }
+            PlayAnswerDialog(false);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
         }
         await task;
@@ -280,6 +296,7 @@ public partial class GameHost
         await PlayOperate();
         await PlayGravity();
         GD.Print("PLAY_AUDIT step=operated room=", world.CurrentRoom, " frame=", world.Frame);
+        GD.Print("PLAY_COUNTERS_FINAL stage=play modalBranch=", playModalBranchCount, " seen=", playDialogSeenCount, " answers=", playDialogAnswers, " answersModal=", playDialogModalAnswers, " answersWait=", playDialogWaitAnswers, " ticks=", playStepTick);
         GD.Print("PLAY_AUDIT_OK");
         audio.Shutdown();
         GetTree().Quit();
@@ -321,6 +338,7 @@ public partial class GameHost
             GD.Print("PLAY_AUDIT step=testroom room=", world.CurrentRoom, " frame=", world.Frame);
         }
         else GD.Print("PLAY_AUDIT defect=testroom-entry room=", world.CurrentRoom, " error=", defect ?? "room never finished loading");
+        GD.Print("PLAY_COUNTERS_FINAL stage=testroom modalBranch=", playModalBranchCount, " seen=", playDialogSeenCount, " answers=", playDialogAnswers, " answersModal=", playDialogModalAnswers, " answersWait=", playDialogWaitAnswers, " ticks=", playStepTick);
         GD.Print("PLAY_AUDIT_OK");
         audio.Shutdown();
         GetTree().Quit();

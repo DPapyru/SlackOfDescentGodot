@@ -241,7 +241,7 @@ public sealed partial class GmGraphics
         var pixels=TexturePixels(Texture(frames[index].GetProperty("path").GetString()!)).Data;
         int count=0;for(int i=3;i<pixels.Length;i+=4)if(pixels[i]>0)count++;return count;
     }
-    public object Statistics()=>new{surfaces=surfaces.Count,textures=textures.Count,pixelCaches=textureData.Count,generated=textures.Keys.Count(k=>k.StartsWith("generated/",StringComparison.Ordinal)),triangleCacheEntries=triangleCache.Count,triangleCacheBytes=triangleCache.Bytes,triangleCacheHits=triangleCache.Hits,triangleCacheMisses=triangleCache.Misses,effects=EffectStatistics(),cpuFallbacks=effectFallbacks};
+    public object Statistics()=>new GmGraphicsStats(){Surfaces=surfaces.Count,Textures=textures.Count,PixelCaches=textureData.Count,Generated=textures.Keys.Count(k=>k.StartsWith("generated/",StringComparison.Ordinal)),TriangleCacheEntries=triangleCache.Count,TriangleCacheBytes=triangleCache.Bytes,TriangleCacheHits=triangleCache.Hits,TriangleCacheMisses=triangleCache.Misses,Effects=EffectStatistics(),CpuFallbacks=effectFallbacks,Builds=Builds,BuildTotalMs=TotalBuildMilliseconds,LastBuildMs=LastBuildMilliseconds};
     private void ReleaseTexture(string path)
     {
         if(world.Sprites.Values.Any(s=>s.GetProperty("frames").EnumerateArray().Any(f=>f.GetProperty("path").GetString()==path)))return;
@@ -344,6 +344,7 @@ public sealed partial class GmGraphics
             building=false;Builds++;
             LastBuildMilliseconds=(Time.GetTicksUsec()-started)/1000.0;
             TotalBuildMilliseconds+=LastBuildMilliseconds;
+            world.Performance.BuildCompleted(LastBuildMilliseconds);
         }
     }
     private void Tiled(Texture2D texture,Vector2 position,Vector2 scale,Color tint,bool horizontal=true,bool vertical=true)

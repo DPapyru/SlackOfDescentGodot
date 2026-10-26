@@ -23,7 +23,8 @@ public partial class NativeActionEditorAudit : Node
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             Expect(Find(editor, "动作列表") is ItemList { ItemCount: >= 3 }, "action list is populated with registered and sample actions");
             Expect(Find(editor, "动作目标") is OptionButton { ItemCount: 2 }, "target selector offers player and monster");
-            Expect(Find(editor, "动作预览") is TextureRect, "preview surface is assembled");
+            Expect(Find(editor, "动作预览") is TextureRect { Size.Y: >= 200 }, "the preview surface keeps a usable height");
+            Expect(NativeActionEditor.PreviewFrame.X * NativeActionEditor.PreviewViewport.Y == NativeActionEditor.PreviewFrame.Y * NativeActionEditor.PreviewViewport.X, "preview frame keeps the port aspect so parts are not stretched");
             Expect(editor.SelectAction("sample.pulse"), "sample action can be selected by id");
             var amount = (SpinBox)editor.ParameterControls["amount"]; var label = (LineEdit)editor.ParameterControls["label"]; var mode = (OptionButton)editor.ParameterControls["mode"];
             Expect(amount.Name == "动作参数_amount" && label.Name == "动作参数_label" && mode.Name == "动作参数_mode", "schema generates named controls per parameter");
@@ -44,12 +45,34 @@ public partial class NativeActionEditorAudit : Node
             Expect(diagnostics.Contains("BrokenMod.cs", StringComparison.Ordinal), "compile failure reports source diagnostics");
             Expect(Find(editor, "动作状态") is Label { Text.Length: > 0 }, "compile failure leaves the editor responsive");
             Expect(editor.SelectAction("sample.gravity"), "editor survives a failed compile check");
+            Expect(typeof(NativeActionEditor).Assembly.GetType("SlackOfDescent.NativeActionConfig") is not null && !GameConsumesActionConfig(), "saved action configs are not yet consumed by the game, so the editor is a template producer");
+            var spin = (SpinBox)editor.ParameterControls["strength"];
+            Expect(Find(editor, "动作状态") is Label, "editor exposes a status label for feedback");
+            spin.Value = 3.5;
+            Expect(editor.ParameterControls.Count > 0 && editor.IsDirty, "changing a parameter marks the editor dirty");
+            Expect(editor.DirtyButtonText.Contains("未应用", StringComparison.Ordinal), "the apply button advertises pending parameter changes");
+            editor.Apply();
+            await editor.SettleAsync(editor.Preview.Player!);
+            Expect(!editor.IsDirty, "applying clears the pending marker");
+            Expect(Math.Abs(editor.Preview.Player!.Scope.ReadOr("actionGravity").Number - 3.5) < 0.0001, "applying uses the edited parameter value");
+            editor.Undo();
+            Expect(Math.Abs(((SpinBox)editor.ParameterControls["strength"]).Value - 0.5) < 0.0001, "undo restores the previous parameter value");
+            editor.Redo();
+            Expect(Math.Abs(((SpinBox)editor.ParameterControls["strength"]).Value - 3.5) < 0.0001, "redo reapplies the changed parameter value");
             ((SpinBox)editor.ParameterControls["strength"]).Value = 2.5;
             var player = await editor.Bind(NativeActionTargets.Player, editor.DescribeDefinition, editor.Values);
             Expect(player.Object == world.Constants["objPlayerDoll"].Int, "player target binds the real player doll");
             await editor.AdvancePreviewAsync(); await editor.AdvancePreviewAsync();
             Expect(Math.Abs(player.Scope.ReadOr("actionGravity").Number - 2.5) < 0.0001, "player action runs inside the isolated preview");
             Expect(editor.Preview.Bridge.Services.Actors.Bound(new(editor.Preview.World, player), CharacterActionSlot.Jump) is not null, "player binding is registered once");
+            editor.Preview.World.Engine.Write("view_enabled", 0);
+            editor.Preview.World.Engine.Write("view_wview", 640, 0);
+            editor.FrameOn(player);
+            Expect(editor.Preview.World.Engine.Read("view_enabled").Truth, "preview framing enables the viewport from a disabled state");
+            Expect(editor.Preview.World.Engine.Read("view_wport", [0]).Int == NativeActionEditor.PreviewViewport.X && editor.Preview.World.Engine.Read("view_visible", [0]).Truth, "preview framing keeps the view visible at the surface size");
+            Expect(editor.Preview.World.Engine.Read("view_wview", [0]).Int == NativeActionEditor.PreviewFrame.X && editor.Preview.World.Engine.Read("view_hview", [0]).Int == NativeActionEditor.PreviewFrame.Y, "preview framing narrows the view to the action frame");
+            Expect(Math.Abs(editor.Preview.World.Engine.Read("view_xview", [0]).Number + NativeActionEditor.PreviewFrame.X / 2 - player.Scope.ReadOr("x").Number) <= 1, "preview framing centres the view on the actor");
+            Expect(editor.Preview.World.Engine.Read("room_width").Int != NativeActionEditor.PreviewFrame.X && editor.Preview.World.Engine.Read("room_height").Int != NativeActionEditor.PreviewFrame.Y, "preview framing leaves the room bounds untouched");
             ((SpinBox)editor.ParameterControls["strength"]).Value = 3.5;
             var monster = await editor.Bind(NativeActionTargets.Enemy, editor.DescribeDefinition, editor.Values);
             Expect(monster.Object == editor.Preview.World.Constants["objEnemyDoll"].Int, "monster target binds a real enemy doll");
@@ -76,5 +99,27 @@ public partial class NativeActionEditorAudit : Node
         finally { if (Directory.Exists(temporary)) Directory.Delete(temporary, true); }
     }
     private static Node? Find(Node parent, string name) => parent.FindChild(name, true, false);
+    private static bool GameConsumesActionConfig()
+    {
+        var loader = typeof(NativeActionConfig).GetMethod("Load", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
+        if (loader is null) return false;
+        return typeof(NativeActionConfig).Assembly.GetTypes()
+            .Where(type => type != typeof(NativeActionConfig) && !InEditor(type))
+            .SelectMany(type => type.GetMethods(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly))
+            .Any(method => method.GetMethodBody()?.GetILAsByteArray() is { } il && IlCallsMethod(il, loader));
+    }
+    private static bool InEditor(Type type)
+    {
+        for (var current = type; current is not null; current = current.DeclaringType)
+            if (current == typeof(NativeActionEditor) || current == typeof(NativeActionEditorAudit)) return true;
+        return false;
+    }
+    private static bool IlCallsMethod(byte[] il, System.Reflection.MethodInfo target)
+    {
+        int token = target.MetadataToken;
+        for (int index = 0; index + 4 < il.Length; index++)
+            if ((il[index] == 0x28 || il[index] == 0x6F) && BitConverter.ToInt32(il, index + 1) == token) return true;
+        return false;
+    }
     private static NativeActionDefinition NativeSamplePulseDefinition => new NativeSamplePulse().Definition;
 }

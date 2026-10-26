@@ -10,7 +10,6 @@ public sealed partial class GmWorld
         double achievement=0;
         foreach(var constant in Manifest.GetProperty("constants").EnumerateArray())
             if(constant.GetProperty("name").GetString()=="DATA_ACHIEVEMENT")double.TryParse(constant.GetProperty("value").GetString(),System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out achievement);
-        Globals.Write("Chara","Nana");
         Globals.Write("gameData",achievement,0);
         void Patch(string key,Action<JsonArray> edit)
         {

@@ -46,7 +46,7 @@ Equal(monitor.Update(11,320,1,30,true)!.Dropped,false,"continuous drop rate limi
 Equal(monitor.Update(15,420,1,30,true)!.Dropped,true,"continuous drop repeats after five seconds");
 Equal(monitor.Update(16,450,2,30,true) is null,true,"room change resets baseline");
 measured=monitor.Update(17,480,2,30,false)!;
-Equal(measured.RenderFps is null,true,"headless sample has no rendering FPS");
+Equal(measured.ProcessFps is null,true,"headless sample has no rendering FPS");
 Equal(measured.LogicBaseline is null,true,"new room has no stale baseline");
 Equal(monitor.Update(18,510,2,60,false) is null,true,"target change resets baseline");
 monitor.Reset();Equal(monitor.Update(19,510,2,60,false) is null,true,"modal pause resets measurement");
@@ -59,7 +59,7 @@ for(int second=0;second<10;second++)for(int tick=0;tick<60;tick++)
     renderingSample=renderingMonitor.Update(monitorTime,monitorFrame,1,30,true)??renderingSample;
 }
 Equal(renderingSample!.LogicBaseline is >29 and <31,true,"logic baseline uses actual thirty FPS cadence");
-Equal(renderingSample.RenderBaseline is >59 and <61,true,"render baseline tracks sixty FPS independently");
+Equal(renderingSample.ProcessBaseline is >59 and <61,true,"process baseline tracks sixty FPS independently");
 bool renderDropped=false;
 for(int tick=0;tick<80;tick++){monitorTime+=1.0/40;if(tick%4!=0)monitorFrame++;renderingSample=renderingMonitor.Update(monitorTime,monitorFrame,1,30,true);renderDropped|=renderingSample?.Dropped==true;}
 Equal(renderDropped,true,"render-only slowdown triggers a drop");
@@ -355,6 +355,9 @@ assertions+=MotionArrayTests.Run(world,dynamicObject);
 assertions+=DoubleDashTests.Run();
 assertions+=FrameSeparationTests.Run();
 assertions+=FrameBenchmarkTests.Run();
+assertions+=FrameProfileTests.Run();
+assertions+=GmValueAdditionTests.Run();
+assertions+=CharacterBaseTests.Run();
 assertions+=ActionEditorTests.Run();
 var originalMotion=world.Create(dynamicObject,500,500,run:false);
 var nativeMotion=world.Create(dynamicObject,500,500,run:false);

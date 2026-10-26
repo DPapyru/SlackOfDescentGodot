@@ -66,6 +66,11 @@ public sealed class NativeCharacterPreview : IDisposable
         }
         Clock.RoomChanged();
     }
+    public void Show(int instanceId, CharacterDefinition definition)
+    {
+        visuals[instanceId] = definition;
+        Graphics.Build();
+    }
     public async Task ApplyAsync(CharacterDefinition definition)
     {
         await NativeCharacterRuntime.BindAsync(World, Bridge, definition);
@@ -102,6 +107,22 @@ public sealed class NativeCharacterPreview : IDisposable
     {
         Input.Clear(World);
         if (Player is { } player) { World.Write(player, "x", 96); World.Write(player, "y", 0); World.Write(player, "vspeed", 0); }
+        Graphics.Build();
+    }
+    public void FrameOn(int centerX, int centerY, int width, int height, int portWidth = 0, int portHeight = 0)
+    {
+        portWidth = portWidth > 0 ? portWidth : width;
+        portHeight = portHeight > 0 ? portHeight : height;
+        World.Engine.Write("view_enabled", 1);
+        World.Engine.Write("view_wview", width, 0);
+        World.Engine.Write("view_hview", height, 0);
+        World.Engine.Write("view_xview", centerX - width / 2, 0);
+        World.Engine.Write("view_yview", centerY - height / 2, 0);
+        World.Engine.Write("view_xport", 0, 0);
+        World.Engine.Write("view_yport", 0, 0);
+        World.Engine.Write("view_wport", portWidth, 0);
+        World.Engine.Write("view_hport", portHeight, 0);
+        World.Engine.Write("view_visible", true, 0);
         Graphics.Build();
     }
     public void Dispose()

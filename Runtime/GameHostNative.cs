@@ -166,6 +166,12 @@ public partial class GameHost
         graphics.Build();modalDepth--;ResetNativeInput();closed.QueueFree();
     }
     private GmInstance? Player()=>world.Instances.FirstOrDefault(i=>!i.Destroyed&&world.IsObject(i.Object,world.Constants["objPlayerDoll"].Int));
+    private static readonly Vector2I CharacterPreviewFrame=new(300,400),CharacterPreviewPort=new(640,480);
+    private void FrameCharacterPreview()
+    {
+        if(isolatedPreview?.Player is not { } actor)return;
+        isolatedPreview.FrameOn((int)actor.Scope.ReadOr("x").Number,(int)actor.Scope.ReadOr("y").Number,CharacterPreviewFrame.X,CharacterPreviewFrame.Y,CharacterPreviewPort.X,CharacterPreviewPort.Y);
+    }
     private async void ApplyCharacterPreview(CharacterDefinition definition)
     {
         if(previewBusy)return;
@@ -179,7 +185,7 @@ public partial class GameHost
             }
             if(characterEditor is null)return;
             isolatedPreview.Registry.CharacterDirectories[definition.Id]=characterEditor.PreviewDirectory;
-            previewDefinition=definition;await isolatedPreview.ApplyAsync(definition);previewCanvas?.QueueRedraw();
+            previewDefinition=definition;await isolatedPreview.ApplyAsync(definition);FrameCharacterPreview();previewCanvas?.QueueRedraw();
             characterEditor?.SetPreviewState(string.Format(NativeLocalization.Text("真实运行时：{0}；动作与碰撞已绑定。"),definition.BasePreset));
         }
         catch(Exception e){characterEditor?.SetPreviewState(NativeLocalization.Text("预览失败：")+NativeLocalization.Text(e.Message));}
@@ -191,7 +197,7 @@ public partial class GameHost
         previewBusy=true;
         try
         {
-            await isolatedPreview.AdvanceAsync(input);previewCanvas?.QueueRedraw();
+            await isolatedPreview.AdvanceAsync(input);FrameCharacterPreview();previewCanvas?.QueueRedraw();
             var actor=isolatedPreview.Player;if(actor is not null)characterEditor?.SetPreviewState(string.Format(NativeLocalization.Text("真实运行时　动作 {0}　位置 {1:F1}, {2:F1}　竖直速度 {3:F1}"),actor.Scope.ReadOr("MotionNum"),actor.Scope.ReadOr("x").Number,actor.Scope.ReadOr("y").Number,actor.Scope.ReadOr("vspeed").Number));
         }
         catch(Exception e){characterEditor?.SetPreviewState(NativeLocalization.Text("预览失败：")+NativeLocalization.Text(e.Message));}

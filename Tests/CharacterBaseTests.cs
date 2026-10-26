@@ -39,6 +39,12 @@ public static class CharacterBaseTests
         Check(NativeCharacterLayout.Hit(definition, Frame, -2, -21) is null, "hidden layers are not hit");
         Check(NativeCharacterLayout.Ordered(definition).All(p => p.Id != hair.Id), "hidden layers leave the draw order");
         hair.Visible = true;
+        Frame(hair)[hairOffset + 3] = 255;
+        var presorted = NativeCharacterLayout.Ordered(definition);
+        Check(NativeCharacterLayout.Hit(presorted, Frame, -2, -21) == hair.Id, "presorted hit matches the ordered overload");
+        Check(NativeCharacterLayout.Hit(presorted, Frame, -5, -5) == body.Id, "presorted hit falls through transparent layers");
+        Check(NativeCharacterLayout.Hit(presorted, Frame, 100, 100) is null, "presorted hit misses empty space");
+        Check(NativeCharacterLayout.Hit(presorted, Frame, -2, -21) == NativeCharacterLayout.Hit(definition, Frame, -2, -21), "presorted and definition overloads agree");
 
         var available = new HashSet<string>(StringComparer.Ordinal)
         {

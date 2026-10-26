@@ -1,6 +1,6 @@
 namespace SlackOfDescent;
 
-public sealed record GmFrameSample(double Seconds,double LogicFps,double? RenderFps,double? LogicBaseline,double? RenderBaseline,bool Dropped,long Builds=0,long LogicSteps=0)
+public sealed record GmFrameSample(double Seconds,double LogicFps,double? ProcessFps,double? LogicBaseline,double? ProcessBaseline,bool Dropped,long Builds=0,long LogicSteps=0)
 {
     public double? BuildFps=>Seconds<=0?null:Builds/Seconds;
     public double? BuildsPerLogicStep=>LogicSteps<=0?null:(double)Builds/LogicSteps;
@@ -32,19 +32,19 @@ public sealed class GmFrameMonitor
         if(seconds<1)return null;
         long steps=frame-firstFrame,buildCount=builds-firstBuild;
         double logicFps=steps/seconds;
-        double? renderFps=rendering?renders/seconds:null;
+        double? processFps=rendering?renders/seconds:null;
         window=now;firstFrame=frame;firstBuild=builds;renders=0;
         double? logicBaseline=logic.Count==5?logic.Order().ElementAt(2):null;
-        double? renderBaseline=render.Count==5?render.Order().ElementAt(2):null;
-        bool below=logicBaseline-logicFps>=5||renderBaseline-renderFps>=5;
+        double? processBaseline=render.Count==5?render.Order().ElementAt(2):null;
+        bool below=logicBaseline-logicFps>=5||processBaseline-processFps>=5;
         bool dropped=below&&(!dropping||now-lastDrop>=5);
         dropping=below;
         if(dropped)lastDrop=now;
         if(now-entered>3&&logic.Count<5)
         {
             logic.Add(logicFps);
-            if(renderFps is double fps)render.Add(fps);
+            if(processFps is double fps)render.Add(fps);
         }
-        return new(seconds,logicFps,renderFps,logicBaseline,renderBaseline,dropped,buildCount,steps);
+        return new(seconds,logicFps,processFps,logicBaseline,processBaseline,dropped,buildCount,steps);
     }
 }

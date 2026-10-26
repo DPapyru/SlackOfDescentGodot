@@ -15,9 +15,9 @@ public readonly struct GmValue : IEquatable<GmValue>
     public static implicit operator GmValue(int value) => new(value);
     public static implicit operator GmValue(bool value) => new(value ? 1 : 0);
     public static implicit operator GmValue(string value) => new(value);
-    public static GmValue operator +(GmValue a, GmValue b) => a.IsString && b.IsString ? new(a.Text + b.Text) : !a.IsString && !b.IsString ? new(a.Number + b.Number) : throw new InvalidOperationException("Mixed string and numeric addition");
+    public static GmValue operator +(GmValue a, GmValue b) => a.IsString || b.IsString ? new(a.ToString() + b.ToString()) : new(a.Number + b.Number);
     public static GmValue operator -(GmValue a, GmValue b) => new(a.Number - b.Number);
-    public static GmValue operator *(GmValue a, GmValue b) => a.IsString ? new(string.Concat(Enumerable.Repeat(a.Text, Math.Max(0, b.Int)))) : new(a.Number * b.Number);
+    public static GmValue operator *(GmValue a, GmValue b) => new(a.Number * b.Number);
     public static GmValue operator /(GmValue a, GmValue b) => b.Number == 0 ? throw new DivideByZeroException() : new(a.Number / b.Number);
     public bool Equals(GmValue other) => IsString == other.IsString && (IsString ? Text == other.Text : Number == other.Number);
     public bool AlmostEquals(GmValue other)=>IsString==other.IsString&&(IsString?Text==other.Text:Math.Abs(Number-other.Number)<1e-13);

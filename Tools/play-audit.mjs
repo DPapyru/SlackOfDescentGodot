@@ -7,10 +7,11 @@ const godot = process.env.GODOT_BIN ?? '/home/dpapyru/公共/Godot/Godot_v4.7.2-
 const output = path.resolve(process.env.SLACK_PLAY_OUTPUT ?? path.join(project, '.playtest', 'play'));
 const only = (process.argv[2] ?? 'all').replace(/^--only=?/, '');
 if (!['play', 'testroom', 'map', 'character', 'editors', 'all'].includes(only)) throw new Error('Use --only play|testroom|map|character|editors|all');
-const stages = only === 'all' ? ['play', 'map', 'character'] : [only];
+const stages = only === 'all' ? ['play', 'map', 'character'] : only === 'editors' ? ['map', 'character'] : [only];
 const shots = [];
 await mkdir(output, { recursive: true });
 async function run(stage) {
+  const first = shots.length;
   const args = ['--path', project, '--audio-driver', 'Dummy', '--log-file', path.join(output, stage + '.log'), 'res://Tools/PlayAudit.tscn'];
   if (stage === 'testroom') args.push('--', '--testroom');
   else if (stage !== 'play') args.push('--', '--editors', '--only', stage);
@@ -26,12 +27,19 @@ async function run(stage) {
   for (const line of log.split('\n')) {
     const shot = /PLAY_AUDIT shot=(\S+)/.exec(line);
     if (shot) shots.push(path.join(output, shot[1] + '.png'));
-    if (/PLAY_AUDIT_FAILED|Exception|Timed out/.test(line)) throw new Error(stage + ': ' + line.trim());
+    if (/PLAY_AUDIT_FAILED|PLAY_AUDIT defect=|Exception|Timed out/.test(line)) throw new Error(stage + ': ' + line.trim());
   }
   if (code !== 0) throw new Error(stage + ' exited ' + code);
-  if (stage === 'play' || stage === 'testroom') { if (!log.includes('PLAY_AUDIT_OK')) throw new Error(stage + ' never printed PLAY_AUDIT_OK'); }
+  if (stage === 'play' || stage === 'testroom') {
+    const reached = stage === 'play' ? 'PLAY_AUDIT step=operated' : 'PLAY_AUDIT step=testroom';
+    if (!log.includes('PLAY_AUDIT_OK')) throw new Error(stage + ' never printed PLAY_AUDIT_OK');
+    if (!log.includes(reached)) throw new Error(stage + ' printed PLAY_AUDIT_OK without reaching ' + reached);
+  }
   else if (!log.includes('PLAY_AUDIT editor_checks=')) throw new Error(stage + ' never completed its checks');
-  if (!shots.some(shot => shot.includes(path.sep + stage === path.sep + 'play' ? 'play-' : 'editor-'))) throw new Error(stage + ' produced no screenshots');
+  const prefixes = { play: ['play-'], testroom: ['play-'], map: ['editor-map-'], character: ['editor-character-'] };
+  const wanted = prefixes[stage];
+  if (!wanted) throw new Error(stage + ' has no screenshot prefix');
+  if (!shots.slice(first).some(shot => wanted.some(prefix => shot.includes(prefix)))) throw new Error(stage + ' produced no screenshots');
   return stage;
 }
 const done = [];

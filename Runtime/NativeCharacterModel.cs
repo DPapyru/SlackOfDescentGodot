@@ -426,9 +426,9 @@ public static class NativeCharacterLayout
         int x = rects.Min(r => r.X), y = rects.Min(r => r.Y);
         return new(x, y, rects.Max(r => r.X + r.Width) - x, rects.Max(r => r.Y + r.Height) - y);
     }
-    public static string? Hit(CharacterDefinition definition, Func<NativeCharacterPart, byte[]> frame, int x, int y)
+    public static string? Hit(CharacterDefinition definition, Func<NativeCharacterPart, byte[]> frame, int x, int y) => Hit(Ordered(definition), frame, x, y);
+    public static string? Hit(List<NativeCharacterPart> parts, Func<NativeCharacterPart, byte[]> frame, int x, int y)
     {
-        var parts = Ordered(definition);
         for (int index = parts.Count - 1; index >= 0; index--)
         {
             var part = parts[index]; var corner = Corner(part);

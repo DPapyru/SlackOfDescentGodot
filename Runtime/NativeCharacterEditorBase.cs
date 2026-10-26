@@ -5,7 +5,6 @@ namespace SlackOfDescent;
 
 public partial class NativeCharacterEditor
 {
-    private bool baseGenerated;
     private void GenerateBase()
     {
         canvas.FinishStroke();
@@ -29,7 +28,7 @@ public partial class NativeCharacterEditor
                     added++;
                 }
                 Document.EndEdit();
-                baseGenerated = true; selectedPart = Math.Max(0, Document.Definition.Parts.Count - 1); selectedFrame = 0;
+                selectedPart = Math.Max(0, Document.Definition.Parts.Count - 1); selectedFrame = 0;
                 overallMode.ButtonPressed = true; workspace.CurrentTab = 1; Refresh(); OnPixelsEdited();
                 status.Text = string.Format(NativeLocalization.Text("已生成基底角色：{0} 个部位。"), added);
             }
@@ -67,7 +66,7 @@ public partial class NativeCharacterEditor
     public void GenerateBaseForAudit()
     {
         GenerateBase(); overallMode.ButtonPressed = true; workspace.CurrentTab = 1;
-        canvas.Mode = NativeCharacterCanvasMode.Overall; canvas.FitZoom(430, 470);
+        canvas.Mode = NativeCharacterCanvasMode.Overall; autoFit = true; FitCanvas();
         canvas.ShowReference = true; canvas.ReferenceOpacity = 0.4f; canvas.QueueRedraw();
     }
     public void SetReferenceForAudit(bool visible, float opacity)

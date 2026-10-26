@@ -24,7 +24,15 @@ public partial class NativeActionEditor : Window
     private NativeActionDefinition? definition;
     private double accumulator;
     private string activeTarget = NativeActionTargets.Player;
-    private bool previewBusy, previewReady, closing;
+    private bool previewBusy, previewReady, closing, loading, dirty;
+    private NativeActionConfig? lastApplied;
+    private Button applyButton = null!, undoButton = null!, redoButton = null!;
+    internal bool IsDirty => dirty;
+    internal string DirtyButtonText => applyButton.Text;
+    internal string UndoButtonText => undoButton.Text;
+    private readonly Stack<NativeActionConfig> undo = new(), redo = new();
+    internal static readonly Vector2I PreviewFrame = new(160, 120);
+    internal static readonly Vector2I PreviewViewport = new(640, 480);
     private string SelectedTarget => targetChoice.Selected == 1 ? NativeActionTargets.Enemy : NativeActionTargets.Player;
     public string ConfigDirectory => Path.Combine(store.Root, "Actions");
     public event Action? Closed;
@@ -63,15 +71,19 @@ public partial class NativeActionEditor : Window
         targetChoice = new OptionButton { Name = "动作目标", CustomMinimumSize = new(180, 32) };
         targetChoice.AddItem(L("玩家 objPlayerDoll", "Player objPlayerDoll"));
         targetChoice.AddItem(L("怪物 objEnemyDoll", "Monster objEnemyDoll"));
+        targetChoice.ItemSelected += _ => ReframeTarget();
         targetRow.AddChild(targetChoice);
         surface = new TextureRect { Name = "动作预览", CustomMinimumSize = new(340, 260), StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, TextureFilter = CanvasItem.TextureFilterEnum.Nearest }; right.AddChild(surface);
         previewState = new Label { Name = "动作预览状态", AutoTranslateMode = AutoTranslateModeEnum.Disabled, AutowrapMode = TextServer.AutowrapMode.WordSmart, Text = L("等待应用动作", "Waiting to apply an action") }; right.AddChild(previewState);
         var buttons = Row(right); play = new CheckButton { Name = "动作播放", Text = L("播放", "Play") }; buttons.AddChild(play);
         Button(buttons, L("单步", "Step"), StepPreview);
         var operations = Row(root);
-        Button(operations, L("应用到预览", "Apply to preview"), Apply);
+        applyButton = Button(operations, L("应用到预览", "Apply to preview"), Apply);
+        undoButton = Button(operations, L("撤销", "Undo"), Undo);
+        redoButton = Button(operations, L("重做", "Redo"), Redo);
         status = new Label { Name = "动作状态", AutoTranslateMode = AutoTranslateModeEnum.Disabled, AutowrapMode = TextServer.AutowrapMode.WordSmart, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; operations.AddChild(status);
         RefreshCatalog();
+        RefreshApplyButton();
     }
     public override void _Process(double delta)
     {
@@ -128,6 +140,9 @@ public partial class NativeActionEditor : Window
         string id = catalog.GetItemMetadata(index).AsString();
         if (!definitions.TryGetValue(id, out var value)) return;
         definition = value; BuildForm(value);
+        undo.Clear(); redo.Clear(); dirty = false;
+        lastApplied = Describe();
+        RefreshApplyButton();
     }
     private void BuildForm(NativeActionDefinition value)
     {
@@ -155,10 +170,67 @@ public partial class NativeActionEditor : Window
                     control = new LineEdit { Text = parsed.ToString(), CustomMinimumSize = new(150, 30) }; break;
             }
             control.Name = "动作参数_" + parameter.Name; control.AutoTranslateMode = AutoTranslateModeEnum.Disabled; control.TooltipText = parameter.Description;
+            Wire(control);
             row.AddChild(control); parameters[parameter.Name] = control;
         }
         if (value.Parameters.Count == 0) parameterForm.AddChild(new Label { AutoTranslateMode = AutoTranslateModeEnum.Disabled, Text = L("该动作没有参数", "This action has no parameters") });
         FillFromConfig(value);
+    }
+    private void Wire(Control control)
+    {
+        switch (control)
+        {
+            case SpinBox spin: spin.ValueChanged += _ => MarkEdited(); break;
+            case CheckButton check: check.Toggled += _ => MarkEdited(); break;
+            case OptionButton option: option.ItemSelected += _ => MarkEdited(); break;
+            case LineEdit line: line.TextChanged += _ => MarkEdited(); break;
+        }
+    }
+    private void MarkEdited()
+    {
+        if (loading) return;
+        dirty = true;
+        RefreshApplyButton();
+        SetStatus(L("参数已修改，点击「应用到预览」生效。", "Parameters changed; press Apply to preview."));
+    }
+    private void RefreshApplyButton()
+    {
+        applyButton.Text = dirty ? L("应用到预览 (未应用)", "Apply to preview (pending)") : L("应用到预览", "Apply to preview");
+        if (undoButton is not null) undoButton.Disabled = undo.Count == 0;
+        if (redoButton is not null) redoButton.Disabled = redo.Count == 0;
+    }
+    private void PushUndo()
+    {
+        if (definition is null || lastApplied is null) return;
+        undo.Push(lastApplied);
+        redo.Clear();
+        RefreshApplyButton();
+    }
+    internal void Undo()
+    {
+        if (undo.Count == 0 || definition is null) return;
+        redo.Push(Describe());
+        Restore(undo.Pop());
+    }
+    internal void Redo()
+    {
+        if (redo.Count == 0 || definition is null) return;
+        undo.Push(Describe());
+        Restore(redo.Pop());
+    }
+    private void Restore(NativeActionConfig config)
+    {
+        if (definition is null || config.Action != definition.Id) return;
+        loading = true;
+        try
+        {
+            foreach (var pair in config.Parameters)
+                if (parameters.TryGetValue(pair.Key, out var control)) Apply(control, pair.Value);
+        }
+        finally { loading = false; }
+        dirty = true;
+        RefreshApplyButton();
+        SetStatus(L("已恢复参数，点击「应用到预览」生效。", "Parameters restored; press Apply to preview."));
     }
     private Dictionary<string, string> Collect()
     {
@@ -191,8 +263,10 @@ public partial class NativeActionEditor : Window
         try
         {
             var config = NativeActionConfig.Load(path); config.Validate(value);
+            loading = true;
             foreach (var pair in config.Parameters)
                 if (parameters.TryGetValue(pair.Key, out var control)) Apply(control, pair.Value);
+            loading = false;
             SelectTarget(config.Target);
             SetStatus(L("已载入配置：", "Loaded config: ") + path);
         }
@@ -209,6 +283,15 @@ public partial class NativeActionEditor : Window
         }
     }
     private void SelectTarget(string target) => targetChoice.Select(target == NativeActionTargets.Enemy ? 1 : 0);
+    internal void ReframeTarget()
+    {
+        if (preview is null || !previewReady) return;
+        var actor = TargetActor(SelectedTarget);
+        if (actor is null) return;
+        activeTarget = SelectedTarget;
+        ShowVisual(actor);
+        FrameOn(actor);
+    }
     private void SaveRequested() => SaveConfig();
     internal string SaveConfig()
     {
@@ -284,7 +367,8 @@ public partial class NativeActionEditor : Window
     }
     internal async void Apply()
     {
-        try { await Bind(SelectedTarget, definition ?? throw new InvalidOperationException("未选择动作。"), Collect()); }
+        PushUndo();
+        try { await Bind(SelectedTarget, definition ?? throw new InvalidOperationException("未选择动作。"), Collect()); dirty = false; RefreshApplyButton(); }
         catch (Exception failure) { SetStatus(L("应用失败：", "Apply failed: ") + NativeLocalization.Text(failure.GetBaseException().Message)); }
     }
     internal async Task<GmInstance> Bind(string target, NativeActionDefinition value, IReadOnlyDictionary<string, string> values)
@@ -298,8 +382,11 @@ public partial class NativeActionEditor : Window
             var action = Create(value, NativeActionValues.Resolve(value, values));
             var actor = TargetActor(target) ?? throw new InvalidOperationException("没有可绑定的目标对象");
             preview!.Bridge.Services.Actors.Bind(new(preview.World, actor), value.Slot, action);
+            lastApplied = Describe();
             activeTarget = target;
-            previewState.Text = string.Format(NativeLocalization.Text("{0} 已绑定 {1}（{2}）"), target, value.Id, value.Slot);
+            bool shown = ShowVisual(actor);
+            await SettleAsync(actor);
+            previewState.Text = string.Format(NativeLocalization.Text("{0} 已绑定 {1}（{2}）；预览角色：{3}"), target, value.Id, value.Slot, VisualLabel(shown));
             SetStatus(L("已应用到预览。", "Applied to preview."));
             canvas?.QueueRedraw();
             return actor;
@@ -311,7 +398,35 @@ public partial class NativeActionEditor : Window
         if (preview is null) throw new InvalidOperationException("预览尚未就绪。");
         await StepOnce();
     }
+    internal async Task SettleAsync(GmInstance actor)
+    {
+        var target = preview!;
+        if (activeTarget == NativeActionTargets.Player)
+            for (int n = 0; n < 12 && !target.World.IsLoadingRoom && target.World.PendingRoom is null; n++)
+                await target.AdvanceAsync(new(false, false, false, false));
+        else
+        {
+            for (int n = 0; n < 12; n++)
+            {
+                var clock = target.Clock; clock.BeginTick();
+                target.Bridge.Update(new(FrameContext.FixedDelta, clock.GameTime, clock.Tick, InputSnapshot.Empty));
+            }
+        }
+        FrameOn(actor);
+    }
+    internal void FrameOn(GmInstance actor)
+    {
+        int x = actor.Scope.ReadOr("x").Int, y = actor.Scope.ReadOr("y").Int;
+        if (activeTarget == NativeActionTargets.Player && PlayerDefinition is { } definition)
+        {
+            var bounds = NativeCharacterLayout.Bounds(definition);
+            x += bounds.X + bounds.Width / 2; y += bounds.Y + bounds.Height / 2;
+        }
+        preview!.FrameOn(x, y, PreviewFrame.X, PreviewFrame.Y, PreviewViewport.X, PreviewViewport.Y);
+    }
+    private CharacterDefinition? PlayerDefinition => registry.Characters.Count > 0 ? registry.Characters.Values.First() : null;
     internal NativeCharacterPreview Preview => preview ?? throw new InvalidOperationException("预览尚未就绪。");
+    internal OptionButton TargetChoiceControl => targetChoice;
     internal NativeActionDefinition DescribeDefinition => definition ?? throw new InvalidOperationException("未选择动作。");
     internal bool SelectAction(string id)
     {
@@ -331,7 +446,7 @@ public partial class NativeActionEditor : Window
         if (preview is not null && previewReady) return;
         if (viewport is null)
         {
-            viewport = new SubViewport { Size = new(640, 480), TransparentBg = false, RenderTargetUpdateMode = SubViewport.UpdateMode.Always, Disable3D = true };
+            viewport = new SubViewport { Size = new(PreviewViewport.X, PreviewViewport.Y), TransparentBg = false, RenderTargetUpdateMode = SubViewport.UpdateMode.Always, Disable3D = true };
             AddChild(viewport); canvas = new GmCanvas(); viewport.AddChild(canvas);
             surface.Texture = viewport.GetTexture();
         }
@@ -361,6 +476,18 @@ public partial class NativeActionEditor : Window
         instance.Scope.Write("mask_index", world.Constants["sprMask"]); instance.Scope.Write("HP", 1000); instance.Scope.Write("MotionNum", 0);
         instance.Scope.Write("DEAD_MOTION", 1); instance.Scope.Write("BindTarget", -4);
         return instance;
+    }
+    private bool ShowVisual(GmInstance actor)
+    {
+        if (preview is null || activeTarget == NativeActionTargets.Enemy || registry.Characters.Count == 0) return false;
+        preview.Show(actor.Id, registry.Characters.Values.First());
+        return true;
+    }
+    private string VisualLabel(bool shown)
+    {
+        if (activeTarget == NativeActionTargets.Enemy) return L("怪物（外形未接入）", "monster (visual not wired)");
+        if (!shown) return L("无数据", "no data");
+        return L("默认（", "default (") + registry.Characters.Values.First().BasePreset + "）";
     }
     private void SetStatus(string text) { if (status is not null) status.Text = NativeLocalization.Text(text); }
     internal void RequestClose()

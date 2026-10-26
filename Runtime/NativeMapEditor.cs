@@ -37,6 +37,10 @@ public partial class NativeMapEditor : Window
     private string? pendingSave;
     private bool closeAfterSave;
     private long uiStarted;
+    private Label pointerStatus = null!;
+    private Button undoButton = null!, redoButton = null!, applyButton = null!, rawButton = null!, deleteButton = null!, spawnCenterButton = null!;
+    private CheckBox tilesToggle = null!, entitiesToggle = null!, solidToggle = null!;
+    private Vector2? pointerRoom;
     public NativeMapEditor(GmWorld world, ContentRegistry registry, NativeContentStore store)
     { this.world = world; this.registry = registry; this.store = store; Service = new(world, registry); Name = "NativeMapEditor"; }
     public override void _Ready()
@@ -49,7 +53,8 @@ public partial class NativeMapEditor : Window
         Button(bar, "导入原版", "ImportOriginal", () => Guard(() => Import(rooms.GetSelectedId())));
         Button(bar, "打开…", "OpenMap", () => Guard(OpenDialog));
         Button(bar, "保存", "SaveMap", () => SaveRequested(false)); Button(bar, "另存为…", "SaveMapAs", () => SaveRequested(true));
-        Button(bar, "撤销", "Undo", Undo); Button(bar, "重做", "Redo", Redo);
+        undoButton = new Button { Text = "撤销", Name = "Undo" }; bar.AddChild(undoButton); undoButton.Pressed += Undo;
+        redoButton = new Button { Text = "重做", Name = "Redo" }; bar.AddChild(redoButton); redoButton.Pressed += Redo;
         Button(bar, "房间与相机", "RoomSettings", OpenRoomSettings);
         Button(bar, "地图目录", "MapLibrary", OpenMapLibrary); Button(bar, "事件", "MapEvents", OpenEventEditor);
         Button(bar, "试玩 ▶", "PlayMap", Play);
@@ -78,10 +83,18 @@ public partial class NativeMapEditor : Window
         var canvasFrame = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; right.AddChild(canvasFrame);
         var canvasBar = new HBoxContainer(); canvasFrame.AddChild(canvasBar);
         Button(canvasBar, "缩小", "ZoomOut", () => MapCanvas.ZoomAt(MapCanvas.Size / 2, .8f)); Button(canvasBar, "放大", "ZoomIn", () => MapCanvas.ZoomAt(MapCanvas.Size / 2, 1.25f));
-        Button(canvasBar, "显示全图", "FitRoom", () => MapCanvas.Fit()); Button(canvasBar, "回到出生区", "SpawnView", () => { MapCanvas.Pan = new(0, 0); MapCanvas.Zoom = 1; MapCanvas.QueueRedraw(); });
+        Button(canvasBar, "显示全图", "FitRoom", () => MapCanvas.Fit()); Button(canvasBar, "实际大小", "SpawnView", () => { MapCanvas.Pan = new(0, 0); MapCanvas.Zoom = 1; MapCanvas.QueueRedraw(); });
+        spawnCenterButton = new Button { Text = "居中到出生点", Name = "SpawnCenter" }; canvasBar.AddChild(spawnCenterButton); spawnCenterButton.Pressed += CenterOnSpawn;
+        tilesToggle = new CheckBox { Text = "图块", Name = "ShowTiles", ButtonPressed = true }; canvasBar.AddChild(tilesToggle);
+        entitiesToggle = new CheckBox { Text = "实体", Name = "ShowEntities", ButtonPressed = true }; canvasBar.AddChild(entitiesToggle);
+        solidToggle = new CheckBox { Text = "碰撞框", Name = "ShowSolid", ButtonPressed = true }; canvasBar.AddChild(solidToggle);
+        tilesToggle.Toggled += on => { MapCanvas.ShowTiles = on; MapCanvas.QueueRedraw(); };
+        entitiesToggle.Toggled += on => { MapCanvas.ShowEntities = on; MapCanvas.QueueRedraw(); };
+        solidToggle.Toggled += on => { MapCanvas.ShowSolidOverlay = on; MapCanvas.QueueRedraw(); };
         MapCanvas = new NativeMapCanvas(world) { Name = "MapCanvas", SizeFlagsVertical = Control.SizeFlags.ExpandFill, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new(300, 260), ClipContents = true };
         canvasFrame.AddChild(MapCanvas);
         MapCanvas.EditStarted = Remember; MapCanvas.Edited = Changed; MapCanvas.Selected = Select; MapCanvas.PaintAt = PaintAt;
+        MapCanvas.PointerMoved = point => { pointerRoom = point; UpdatePointerStatus(); };
         var inspector = new VBoxContainer { CustomMinimumSize = new(230, 0) }; right.AddChild(inspector);
         selectedTitle = new Label { AutoTranslateMode = AutoTranslateModeEnum.Disabled, Text = NativeLocalization.Text("未选择区块或实体"), Name = "SelectionTitle" }; inspector.AddChild(selectedTitle);
         propX = Field(inspector, "横坐标", "PropertyX", -1000000, 1000000, 0); propY = Field(inspector, "纵坐标", "PropertyY", -1000000, 1000000, 0);
@@ -90,8 +103,12 @@ public partial class NativeMapEditor : Window
         propertyForm = new VBoxContainer { Name = "EntityPropertyForm" }; inspector.AddChild(propertyForm);
         inspector.AddChild(new Label { Text = "高级属性（JSON）" });
         properties = new TextEdit { Name = "EntityProperties", AutoTranslateMode = AutoTranslateModeEnum.Disabled, SizeFlagsVertical = Control.SizeFlags.ExpandFill, CustomMinimumSize = new(220, 140), Text = "{}" }; inspector.AddChild(properties);
-        Button(inspector, "应用属性", "ApplyProperties", ApplyCustomProperties); Button(inspector, "编辑完整数据…", "EditRawSelection", OpenRawSelection); Button(inspector, "删除所选", "DeleteSelection", DeleteSelection);
-        status = new Label { Name = "MapStatus", AutoTranslateMode = AutoTranslateModeEnum.Disabled }; root.AddChild(status);
+        applyButton = new Button { Text = "应用属性", Name = "ApplyProperties" }; inspector.AddChild(applyButton); applyButton.Pressed += ApplyCustomProperties;
+        rawButton = new Button { Text = "编辑完整数据…", Name = "EditRawSelection" }; inspector.AddChild(rawButton); rawButton.Pressed += OpenRawSelection;
+        deleteButton = new Button { Text = "删除所选", Name = "DeleteSelection" }; inspector.AddChild(deleteButton); deleteButton.Pressed += DeleteSelection;
+        var statusBar = new HBoxContainer { Name = "StatusBar" }; root.AddChild(statusBar);
+        status = new Label { Name = "MapStatus", AutoTranslateMode = AutoTranslateModeEnum.Disabled, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; statusBar.AddChild(status);
+        pointerStatus = new Label { Name = "MapPointerStatus", AutoTranslateMode = AutoTranslateModeEnum.Disabled, HorizontalAlignment = HorizontalAlignment.Right }; statusBar.AddChild(pointerStatus);
         fileDialog = new FileDialog { Name = "MapFileDialog", Title = NativeLocalization.Text("选择地图文件"), Access = FileDialog.AccessEnum.Filesystem, UseNativeDialog = true, Filters = ["*.map.json ; " + NativeLocalization.Text("地图文件")], CurrentDir = store.Maps, Size = new(800, 560) }; AddChild(fileDialog);
         fileDialog.FileSelected += FileSelected;
         unsaved = new ConfirmationDialog { Name = "MapUnsaved", Title = "尚未保存", DialogText = "地图有未保存的修改。要先保存吗？", OkButtonText = "保存", CancelButtonText = "取消" }; AddChild(unsaved);
@@ -124,7 +141,23 @@ public partial class NativeMapEditor : Window
     }
     private void SetDocument(NativeMapDocument document, string? path)
     {
-        Document = document; FilePath = path; Dirty = false; undo.Clear(); redo.Clear(); selected = null; MapCanvas.Document = document; Select(null, false); MapCanvas.Pan = Vector2.Zero; MapCanvas.Zoom = 1; UpdateStatus(); MapCanvas.QueueRedraw();
+        Document = document; FilePath = path; Dirty = false; undo.Clear(); redo.Clear(); selected = null; MapCanvas.Document = document; Select(null, false); UpdateStatus(); FitWhenReady();
+    }
+    private int fitAttempts;
+    public void FitWhenReady()
+    {
+        fitAttempts = 0;
+        CallDeferred(nameof(FitCanvas));
+    }
+    private void FitCanvas()
+    {
+        if (MapCanvas is null) return;
+        if (MapCanvas.Size.X < 16 || MapCanvas.Size.Y < 16)
+        {
+            if (++fitAttempts < 8) CallDeferred(nameof(FitCanvas));
+            return;
+        }
+        MapCanvas.Fit();
     }
     private void Remember() { if (Document is null) return; undo.Push(Document.Clone()); if (undo.Count > 32) { var newest = undo.Take(32).Reverse().ToArray(); undo.Clear(); foreach (var item in newest) undo.Push(item); } redo.Clear(); }
     private void Restore(NativeMapDocument document) { Document = document; MapCanvas.Document = document; selected = null; Select(null, false); Dirty = true; UpdateStatus(); MapCanvas.QueueRedraw(); }
@@ -137,6 +170,39 @@ public partial class NativeMapEditor : Window
         var warnings = Service.LastWarnings; status.Text = string.Format(NativeLocalization.Text("{0}{1}　{2}×{3}　实体 {4}　图块 {5}　{6}"), Document.Name, Dirty ? " *" : "", Int(Document.Room, "width"), Int(Document.Room, "height"), Document.Instances.Count, Document.Tiles.Count, FilePath ?? NativeLocalization.Text("尚未保存"));
         if (warnings.Count > 0) status.Text += string.Format(NativeLocalization.Text("　缺少依赖 {0} 项（数据已保留）"), warnings.Count);
         Title = NativeLocalization.Text("地图编辑器") + " — " + Document.Name + (Dirty ? " *" : ""); MapCanvas.GridSize = (float)grid.Value;
+        UpdateCommandState();
+        UpdatePointerStatus();
+    }
+    public const string SpawnObject = "objSetRespawn";
+    private JsonObject? FindSpawn() => world.Constants.TryGetValue(SpawnObject, out var id)
+        ? Document.Instances.OfType<JsonObject>().FirstOrDefault(i => Int(i, "object", -1) == id.Int)
+        : null;
+    public void CenterOnSpawn()
+    {
+        if (Document is null) return;
+        if (FindSpawn() is not { } spawn)
+        {
+            Message(NativeLocalization.Text("本房间没有出生点标记（objSetRespawn）。"));
+            return;
+        }
+        MapCanvas.Center(new((float)Number(spawn, "x"), (float)Number(spawn, "y")));
+    }
+    private void UpdateCommandState()
+    {
+        if (undoButton is null) return;
+        undoButton.Disabled = undo.Count == 0;
+        redoButton.Disabled = redo.Count == 0;
+        bool chosen = selected is not null;
+        applyButton.Disabled = !chosen; rawButton.Disabled = !chosen; deleteButton.Disabled = !chosen;
+        if (spawnCenterButton is not null) spawnCenterButton.Disabled = Document is null || FindSpawn() is null;
+    }
+    private void UpdatePointerStatus()
+    {
+        if (pointerStatus is null) return;
+        float zoom = MapCanvas is null ? 1 : MapCanvas.Zoom;
+        string cell = pointerRoom is { } room ? string.Format(NativeLocalization.Text("（图块 {0}, {1}）"), Math.Floor(room.X / Math.Max(1, grid.Value)), Math.Floor(room.Y / Math.Max(1, grid.Value))) : "";
+        string text = pointerRoom is { } point ? string.Format(NativeLocalization.Text("缩放 {0:0}%　鼠标 {1:0}, {2:0}{3}"), zoom * 100, point.X, point.Y, cell) : string.Format(NativeLocalization.Text("缩放 {0:0}%"), zoom * 100);
+        if (pointerStatus.Text != text) pointerStatus.Text = text;
     }
     private void Select(JsonObject? item, bool tile)
     {
@@ -156,6 +222,23 @@ public partial class NativeMapEditor : Window
         catch (Exception exception) { Message(NativeLocalization.Text("无法应用属性：") + NativeLocalization.Text(exception.Message)); }
     }
     public void DeleteSelection() { if (selected is null) return; Remember(); (selectedTile ? Document.Tiles : Document.Instances).Remove(selected); Select(null, false); Changed(); }
+    public bool DuplicateSelection()
+    {
+        if (selected is null || Document is null) return false;
+        var copy = selected.DeepClone().AsObject(); bool tile = selectedTile;
+        Remember();
+        copy["x"] = Number(selected, "x") + grid.Value; copy["y"] = Number(selected, "y");
+        if (tile) { copy["id"] = NextId(Document.Tiles); Document.Tiles.Add(copy); }
+        else { copy["id"] = NextId(Document.Instances); Document.Instances.Add(copy); }
+        Select(copy, tile); Changed();
+        return true;
+    }
+    private static int NextId(System.Text.Json.Nodes.JsonArray items)
+    {
+        int max = 0;
+        foreach (var item in items.OfType<JsonObject>()) max = Math.Max(max, Int(item, "id"));
+        return max + 1;
+    }
     private void PaintAt(Vector2 point, bool erase)
     {
         float unit = (float)grid.Value; double x = Math.Floor(point.X / unit) * unit, y = Math.Floor(point.Y / unit) * unit;
@@ -235,8 +318,26 @@ public partial class NativeMapEditor : Window
         if (key.CtrlPressed && key.Keycode == Key.S) SaveRequested(key.ShiftPressed);
         else if (key.CtrlPressed && key.Keycode == Key.Z) { if (key.ShiftPressed) Redo(); else Undo(); }
         else if (key.CtrlPressed && key.Keycode == Key.Y) Redo();
+        else if (key.CtrlPressed && key.Keycode == Key.D) DuplicateSelection();
         else if (key.Keycode == Key.Delete && !properties.HasFocus()) DeleteSelection();
+        else if (!key.CtrlPressed && !key.AltPressed && !TypingInField() && ToolShortcut(key.Keycode) is int tool) SelectTool(tool);
         else return;
         SetInputAsHandled();
+    }
+    private bool TypingInField() => GetViewport()?.GuiGetFocusOwner() switch { LineEdit or TextEdit => true, SpinBox box => box.GetLineEdit().HasFocus(), _ => false };
+    private static int? ToolShortcut(Key code) => code switch
+    {
+        Key.Key1 or Key.Kp1 => 0, Key.Key2 or Key.Kp2 => 1, Key.Key3 or Key.Kp3 => 2,
+        Key.Key4 or Key.Kp4 => 3, Key.Key5 or Key.Kp5 => 4, Key.Key6 or Key.Kp6 => 5,
+        _ => null
+    };
+    public void SelectTool(int tool)
+    {
+        if (toolChoice is null || MapCanvas is null || tool < 0 || tool >= toolChoice.ItemCount) return;
+        if (toolChoice.Selected == tool) return;
+        toolChoice.Select(tool);
+        MapCanvas.Tool = (NativeMapTool)tool;
+        UpdateStatus();
+        MapCanvas.GrabFocus();
     }
 }

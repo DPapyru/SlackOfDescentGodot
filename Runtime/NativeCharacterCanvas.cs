@@ -12,23 +12,25 @@ public partial class NativeCharacterPixelCanvas : Control
     private string? partId;
     private int frame;
     private int zoom = 10;
-    private bool drawing, selecting;
+    private bool drawing, selecting, hovering;
     private Vector2I start, previous;
+    private List<NativeCharacterPart>? ordered;
     private ImageTexture? texture;
     private bool dirty = true;
     private readonly Dictionary<string, ImageTexture> references = new(StringComparer.Ordinal);
     public bool ShowReference { get; set; }
     public float ReferenceOpacity { get; set; } = 0.35f;
     public NativeCharacterTool Tool { get; set; }
-    public NativeCharacterCanvasMode Mode { get => mode; set { mode = value; UpdateSize(); QueueRedraw(); } }
+    public NativeCharacterCanvasMode Mode { get => mode; set { if (mode == value) return; mode = value; Selection = null; UpdateSize(); QueueRedraw(); } }
     private NativeCharacterCanvasMode mode;
     public Color PaintColor { get; set; } = Colors.White;
     public NativePixelRect? Selection { get; set; }
     public Vector2I Cursor { get; set; }
-    public Vector2I Pointer { get; set; }
-    public string? Hovered { get; private set; }
     public event Action? Edited;
-    public int Zoom { get => zoom; set { zoom = Math.Clamp(value, 2, 24); UpdateSize(); QueueRedraw(); } }
+    public event Action? ZoomChanged;
+    public event Action<Color>? ColorPicked;
+    public int BrushSize { get; set; } = 1;
+    public int Zoom { get => zoom; set { int clamped = Math.Clamp(value, 2, 24); if (zoom == clamped) return; zoom = clamped; UpdateSize(); QueueRedraw(); ZoomChanged?.Invoke(); } }
     private NativeCharacterPart? Part => document?.Definition.Parts.FirstOrDefault(p => p.Id == partId);
     private NativePixelRect Bounds => document is null ? new(0, 0, 0, 0) : NativeCharacterLayout.Bounds(document.Definition);
     public void FitZoom(float width, float height)
@@ -42,7 +44,7 @@ public partial class NativeCharacterPixelCanvas : Control
     public void Bind(NativeCharacterDocument value, string? id, int index)
     {
         FinishStroke(); if (document != value || partId != id || frame != index) Selection = null;
-        document = value; partId = id; frame = index; Invalidate(); UpdateSize();
+        document = value; partId = id; frame = index; InvalidateOrder(); Invalidate(); UpdateSize();
     }
     private void UpdateSize()
     {
@@ -55,8 +57,9 @@ public partial class NativeCharacterPixelCanvas : Control
         var part = Part; CustomMinimumSize = part is null ? new(320, 320) : new(part.Width * Zoom, part.Height * Zoom);
     }
     public void Invalidate() { dirty = true; ClearReferences(); QueueRedraw(); }
+    public void InvalidateOrder() { ordered = null; }
     private void ClearReferences() { foreach (var value in references.Values) value.Dispose(); references.Clear(); }
-    public override void _Ready() { MouseFilter = MouseFilterEnum.Stop; FocusMode = FocusModeEnum.All; TextureFilter = TextureFilterEnum.Nearest; ClipContents = true; }
+    public override void _Ready() { MouseFilter = MouseFilterEnum.Stop; FocusMode = FocusModeEnum.All; TextureFilter = TextureFilterEnum.Nearest; ClipContents = true; MouseExited += () => { hovering = false; QueueRedraw(); }; MouseEntered += () => { hovering = true; QueueRedraw(); }; }
     public override void _ExitTree() { FinishStroke(); texture?.Dispose(); ClearReferences(); }
     public override void _Draw()
     {
@@ -79,13 +82,28 @@ public partial class NativeCharacterPixelCanvas : Control
         var anchor = new Vector2(part.AnchorX * Zoom, part.AnchorY * Zoom);
         DrawLine(anchor - new Vector2(5, 0), anchor + new Vector2(5, 0), Colors.Cyan, 1); DrawLine(anchor - new Vector2(0, 5), anchor + new Vector2(0, 5), Colors.Cyan, 1);
         if (Selection is { } selected) { DrawRect(new(selected.X * Zoom, selected.Y * Zoom, selected.Width * Zoom, selected.Height * Zoom), new Color(1, 1, 1, 0.12f)); DrawRect(new(selected.X * Zoom + 0.5f, selected.Y * Zoom + 0.5f, selected.Width * Zoom - 1, selected.Height * Zoom - 1), Colors.Yellow, false, 1); }
+        if (hovering && Tool != NativeCharacterTool.Select) DrawBrush(part);
+    }
+    private void DrawBrush(NativeCharacterPart part)
+    {
+        int half = BrushSize / 2;
+        int x = Math.Clamp(Cursor.X - half, 0, part.Width), y = Math.Clamp(Cursor.Y - half, 0, part.Height);
+        DrawRect(new(x * Zoom + 0.5f, y * Zoom + 0.5f, BrushSize * Zoom - 1, BrushSize * Zoom - 1), Colors.White, false, 1);
+    }
+    private List<NativeCharacterPart> Ordered
+    {
+        get
+        {
+            if (ordered is null) ordered = document is null ? new() : NativeCharacterLayout.Ordered(document.Definition);
+            return ordered;
+        }
     }
     private string? Resolve(Vector2I point)
     {
         if (document is null) return null;
         if (Mode == NativeCharacterCanvasMode.Part) return partId;
         var character = ToCharacter(point);
-        return NativeCharacterLayout.Hit(document.Definition, p => document.Pixels(p, Math.Clamp(frame, 0, p.Frames.Count - 1)), character.X, character.Y);
+        return NativeCharacterLayout.Hit(Ordered, p => document.Pixels(p, Math.Clamp(frame, 0, p.Frames.Count - 1)), character.X, character.Y);
     }
     private Vector2I ClampToBounds(Vector2I point)
     {
@@ -103,14 +121,14 @@ public partial class NativeCharacterPixelCanvas : Control
             var position = input switch { InputEventMouseButton fired => fired.Position, InputEventMouseMotion motion => motion.Position, _ => Vector2.Zero };
             var point = ClampToBounds(new(Math.Clamp((int)Math.Floor(position.X / Zoom), 0, Math.Max(0, Bounds.Width - 1)), Math.Clamp((int)Math.Floor(position.Y / Zoom), 0, Math.Max(0, Bounds.Height - 1))));
             Cursor = point;
-            Pointer = ToCharacter(point);
             if (input is InputEventMouseButton click)
             {
                 if (click.ButtonIndex != MouseButton.Left) return;
                 if (click.Pressed)
                 {
                     GrabFocus(); previous = start = point; Selection = null;
-                    if (Tool == NativeCharacterTool.Select) { selecting = true; SetSelection(point); }
+                    if (click.AltPressed) PickAt(point);
+                    else if (Tool == NativeCharacterTool.Select) { selecting = true; SetSelection(point); }
                     else if (Resolve(point) is not null) { drawing = true; document.BeginEdit(); PaintAt(point); }
                 }
                 else FinishStroke();
@@ -133,7 +151,8 @@ public partial class NativeCharacterPixelCanvas : Control
             if (button.Pressed)
             {
                 GrabFocus(); previous = start = Cursor;
-                if (Tool == NativeCharacterTool.Select) { selecting = true; SetSelection(Cursor); }
+                if (button.AltPressed) PickAt(Cursor);
+                else if (Tool == NativeCharacterTool.Select) { selecting = true; SetSelection(Cursor); }
                 else { drawing = true; document.BeginEdit(); PaintAt(Cursor); }
             }
             else FinishStroke();
@@ -194,21 +213,50 @@ public partial class NativeCharacterPixelCanvas : Control
         int dx = Math.Abs(to.X - from.X), dy = -Math.Abs(to.Y - from.Y), sx = from.X < to.X ? 1 : -1, sy = from.Y < to.Y ? 1 : -1, error = dx + dy, x = from.X, y = from.Y;
         while (true) { PaintAt(new(x, y)); if (x == to.X && y == to.Y) break; int twice = error * 2; if (twice >= dy) { error += dy; x += sx; } if (twice <= dx) { error += dx; y += sy; } }
     }
-    private void PaintAt(Vector2I position)
+    private void PickAt(Vector2I position)
     {
-        if (document is null) return;
-        if (Selection is { } rect && (position.X < rect.X || position.X >= rect.X + rect.Width || position.Y < rect.Y || position.Y >= rect.Y + rect.Height)) return;
-        string? target = Resolve(position);
-        if (target is null) return;
-        Hovered = target;
-        var color = Tool == NativeCharacterTool.Eraser ? new Color(0, 0, 0, 0) : PaintColor;
+        if (SampleAt(position) is not { } picked || picked.A <= 0) return;
+        PaintColor = picked; ColorPicked?.Invoke(picked);
+    }
+    private (string Part, int LocalX, int LocalY)? Locate(Vector2I position)
+    {
+        if (document is null || Resolve(position) is not { } target) return null;
         var part = document.Definition.Parts.First(p => p.Id == target);
         var corner = NativeCharacterLayout.Corner(part);
         var point = ToCharacter(position);
-        int localX = Mode == NativeCharacterCanvasMode.Overall ? point.X - corner.X : position.X, localY = Mode == NativeCharacterCanvasMode.Overall ? point.Y - corner.Y : position.Y;
-        document.Paint(target, Math.Clamp(frame, 0, part.Frames.Count - 1), localX, localY, (byte)Math.Clamp((int)Math.Round(color.R * 255), 0, 255), (byte)Math.Clamp((int)Math.Round(color.G * 255), 0, 255), (byte)Math.Clamp((int)Math.Round(color.B * 255), 0, 255), (byte)Math.Clamp((int)Math.Round(color.A * 255), 0, 255));
+        return (target, Mode == NativeCharacterCanvasMode.Overall ? point.X - corner.X : position.X, Mode == NativeCharacterCanvasMode.Overall ? point.Y - corner.Y : position.Y);
+    }
+    public Color? SampleAt(Vector2I position)
+    {
+        if (Locate(position) is not { } hit || document is null) return null;
+        var part = document.Definition.Parts.First(p => p.Id == hit.Part);
+        var rgba = document.Pixels(part, Math.Clamp(frame, 0, part.Frames.Count - 1));
+        int offset = (hit.LocalY * part.Width + hit.LocalX) * 4;
+        if (hit.LocalX < 0 || hit.LocalY < 0 || hit.LocalX >= part.Width || hit.LocalY >= part.Height || offset + 3 >= rgba.Length) return null;
+        return new Color(rgba[offset] / 255f, rgba[offset + 1] / 255f, rgba[offset + 2] / 255f, rgba[offset + 3] / 255f);
+    }
+    private void PaintAt(Vector2I position)
+    {
+        if (document is null || Locate(position) is not { } hit) return;
+        var color = Tool == NativeCharacterTool.Eraser ? new Color(0, 0, 0, 0) : PaintColor;
+        byte r = (byte)Math.Clamp((int)Math.Round(color.R * 255), 0, 255), g = (byte)Math.Clamp((int)Math.Round(color.G * 255), 0, 255), b = (byte)Math.Clamp((int)Math.Round(color.B * 255), 0, 255), a = (byte)Math.Clamp((int)Math.Round(color.A * 255), 0, 255);
+        var part = document.Definition.Parts.First(p => p.Id == hit.Part);
+        int index = Math.Clamp(frame, 0, part.Frames.Count - 1), half = BrushSize / 2;
+        for (int dy = -half; dy < BrushSize - half; dy++)
+        {
+            int localY = hit.LocalY + dy;
+            if (localY < 0 || localY >= part.Height) continue;
+            for (int dx = -half; dx < BrushSize - half; dx++)
+            {
+                int localX = hit.LocalX + dx;
+                if (localX < 0 || localX >= part.Width) continue;
+                if (Selection is { } rect && !Inside(rect, position.X + dx, position.Y + dy)) continue;
+                document.Paint(hit.Part, index, localX, localY, r, g, b, a);
+            }
+        }
         Invalidate();
     }
+    private static bool Inside(NativePixelRect rect, int x, int y) => x >= rect.X && x < rect.X + rect.Width && y >= rect.Y && y < rect.Y + rect.Height;
     public void FinishStroke()
     {
         if (drawing) { drawing = false; document?.EndEdit(); Edited?.Invoke(); }
@@ -229,16 +277,19 @@ public partial class NativeCharacterComposite : Control
     public NativeCharacterDocument? Document { get; set; }
     private readonly Dictionary<string, ImageTexture> textures = new(StringComparer.Ordinal);
     private double elapsed;
-    public override void _Ready() { TextureFilter = TextureFilterEnum.Nearest; MouseFilter = MouseFilterEnum.Ignore; }
+    public override void _Ready() { TextureFilter = TextureFilterEnum.Nearest; MouseFilter = MouseFilterEnum.Ignore; ClipContents = true; }
     public void Advance(double delta) { elapsed += delta; QueueRedraw(); }
     public void Invalidate() { foreach (var texture in textures.Values) texture.Dispose(); textures.Clear(); QueueRedraw(); }
     public override void _ExitTree() => Invalidate();
     public override void _Draw()
     {
         DrawRect(new(Vector2.Zero, Size), new Color(0.13f, 0.15f, 0.19f));
-        var origin = new Vector2(Size.X / 2, Size.Y * 0.7f); DrawLine(new(0, origin.Y), new(Size.X, origin.Y), new Color(0.3f, 0.35f, 0.4f));
         if (Document is null) return;
-        const float scale = 3;
+        var bounds = NativeCharacterLayout.Bounds(Document.Definition);
+        float scale = 3;
+        if (bounds.Width > 0 && bounds.Height > 0) scale = Math.Max(1, MathF.Floor(MathF.Min(Size.X / bounds.Width, Size.Y / bounds.Height)));
+        var origin = new Vector2(MathF.Floor((Size.X - bounds.Width * scale) / 2), MathF.Floor((Size.Y - bounds.Height * scale) / 2));
+        DrawLine(new(0, origin.Y + bounds.Height * scale), new(Size.X, origin.Y + bounds.Height * scale), new Color(0.3f, 0.35f, 0.4f));
         foreach (var part in Document.Definition.Parts.Where(p => p.Visible).OrderBy(p => p.Layer))
         {
             int total = part.Frames.Sum(f => f.Duration), tick = (int)(elapsed * Document.Definition.AnimationFps) % Math.Max(1, total), selected = 0;
@@ -247,7 +298,7 @@ public partial class NativeCharacterComposite : Control
             if (!textures.TryGetValue(frame.Id, out var texture))
             { using var image = Image.CreateFromData(part.Width, part.Height, false, Image.Format.Rgba8, Document.Pixels(part, selected)); textures.Add(frame.Id, texture = ImageTexture.CreateFromImage(image)); }
             var corner = NativeCharacterLayout.Corner(part);
-            DrawTextureRect(texture, new(origin + new Vector2(corner.X, corner.Y) * scale, new Vector2(part.Width, part.Height) * scale), false);
+            DrawTextureRect(texture, new(origin + new Vector2(corner.X - bounds.X, corner.Y - bounds.Y) * scale, new Vector2(part.Width, part.Height) * scale), false);
         }
     }
 }

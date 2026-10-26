@@ -11,6 +11,7 @@ public partial class GameHost
     private GmNativeBridge nativeBridge = null!;
     private NativeMapEditor? mapEditor;
     private NativeCharacterEditor? characterEditor;
+    private NativeActionEditor? actionEditor;
     private NativeModPanel? modPanel;
     private Button? returnFromTest;
     private bool mapPlaytest;
@@ -66,6 +67,20 @@ public partial class GameHost
             var closed=modPanel;modPanel=null;modalDepth--;ResetNativeInput();closed.QueueFree();
         };
         ShowEditorWindow(modPanel);
+    }
+    private void OpenActionEditor()
+    {
+        if(actionEditor is not null)return;
+        ResetNativeInput();modalDepth++;
+        actionEditor=new(world,content,contentStore,mods.LoadedMods.Select(entry=>entry.Directory)){Visible=false,ForceNative=true};AddChild(actionEditor);
+        actionEditor.Closed+=CloseActionEditor;
+        ShowEditorWindow(actionEditor);
+    }
+    private void CloseActionEditor()
+    {
+        if(actionEditor is null)return;
+        var closed=actionEditor;actionEditor=null;
+        graphics.Build();modalDepth--;ResetNativeInput();closed.QueueFree();
     }
     private void OpenMapEditor()
     {

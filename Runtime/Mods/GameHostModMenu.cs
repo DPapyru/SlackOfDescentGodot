@@ -9,6 +9,7 @@ public partial class GameHost
             case 0:OpenMapEditor();break;
             case 1:OpenCharacterEditor();break;
             case 2:OpenMods();break;
+            case 3:OpenActionEditor();break;
         }
     }
     private static string MenuLanguage(bool change)

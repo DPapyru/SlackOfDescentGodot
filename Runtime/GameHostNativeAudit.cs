@@ -51,9 +51,9 @@ public partial class GameHost
             await AuditNativeMenuDraw(("ToggleBlood",14),("ScreenShake",46),("StartWeather",78),("ArrowCamera",110),("Save and Back",142));
             await RegressionSelect("SAVEANDBACK");RegressionView("VIEW_TITLE");
             await RegressionSelect("MOD");RegressionView("VIEW_MOD");
-            await AuditNativeMenuDraw(("地图编辑器",160),("角色编辑器",192),("Mod列表",224),("Back",256));
+            await AuditNativeMenuDraw(("地图编辑器",160),("角色编辑器",192),("Mod列表",224),("动作编辑器",256),("Back",288));
             NativeLocalization.SetLanguage("en",false);
-            await AuditNativeMenuDraw(("地图编辑器",160),("角色编辑器",192),("Mod列表",224),("Back",256));
+            await AuditNativeMenuDraw(("地图编辑器",160),("角色编辑器",192),("Mod列表",224),("动作编辑器",256),("Back",288));
             NativeLocalization.SetLanguage("zh_CN",false);
             await RegressionTap(RegressionKey(11));RegressionView("VIEW_TITLE");
             RegressionExpect(RegressionTitle().Scope.Read("Cursor").Equals(RegressionTitle().Scope.Read("MOD")),"Mod cancel restores main menu cursor");
@@ -76,14 +76,14 @@ public partial class GameHost
             RegressionExpect(content.Actions.Count==3&&mods.LoadedMods.Single(m=>m.Id=="example.movement").Directory==projectDirectory.Text,"project copy compiles through Mod editor");
             modPanel!.EmitSignal(Window.SignalName.CloseRequested);await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
             RegressionExpect(modalDepth==0,"mod panel releases modal input");
-            if(nativeMenuWindowAudit)await AuditNativeMenuDraw(("地图编辑器",160),("角色编辑器",192),("Mod列表",224),("Back",256));
+            if(nativeMenuWindowAudit)await AuditNativeMenuDraw(("地图编辑器",160),("角色编辑器",192),("Mod列表",224),("动作编辑器",256),("Back",288));
 
             await RegressionSelect("MOD_MAP");
             RegressionExpect(mapEditor is not null&&modalDepth==1&&mapEditor.Document.Instances.Count==1227&&mapEditor.Document.Tiles.Count==1647,"map editor opened from Mod menu");
             if(nativeMenuWindowAudit)await AuditNativeMenuWindow(mapEditor!,"map");
             mapEditor!.EmitSignal(Window.SignalName.CloseRequested);
             await AuditWait(()=>mapEditor is null&&modalDepth==0?this:null,"map editor menu return");
-            if(nativeMenuWindowAudit)await AuditNativeMenuDraw(("地图编辑器",160),("角色编辑器",192),("Mod列表",224),("Back",256));
+            if(nativeMenuWindowAudit)await AuditNativeMenuDraw(("地图编辑器",160),("角色编辑器",192),("Mod列表",224),("动作编辑器",256),("Back",288));
             await RegressionSelect("MOD_CHARACTER");
             RegressionExpect(characterEditor is not null&&modalDepth==1,"character editor opened from Mod menu");
             if(nativeMenuWindowAudit)
@@ -94,7 +94,7 @@ public partial class GameHost
                 discard?.EmitSignal(ConfirmationDialog.SignalName.Confirmed);
                 await AuditWait(()=>characterEditor is null&&modalDepth==0?this:null,"character editor returns to Mod");
                 RegressionView("VIEW_MOD");
-                await AuditNativeMenuDraw(("地图编辑器",160),("角色编辑器",192),("Mod列表",224),("Back",256));
+                await AuditNativeMenuDraw(("地图编辑器",160),("角色编辑器",192),("Mod列表",224),("动作编辑器",256),("Back",288));
                 NativeLocalization.SetLanguage("en");
                 GD.Print("NATIVE_MENU_WINDOW_OK editors=3 returns=3 language_saved=en");
             }

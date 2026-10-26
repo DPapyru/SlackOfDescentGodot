@@ -49,8 +49,8 @@ public sealed partial class GmWorld
                 int index=Array.IndexOf(options,node[2]![1]!.ToString());
                 if(index>=0)node[3]=new JsonArray("num",index+1);
             }
-        string[] names=["MOD","EXIT","VIEW_MOD","MOD_BACK","LANGUAGE","MOD_MAP","MOD_CHARACTER","MOD_CSHARP"];
-        int[] values=[2,3,9,3,0,0,1,2];
+        string[] names=["MOD","EXIT","VIEW_MOD","MOD_BACK","LANGUAGE","MOD_MAP","MOD_CHARACTER","MOD_CSHARP","MOD_ACTION"];
+        int[] values=[2,3,9,4,0,0,1,2,3];
         for(int i=0;i<names.Length;i++)create[1]!.AsArray().Add(new JsonArray("binary","Assign",new JsonArray("id",names[i]),new JsonArray("num",values[i])));
         Code["objects/objTitle/0/0/1"]=JsonSerializer.SerializeToElement(create);
 
@@ -86,12 +86,16 @@ public sealed partial class GmWorld
         drawViews.Insert(title+7,MenuText(shadow,"Mod",67));drawViews.Insert(title+8,MenuText(text,"Mod",64));
         var modDraw=MenuBranch(drawViews,"VIEW_GAMESTART_CC");
         modDraw[0]![3]=new JsonArray("num",160);
-        string[] labels=["地图编辑器","角色编辑器","Mod列表"];
+        string[] labels=["地图编辑器","角色编辑器","Mod列表","动作编辑器"];
+        int lastText=-1;
+        for(int i=0;i<modDraw.Count;i++)if(modDraw[i]?[0]?.ToString()=="call"&&modDraw[i]?[1]?.ToString()=="draw_text_transformed_color")lastText=i;
+        modDraw.Insert(lastText+1,MenuText(modDraw[lastText-1]!.AsArray(),labels[3],99));
+        modDraw.Insert(lastText+2,MenuText(modDraw[lastText]!.AsArray(),labels[3],96));
         int line=0;
         foreach(var statement in modDraw.OfType<JsonArray>())
             if(statement[0]?.ToString()=="call"&&statement[1]?.ToString()=="draw_text_transformed_color")statement[2]![2]=new JsonArray("str",labels[line++/2]);
         modDraw.RemoveAt(modDraw.Count-1);
-        modDraw.Add(MenuText(shadow,"Back",99));modDraw.Add(MenuText(text,"Back",96));modDraw.Add(new JsonArray("break"));
+        modDraw.Add(MenuText(shadow,"Back",131));modDraw.Add(MenuText(text,"Back",128));modDraw.Add(new JsonArray("break"));
         drawViews.Add(new JsonArray("case",new JsonArray("id","VIEW_MOD")));MenuAppend(drawViews,modDraw);
         JsonArray? firstPage=null,secondPage=null;
         foreach(var node in MenuNodes(draw))

@@ -7,6 +7,7 @@ Tools/ModCompiler/References/
 **/bin/
 **/obj/
 **/target/
+__pycache__/
 *.user
 *.tmp
 *.import

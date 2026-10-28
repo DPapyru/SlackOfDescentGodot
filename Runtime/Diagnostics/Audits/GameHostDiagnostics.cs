@@ -65,6 +65,7 @@ public partial class GameHost
                 }
                 for(int i=0;i<frames;i++)StepFrame();
                 if(traceRooms)GD.Print("TRACE_FINAL room=",world.CurrentRoom);
+                if(commandArgs.Contains("--mud-matrix")){SetProcess(false);AuditMudMatrix(commandArgs);return;}
                 if(commandArgs.Contains("--mud-window"))
                 {
                     mudWindowPlayer=world.Select(world.Constants["objPlayerDoll"].Int,new(new GmInstance())).Single();

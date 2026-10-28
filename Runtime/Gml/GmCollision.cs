@@ -235,6 +235,13 @@ public sealed partial class GmWorld
         var ba=Bounds(a,x,y);var bb=Bounds(b);
         if(!ba.Overlaps(bb))return false;
         if(!precise)return true;
+        if(NativeServices?.Entities.TryBounds(a,x,y,out _)==true||NativeServices?.Entities.TryBounds(b,null,null,out _)==true)
+        {
+            for(double py=Math.Max(ba.Top,bb.Top);py<=Math.Min(ba.Bottom,bb.Bottom);py++)
+            for(double px=Math.Max(ba.Left,bb.Left);px<=Math.Min(ba.Right,bb.Right);px++)
+                if(Opaque(a,px+0.5,py+0.5,x,y)&&Opaque(b,px+0.5,py+0.5))return true;
+            return false;
+        }
         if(!Mask(a,out var am)||!Mask(b,out var bm))return false;
         var first=new GmMaskSampler(am,a,x,y);var second=new GmMaskSampler(bm,b);
         for(double py=Math.Max(ba.Top,bb.Top);py<=Math.Min(ba.Bottom,bb.Bottom);py++)

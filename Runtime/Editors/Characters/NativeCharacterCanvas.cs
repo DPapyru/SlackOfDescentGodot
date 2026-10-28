@@ -262,14 +262,6 @@ public partial class NativeCharacterPixelCanvas : Control
         if (drawing) { drawing = false; document?.EndEdit(); Edited?.Invoke(); }
         selecting = false;
     }
-    public void AuditStroke(Vector2I[] positions)
-    {
-        if (positions.Length == 0) return;
-        Vector2 Local(Vector2I point) => new((point.X + 0.5f) * Zoom, (point.Y + 0.5f) * Zoom);
-        _GuiInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = Local(positions[0]) });
-        foreach (var position in positions.Skip(1)) _GuiInput(new InputEventMouseMotion { Position = Local(position), ButtonMask = MouseButtonMask.Left });
-        _GuiInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false, Position = Local(positions[^1]) });
-    }
 }
 
 public partial class NativeCharacterComposite : Control
@@ -277,6 +269,9 @@ public partial class NativeCharacterComposite : Control
     public NativeCharacterDocument? Document { get; set; }
     private readonly Dictionary<string, ImageTexture> textures = new(StringComparer.Ordinal);
     private double elapsed;
+    public float PaintedScale { get; private set; }
+    public Vector2 PaintedOrigin { get; private set; }
+    public int PaintedParts { get; private set; }
     public override void _Ready() { TextureFilter = TextureFilterEnum.Nearest; MouseFilter = MouseFilterEnum.Ignore; ClipContents = true; }
     public void Advance(double delta) { elapsed += delta; QueueRedraw(); }
     public void Invalidate() { foreach (var texture in textures.Values) texture.Dispose(); textures.Clear(); QueueRedraw(); }
@@ -289,6 +284,7 @@ public partial class NativeCharacterComposite : Control
         float scale = 3;
         if (bounds.Width > 0 && bounds.Height > 0) scale = Math.Max(1, MathF.Floor(MathF.Min(Size.X / bounds.Width, Size.Y / bounds.Height)));
         var origin = new Vector2(MathF.Floor((Size.X - bounds.Width * scale) / 2), MathF.Floor((Size.Y - bounds.Height * scale) / 2));
+        PaintedScale = scale; PaintedOrigin = origin; PaintedParts = 0;
         DrawLine(new(0, origin.Y + bounds.Height * scale), new(Size.X, origin.Y + bounds.Height * scale), new Color(0.3f, 0.35f, 0.4f));
         foreach (var part in Document.Definition.Parts.Where(p => p.Visible).OrderBy(p => p.Layer))
         {
@@ -299,6 +295,7 @@ public partial class NativeCharacterComposite : Control
             { using var image = Image.CreateFromData(part.Width, part.Height, false, Image.Format.Rgba8, Document.Pixels(part, selected)); textures.Add(frame.Id, texture = ImageTexture.CreateFromImage(image)); }
             var corner = NativeCharacterLayout.Corner(part);
             DrawTextureRect(texture, new(origin + new Vector2(corner.X - bounds.X, corner.Y - bounds.Y) * scale, new Vector2(part.Width, part.Height) * scale), false);
+            PaintedParts++;
         }
     }
 }

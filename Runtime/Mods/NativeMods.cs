@@ -53,6 +53,7 @@ public sealed class NativeModContent
     public Dictionary<string, string> Resources { get; set; } = new(StringComparer.Ordinal);
     public Dictionary<string, string> Maps { get; set; } = new(StringComparer.Ordinal);
     public Dictionary<string, string> Characters { get; set; } = new(StringComparer.Ordinal);
+    public Dictionary<string, string> Motions { get; set; } = new(StringComparer.Ordinal);
     public Dictionary<string, string> Languages { get; set; } = new(StringComparer.Ordinal);
     public NativeModCode? Code { get; set; }
     [JsonExtensionData] public Dictionary<string, JsonElement>? Extra { get; set; }
@@ -202,6 +203,12 @@ public sealed class NativeModManager : IDisposable
             }
         }
         AddFiles(directory, manifest.Content!.Resources, declared.Resources);
+        foreach(var item in manifest.Content.Motions)
+        {
+            var graph=MotionGraph.Load(ResolvePackageFile(directory,item.Value));
+            if(graph.Id!=item.Key)throw new InvalidDataException("Motion id differs from manifest: "+item.Key);
+            declared.MotionGraphs.Add(item.Key,graph);
+        }
         AddFiles(directory, manifest.Content.Maps, declared.Maps);
         AddFiles(directory, manifest.Content.Languages, declared.Languages);
         foreach (var item in declared.Maps)
@@ -287,10 +294,10 @@ public sealed class NativeModManager : IDisposable
         if (manifest.Dependencies is null || manifest.Dependencies.Any(value => string.IsNullOrWhiteSpace(value.Key)
             || value.Value != "*" && (string.IsNullOrEmpty(value.Value) || !System.Text.RegularExpressions.Regex.IsMatch(value.Value, @"^[A-Za-z0-9][A-Za-z0-9._+\-]*$"))))
             throw new InvalidDataException("依赖版本仅支持 * 或精确版本号。");
-        if (manifest.Content is not {} content || content.Resources is null || content.Maps is null || content.Characters is null || content.Languages is null)
+        if (manifest.Content is not {} content || content.Resources is null || content.Maps is null || content.Characters is null || content.Languages is null || content.Motions is null)
             throw new InvalidDataException("mod.json v2 需要有效的 content 内容对象。");
         if (content.Extra is { Count: > 0 }) throw new InvalidDataException("尚不支持的内容类型：" + string.Join(", ", content.Extra.Keys));
-        if (content.Code is null && content.Resources.Count + content.Maps.Count + content.Characters.Count + content.Languages.Count == 0)
+        if (content.Code is null && content.Resources.Count + content.Maps.Count + content.Characters.Count + content.Languages.Count + content.Motions.Count == 0)
             throw new InvalidDataException("content 必须声明资源或代码。");
         if (content.Code is {} code && (string.IsNullOrWhiteSpace(code.EntryType) || code.Sources is null || code.Sources.Count == 0 || code.ManagedDependencies is null))
             throw new InvalidDataException("content.code 需要 entryType、非空 sources 和有效的 managedDependencies。");

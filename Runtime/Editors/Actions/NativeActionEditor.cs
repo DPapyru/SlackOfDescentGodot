@@ -52,7 +52,9 @@ public partial class NativeActionEditor : Window
         foreach (string side in new[] { "left", "top", "right", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, 10);
         var root = new VBoxContainer(); margin.AddChild(root);
         var file = Row(root);
+        Button(file, L("骨架与动作图", "Skeleton and motion graph"),()=>{var editor=new NativeMotionEditor(world,registry,store,packages);AddChild(editor);editor.PopupCentered();});
         Button(file, L("保存配置", "Save config"), SaveRequested);
+        Button(file,L("绑定到角色", "Bind to character"),BindConfigToCharacter);
         Button(file, L("导入 .action.json", "Import .action.json"), ImportRequested);
         Button(file, L("导出 .action.json", "Export .action.json"), ExportRequested);
         Button(file, L("检查 Mod 编译", "Check mod compile"), () => CheckCompile());
@@ -271,6 +273,24 @@ public partial class NativeActionEditor : Window
             SetStatus(L("已载入配置：", "Loaded config: ") + path);
         }
         catch (Exception error) { SetStatus(L("配置载入失败：", "Config load failed: ") + NativeLocalization.Text(error.GetBaseException().Message)); }
+    }
+    private void BindConfigToCharacter()
+    {
+        if(definition is null)return;
+        var config=Describe();
+        if(config.Target!=NativeActionTargets.Player){SetStatus(L("请选择玩家动作。","Select a player action."));return;}
+        var dialog=new FileDialog{FileMode=FileDialog.FileModeEnum.OpenFile,Access=FileDialog.AccessEnum.Filesystem,UseNativeDialog=true};dialog.AddFilter("*.character.json","Character");AddChild(dialog);dialog.CurrentDir=store.Characters;
+        dialog.FileSelected+=file=>
+        {
+            try
+            {
+                var character=NativeContentStore.Load<CharacterDefinition>(file);character.Actions[config.Slot]=config.Action;character.ActionConfigs[config.Slot]=config;
+                NativeContentStore.Save(file,character);registry.RegisterCharacter(character);SetStatus(L("已保存角色动作参数。","Character action parameters saved."));
+            }
+            catch(Exception error){SetStatus(error.GetBaseException().Message);}
+            finally{dialog.QueueFree();}
+        };
+        dialog.Canceled+=()=>dialog.QueueFree();dialog.PopupCenteredRatio(.8f);
     }
     private static void Apply(Control control, string text)
     {

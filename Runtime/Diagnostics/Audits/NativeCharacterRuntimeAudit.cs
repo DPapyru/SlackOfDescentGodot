@@ -135,4 +135,76 @@ public partial class NativeCharacterAuditRunner
         }
         return checks;
     }
+    private async Task<int> AuditCanvasContractsAsync(GmWorld live, ContentRegistry registry, NativeContentStore store)
+    {
+        int checks = 0;
+        void Expect(bool condition, string message) { checks++; if (!condition) throw new InvalidOperationException("Character canvas: " + message); }
+        var editor = new NativeCharacterEditor(live, registry, store); AddChild(editor); editor.PopupCentered();
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        var document = editor.Document;
+        var canvas = editor.FindChild("像素画布", true, false) as NativeCharacterPixelCanvas;
+        Expect(canvas is not null, "the editor exposes its pixel canvas");
+        var workspace = editor.FindChildren("*", "TabContainer", true, false).OfType<TabContainer>().FirstOrDefault(tab => tab.GetTabCount() > 1 && tab.GetTabTitle(1).Contains("部位"));
+        Expect(workspace is not null, "the editor exposes the part-pixel tab");
+        workspace!.CurrentTab = 1;
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        canvas!.Mode = NativeCharacterCanvasMode.Part;
+        canvas.Selection = new NativePixelRect(1, 2, 3, 2);
+        canvas.Mode = NativeCharacterCanvasMode.Overall;
+        Expect(canvas.Selection is null, "switching to the overall canvas drops the part-space selection, it kept " + canvas.Selection);
+        canvas.Selection = new NativePixelRect(4, 5, 1, 1);
+        canvas.Mode = NativeCharacterCanvasMode.Overall;
+        Expect(canvas.Selection is { } kept && kept.X == 4 && kept.Y == 5 && kept.Width == 1 && kept.Height == 1, "assigning the mode that is already active is a no-op and keeps the selection, it kept " + canvas.Selection);
+        canvas.Mode = NativeCharacterCanvasMode.Part;
+        Expect(canvas.Selection is null, "switching back to the part canvas drops the overall-space selection, it kept " + canvas.Selection);
+        int zoomEvents = 0; canvas.ZoomChanged += () => zoomEvents++;
+        canvas.Zoom = 1;
+        Expect(canvas.Zoom == 2, "a zoom below the minimum clamps to 2, got " + canvas.Zoom);
+        canvas.Zoom = 99;
+        Expect(canvas.Zoom == 24, "a zoom above the maximum clamps to 24, got " + canvas.Zoom);
+        canvas.Zoom = 10; int reported = zoomEvents; canvas.Zoom = 10;
+        Expect(zoomEvents == reported, "assigning the zoom that is already active raises no change event, it raised " + (zoomEvents - reported));
+        canvas.Zoom = 11;
+        Expect(canvas.Zoom == 11 && zoomEvents == reported + 1, "a real zoom change is reported exactly once, got zoom " + canvas.Zoom + " and " + (zoomEvents - reported) + " events");
+        var part = document.Definition.Parts[0];
+        Expect(Math.Abs(canvas.CustomMinimumSize.X - part.Width * canvas.Zoom) < .01f && Math.Abs(canvas.CustomMinimumSize.Y - part.Height * canvas.Zoom) < .01f, "the part canvas is sized to the pixel grid at the current zoom, got " + canvas.CustomMinimumSize + " for " + part.Width + "x" + part.Height + " at " + canvas.Zoom);
+        canvas.Mode = NativeCharacterCanvasMode.Overall;
+        var scroll = canvas.GetParent() as ScrollContainer;
+        Expect(scroll is not null, "the pixel canvas lives inside the scroll area");
+        var area = scroll!.GetRect().Size;
+        float spaceX = area.X - 16, spaceY = area.Y - 16;
+        canvas.FitZoom(spaceX, spaceY);
+        var bounds = NativeCharacterLayout.Bounds(document.Definition);
+        float fitted = canvas.Zoom;
+        Expect(bounds.Width * fitted <= spaceX + .01f && bounds.Height * fitted <= spaceY + .01f, "fitting the overall canvas keeps the whole character inside the scroll area, got " + bounds + " at " + fitted + " in " + area);
+        Expect(fitted is 12 or 2 || bounds.Width * (fitted + 1) > spaceX || bounds.Height * (fitted + 1) > spaceY, "the fitted zoom is the largest whole zoom that still fits, got " + fitted + " for " + bounds + " in " + area);
+        editor.SetAutoFitForAudit(true);
+        var saved = editor.Size;
+        editor.Size = new Vector2I(saved.X + 140, saved.Y + 140);
+        for (int frame = 0; frame < 8; frame++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        var grown = scroll.GetRect().Size;
+        Expect(grown.X > area.X + .5f, "resizing the editor really grows the scroll area, it stayed " + area + " -> " + grown);
+        Expect(canvas.Zoom != fitted, "resizing with auto fit on refits the overall canvas, zoom stayed " + canvas.Zoom + " after " + area + " -> " + grown);
+        Expect(NativeCharacterLayout.Bounds(document.Definition).Width * canvas.Zoom <= grown.X - 16 + .01f && NativeCharacterLayout.Bounds(document.Definition).Height * canvas.Zoom <= grown.Y - 16 + .01f, "the refitted zoom still keeps the whole character inside the new area, got " + NativeCharacterLayout.Bounds(document.Definition) + " at " + canvas.Zoom + " in " + grown);
+        editor.SetAutoFitForAudit(false);
+        float pinned = canvas.Zoom;
+        editor.Size = saved;
+        for (int frame = 0; frame < 8; frame++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        Expect(canvas.Zoom == pinned, "with auto fit switched off a resize leaves the zoom alone, it moved from " + pinned + " to " + canvas.Zoom);
+        var composite = editor.FindChildren("*", "Control", true, false).OfType<NativeCharacterComposite>().FirstOrDefault();
+        Expect(composite is not null, "the editor exposes its composite preview");
+        await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+        float scale = composite!.PaintedScale;
+        var painted = NativeCharacterLayout.Bounds(document.Definition);
+        int visible = document.Definition.Parts.Count(item => item.Visible);
+        Expect(scale >= 1 && Math.Abs(scale - MathF.Floor(scale)) < .0001f, "the composite scales the character by whole pixels, got " + scale);
+        Expect(painted.Width * scale <= composite.Size.X + .01f && painted.Height * scale <= composite.Size.Y + .01f, "the composite keeps the whole character inside its own box, got " + painted + " at " + scale + " in " + composite.Size);
+        Expect(composite.PaintedParts == visible, "the composite paints every visible part once, got " + composite.PaintedParts + " of " + visible);
+        Expect(composite.ClipContents, "the composite clips drawing to its own box so an oversized character cannot bleed over the editor");
+        GD.Print("PLAY_AUDIT canvas-contract zoom=", fitted, " refit=", canvas.Zoom, " area=", area, " grown=", grown, " scale=", scale, " parts=", composite.PaintedParts);
+        editor.QueueFree();
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        return checks;
+    }
 }

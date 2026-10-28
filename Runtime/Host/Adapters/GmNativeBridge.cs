@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 
 namespace SlackOfDescent;
 
-public sealed class GmNativeBridge : IDisposable
+public sealed partial class GmNativeBridge : IDisposable
 {
     private sealed record ScopeBox(NativeResourceScope Scope);
     private readonly ConditionalWeakTable<object, ScopeBox> scopes = new();
@@ -23,6 +23,7 @@ public sealed class GmNativeBridge : IDisposable
     private readonly Dictionary<int, CharacterDefinition> characters = new();
     private readonly HashSet<int> registeredCharacters = new();
     private readonly Dictionary<(int, CharacterActionSlot), Func<ICharacterAction>> actionFactories = new();
+    private readonly Dictionary<(int,CharacterActionSlot),string> actionConfigurations=new();
     private readonly Dictionary<int, Func<IEntityBehavior>> entityFactories = new();
     private readonly Dictionary<(int, CharacterActionSlot), ICharacterAction> stagedActions = new();
     private readonly Dictionary<int, IEntityBehavior> stagedEntities = new();
@@ -64,10 +65,12 @@ public sealed class GmNativeBridge : IDisposable
     }
     public void BindCharacter(GmInstance actor, CharacterDefinition definition)
     {
+        ValidateGraphBinding(actor,definition);
         UnbindCharacter(actor.Id);
         characters[actor.Id] = definition;
         if (registry.Characters.TryGetValue(definition.Id, out var registered) && ReferenceEquals(registered, definition)) registeredCharacters.Add(actor.Id);
         BuildActions(actor.Id, definition);
+        Services.Motions.Configure(new(world,actor),definition);
         SyncWeapons();
         SetControllerFlags();
     }
@@ -77,17 +80,19 @@ public sealed class GmNativeBridge : IDisposable
         foreach(var pair in originalWeapons.Where(pair=>pair.Value.Owner==instanceId).ToArray())RestoreWeapon(pair.Key,pair.Value.Ammunition);
         var actor = Find(instanceId);
         foreach (var pair in actions.Where(p => p.Key.Item1 == instanceId).ToArray())
-        { if (actor is not null) Detach(pair.Value, actor); actions.Remove(pair.Key); actionFactories.Remove(pair.Key); }
+        { if (actor is not null) Detach(pair.Value, actor); actions.Remove(pair.Key); actionFactories.Remove(pair.Key); actionConfigurations.Remove(pair.Key); }
         foreach (var key in runtimeActions.Keys.Where(k => k.Item1 == instanceId).ToArray()) RemoveRuntime(key.Item1, key.Item2);
-        characters.Remove(instanceId); registeredCharacters.Remove(instanceId); jumpRequests.Remove(instanceId);
+        characters.Remove(instanceId); registeredCharacters.Remove(instanceId);
+        Services.Motions.Forget(instanceId); jumpRequests.Remove(instanceId);
         foreach (var key in weaponRequests.Keys.Where(k => k.Item1 == instanceId).ToArray()) weaponRequests.Remove(key);
         Services.ClearActor(instanceId); SetControllerFlags();
     }
     internal void BindRuntime(ActorContext actor, CharacterActionSlot slot, ICharacterAction action)
     {
         var key = (actor.Id, slot);
+        if(Services.Motions.Controls(actor.Id)&&(slot is CharacterActionSlot.Jump or CharacterActionSlot.Dash or CharacterActionSlot.Controller || action.Mode==CharacterActionMode.Controller))throw new InvalidDataException("Motion graph owns character control.");
         if (action.Slot != slot) throw new InvalidDataException("动作槽与绑定槽位不一致：" + action.Id);
-        if (action.Mode == CharacterActionMode.Controller && actions.Any(pair => pair.Key.Item1 == actor.Id && pair.Key.Item2 != slot && pair.Value.Mode == CharacterActionMode.Controller))
+        if (action.Mode == CharacterActionMode.Controller && actions.Concat(runtimeActions).Any(pair => pair.Key.Item1 == actor.Id && pair.Key.Item2 != slot && pair.Value.Mode == CharacterActionMode.Controller))
             throw new InvalidDataException("角色只能绑定一个完整控制器。");
         bool rebound = runtimeActions.TryGetValue(key, out var replaced);
         var previous = rebound ? runtimeScopes.GetValueOrDefault(key) : RuntimeScopeFor(actions.GetValueOrDefault(key), actor.Id);
@@ -171,6 +176,7 @@ public sealed class GmNativeBridge : IDisposable
     public void Update(FrameContext frame)
     {
         Services.Frame = frame;
+        Services.Motions.CaptureInput(frame.Input??InputSnapshot.Empty);
         Services.Presentation.Update();
         if (room != world.CurrentRoom)
         {
@@ -183,13 +189,13 @@ public sealed class GmNativeBridge : IDisposable
         {
             var actor = Find(pair.Key.Item1);
             if (actor is null) { UnbindCharacter(pair.Key.Item1); continue; }
-            if (!actor.Active || runtimeActions.ContainsKey(pair.Key)) continue;
+            if (!actor.Active || runtimeActions.ContainsKey(pair.Key) || Services.Motions.Controls(actor.Id)&&(pair.Key.Item2 is CharacterActionSlot.Jump or CharacterActionSlot.Dash or CharacterActionSlot.Controller)) continue;
             Invoke(pair.Value, actor.Id, () => pair.Value.Update(new(world, actor), frame)); ActionUpdates++;
         }
         foreach (var pair in runtimeActions.ToArray())
         {
             if (Find(pair.Key.Item1) is not {} actor) { RemoveRuntime(pair.Key.Item1, pair.Key.Item2); continue; }
-            if (actor.Active) { Invoke(pair.Value, actor.Id, () => pair.Value.Update(new(world, actor), frame)); ActionUpdates++; }
+            if (actor.Active && !(Services.Motions.Controls(actor.Id)&&(pair.Key.Item2 is CharacterActionSlot.Jump or CharacterActionSlot.Dash or CharacterActionSlot.Controller))) { Invoke(pair.Value, actor.Id, () => pair.Value.Update(new(world, actor), frame)); ActionUpdates++; }
         }
         SyncWeapons();
         foreach (var pair in entities.ToArray())
@@ -213,6 +219,7 @@ public sealed class GmNativeBridge : IDisposable
     }
     public bool TrySuppressCode(string key, GmContext context)
     {
+        if(Services.Motions.Suppress(key,context))return true;
         if(key.StartsWith("objects/objController/3/",StringComparison.Ordinal))
         {
             int target=context.Self.Scope.ReadOr("CtrlTarget",-4).Int;
@@ -314,10 +321,10 @@ public sealed class GmNativeBridge : IDisposable
         foreach (var pair in definition.Actions)
             if (registry.Actions.TryGetValue(pair.Value, out var factory))
             {
-                var action = Create("action", pair.Value, id, factory);
+                var action = Create("action", pair.Value, id, ()=>ConfiguredAction(definition,pair.Key,pair.Value,factory));
                 if (action.Slot != pair.Key) throw new InvalidDataException("动作槽与注册动作不一致：" + pair.Value);
                 if (action.Mode == CharacterActionMode.Controller && actions.Any(p => p.Key.Item1 == id && p.Value.Mode == CharacterActionMode.Controller)) throw new InvalidDataException("角色只能绑定一个完整控制器。");
-                actions[(id, pair.Key)] = action; actionFactories[(id, pair.Key)] = factory;
+                actions[(id, pair.Key)] = action; actionFactories[(id, pair.Key)] = factory;actionConfigurations[(id,pair.Key)]=ConfigSignature(definition,pair.Key);
             }
     }
     private CharacterDefinition? CurrentDefinition(int id, CharacterDefinition previous) => registeredCharacters.Contains(id)
@@ -332,9 +339,10 @@ public sealed class GmNativeBridge : IDisposable
             int controllers = 0;
             foreach (var pair in definition.Actions)
             {
+                if(Services.Motions.Controls(character.Key)&&pair.Key is CharacterActionSlot.Jump or CharacterActionSlot.Dash)continue;
                 if (!registry.Actions.TryGetValue(pair.Value, out var factory)) continue;
                 var key = (character.Key, pair.Key);
-                var action = actionFactories.TryGetValue(key, out var previous) && ReferenceEquals(factory, previous) ? actions[key] : Create("action", pair.Value, character.Key, factory);
+                var action = actionFactories.TryGetValue(key, out var previous) && ReferenceEquals(factory, previous) && actions.ContainsKey(key) && actionConfigurations.GetValueOrDefault(key)==ConfigSignature(definition,pair.Key) ? actions[key] : Create("action", pair.Value, character.Key, ()=>ConfiguredAction(definition,pair.Key,pair.Value,factory));
                 if (action.Slot != pair.Key) throw new InvalidDataException("动作槽与注册动作不一致：" + pair.Value);
                 if (action.Mode == CharacterActionMode.Controller && ++controllers > 1) throw new InvalidDataException("角色只能绑定一个完整控制器。");
                 if (!ReferenceEquals(action, actions.GetValueOrDefault(key))) stagedActions.Add(key, action);
@@ -352,10 +360,10 @@ public sealed class GmNativeBridge : IDisposable
             foreach (var pair in actions.Where(p => p.Key.Item1 == character.Key).ToArray())
             {
                 bool same = definition.Actions.TryGetValue(pair.Key.Item2, out string? id) && registry.Actions.TryGetValue(id, out var factory)
-                    && actionFactories.TryGetValue(pair.Key, out var previous) && ReferenceEquals(factory, previous);
+                    && actionFactories.TryGetValue(pair.Key, out var previous) && ReferenceEquals(factory, previous) && actionConfigurations.GetValueOrDefault(pair.Key)==ConfigSignature(definition,pair.Key.Item2);
                 if (same) continue;
                 if (Find(character.Key) is {} actor) Detach(pair.Value, actor);
-                actions.Remove(pair.Key); actionFactories.Remove(pair.Key);
+                actions.Remove(pair.Key); actionFactories.Remove(pair.Key); actionConfigurations.Remove(pair.Key);
                 foreach (var key in weaponRequests.Keys.Where(k => k.Item1 == character.Key).ToArray()) weaponRequests.Remove(key);
             }
             characters[character.Key] = definition;
@@ -363,7 +371,7 @@ public sealed class GmNativeBridge : IDisposable
             {
                 var key = (character.Key, pair.Key);
                 if (actions.ContainsKey(key) || !registry.Actions.TryGetValue(pair.Value, out var factory) || !stagedActions.Remove(key, out var action)) continue;
-                actions[key] = action; actionFactories[key] = factory;
+                actions[key] = action; actionFactories[key] = factory;actionConfigurations[key]=ConfigSignature(definition,pair.Key);
             }
         }
         foreach (var pair in entityBindings.ToArray())
@@ -390,6 +398,7 @@ public sealed class GmNativeBridge : IDisposable
             }
         }
         stagedActions.Clear(); stagedEntities.Clear();
+        foreach(var pair in characters)if(Find(pair.Key) is {} actor)Services.Motions.Configure(new(world,actor),pair.Value);
         Services.Entities.Update(); SetControllerFlags();
     }
     private void SetControllerFlags()

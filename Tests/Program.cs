@@ -8,6 +8,7 @@ var self=new GmInstance{Id=999999,Object=-1};
 world.Instances.Add(self);
 var context=new GmContext(self);
 int assertions=0;
+assertions+=MotionGraphTests.Run(world);
 assertions+=ObjectPerformanceTests.Run(world);
 assertions+=FixedClockTests.Run();
 assertions+=CollisionOptimizationTests.Run(project,source);
@@ -514,6 +515,52 @@ frameInstance.Scope.Write("image_index",0);frameInstance.Scope.Write("image_spee
 frameWorld.Step();
 Equal(frameInstance.Scope.Read("image_index"),-1,"negative animation index is preserved");
 Equal(frameInstance.Scope.Read("ends"),1,"negative animation does not fire end event");
+var drawPlan=new GmFramePlan();
+frameWorld.FramePlan=drawPlan;
+frameInstance.Scope.Write("image_speed",0.125);
+frameInstance.Scope.Write("image_index",0);
+frameInstance.Scope.Write("draws",0);
+var drawIndices=new List<double>();
+int drawChildObject=frameWorld.Call("object_add",[],context).Int;
+frameWorld.Call("object_event_add",[drawChildObject,0,0,"global.draw_children+=1;"],context);
+frameWorld.Call("object_event_add",[drawChildObject,1,0,"global.draw_destroyed+=1;"],context);
+frameWorld.Globals.Write("draw_children",0);frameWorld.Globals.Write("draw_destroyed",0);
+frameWorld.Redraw=()=>
+{
+    frameWorld.Event(frameInstance,8,0);
+    drawIndices.Add(frameInstance.Scope.Read("draw_index").Number);
+    var child=frameWorld.Create(drawChildObject,0,0);
+    frameWorld.Call("instance_destroy",[],new(child));
+};
+for(int step=0;step<3;step++)frameWorld.Step();
+Equal(frameInstance.Scope.Read("draws"),3,"pending presentation preserves every logic draw");
+Equal(drawIndices.SequenceEqual(new double[]{0,0.125,0.25}),true,"each draw observes its own pre-animation pose");
+Equal(frameWorld.Globals.Read("draw_children"),3,"draw creates instances every logic step");
+Equal(frameWorld.Globals.Read("draw_destroyed"),3,"draw destroys instances every logic step");
+Equal(frameWorld.Instances.Any(i=>i.Object==drawChildObject),false,"draw destruction is cleaned up before the step ends");
+Equal(drawPlan.Consume() is not null,true,"multiple logic draws leave one presentation pending");
+Equal(drawPlan.Consume() is null,true,"zero logic steps leave no new presentation");
+Equal(frameInstance.Scope.Read("draws"),3,"presentation consumes never advance draw events");
+int drawRoom=900778;
+frameWorld.Rooms[drawRoom]=System.Text.Json.JsonSerializer.SerializeToElement(new
+{
+    name="draw-order-room",width=64,height=64,speed=60,colour=0,viewsEnabled=false,clearScreen=false,
+    tiles=Array.Empty<object>(),backgrounds=Array.Empty<object>(),views=Array.Empty<object>(),
+    instances=Array.Empty<object>(),code=frameWorld.Compile("return 0;")
+});
+frameWorld.Call("object_event_add",[frameObject,7,5,"global.room_exit_draws=draws; global.room_exit_index=image_index;"],context);
+int beforeDrawRoom=frameWorld.CurrentRoom;
+frameWorld.Redraw=()=>
+{
+    frameWorld.Event(frameInstance,8,0);
+    Equal(frameWorld.CurrentRoom,beforeDrawRoom,"draw runs before its requested room change");
+    frameWorld.PendingRoom=drawRoom;
+};
+frameWorld.Step();
+Equal(frameWorld.Globals.Read("room_exit_draws"),4,"room exit follows the final draw event");
+Equal(frameWorld.Globals.Read("room_exit_index"),0.5,"animation advances before room exit");
+Equal(frameWorld.CurrentRoom,drawRoom,"draw-requested room change completes in the same step");
+Equal(frameWorld.Instances.Contains(frameInstance),false,"room change removes the drawn transient actor");
 var boundaryWorld=new GmWorld(Path.Combine(project,"GameData"),source);
 int boundaryObject=boundaryWorld.Call("object_add",[],context).Int;
 foreach(int sub in new[]{0,1,40,50})boundaryWorld.Call("object_event_add",[boundaryObject,7,sub,"hit["+sub+"]+=1;"],context);

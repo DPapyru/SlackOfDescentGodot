@@ -31,6 +31,7 @@ public partial class NativeMapEditor
             PushInput(new InputEventKey { Keycode = key, Pressed = true, CtrlPressed = ctrl }, true); await Tick(); PushInput(new InputEventKey { Keycode = key, Pressed = false, CtrlPressed = ctrl }, true); await Tick();
         }
         await Tick(); Expect(Document.Instances.Count == 1227 && Document.Tiles.Count == 1647, "all original content loaded in rendered editor");
+        { int pan = RunPanBoundaryAudit(); checks += pan; GD.Print("MAP_PAN_OK checks=", pan); }
         MapCanvas.Zoom = .7f; MapCanvas.Pan = new(0, 0); MapCanvas.QueueRedraw(); await Tick();
         await ChooseTool(1); int tilesBefore = Document.Tiles.Count;
         await CanvasClick(new(400, 96)); Expect(Document.Tiles.Count == tilesBefore + 1, "tile drawing from routed mouse event");

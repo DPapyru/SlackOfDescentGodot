@@ -2,6 +2,8 @@ namespace SlackOfDescent;
 
 public sealed partial class ContentRegistry
 {
+    public Dictionary<string, MotionGraph> MotionGraphs { get; } = new(StringComparer.Ordinal);
+    public void RegisterMotion(MotionGraph graph){graph.Validate();MotionGraphs.Add(graph.Id,graph);Refresh();}
     public Dictionary<string, string> Maps { get; } = new(StringComparer.Ordinal);
     public Dictionary<string, string> Languages { get; } = new(StringComparer.Ordinal);
     public Dictionary<string, string> CharacterDirectories { get; } = new(StringComparer.Ordinal);
@@ -14,6 +16,7 @@ public sealed partial class ContentRegistry
         ids.AddRange(Entities.Keys.Select(id => ("entity", id)));
         ids.AddRange(Characters.Keys.Select(id => ("character", id)));
         ids.AddRange(Resources.Keys.Select(id => ("resource", id)));
+        ids.AddRange(MotionGraphs.Keys.Select(id => ("motion", id)));
         ids.AddRange(Maps.Keys.Select(id => ("map", id)));
         ids.AddRange(Languages.Keys.Select(id => ("language", id)));
         ids.AddRange(CharacterDirectories.Keys.Select(id => ("character-directory", id)));
@@ -27,6 +30,7 @@ public sealed partial class ContentRegistry
         foreach (var value in Entities) target.Entities.Add(value.Key, value.Value);
         foreach (var value in Characters) target.Characters.Add(value.Key, value.Value);
         foreach (var value in Resources) target.Resources.Add(value.Key, value.Value);
+        foreach (var value in MotionGraphs) target.MotionGraphs.Add(value.Key,value.Value);
         foreach (var value in Maps) target.Maps.Add(value.Key, value.Value);
         foreach (var value in Languages) target.Languages.Add(value.Key, value.Value);
         foreach (var value in CharacterDirectories) target.CharacterDirectories.Add(value.Key, value.Value);
@@ -39,6 +43,7 @@ public sealed partial class ContentRegistry
         foreach (string id in Entities.Keys) target.Entities.Remove(id);
         foreach (string id in Characters.Keys) target.Characters.Remove(id);
         foreach (string id in Resources.Keys) target.Resources.Remove(id);
+        foreach (string id in MotionGraphs.Keys) target.MotionGraphs.Remove(id);
         foreach (string id in Maps.Keys) target.Maps.Remove(id);
         foreach (string id in Languages.Keys) target.Languages.Remove(id);
         foreach (string id in CharacterDirectories.Keys) target.CharacterDirectories.Remove(id);
@@ -48,7 +53,7 @@ public sealed partial class ContentRegistry
     internal void ClearContributions()
     {
         Actions.Clear(); Entities.Clear(); Characters.Clear(); Resources.Clear();
-        Maps.Clear(); Languages.Clear(); CharacterDirectories.Clear(); Translations.Clear(); ClearSdk();
+        MotionGraphs.Clear(); Maps.Clear(); Languages.Clear(); CharacterDirectories.Clear(); Translations.Clear(); ClearSdk();
     }
     private Dictionary<(string Event,NativeEventPhase Phase),string[]> eventIndex=new();
     private readonly HashSet<string> callFunctions=new(StringComparer.Ordinal);

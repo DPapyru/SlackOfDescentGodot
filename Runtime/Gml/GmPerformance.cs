@@ -9,6 +9,10 @@ public sealed class GmPerformance
     public readonly bool ScriptsEnabled=Environment.GetEnvironmentVariable("SLACK_PERF_SCRIPTS")=="1";
     private readonly Dictionary<string,(double Total,double Max,int Count)> samples=new();
     private readonly Dictionary<string,(double Total,double Max,int Count)> cadencePhases=new();
+    private readonly Dictionary<string,(double Total,double Max,int Count)> processPhases=new();
+    private readonly Dictionary<string,(double Total,double Max,int Count)> drawPhases=new();
+    private readonly Dictionary<string,long> drawPending=new();
+    private long drawFrames,lastSnapshotRebuilds=-1,lastCandidateVisits=-1;
     private readonly Dictionary<string,(double Total,int Count)> scripts=new();
     public string? LogPath{get;private set;}
     private bool logFailed;
@@ -140,7 +144,7 @@ public sealed class GmPerformance
         if(lastRender!=0)renderIntervals.Add(Stopwatch.GetElapsedTime(lastRender,now).TotalMilliseconds);
         lastRender=now;
     }
-    public void ResetCadence(){processTimes.Clear();renderIntervals.Clear();processSteps=0;catchUpProcesses=maxSteps=0;lastRender=0;Objects.Clear();lastBuildCount=0;lastBuildTotal=0;maxBuildMs=0;cadencePhases.Clear();cadenceInitialised=false;lastPublished=lastRendered=lastCoalesced=lastSkipped=0;presentDeltas.Clear();presentZero=presentOne=presentMulti=0;presentSeen=0;processGaps.Clear();processCpuInside.Clear();lastProcessEndTicks=0;processWall.Clear();drawLatency.Clear();idleWall.Clear();processBySteps.Clear();lastPostDrawTicks=0;pendingExitTicks=0;entryTicks=0;if(Enabled)ResetGcBaseline();}
+    public void ResetCadence(){processTimes.Clear();renderIntervals.Clear();processSteps=0;catchUpProcesses=maxSteps=0;lastRender=0;Objects.Clear();lastBuildCount=0;lastBuildTotal=0;maxBuildMs=0;cadencePhases.Clear();processPhases.Clear();drawPhases.Clear();drawPending.Clear();drawFrames=0;lastSnapshotRebuilds=-1;lastCandidateVisits=-1;cadenceInitialised=false;lastPublished=lastRendered=lastCoalesced=lastSkipped=0;presentDeltas.Clear();presentZero=presentOne=presentMulti=0;presentSeen=0;processGaps.Clear();processCpuInside.Clear();lastProcessEndTicks=0;processWall.Clear();drawLatency.Clear();idleWall.Clear();processBySteps.Clear();lastPostDrawTicks=0;pendingExitTicks=0;entryTicks=0;if(Enabled)ResetGcBaseline();}
     public void Cadence(GmFrameSample sample,GmWorld world,Func<object> graphics)
     {
         if(!Enabled)return;
@@ -205,15 +209,45 @@ public sealed class GmPerformance
             alive=new{instances=aliveInstances,particles=aliveParticles},
             cpuMs,cpuScope="process.allThreads",mainThreadCpuMs=threadCpuMs,mainThreadScope="process.mainThreadOnly",
             dynamicDark=world.Globals.ReadOr("DynamicDark").Truth,darkness=world.Globals.ReadOr("Darkness").Number,
-            collision=new{snapshotRebuilds=world.CollisionSnapshotRebuilds,candidateVisits=world.CollisionCandidateVisits,exactTests=world.CollisionExactTests},
+            collision=new{snapshotRebuilds=world.CollisionSnapshotRebuilds,candidateVisits=world.CollisionCandidateVisits,exactTests=world.CollisionExactTests,
+                snapshotRebuildsPerStep=DeltaPerStep(world.CollisionSnapshotRebuilds,ref lastSnapshotRebuilds,processSteps),
+                candidateVisitsPerStep=DeltaPerStep(world.CollisionCandidateVisits,ref lastCandidateVisits,processSteps),
+                raw=Cumulative},
             present=new{count=presentDeltas.Count,deltaUnit="framesDrawnPerProcess",delta=GmCountSummary.From(presentDeltas),zero=presentZero,one=presentOne,multi=presentMulti,primitives=presentPrimitives,drawCalls=presentDrawCalls,frameSetupMs=presentFrameSetupMs},
             processBreakdown=new{gap=Summary(processGaps),cpuInside=Summary(processCpuInside),wallUnit="ms",processWall=Summary(processWall),drawLatency=Summary(drawLatency),idleWall=Summary(idleWall),
                 bySteps=processBySteps.Count==0?null:processBySteps.OrderByDescending(p=>p.Key).ToDictionary(p=>p.Key switch{0=>"steps0",1=>"steps1",2=>"steps2",_=>"steps3plus"},p=>Summary(p.Value))},
-            phases=cadencePhases.Count==0?null:cadencePhases.ToDictionary(p=>p.Key,p=>new{meanMs=p.Value.Total/p.Value.Count,maxMs=p.Value.Max,count=p.Value.Count,totalMs=p.Value.Total})});
+            phases=cadencePhases.Count==0?null:cadencePhases.ToDictionary(p=>p.Key,p=>new{meanMs=p.Value.Total/p.Value.Count,maxMs=p.Value.Max,count=p.Value.Count,totalMs=p.Value.Total}),
+            processPhases=processPhases.Count==0?null:processPhases.ToDictionary(p=>p.Key,p=>new{meanMs=p.Value.Total/p.Value.Count,maxMs=p.Value.Max,count=p.Value.Count,totalMs=p.Value.Total}),
+            drawPhases=drawPhases.Count==0?null:drawPhases.ToDictionary(p=>p.Key,p=>new{meanMs=p.Value.Total/p.Value.Count,maxMs=p.Value.Max,count=p.Value.Count,totalMs=p.Value.Total}),
+            drawFrames});
         processTimes.Clear();renderIntervals.Clear();processSteps=0;catchUpProcesses=maxSteps=0;
         presentDeltas.Clear();presentZero=presentOne=presentMulti=0;
         processGaps.Clear();processCpuInside.Clear();lastProcessEndTicks=0;processWall.Clear();drawLatency.Clear();idleWall.Clear();processBySteps.Clear();
-        cadencePhases.Clear();
+        cadencePhases.Clear();processPhases.Clear();drawPhases.Clear();drawPending.Clear();drawFrames=0;
+    }
+    public double? Cumulative{get;set;}
+    private static double? DeltaPerStep(long current,ref long previous,long steps)
+    {
+        long delta=previous<0?0:current-previous;previous=current;
+        return steps<=0?null:delta/(double)steps;
+    }
+    public void EndProcess(string name,long start)
+    {
+        if(!Enabled)return;
+        double ms=Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+        var previous=processPhases.GetValueOrDefault(name);
+        processPhases[name]=(previous.Total+ms,Math.Max(previous.Max,ms),previous.Count+1);
+    }
+    public void BeginDraw(string name){if(Enabled)drawPending[name]=Stopwatch.GetTimestamp();}
+    public void EndDraw(string name)
+    {
+        if(!Enabled)return;
+        if(!drawPending.TryGetValue(name,out long started))return;
+        drawPending.Remove(name);
+        if(name=="canvas_draw")drawFrames++;
+        double ms=Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+        var previous=drawPhases.GetValueOrDefault(name);
+        drawPhases[name]=(previous.Total+ms,Math.Max(previous.Max,ms),previous.Count+1);
     }
     public void Configure(string userRoot,bool debug)
     {

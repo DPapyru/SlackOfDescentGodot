@@ -232,8 +232,18 @@ public sealed partial class GmEvaluator
             var target = Eval(e[2], c).Int;
             var name = e[3][1].GetString()!;
             if (target == -5) return (() => world.Globals.Read(name, indices), v => world.Globals.Write(name, v, indices));
-            GmInstance Instance() => world.ReferenceInstances(target, c).FirstOrDefault() ?? throw new InvalidOperationException("No instance " + target);
-            return (() => world.Read(Instance(), name, indices), v => { foreach (var i in world.ReferenceInstances(target, c).ToArray()) world.Write(i, name, v, indices); });
+            return (() =>
+            {
+                var instance = world.ReferenceInstances(target, c).FirstOrDefault();
+                if (instance is not null) return world.Read(instance, name, indices);
+                world.NoteEmptyInstanceRead(target, name);
+                return 0;
+            }, v =>
+            {
+                var targets = world.ReferenceInstances(target, c).ToArray();
+                if (targets.Length == 0) { world.NoteEmptyInstanceWrite(target, name); return; }
+                foreach (var i in targets) world.Write(i, name, v, indices);
+            });
         }
         if (Tag(e) == "id")
         {

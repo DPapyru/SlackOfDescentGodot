@@ -1,8 +1,10 @@
+import { prepareDiagnostics } from './diagnostics.mjs';
 import { spawn } from 'node:child_process';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
 const project = path.resolve(process.env.SLACK_PLAY_PROJECT ?? path.join(import.meta.dirname, '..'));
+prepareDiagnostics(project);
 const godot = process.env.GODOT_BIN ?? '/home/dpapyru/公共/Godot/Godot_v4.7.2-stable_mono_linux_x86_64/Godot_v4.7.2-stable_mono_linux.x86_64';
 const output = path.resolve(process.env.SLACK_PLAY_OUTPUT ?? path.join(project, '.playtest', 'play'));
 const only = (process.argv[2] ?? 'all').replace(/^--only=?/, '');

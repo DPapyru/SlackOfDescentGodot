@@ -12,12 +12,10 @@ if (targets.some(target => !['Linux', 'Windows'].includes(target))) throw new Er
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'ccgame-regression-'));
 const results = [];
 const saveResults = () => fs.writeFileSync(output, JSON.stringify({ date: new Date().toISOString(), results }, null, 2));
-const suites = process.argv.includes('--packages') ? [
-    { name: 'resources', args: ['--headless', '--', '--audit', '--package-resources-audit'], marker: 'PACKAGE_RUNTIME_OK' },
-    { name: 'graphics', args: ['--', '--audit', '--graphics-audit'], marker: 'GRAPHICS_OK' },
-    { name: 'characters', args: ['--', '--audit', '--room', '10', '--frames', '30', '--dialog-choice', '1', '--controls-ui-audit'], marker: 'CONTROLS_UI_OK' },
-    { name: 'gameplay', args: ['--', '--audit', '--regression-audit'], marker: 'GAMEPLAY_REGRESSION_OK' },
-] : [{ name: 'gameplay', args: ['--', '--audit', '--regression-audit'], marker: 'GAMEPLAY_REGRESSION_OK' }];
+const suites = [
+    { name: 'startup-headless', args: ['--headless', '--quit-after', '180'], marker: 'Loaded original room' },
+    ...(process.argv.includes('--packages') ? [{ name: 'startup-rendered', args: ['--quit-after', '180'], marker: 'Loaded original room' }] : []),
+];
 async function run(command, args, env, timeout = 600000) {
     return await new Promise(resolve => {
         const started = Date.now();

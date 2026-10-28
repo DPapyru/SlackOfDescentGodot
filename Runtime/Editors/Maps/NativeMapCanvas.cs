@@ -40,12 +40,19 @@ public partial class NativeMapCanvas : Control
     }
     public Vector2 ToRoom(Vector2 local) => local / Zoom + Pan;
     public Vector2 ToCanvas(Vector2 room) => (room - Pan) * Zoom;
-    public void Center(Vector2 room) { Pan = room - Size / Zoom / 2; QueueRedraw(); }
+    public void ClampPan()
+    {
+        if (Document is null) return;
+        Vector2 room = new(Int(Document.Room, "width"), Int(Document.Room, "height")), view = Size / Zoom;
+        Pan = new(ClampAxis(Pan.X, room.X, view.X), ClampAxis(Pan.Y, room.Y, view.Y));
+    }
+    private static float ClampAxis(float offset, float room, float view) => room <= view ? (room - view) / 2 : Math.Clamp(offset, 0, room - view);
+    public void Center(Vector2 room) { Pan = room - Size / Zoom / 2; ClampPan(); QueueRedraw(); }
     public void Fit()
     {
-        if (Document is null) return; Zoom = Math.Clamp(Math.Min(Size.X / Int(Document.Room, "width"), Size.Y / Int(Document.Room, "height")), .03f, 4); Pan = Vector2.Zero; QueueRedraw();
+        if (Document is null) return; Zoom = Math.Clamp(Math.Min(Size.X / Int(Document.Room, "width"), Size.Y / Int(Document.Room, "height")), .03f, 4); Pan = Vector2.Zero; ClampPan(); QueueRedraw();
     }
-    public void ZoomAt(Vector2 local, float factor) { Vector2 room = ToRoom(local); Zoom = Math.Clamp(Zoom * factor, .03f, 8); Pan = room - local / Zoom; QueueRedraw(); }
+    public void ZoomAt(Vector2 local, float factor) { Vector2 room = ToRoom(local); Zoom = Math.Clamp(Zoom * factor, .03f, 8); Pan = room - local / Zoom; ClampPan(); QueueRedraw(); }
     private Texture2D? Texture(string path)
     {
         if (textures.TryGetValue(path, out var cached)) return cached;
@@ -147,7 +154,7 @@ public partial class NativeMapCanvas : Control
         if (input is InputEventMouseMotion motion)
         {
             pointer = ToRoom(motion.Position); PointerMoved?.Invoke(pointer);
-            if (panning) { Pan -= motion.Relative / Zoom; QueueRedraw(); AcceptEvent(); return; }
+            if (panning) { Pan -= motion.Relative / Zoom; ClampPan(); QueueRedraw(); AcceptEvent(); return; }
             if (!dragging) return; Vector2 point = ToRoom(motion.Position);
             if (Tool == NativeMapTool.Select && !erase && Selection is not null)
             {

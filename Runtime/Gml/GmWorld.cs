@@ -99,7 +99,7 @@ public sealed partial class GmWorld
     public bool Ended;
     public Action? Redraw;
     public GmFramePlan? FramePlan;
-    public void PublishFrame(){if(FramePlan is not null){FramePlan.Publish(Frame,CurrentRoom);return;}Redraw?.Invoke();}
+    public void PublishFrame(){Redraw?.Invoke();FramePlan?.Publish(Frame,CurrentRoom);}
     public Action? InputEvents;
     public Func<ValueTask>? InputEventsAsync;
     public Func<string, GmValue[], GmContext, GmValue?>? Platform;
@@ -447,18 +447,23 @@ public sealed partial class GmWorld
         Engine.Write("current_time", GameTime * 1000);
         var live=Instances.Where(i=>!i.Destroyed&&i.Active).ToArray();
         foreach(var i in live){i.Scope.Write("xprevious",i.Scope.ReadOr("x"));i.Scope.Write("yprevious",i.Scope.ReadOr("y"));}
+        long sub=Performance.Start();
         await RunObjectEventAsync(3,1);
+        Performance.End("begin_events",sub);sub=Performance.Start();
         for(int a=0;a<12;a++)foreach(var i in EventInstances(2,a))
         {
             if(i.Destroyed||!i.Active)continue;
             var t=i.Scope.Read("alarm",a).Int;
             if(t>=0){i.Scope.Write("alarm",t-1,a);if(t==1){NotifyAlarm(i,a);await EventAsync(i,2,a);}}
         }
+        Performance.End("begin_alarms",sub);sub=Performance.Start();
         if(InputEventsAsync is not null)await InputEventsAsync();else InputEvents?.Invoke();
+        Performance.End("begin_dispatch",sub);
         Performance.End("begin_input",phase);phase=Performance.Start();
         await RunObjectEventAsync(3,0);
         live=Instances.Where(i=>!i.Destroyed&&i.Active).ToArray();
         Performance.End("step",phase);phase=Performance.Start();
+        NativeServices?.Motions.BeforePhysics();
         foreach(var i in live.Where(i=>!i.Destroyed&&i.Active))
         {
             var h=i.Scope.ReadOr("hspeed").Number;var v=i.Scope.ReadOr("vspeed").Number;
@@ -474,6 +479,7 @@ public sealed partial class GmWorld
         }
         BoundaryEvents();
         Performance.End("motion_boundary",phase);phase=Performance.Start();
+        long pairProbe=Performance.Start();
         foreach(var i in live.Where(i=>!i.Destroyed&&i.Active))
         {
             if(!collisionTargets.TryGetValue(i.Object,out var targets))
@@ -532,7 +538,9 @@ public sealed partial class GmWorld
                 finally{nearby.Clear();nearbyPool.Push(nearby);candidates.Clear();collisionCandidatePool.Push(candidates);}
             }
         }
+        Performance.End("collision_pairs",pairProbe);
         await RunObjectEventAsync(3,2);
+        NativeServices?.Motions.AfterStep();
         UpdateBackgrounds();
         Performance.End("collision_end",phase);phase=Performance.Start();
         RemoveDestroyed();

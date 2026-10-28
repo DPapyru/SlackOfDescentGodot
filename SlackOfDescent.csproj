@@ -6,9 +6,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>12</LangVersion>
     <Optimize>true</Optimize>
+    <IncludeDiagnostics Condition="'$(IncludeDiagnostics)' == ''">false</IncludeDiagnostics>
+    <DefineConstants Condition="'$(IncludeDiagnostics)' == 'true'">$(DefineConstants);INCLUDE_DIAGNOSTICS</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="Tests/**/*.cs" />
+    <Compile Remove="Runtime/Diagnostics/**/*.cs" Condition="'$(IncludeDiagnostics)' != 'true'" />
     <Compile Remove="Examples/Mods/**/*.cs" />
     <Reference Include="Microsoft.CodeAnalysis">
       <HintPath>$(MSBuildSDKsPath)/../Roslyn/bincore/Microsoft.CodeAnalysis.dll</HintPath>

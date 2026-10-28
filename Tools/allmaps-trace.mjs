@@ -1,9 +1,11 @@
+import { prepareDiagnostics } from './diagnostics.mjs';
 import { spawn } from 'node:child_process';
 import { mkdir, rm, writeFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 
 const project = path.resolve(import.meta.dirname, '..');
+prepareDiagnostics(project);
 const godot = process.env.GODOT_BIN ?? '/home/dpapyru/公共/Godot/Godot_v4.7.2-stable_mono_linux_x86_64/Godot_v4.7.2-stable_mono_linux.x86_64';
 const outRoot = path.join(project, '.playtest', 'allmaps', 'trace');
 const args = process.argv.slice(2);

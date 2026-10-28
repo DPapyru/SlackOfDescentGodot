@@ -3,30 +3,19 @@ using System.Text.Json.Serialization;
 
 namespace SlackOfDescent;
 
-public sealed partial class CharacterDefinition
-{
-    public int FormatVersion { get; set; } = 1;
-    public string Id { get; set; } = Guid.NewGuid().ToString("N");
-    public string Name { get; set; } = "新角色";
-    public string BasePreset { get; set; } = "Nana";
-    public string Appearance { get; set; } = "Character-Nana";
-    public Dictionary<CharacterActionSlot, string> Actions { get; set; } = new();
-    public List<string> Dependencies { get; set; } = new();
-    [JsonExtensionData] public Dictionary<string, JsonElement>? Extra { get; set; }
-}
-
 public sealed class NativeContentStore
 {
     public static readonly JsonSerializerOptions Json = new() { WriteIndented = true, PropertyNameCaseInsensitive = true, Converters = { new JsonStringEnumConverter() } };
     public string Root { get; }
     public string Characters => Path.Combine(Root, "Characters");
+    public string Motions => Path.Combine(Root,"Actions");
     public string Maps => Path.Combine(Root, "Maps");
     public string Mods => Path.Combine(Root, "Mods");
     public string Projects => Path.Combine(Root, "Projects");
     public NativeContentStore(string userRoot)
     {
         Root = Path.Combine(userRoot, "Content");
-        foreach (var path in new[] { Characters, Maps, Mods, Projects }) Directory.CreateDirectory(path);
+        foreach (var path in new[] { Characters, Maps, Mods, Projects, Motions }) Directory.CreateDirectory(path);
     }
     public static void WriteAtomic(string path, byte[] data)
     {
@@ -41,6 +30,9 @@ public sealed class NativeContentStore
     public IReadOnlyList<string> DiscoverCharacters(ContentRegistry registry)
     {
         var errors = new List<string>();
+        foreach(string file in Directory.EnumerateFiles(Motions,"*.motion.json",SearchOption.AllDirectories))
+            try{registry.RegisterMotion(MotionGraph.Load(file));}
+            catch(Exception e)when(e is IOException or System.Text.Json.JsonException or InvalidDataException or ArgumentException){errors.Add(file+": "+e.Message);}
         foreach (string path in Directory.EnumerateFiles(Characters, "*.character.json", SearchOption.AllDirectories))
             try { registry.RegisterCharacter(Load<CharacterDefinition>(path)); }
             catch (Exception e) when (e is IOException or JsonException or InvalidDataException) { errors.Add(path + ": " + e.Message); }

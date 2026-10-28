@@ -1,3 +1,4 @@
+import { prepareDiagnostics } from './diagnostics.mjs';
 import { spawn } from 'node:child_process';
 import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -138,6 +139,36 @@ function splitOutliers(rows, valueOf) {
   }
   return { limits, kept, outliers };
 }
+function checkBuckets(rows) {
+  const violations = [];
+  let present = 0;
+  const probes = [['phases', 'logicSteps', 'per-step'], ['processPhases', 'process.count', 'per-callback'], ['drawPhases', 'present.count', 'per-draw']];
+  const checked = [];
+  for (const [field, denominator, label] of probes) {
+    let windowsChecked = 0, entriesChecked = 0;
+    for (const row of rows) {
+      const bucket = row.record[field];
+      if (!bucket) continue;
+      const expected = denominator === 'logicSteps' ? row.record.logicSteps : denominator === 'process.count' ? row.record.process?.count : row.record.present?.count;
+      if (typeof expected !== 'number') continue;
+      windowsChecked++;
+      for (const [name, entry] of Object.entries(bucket)) {
+        entriesChecked++;
+        if (entry.count !== expected) violations.push({ field, probe: name, label, expected, actual: entry.count, frame: row.frame });
+      }
+    }
+    present += windowsChecked;
+    checked.push({ field, denominator, windowsChecked, entriesChecked });
+  }
+  return {
+    ok: violations.length === 0,
+    decidable: present > 0,
+    checked,
+    violations: violations.slice(0, 20),
+    violationCount: violations.length,
+    note: '三桶不变量：phases.count==logicSteps / processPhases.count==process.count / drawPhases.count==present.count；任一不成立 = 探针放错层'
+  };
+}
 function aliveInstances(record) {
   if (record.alive && typeof record.alive.instances === 'number') return { value: record.alive.instances, source: 'alive.instances' };
   if (Array.isArray(record.objectProfile?.objects)) {
@@ -188,6 +219,7 @@ async function firstCadenceRoom(root) {
 }
 
 async function capture() {
+  prepareDiagnostics(project);
   await rm(runRoot, { recursive: true, force: true });
   await mkdir(runRoot, { recursive: true });
   const frames = Math.ceil((seconds + 12) * 30);
@@ -346,6 +378,11 @@ async function analyze(source) {
   const renderSpike = renderAllTimes.length > 0 ? Math.max(...renderAllTimes) : null;
   const unbounded = growth !== null && growth.slope > 0 && growth.r2 > 0.9;
   const slowRender = renderBudgetDecidable && renderP95Steady > thresholdMs;
+  const invariantReport = checkBuckets(rows);
+  if (!invariantReport.ok) {
+    const first = invariantReport.violations[0];
+    throw new Error('三桶不变量被破坏：' + first.field + ' 的 ' + first.probe + ' 计数 ' + first.actual + ' != ' + first.label + ' ' + first.expected + '（frame ' + first.frame + '）——探针放错层，本次测量无效');
+  }
   const unanswered = [];
   if (aliveValues.length < minSamples) unanswered.push('alive 是否无界增长（样本 n=' + aliveValues.length + ' < ' + minSamples + '）');
   if (correlation === null) unanswered.push('alive 与 renderInterval.p95 的相关性（样本 n=' + aliveValues.length + '）');
@@ -457,6 +494,72 @@ async function analyze(source) {
         linearCheck
       };
     })(),
+    buckets: (() => {
+      const bucket = (field, denominator) => {
+        const windows = rows.filter(row => row.record[field]);
+        if (windows.length === 0) return null;
+        const names = [...new Set(windows.flatMap(row => Object.keys(row.record[field])))];
+        const entries = {};
+        for (const name of names) {
+          const present = windows.map(row => row.record[field][name]).filter(Boolean);
+          entries[name] = {
+            meanMsPerCall: describe(present.map(entry => entry.meanMs)),
+            meanMsPerSecond: describe(present.map(entry => entry.meanMs * entry.count))
+          };
+        }
+        return { field, denominator, windows: windows.length, perCall: entries };
+      };
+      const process = bucket('processPhases', 'process.count');
+      const draw = bucket('drawPhases', 'present.count');
+      const step = (() => {
+        const windows = rows.filter(row => row.record.phases);
+        if (windows.length === 0) return null;
+        const names = [...new Set(windows.flatMap(row => Object.keys(row.record.phases)))];
+        const entries = {};
+        for (const name of names) {
+          const present = windows.map(row => row.record.phases[name]).filter(Boolean);
+          entries[name] = {
+            meanMsPerStep: describe(present.map(entry => entry.meanMs)),
+            meanMsPerSecond: describe(present.map(entry => entry.meanMs * entry.count)),
+            logicStepsPerWindow: describe(windows.map(row => row.record.logicSteps).filter(value => typeof value === 'number'))
+          };
+        }
+        return { field: 'phases', denominator: 'logicSteps', windows: windows.length, perCall: entries };
+      })();
+      return { process, draw, step };
+    })(),
+    invariants: checkBuckets(rows),
+    processBreakdown: (() => {
+      const pick = (field, sub) => nonNull(rows.map(row => row.record.processBreakdown?.[field]?.[sub] ?? null));
+      const segment = (field, sub) => describe(pick(field, sub));
+      const period = nonNull(rows.map(row => row.record.processFps > 0 ? 1000 / row.record.processFps : null));
+      const processWall = pick('processBreakdown', 'processWall');
+      const drawLatency = pick('processBreakdown', 'drawLatency');
+      const idleWall = pick('processBreakdown', 'idleWall');
+      const paired = rows.map(row => ({
+        period: row.record.processFps > 0 ? 1000 / row.record.processFps : null,
+        processWall: row.record.processBreakdown?.processWall?.meanMs ?? null,
+        drawLatency: row.record.processBreakdown?.drawLatency?.meanMs ?? null,
+        idleWall: row.record.processBreakdown?.idleWall?.meanMs ?? null
+      })).filter(entry => entry.period !== null && entry.processWall !== null && entry.drawLatency !== null && entry.idleWall !== null);
+      const errors = paired.map(entry => (entry.processWall + entry.drawLatency + entry.idleWall - entry.period) / entry.period * 100);
+      const bySteps = {};
+      for (const row of rows) {
+        const steps = row.record.processBreakdown?.bySteps;
+        if (!steps) continue;
+        for (const [name, entry] of Object.entries(steps)) (bySteps[name] ??= []).push(entry.meanMs);
+      }
+      return {
+        unlocked: paired.length > 0,
+        processWall: segment('processBreakdown', 'processWall'),
+        drawLatency: segment('processBreakdown', 'drawLatency'),
+        idleWall: segment('processBreakdown', 'idleWall'),
+        period: describe(period),
+        closure: errors.length === 0 ? null : { medianPercent: percentile(errors, 0.5), worstPercent: Math.max(...errors.map(Math.abs)), windows: errors.length },
+        closureNote: '闭合恒等式：processWall + drawLatency + idleWall == 1000/processFps；恒等式本身零信息量，只用它的残差判断探针是否漏桶',
+        bySteps: Object.fromEntries(Object.entries(bySteps).map(([name, values]) => [name, { meanMs: mean(values), p50Ms: percentile(values, 0.5), windows: values.length }]))
+      };
+    })(),
     pixelAttribution: {
       field: 'renderSize.windowPixels',
       pixels: attributedPixels,
@@ -552,7 +655,16 @@ async function analyze(source) {
       if (values.length === 0) return null;
       const interval = mean(values.map(entry => entry.interval));
       const process = mean(values.map(entry => entry.process));
-      return { intervalMs: interval, processMs: process, unattributedMs: interval - process, unattributedPercent: interval === 0 ? 0 : (interval - process) / interval * 100 };
+      const latency = nonNull(rows.map(row => row.record.processBreakdown?.drawLatency?.meanMs ?? null));
+      const idle = nonNull(rows.map(row => row.record.processBreakdown?.idleWall?.meanMs ?? null));
+      return {
+        intervalMs: interval,
+        processMs: process,
+        drawLatencyMs: latency.length === 0 ? null : percentile(latency, 0.5),
+        idleWallMs: idle.length === 0 ? null : percentile(idle, 0.5),
+        remainderMs: interval - process,
+        remainderIsNotDrawLatency: '其余 = 间隔 - _Process；它包含 drawLatency 与 idleWall，但二者不等价于该差值，逐帧上屏延迟必须直接读 processBreakdown.drawLatency'
+      };
     })(),
     renderedFps: mean(nonNull(rows.map(row => row.completedRenderFps))),
     logicFps: mean(nonNull(rows.map(row => row.record.logicFps ?? null))),
@@ -663,7 +775,23 @@ function summarize(result) {
     lines.push('FRAME_PROFILE perLogicStepMs p50=' + round(step.p50Ms) + ' p95=' + round(step.p95Ms) + ' p99=' + round(step.p99Ms) + ' max=' + round(step.maxMs) + ' pooled=' + round(step.pooledMs) + 'ms（每逻辑步 _Process 耗时）');
     lines.push('FRAME_PROFILE perLogicStepMs 预算=' + round(step.budgetMs) + 'ms (' + step.budgetSource + ') 占用=' + round(step.percentOfBudget) + '%  墙钟校验每步可得=' + round(step.wallClockPerStepMs) + 'ms');
   }
-  if (result.perRenderedFrame) lines.push('FRAME_PROFILE perRenderedFrame 间隔=' + round(result.perRenderedFrame.intervalMs) + 'ms 其中_Process=' + round(result.perRenderedFrame.processMs) + 'ms 其余=' + round(result.perRenderedFrame.unattributedMs) + 'ms(' + round(result.perRenderedFrame.unattributedPercent) + '%)');
+  if (result.perRenderedFrame) lines.push('FRAME_PROFILE perRenderedFrame 间隔=' + round(result.perRenderedFrame.intervalMs) + 'ms 其中_Process=' + round(result.perRenderedFrame.processMs) + 'ms 未归因残差=' + round(result.perRenderedFrame.remainderMs) + 'ms 其中 drawLatency(中位)=' + round(result.perRenderedFrame.drawLatencyMs) + 'ms idleWall(中位)=' + round(result.perRenderedFrame.idleWallMs) + 'ms');
+  const invariants = result.invariants;
+  if (invariants) lines.push('FRAME_PROFILE 三桶不变量 ' + (invariants.ok ? 'OK' : 'FAILED ' + invariants.violationCount + ' 条') + ' 检查=' + invariants.checked.map(entry => entry.field + '===' + entry.denominator + '(' + entry.windowsChecked + '窗/' + entry.entriesChecked + '项)').join(' '));
+  if (invariants && !invariants.ok) for (const violation of invariants.violations.slice(0, 5)) lines.push('FRAME_PROFILE 不变量违规 ' + violation.label + ' probe=' + violation.probe + ' expected=' + violation.expected + ' actual=' + violation.actual + ' frame=' + violation.frame);
+  const breakdown = result.processBreakdown;
+  if (breakdown && breakdown.unlocked) {
+    const seg = entry => entry === null ? 'n/a' : round(entry.meanMs);
+    lines.push('FRAME_PROFILE 墙钟分段 period=' + seg(breakdown.period) + 'ms processWall=' + seg(breakdown.processWall) + ' drawLatency=' + seg(breakdown.drawLatency) + ' idle=' + seg(breakdown.idleWall) + ' 闭合残差中位=' + (breakdown.closure === null ? 'n/a' : round(breakdown.closure.medianPercent) + '%') + ' 最差=' + (breakdown.closure === null ? 'n/a' : round(breakdown.closure.worstPercent) + '%'));
+    const steps = Object.entries(breakdown.bySteps).sort((a, b) => a[0].localeCompare(b[0]));
+    if (steps.length > 0) lines.push('FRAME_PROFILE 按步数 _Process 耗时 ' + steps.map(([name, entry]) => name + '=' + round(entry.meanMs) + 'ms(n' + entry.windows + ')').join(' '));
+  } else lines.push('FRAME_PROFILE processBreakdown 缺失（需要 processWall/drawLatency/idleWall 探针）');
+  const buckets = result.buckets;
+  if (buckets) for (const [bucketName, bucket] of Object.entries(buckets)) {
+    if (bucket === null) continue;
+    const rows2 = Object.entries(bucket.perCall).map(([name, entry]) => name + '(' + bucket.denominator + ')=' + (bucketName === 'step' ? round(entry.meanMsPerStep?.p50Ms) : round(entry.meanMsPerCall?.p50Ms)) + 'ms/call 共' + round(entry.meanMsPerSecond?.p50Ms) + 'ms/s');
+    if (rows2.length > 0) lines.push('FRAME_PROFILE ' + bucketName + '桶 ' + rows2.join(' | '));
+  }
   const correlations = result.correlations;
   if (correlations) {
     const pairs = [['perStep~全线程CPU', correlations.perStepVsFullThreadCpu], ['renderInterval~全线程CPU', correlations.renderIntervalVsFullThreadCpu], ['renderInterval~perStep', correlations.renderIntervalVsPerStep], ['renderInterval~alive', correlations.renderIntervalVsAlive], ['alive~renderP95', correlations.aliveVsRenderP95]];

@@ -1,9 +1,10 @@
-import { spawn } from 'node:child_process';
+import { prepareDiagnostics, runDiagnostic, readDiagnosticResult, removeDiagnosticResult } from './diagnostics.mjs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 
 const project = path.resolve(process.env.SLACK_MAP_PROJECT ?? path.join(import.meta.dirname, '..'));
+prepareDiagnostics(project);
 const godot = process.env.GODOT_BIN ?? '/home/dpapyru/公共/Godot/Godot_v4.7.2-stable_mono_linux_x86_64/Godot_v4.7.2-stable_mono_linux.x86_64';
 const output = process.env.SLACK_MAP_OUTPUT ?? path.join(os.tmpdir(), `ccgame-map-${Date.now()}`);
 const mode = process.argv[2] ?? 'data';
@@ -11,15 +12,11 @@ await mkdir(output, { recursive: true });
 async function run(kind, name, count, rendered = false) {
   const directory = path.join(output, name); await mkdir(directory, { recursive: true });
   const args = [...(rendered ? [] : ['--headless']), '--path', project, '--audio-driver', 'Dummy', '--log-file', path.join(directory, 'godot.log'), 'res://Tools/NativeMapAudit.tscn', '--', kind, String(count)];
-  let log = '';
-  await new Promise((resolve, reject) => {
-    const child = spawn(godot, args, { cwd: project, env: { ...process.env, SLACK_MAP_OUTPUT: directory, SLACK_PERF: '0' }, stdio: ['ignore', 'pipe', 'pipe'] });
-    const timeout = setTimeout(() => { child.kill('SIGTERM'); reject(new Error(`Timeout ${name}`)); }, 120000);
-    child.stdout.on('data', data => { log += data; process.stdout.write(data); }); child.stderr.on('data', data => { log += data; process.stderr.write(data); });
-    child.on('error', reject); child.on('exit', code => { clearTimeout(timeout); code === 0 ? resolve() : reject(new Error(`${name} exited ${code}`)); });
-  });
+  const result = path.join(directory, 'result.json');
+  removeDiagnosticResult(result);
+  const log = runDiagnostic(godot, args, { project, env: { ...process.env, SLACK_MAP_OUTPUT: directory, SLACK_PERF: '0' } }).toString();
   await writeFile(path.join(directory, 'process.log'), log);
-  return JSON.parse(await readFile(path.join(directory, 'result.json'), 'utf8'));
+  return readDiagnosticResult(result);
 }
 if (mode === 'loads') {
   const cold = [];

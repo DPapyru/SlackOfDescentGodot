@@ -83,7 +83,7 @@ public partial class NativeMapEditor : Window
         var canvasFrame = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; right.AddChild(canvasFrame);
         var canvasBar = new HBoxContainer(); canvasFrame.AddChild(canvasBar);
         Button(canvasBar, "缩小", "ZoomOut", () => MapCanvas.ZoomAt(MapCanvas.Size / 2, .8f)); Button(canvasBar, "放大", "ZoomIn", () => MapCanvas.ZoomAt(MapCanvas.Size / 2, 1.25f));
-        Button(canvasBar, "显示全图", "FitRoom", () => MapCanvas.Fit()); Button(canvasBar, "实际大小", "SpawnView", () => { MapCanvas.Pan = new(0, 0); MapCanvas.Zoom = 1; MapCanvas.QueueRedraw(); });
+        Button(canvasBar, "显示全图", "FitRoom", () => MapCanvas.Fit()); Button(canvasBar, "实际大小", "ActualSize", () => { MapCanvas.Pan = new(0, 0); MapCanvas.Zoom = 1; MapCanvas.ClampPan(); MapCanvas.QueueRedraw(); });
         spawnCenterButton = new Button { Text = "居中到出生点", Name = "SpawnCenter" }; canvasBar.AddChild(spawnCenterButton); spawnCenterButton.Pressed += CenterOnSpawn;
         tilesToggle = new CheckBox { Text = "图块", Name = "ShowTiles", ButtonPressed = true }; canvasBar.AddChild(tilesToggle);
         entitiesToggle = new CheckBox { Text = "实体", Name = "ShowEntities", ButtonPressed = true }; canvasBar.AddChild(entitiesToggle);

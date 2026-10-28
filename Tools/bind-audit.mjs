@@ -1,9 +1,11 @@
+import { prepareDiagnostics, diagnosticTemporary } from './diagnostics.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 
 const root = path.resolve(process.env.SLACK_AUDIT_PROJECT ?? path.join(import.meta.dirname, '..'));
+prepareDiagnostics(root);
 const godot = process.env.GODOT_BIN;
 if (!godot) throw new Error('GODOT_BIN required');
 const code = JSON.parse(fs.readFileSync(path.join(root, 'GameData/code.json')));
@@ -12,7 +14,7 @@ const pattern = process.argv.slice(2).find(arg => !arg.startsWith('--'));
 const selected = pattern ? new RegExp(pattern) : null;
 const rendered = process.argv.includes('--rendered');
 const output = process.env.SLACK_AUDIT_OUTPUT ?? path.join(os.tmpdir(), 'ccgame-bind-results.json');
-const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'ccgame-bind-'));
+const temporary = diagnosticTemporary('bind');
 const results = [];
 const fixtures = {
     BossFrog: 'startBind(col,BIND_ROOT,0,col.BINDED_BOSSFROG_VORE_FOOT,0,1);MotionChange(VORE_FOOT,0,1);',

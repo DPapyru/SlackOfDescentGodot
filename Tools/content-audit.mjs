@@ -1,9 +1,11 @@
+import { prepareDiagnostics, diagnosticTemporary } from './diagnostics.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 
 const root = path.resolve(import.meta.dirname, '..');
+prepareDiagnostics(root);
 const godot = process.env.GODOT_BIN;
 if (!godot) throw new Error('GODOT_BIN required');
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'GameData/manifest.json')));
@@ -41,7 +43,7 @@ if (suite === 'all' || suite === 'enemies') for (const file of manifest.external
     const bossRoom = bossRooms[match[1]];
     jobs.push({ kind: 'enemy', name: match[1], args: bossRoom ? ['--room', String(bossRoom), '--frames', '210'] : ['--room', '10', '--frames', '30', '--enemy-audit', match[1]] });
 }
-const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'ccgame-content-'));
+const temporary = diagnosticTemporary('content');
 const results = [];
 async function run(job, index) {
     const user = path.join(temporary, String(index));

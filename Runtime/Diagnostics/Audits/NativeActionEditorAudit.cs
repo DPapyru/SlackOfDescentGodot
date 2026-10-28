@@ -45,7 +45,15 @@ public partial class NativeActionEditorAudit : Node
             Expect(diagnostics.Contains("BrokenMod.cs", StringComparison.Ordinal), "compile failure reports source diagnostics");
             Expect(Find(editor, "动作状态") is Label { Text.Length: > 0 }, "compile failure leaves the editor responsive");
             Expect(editor.SelectAction("sample.gravity"), "editor survives a failed compile check");
-            Expect(typeof(NativeActionEditor).Assembly.GetType("SlackOfDescent.NativeActionConfig") is not null && !GameConsumesActionConfig(), "saved action configs are not yet consumed by the game, so the editor is a template producer");
+            var formalRegistry=new ContentRegistry();formalRegistry.RegisterAction("sample.pulse",()=>new NativeSamplePulse());
+            using(var bridge=new GmNativeBridge(world,formalRegistry))
+            {
+                var receiver=world.CreateNativeEntity(0,0);
+                bridge.BindCharacter(receiver,new(){Actions={{saved.Slot,saved.Action}},ActionConfigs={{saved.Slot,saved}}});
+                bridge.Update(new(FrameContext.FixedDelta,0,1,InputSnapshot.Empty));
+                Expect(receiver.Scope.ReadOr("actionPulse").Number==7.5&&receiver.Scope.ReadOr("actionPulseLabel").ToString()=="tap"&&receiver.Scope.ReadOr("actionPulseMode").ToString()=="hard","saved action configuration is consumed by formal character binding");
+                bridge.UnbindCharacter(receiver.Id);world.Call("instance_destroy",[],new(receiver));world.Instances.Remove(receiver);
+            }
             var spin = (SpinBox)editor.ParameterControls["strength"];
             Expect(Find(editor, "动作状态") is Label, "editor exposes a status label for feedback");
             spin.Value = 3.5;
@@ -99,27 +107,5 @@ public partial class NativeActionEditorAudit : Node
         finally { if (Directory.Exists(temporary)) Directory.Delete(temporary, true); }
     }
     private static Node? Find(Node parent, string name) => parent.FindChild(name, true, false);
-    private static bool GameConsumesActionConfig()
-    {
-        var loader = typeof(NativeActionConfig).GetMethod("Load", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
-        if (loader is null) return false;
-        return typeof(NativeActionConfig).Assembly.GetTypes()
-            .Where(type => type != typeof(NativeActionConfig) && !InEditor(type))
-            .SelectMany(type => type.GetMethods(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly))
-            .Any(method => method.GetMethodBody()?.GetILAsByteArray() is { } il && IlCallsMethod(il, loader));
-    }
-    private static bool InEditor(Type type)
-    {
-        for (var current = type; current is not null; current = current.DeclaringType)
-            if (current == typeof(NativeActionEditor) || current == typeof(NativeActionEditorAudit)) return true;
-        return false;
-    }
-    private static bool IlCallsMethod(byte[] il, System.Reflection.MethodInfo target)
-    {
-        int token = target.MetadataToken;
-        for (int index = 0; index + 4 < il.Length; index++)
-            if ((il[index] == 0x28 || il[index] == 0x6F) && BitConverter.ToInt32(il, index + 1) == token) return true;
-        return false;
-    }
     private static NativeActionDefinition NativeSamplePulseDefinition => new NativeSamplePulse().Definition;
 }

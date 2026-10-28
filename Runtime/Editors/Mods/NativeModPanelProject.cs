@@ -28,6 +28,7 @@ public partial class NativeModPanel
         var imports = new HBoxContainer(); metadata.AddChild(imports);
         AddButton(imports, L("导入资源…", "Import resource…"), "ImportProjectResource", () => ImportProjectAsset("resource"));
         AddButton(imports, L("加入角色…", "Add character…"), "ImportProjectCharacter", () => ImportProjectAsset("character"));
+        AddButton(imports, L("加入动作图…", "Add motion graph…"), "ImportProjectMotion",()=>ImportProjectAsset("motion"));
         AddButton(imports, L("加入地图…", "Add map…"), "ImportProjectMap", () => ImportProjectAsset("map"));
         AddButton(imports, L("加入语言…", "Add language…"), "ImportProjectLanguage", () => ImportProjectAsset("language"));
         var fileSplit = new HSplitContainer { Name = "项目文件", SplitOffsets = [180] }; projectTabs.AddChild(fileSplit); projectTabs.SetTabTitle(1, L("项目文件", "Project files"));
@@ -79,9 +80,9 @@ public partial class NativeModPanel
     private void ImportProjectAsset(string kind)
     {
         if (directory.Text.Length == 0) throw new InvalidOperationException(L("请先打开项目。", "Open a project first."));
-        Choose(FileDialog.FileModeEnum.OpenFile, kind == "map" ? "*.map.json ; Map" : kind == "character" ? "*.character.json ; Character" : kind == "language" ? "*.json ; JSON" : "", source =>
+        Choose(FileDialog.FileModeEnum.OpenFile, kind == "motion" ? "*.motion.json ; Motion graph" : kind == "map" ? "*.map.json ; Map" : kind == "character" ? "*.character.json ; Character" : kind == "language" ? "*.json ; JSON" : "", source =>
         {
-            string defaultId = kind == "map" ? NativeContentStore.Load<NativeMapDocument>(source).Id : kind == "character" ? NativeContentStore.Load<CharacterDefinition>(source).Id : library.OpenProject(directory.Text).Id + "." + Path.GetFileNameWithoutExtension(source);
+            string defaultId = kind == "motion" ? MotionGraph.Load(source).Id : kind == "map" ? NativeContentStore.Load<NativeMapDocument>(source).Id : kind == "character" ? NativeContentStore.Load<CharacterDefinition>(source).Id : library.OpenProject(directory.Text).Id + "." + Path.GetFileNameWithoutExtension(source);
             var dialog = new ConfirmationDialog { Name = "ImportProjectAsset", Title = L("资源稳定 ID", "Stable asset ID"), Size = new(510, 230) }; AddChild(dialog);
             var box = new VBoxContainer(); dialog.AddChild(box); var id = new LineEdit { AutoTranslateMode = AutoTranslateModeEnum.Disabled, Text = defaultId }; box.AddChild(id);
             box.AddChild(new Label { Text = L("语言 ID 使用 .en 或 .zh_CN 后缀。", "Language IDs end with .en or .zh_CN."), Visible = kind == "language" });
@@ -89,7 +90,7 @@ public partial class NativeModPanel
             dialog.Confirmed += () => Run(() =>
             {
                 if (string.IsNullOrWhiteSpace(id.Text)) throw new InvalidDataException("ID");
-                string relative = (kind == "map" ? "maps/" : kind == "language" ? "languages/" : "assets/") + Path.GetFileName(source); string target = Path.Combine(directory.Text, relative);
+                string relative = (kind == "motion" ? "motions/" : kind == "map" ? "maps/" : kind == "language" ? "languages/" : "assets/") + Path.GetFileName(source); string target = Path.Combine(directory.Text, relative);
                 void Import()
                 {
                     if (kind == "character")
@@ -102,7 +103,8 @@ public partial class NativeModPanel
                         string characterPath = repository.SavePackage(document, directory.Text);
                         MutateManifest(manifest => { manifest.Content ??= new(); manifest.Content.Characters[id.Text] = characterPath; }); SaveManifest(); RefreshProjectFiles(); dialog.QueueFree(); return;
                     }
-                    NativeContentStore.WriteAtomic(target, File.ReadAllBytes(source)); MutateManifest(manifest => { manifest.Content ??= new(); var entries = kind == "map" ? manifest.Content.Maps : kind == "language" ? manifest.Content.Languages : manifest.Content.Resources; entries[id.Text] = relative; if (cover.ButtonPressed) manifest.Cover = relative; }); SaveManifest(); RefreshProjectFiles(); dialog.QueueFree();
+                    if(kind=="motion"){var graph=MotionGraph.Load(source);graph.Id=id.Text;graph.Save(target);}
+                    else NativeContentStore.WriteAtomic(target, File.ReadAllBytes(source)); MutateManifest(manifest => { manifest.Content ??= new(); var entries = kind == "map" ? manifest.Content.Maps : kind == "language" ? manifest.Content.Languages : kind == "motion" ? manifest.Content.Motions : manifest.Content.Resources; entries[id.Text] = relative; if (cover.ButtonPressed) manifest.Cover = relative; }); SaveManifest(); RefreshProjectFiles(); dialog.QueueFree();
                 }
                 if (File.Exists(target)) Confirm(L("替换项目中的同名资源文件？", "Replace the resource with the same filename?"), Import); else Import();
             }); dialog.Canceled += dialog.QueueFree; dialog.PopupCentered();

@@ -94,19 +94,22 @@ public partial class GameHost
         mapEditor.PlayRequested+=PlayMap;
         ShowEditorWindow(mapEditor);
     }
+    private const double TestingRoomTimeoutSeconds=30;
     private async Task PrepareTestingRoom()
     {
-        var context=new GmContext(world.Instances.FirstOrDefault(i=>!i.Destroyed)??new GmInstance());
+        var context=new GmContext(world.Instances.FirstOrDefault(i=>!i.Destroyed)??new GmInstance{Id=-1000,Object=-1});
         world.Evaluator.ResetBudget();
         world.Globals.Write("StartArea",0);
         await world.Evaluator.CallAsync("DataItemReset",[],context);
         await world.Evaluator.CallAsync("DataItemLoad",[],context);
         await world.LoadRoomAsync(world.Constants["TestRoom_Loading"].Int);
+        double timeout=double.TryParse(System.Environment.GetEnvironmentVariable("SLACK_TESTROOM_TIMEOUT"),System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out double configured)&&configured>0?configured:TestingRoomTimeoutSeconds;
         var started=System.Diagnostics.Stopwatch.StartNew();
         while(world.IsLoadingRoom||world.PendingRoom is not null)
         {
             await world.StepAsync();
-            if(started.Elapsed.TotalSeconds>30)throw new InvalidOperationException("测试房间加载超时");
+            if(started.Elapsed.TotalSeconds>timeout)
+                throw new InvalidOperationException("测试房间加载超时 room="+world.CurrentRoom+" pending="+world.PendingRoom+" frame="+world.Frame+" waited="+started.Elapsed.TotalSeconds.ToString("F1")+"s");
         }
     }
     private async Task PlayMap(NativeMapDocument document)
@@ -206,7 +209,7 @@ public partial class GameHost
     private async Task BindFullCharacter(CharacterDefinition definition)
     {
         var actor=Player()??throw new InvalidOperationException("没有可控制的角色");
-        var missing=definition.Actions.Values.Where(id=>!content.Actions.ContainsKey(id))
+        var missing=(definition.MotionGraph is {} motion&&!content.MotionGraphs.ContainsKey(motion)?new[]{motion}:Array.Empty<string>()).Concat(definition.Actions.Values.Where(id=>!content.Actions.ContainsKey(id)))
             .Concat(definition.Dependencies.Where(id=>!mods.LoadedMods.Any(m=>m.Id==id)&&!content.Resources.ContainsKey(id)))
             .Concat(definition.Parts.SelectMany(p=>p.Frames).Where(f=>!File.Exists(nativeDrawRepository.FramePath(f,content.CharacterDirectories.GetValueOrDefault(definition.Id)))).Select(f=>f.Png)).Distinct().ToArray();
         if(missing.Length>0)

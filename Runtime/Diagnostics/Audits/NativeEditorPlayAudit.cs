@@ -43,7 +43,7 @@ public partial class NativeEditorPlayAudit : Node
         "show_message" or "show_message_ext" => 1,
         "show_question" => false,
         "get_string" => args.Length > 1 ? args[1] : "",
-        _ => null
+        _ => (GmValue?)null
     };
     private void Expect(bool passed, string message)
     {

@@ -46,9 +46,7 @@ public sealed partial class GameHost
     {
         world.FramePlan=separated?framePlan:null;
         framePlan.Reset(world.CurrentRoom);
-        var legacyRedraw=world.Redraw;
-        long legacyBuilds=0;
-        if(!separated)world.Redraw=()=>{legacyRedraw?.Invoke();legacyBuilds++;};
+        long initialBuilds=graphics.Builds;
         var stepSamples=new List<double>(frames*stepsPerFrame);
         var renderSamples=new List<double>(frames);
         var frameSamples=new List<double>(frames);
@@ -66,19 +64,20 @@ public sealed partial class GameHost
             }
             long renderStarted=Stopwatch.GetTimestamp();
             bool built=!separated||framePlan.Consume() is not null;
-            if(built){graphics.Build();canvas.QueueRedraw();builds++;}
+            if(built){canvas.QueueRedraw();builds++;}
             double renderMs=Stopwatch.GetElapsedTime(renderStarted).TotalMilliseconds;
             if(frame<0)continue;
             renderSamples.Add(renderMs);frameSamples.Add(Stopwatch.GetElapsedTime(frameStarted).TotalMilliseconds);
         }
-        world.Redraw=legacyRedraw;
+        long logicBuilds=graphics.Builds-initialBuilds;
         var plan=framePlan.Stats;
         world.FramePlan=framePlan;
         return new
         {
             logicSteps,
-            builds=separated?builds:legacyBuilds,
-            buildsPerLogicStep=separated?(logicSteps==0?0:(double)builds/logicSteps):(logicSteps==0?0:(double)legacyBuilds/logicSteps),
+            builds=logicBuilds,
+            presentations=builds,
+            buildsPerLogicStep=logicSteps==0?0:(double)logicBuilds/logicSteps,
             step=new{meanMs=Mean(stepSamples),p50Ms=Percentile(stepSamples,.5),p95Ms=Percentile(stepSamples,.95),maxMs=Max(stepSamples)},
             render=new{meanMs=Mean(renderSamples),p50Ms=Percentile(renderSamples,.5),p95Ms=Percentile(renderSamples,.95),maxMs=Max(renderSamples)},
             frame=new{meanMs=Mean(frameSamples),p50Ms=Percentile(frameSamples,.5),p95Ms=Percentile(frameSamples,.95),maxMs=Max(frameSamples)},

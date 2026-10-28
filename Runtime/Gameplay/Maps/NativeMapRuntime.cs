@@ -19,8 +19,9 @@ public sealed class NativeMapFlowService(NativeModServices services)
     public ActorContext Spawn(string type, double x, double y, string logicalId = "") => Active().Spawn(type, x, y, logicalId);
     public void Destroy(string logicalId) { if (Find(logicalId) is {} actor) services.Entities.Destroy(actor.Id); }
     public void Interact(string targetId, ActorContext actor) => Active().Interact(targetId, actor);
+    public bool Trigger(string id,ActorContext? actor=null)=>Active().Trigger(id,actor);
     private NativeMapRuntime Active() => Runtime ?? throw new InvalidOperationException("当前没有正在运行的地图。");
-    internal void BeforeRoomLoad(int id) { services.LeaveRoom?.Invoke(); Runtime?.BeforeRoomLoad(id); }
+    internal void BeforeRoomLoad(int id) { services.Motions.LeaveRoom(); services.LeaveRoom?.Invoke(); Runtime?.BeforeRoomLoad(id); }
     internal void EntityCreated(GmInstance instance) => Runtime?.EntityCreated(instance);
     internal void RoomEntered(int id) { services.EnterRoom?.Invoke(); Runtime?.RoomEntered(id); NativeMapService.CollectUnusedObjects(services.World); }
     internal int ResolveRoom(int id) => Runtime?.ResolveRoom(id) ?? id;
@@ -145,6 +146,12 @@ public sealed class NativeMapRuntime : IDisposable
         if (CurrentMap is null) return;
         foreach (var item in CurrentMap.Document.Events.Where(e => e.Trigger == NativeMapTrigger.Interact && e.TargetId == targetId).ToArray())
             if ((!item.Once || !fired.Contains(item.Id)) && CanInteract(item, actor)) Execute(item, actor);
+    }
+    public bool Trigger(string id,ActorContext? actor=null)
+    {
+        var item=CurrentMap?.Document.Events.SingleOrDefault(e=>e.Id==id)??throw new InvalidDataException("Map event not found: "+id);
+        if(item.Once&&fired.Contains(id))return false;
+        Execute(item,actor);return true;
     }
     private void Execute(NativeMapEvent item, ActorContext? actor)
     {

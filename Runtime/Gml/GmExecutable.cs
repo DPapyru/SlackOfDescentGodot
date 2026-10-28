@@ -20,8 +20,11 @@ public sealed partial class GmEvaluator
         {
             if(scope is not null)return scope.Read(name,indices);
             if(world is null)return argument>=0&&argument<context!.Arguments.Length?context.Arguments[argument]:0;
-            var instance=target==int.MinValue?context!.Self:world.ReferenceInstances(target,context!).FirstOrDefault()??throw new InvalidOperationException("No instance "+target);
-            return world.Read(instance,name,indices);
+            if(target==int.MinValue)return world.Read(context!.Self,name,indices);
+            var instance=world.ReferenceInstances(target,context!).FirstOrDefault();
+            if(instance is not null)return world.Read(instance,name,indices);
+            world.NoteEmptyInstanceRead(target,name);
+            return 0;
         }
         public void Set(GmValue value)
         {
@@ -33,7 +36,9 @@ public sealed partial class GmEvaluator
                 context.Arguments[argument]=value;return;
             }
             if(target==int.MinValue){world.Write(context!.Self,name,value,indices);return;}
-            foreach(var instance in world.ReferenceInstances(target,context!).ToArray())world.Write(instance,name,value,indices);
+            var targets=world.ReferenceInstances(target,context!).ToArray();
+            if(targets.Length==0){world.NoteEmptyInstanceWrite(target,name);return;}
+            foreach(var instance in targets)world.Write(instance,name,value,indices);
         }
     }
     private readonly Dictionary<JsonElement,Func<GmContext,GmValue>> executables=new(GmJsonIdentity.Instance);

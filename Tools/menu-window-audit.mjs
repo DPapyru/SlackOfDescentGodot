@@ -47,7 +47,7 @@ let passed = false, failure = '';
 try {
     const packages = process.env.NUGET_PACKAGES ?? path.join(os.homedir(), '.nuget', 'packages');
     await run('dotnet', ['restore', 'SlackOfDescent.csproj', '--source', packages, '-p:NuGetAudit=false'], 'restore');
-    await run('dotnet', ['build', 'SlackOfDescent.csproj', '--no-restore'], 'build');
+    await run('dotnet', ['build', 'SlackOfDescent.csproj', '--no-restore', '-p:IncludeDiagnostics=true'], 'build');
     for (const reload of [false, true]) {
         const name = reload ? 'reload' : 'menus';
         const engineLog = path.join(temporary, name + '-engine.log');

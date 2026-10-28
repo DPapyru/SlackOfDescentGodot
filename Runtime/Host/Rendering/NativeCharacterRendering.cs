@@ -2,8 +2,10 @@ using Godot;
 
 namespace SlackOfDescent;
 
-public sealed class NativeCharacterRendering
+public sealed partial class NativeCharacterRendering
 {
+    partial void RecordPart(string target,string path,Vector2 position,Vector2 scale,float angle);
+    partial void ClearAudit();
     private readonly GmWorld world;
     private readonly GmGraphics graphics;
     private readonly NativeCharacterRepository repository;
@@ -12,7 +14,7 @@ public sealed class NativeCharacterRendering
     private readonly GmNativeBridge? bridge;
     private readonly Dictionary<int, CharacterDefinition> characters;
     private readonly HashSet<int> replaced = new();
-    internal readonly List<(string Target, string Path, Vector2 Position, Vector2 Scale, float Angle)> Audit = new();
+
     public NativeCharacterRendering(GmWorld world, GmGraphics graphics, NativeCharacterRepository repository, ContentRegistry registry, Dictionary<int, CharacterDefinition> characters, Func<double> time, GmNativeBridge? bridge = null)
     {
         this.world = world; this.graphics = graphics; this.repository = repository; this.registry = registry; this.characters = characters; this.time = time; this.bridge = bridge;
@@ -24,7 +26,7 @@ public sealed class NativeCharacterRendering
         graphics.AdditionalDrawCommands += Decorations;
     }
     private GmInstance? Find(int id) => world.Instances.FirstOrDefault(i => i.Id == id && !i.Destroyed);
-    private GmInstance? Bone(GmInstance actor, string target) => Find(actor.Scope.ReadOr(target == "TAIL" ? "NEW_TAIL" : target, -4).Int);
+    private GmInstance? Bone(GmInstance actor, string target) => NativeCharacterBones.Resolve(world,actor,target);
     private NativeCharacterFrame Frame(CharacterDefinition definition, NativeCharacterPart part)
     {
         int total = part.Frames.Sum(f => f.Duration);
@@ -48,7 +50,7 @@ public sealed class NativeCharacterRendering
             if (tint.A > 0 && replaced.Add(bone.Id))
             {
                 graphics.DrawExternal(path, new(part.AnchorX - part.OffsetX, part.AnchorY - part.OffsetY), position, scale, angle, tint);
-                Audit.Add((part.Target, path, position, scale, angle));
+                RecordPart(part.Target, path, position, scale, angle);
             }
             return true;
         }
@@ -61,7 +63,7 @@ public sealed class NativeCharacterRendering
     }
     internal void Decorations(List<GmGraphics.DepthDraw> draws)
     {
-        replaced.Clear(); Audit.Clear();
+        replaced.Clear(); ClearAudit();
         foreach (var pair in characters.ToArray())
         {
             var actor = Find(pair.Key);
@@ -93,7 +95,7 @@ public sealed class NativeCharacterRendering
                     tint = GmGraphics.Colour(scope.ReadOr("image_blend", 16777215).Number, parent.ReadOr("image_alpha", 1).Number);
                 }
                 draws.Add(new(scope.ReadOr("depth").Number - part.Layer - 0.01, () => graphics.DrawExternal(path, origin, position, scale, angle, tint)));
-                Audit.Add((part.Target, path, position, scale, angle));
+                RecordPart(part.Target, path, position, scale, angle);
             }
         }
     }

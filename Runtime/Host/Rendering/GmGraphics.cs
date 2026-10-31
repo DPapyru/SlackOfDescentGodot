@@ -453,6 +453,7 @@ public sealed partial class GmGraphics
             // 直接执行这个操作并返回，后面的其他命令载荷分支不再检查。
             if (action is not null)
             {
+                using var phase = graphics.world.Performance.MeasureDraw("misc_draw_build");
                 action();
                 return;
             }
@@ -461,6 +462,7 @@ public sealed partial class GmGraphics
             // 粒子命令没有 instance、texture 或 path 的后备绘制路径，因此执行后立即返回。
             if (particles is not null)
             {
+                using var phase = graphics.world.Performance.MeasureDraw("misc_draw_build");
                 graphics.DrawParticles(particles);
                 return;
             }
@@ -469,6 +471,7 @@ public sealed partial class GmGraphics
             // 下面的性能统计范围用于记录该对象 kind=8（Draw 事件）的绘制构建耗时。
             if (instance is not null)
             {
+                using var phase = graphics.world.Performance.MeasureDraw("object_draw_build");
                 using var measurement = graphics.world.Performance.Objects.Begin(
                     instance.Object,
                     8
@@ -502,6 +505,7 @@ public sealed partial class GmGraphics
 
             // 走到这里表示前三类载荷都不存在，当前命令是预先准备好的纹理绘制。
             // 使用命令中保存的位置、缩放、源区域和颜色直接绘制纹理。
+            using var texturePhase = graphics.world.Performance.MeasureDraw("misc_draw_build");
             graphics.Textured(texture!, Vector2.Zero, source, position, scale, 0, tint);
         }
     }
@@ -830,6 +834,7 @@ public sealed partial class GmGraphics
             var draws = buffer.Draws;
             try
             {
+                var collectMeasurement = world.Performance.MeasureDraw("build_collect");
                 // 注入额外的底层绘制命令，例如原生角色或编辑器装饰层。
                 AdditionalDrawCommands?.Invoke(draws);
 
@@ -921,15 +926,19 @@ public sealed partial class GmGraphics
                 for (int i = 0; i < draws.Count; i++)
                     draws[i] = draws[i] with { Order = i };
 
+                collectMeasurement.Dispose();
+
                 // 按深度排序所有对象、粒子、外部命令和图块；实体数量越多排序成本越高。
-                draws.Sort(depthDrawOrder);
+                using (world.Performance.MeasureDraw("depth_sort"))
+                    draws.Sort(depthDrawOrder);
 
                 // 按排序结果逐项执行；实例项会在这里分发对象的 Draw 事件。
                 foreach (var draw in draws)
                     draw.Execute(this);
 
                 // 所有前景绘制完成后加入需要位于最上层的背景内容。
-                RoomBackgrounds(true);
+                using (world.Performance.MeasureDraw("misc_draw_build"))
+                    RoomBackgrounds(true);
             }
             finally
             {

@@ -26,6 +26,7 @@ public sealed class GmObjectPerformance
 
     private readonly List<Frame> stack = new();
     private readonly Dictionary<(int Object, int Kind), Sample> samples = new();
+    private readonly Dictionary<(int Object, int Kind), List<double>> durationSamples = new();
     private readonly Dictionary<int, (string Name, string Category)> labels = new();
     private long skippedAsync;
 
@@ -87,11 +88,15 @@ public sealed class GmObjectPerformance
         sample.Bytes += Math.Max(0, bytes - frame.ChildBytes);
         sample.Calls++;
         samples[key] = sample;
+        if (!durationSamples.TryGetValue(key, out var durations))
+            durationSamples[key] = durations = new();
+        durations.Add(ticks * 1000.0 / Stopwatch.Frequency);
     }
 
     public void Clear()
     {
         samples.Clear();
+        durationSamples.Clear();
         skippedAsync = 0;
     }
 
@@ -142,6 +147,14 @@ public sealed class GmObjectPerformance
             double drawMs =
                 rows.Where(r => r.Kind == 8).Sum(r => (double)r.Ticks) * 1000 / Stopwatch.Frequency;
             long bytes = rows.Sum(r => r.Bytes);
+            var durations = rows
+                .SelectMany(r => durationSamples.GetValueOrDefault((r.Object, r.Kind)) ?? [])
+                .OrderBy(value => value)
+                .ToArray();
+            double Percentile(double percentile) =>
+                durations.Length == 0
+                    ? 0
+                    : durations[Math.Min(durations.Length - 1, (int)Math.Ceiling(durations.Length * percentile) - 1)];
             return new
             {
                 scopeCalls = rows.Sum(r => r.Calls),
@@ -154,6 +167,9 @@ public sealed class GmObjectPerformance
                     : bytes * 100.0 / allocatedBytes,
                 cpuMs = ms,
                 cpuPercentOfProcess = processMs == 0 ? 0 : ms * 100 / processMs,
+                p50Ms = Percentile(0.5),
+                p95Ms = Percentile(0.95),
+                maxMs = durations.Length == 0 ? 0 : durations[^1],
                 drawBuildMs = drawMs,
                 drawBuildMsPerLogicStep = steps == 0 ? 0 : drawMs / steps,
                 drawBuildPercentOfObjects = drawTicks == 0

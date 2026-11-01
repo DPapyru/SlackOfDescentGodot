@@ -119,6 +119,10 @@ public sealed class GmScope
     internal Dictionary<string, int>? Layout;
     internal GmValue[]? SlotValues;
     internal bool[]? SlotDefined;
+    // Array base names get their own layout token: the container replaces the name lookup, the
+    // rows/columns inside it behave exactly like the dictionary path.
+    internal Dictionary<string, int>? ArrayLayout;
+    internal Dictionary<int, ArrayRow>[]? ArraySlots;
     private readonly Dictionary<string, Dictionary<int, ArrayRow>> arrays = new(
         StringComparer.Ordinal
     );
@@ -139,31 +143,50 @@ public sealed class GmScope
         Layout = null;
         SlotValues = null;
         SlotDefined = null;
+        ArrayLayout = null;
+        ArraySlots = null;
     }
 
-    internal void UseLayout(Dictionary<string, int>? next)
+    internal void UseLayout(Dictionary<string, int>? next, Dictionary<string, int>? arrays = null)
     {
-        if (ReferenceEquals(Layout, next))
-            return;
-        if (Layout is not null)
-            foreach (var pair in Layout)
-                if (SlotDefined![pair.Value])
-                    values[pair.Key] = SlotValues![pair.Value];
-        Layout = next;
-        if (next is null)
+        if (!ReferenceEquals(Layout, next))
         {
-            SlotValues = null;
-            SlotDefined = null;
-            return;
-        }
-        SlotValues = new GmValue[next.Count];
-        SlotDefined = new bool[next.Count];
-        foreach (var pair in next)
-            if (values.Remove(pair.Key, out var existing))
+            if (Layout is not null)
+                foreach (var pair in Layout)
+                    if (SlotDefined![pair.Value])
+                        values[pair.Key] = SlotValues![pair.Value];
+            Layout = next;
+            if (next is null)
             {
-                SlotValues[pair.Value] = existing;
-                SlotDefined[pair.Value] = true;
+                SlotValues = null;
+                SlotDefined = null;
             }
+            else
+            {
+                SlotValues = new GmValue[next.Count];
+                SlotDefined = new bool[next.Count];
+                foreach (var pair in next)
+                    if (values.Remove(pair.Key, out var existing))
+                    {
+                        SlotValues[pair.Value] = existing;
+                        SlotDefined[pair.Value] = true;
+                    }
+            }
+        }
+        if (ReferenceEquals(ArrayLayout, arrays))
+            return;
+        if (ArrayLayout is not null)
+            foreach (var pair in ArrayLayout)
+                if (ArraySlots![pair.Value] is { } container)
+                    this.arrays[pair.Key] = container;
+        ArrayLayout = arrays;
+        ArraySlots = null;
+        if (arrays is null || arrays.Count == 0)
+            return;
+        ArraySlots = new Dictionary<int, ArrayRow>[arrays.Count];
+        foreach (var pair in arrays)
+            if (this.arrays.Remove(pair.Key, out var container))
+                ArraySlots[pair.Value] = container;
     }
 
     internal bool TrySlot(string name, out int slot)
@@ -174,7 +197,7 @@ public sealed class GmScope
         return false;
     }
 
-    private sealed class ArrayRow
+    internal sealed class ArrayRow
     {
         public int Length,
             DefaultLength;
@@ -276,35 +299,32 @@ public sealed class GmScope
 
     private bool TryGetDefined(string key, out GmValue value)
     {
-        if (Layout is not null && Layout.TryGetValue(key, out int slot))
+        // An undefined slot falls through: the name may still own array entries written through the
+        // dictionary path (engine writes such as alarm[]).
+        if (Layout is not null && Layout.TryGetValue(key, out int slot) && SlotDefined![slot])
         {
-            if (!SlotDefined![slot])
-            {
-                value = default;
-                return false;
-            }
             value = SlotValues![slot];
             return true;
         }
         if (values.TryGetValue(key, out value))
             return true;
-        if (arrays.Count == 0)
+        if (arrays.Count == 0 && ArrayLayout is null)
             return false;
         SplitKey(key, out string name, out int row, out int column);
-        return arrays.TryGetValue(name, out var rows)
-            && rows.TryGetValue(row, out var data)
+        return TryArrayRows(name, out var rows)
+            && rows!.TryGetValue(row, out var data)
             && data.TryGetValue(column, out value);
     }
 
     internal bool Contains(string name, GmIndices indices)
     {
         var (row, column) = Position(indices);
-        if (row == 0 && column == 0 && TrySlot(name, out int slot))
-            return SlotDefined![slot];
+        if (row == 0 && column == 0 && TrySlot(name, out int slot) && SlotDefined![slot])
+            return true;
         if (name.IndexOf('[') >= 0)
             return TryGetDefined(Key(name, row, column), out _);
-        if (arrays.TryGetValue(name, out var rows))
-            return rows.TryGetValue(row, out var data) && data.TryGetValue(column, out _);
+        if (TryArrayRows(name, out var rows))
+            return rows!.TryGetValue(row, out var data) && data.TryGetValue(column, out _);
         if (row == 0 && column == 0)
             return values.ContainsKey(name);
         if (!composite.Contains(name))
@@ -322,7 +342,7 @@ public sealed class GmScope
     internal GmValue Read(string name, GmIndices indices)
     {
         var (row, column) = Position(indices);
-        if (arrays.TryGetValue(name, out var rows) && rows.TryGetValue(row, out var data))
+        if (TryArrayRows(name, out var rows) && rows!.TryGetValue(row, out var data))
         {
             if (data.TryGetValue(column, out var entry))
                 return entry;
@@ -345,7 +365,7 @@ public sealed class GmScope
     internal GmValue ReadOr(string name, GmIndices indices, GmValue fallback = default)
     {
         var (row, column) = Position(indices);
-        if (arrays.TryGetValue(name, out var rows) && rows.TryGetValue(row, out var data))
+        if (TryArrayRows(name, out var rows) && rows!.TryGetValue(row, out var data))
         {
             if (data.TryGetValue(column, out var entry))
                 return entry;
@@ -372,13 +392,13 @@ public sealed class GmScope
     {
         var (row, column) = Position(indices);
         string field = name;
-        bool sparse = arrays.TryGetValue(field, out var rows);
+        bool sparse = TryArrayRows(field, out var rows);
         if (
             !sparse
             && row == 0
             && column == 0
             && SplitKey(name, out var parsed, out int parsedRow, out int parsedColumn)
-            && arrays.TryGetValue(parsed, out rows)
+            && TryArrayRows(parsed, out rows)
         )
         {
             field = parsed;
@@ -386,7 +406,7 @@ public sealed class GmScope
             column = parsedColumn;
             sparse = true;
         }
-        if (!sparse && (row != 0 || column != 0) && name.IndexOf('[') < 0)
+        if (!sparse && name.IndexOf('[') < 0 && (row != 0 || column != 0 || IsArraySlotName(name)))
         {
             rows = ArrayRows(name);
             sparse = true;
@@ -425,11 +445,90 @@ public sealed class GmScope
         Changed?.Invoke(name);
     }
 
+    // Slot containers are created on first write; reads only look them up.
+    private bool TryArrayRows(string name, out Dictionary<int, ArrayRow>? rows)
+    {
+        if (ArrayLayout is not null && ArrayLayout.TryGetValue(name, out int slot))
+        {
+            rows = ArraySlots![slot];
+            return rows is not null;
+        }
+        return arrays.TryGetValue(name, out rows);
+    }
+
+    private bool IsArraySlotName(string name) =>
+        ArrayLayout is not null && ArrayLayout.ContainsKey(name);
+
+    internal bool TryReadArraySlot(int slot, GmIndices indices, out GmValue value)
+    {
+        var (row, column) = Position(indices);
+        value = default;
+        if (ArraySlots![slot] is not { } rows || !rows.TryGetValue(row, out var data))
+            return false;
+        if (data.TryGetValue(column, out value))
+            return true;
+        if (column < data.Length)
+        {
+            value = 0;
+            return true;
+        }
+        return false;
+    }
+
+    internal bool WriteArraySlot(int slot, string name, GmIndices indices, GmValue value)
+    {
+        var (row, column) = Position(indices);
+        var rows = ArraySlots![slot] ?? ArrayRows(name);
+        if (!rows.TryGetValue(row, out var data))
+            rows[row] = data = new();
+        if (data.TryGetValue(column, out var previous) && previous.Equals(value))
+            return false;
+        if (column < data.DefaultLength && data.Default.Equals(value))
+            data.Entries.Remove(column);
+        else
+            data.Entries[column] = value;
+        data.Length = Math.Max(data.Length, column + 1);
+        return true;
+    }
+
+    internal int SlotArrayEntryCount()
+    {
+        if (ArrayLayout is null)
+            return 0;
+        int count = 0;
+        foreach (var pair in ArrayLayout)
+            if (ArraySlots![pair.Value] is { } rows)
+                foreach (var row in rows.Values)
+                    count += row.Count;
+        return count;
+    }
+
+    internal IEnumerable<KeyValuePair<string, GmValue>> SlotArrayEntries()
+    {
+        if (ArrayLayout is null)
+            yield break;
+        foreach (var pair in ArrayLayout)
+            if (ArraySlots![pair.Value] is { } rows)
+                foreach (var row in rows)
+                foreach (var entry in row.Value.Defined())
+                    yield return new(Key(pair.Key, row.Key, entry.Key), entry.Value);
+    }
+
     private Dictionary<int, ArrayRow> ArrayRows(string name)
     {
-        if (arrays.TryGetValue(name, out var rows))
-            return rows;
-        arrays[name] = rows = new();
+        Dictionary<int, ArrayRow> rows;
+        if (ArrayLayout is not null && ArrayLayout.TryGetValue(name, out int slot))
+        {
+            if (ArraySlots![slot] is { } existing)
+                return existing;
+            ArraySlots[slot] = rows = new();
+        }
+        else
+        {
+            if (arrays.TryGetValue(name, out var found))
+                return found;
+            arrays[name] = rows = new();
+        }
         string prefix = name + "[";
         foreach (
             var entry in values
@@ -492,6 +591,7 @@ public sealed class GmScope
         public int Count =>
             scope.values.Count
             + scope.arrays.Values.Sum(rows => rows.Values.Sum(row => row.Count))
+            + scope.SlotArrayEntryCount()
             + (scope.SlotDefined?.Count(defined => defined) ?? 0);
         public IEnumerable<string> Keys => this.Select(p => p.Key);
         public IEnumerable<GmValue> Values => this.Select(p => p.Value);
@@ -513,6 +613,8 @@ public sealed class GmScope
             foreach (var row in field.Value)
             foreach (var entry in row.Value.Defined())
                 yield return new(Key(field.Key, row.Key, entry.Key), entry.Value);
+            foreach (var entry in scope.SlotArrayEntries())
+                yield return entry;
         }
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() =>

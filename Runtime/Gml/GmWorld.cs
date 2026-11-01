@@ -719,8 +719,8 @@ public sealed partial class GmWorld
         if (!Objects.TryGetValue(obj, out var o))
             throw new InvalidOperationException("Missing object " + obj);
         var instance = new GmInstance { Id = id ?? NextId++, Object = obj };
-        if (SlotExperiment && slotLayouts.TryGetValue(obj, out var slotLayout) && slotLayout is not null)
-            instance.Scope.UseLayout(slotLayout);
+        if (SlotExperiment && slotLayouts.TryGetValue(obj, out var slotPlan) && slotPlan is not null)
+            instance.Scope.UseLayout(slotPlan.Scalars, slotPlan.Arrays);
         foreach (
             var pair in new Dictionary<string, GmValue>
             {
@@ -1087,7 +1087,10 @@ public sealed partial class GmWorld
     {
         instance.Object = obj;
         if (SlotExperiment)
-            instance.Scope.UseLayout(slotLayouts.GetValueOrDefault(obj));
+        {
+            var plan = slotLayouts.GetValueOrDefault(obj);
+            instance.Scope.UseLayout(plan?.Scalars, plan?.Arrays);
+        }
         InvalidateObjects();
     }
 
@@ -1095,9 +1098,16 @@ public sealed partial class GmWorld
 
     private bool prewarmed;
 
+    internal static bool SlotArraySlots =
+        System.Environment.GetEnvironmentVariable("SLACK_SLOT_ARRAY") != "0";
     internal static bool SlotExperiment =
         System.Environment.GetEnvironmentVariable("SLACK_SLOT_DRAW") != "0";
-    private readonly Dictionary<int, Dictionary<string, int>?> slotLayouts = new();
+    internal sealed record SlotPlan(
+        Dictionary<string, int> Scalars,
+        Dictionary<string, int>? Arrays
+    );
+
+    private readonly Dictionary<int, SlotPlan?> slotLayouts = new();
     private readonly HashSet<int> slotLayoutBuilding = new();
     private readonly HashSet<string> engineNames = new(StringComparer.Ordinal);
     private int slotGlobalsSeen;
@@ -1120,10 +1130,9 @@ public sealed partial class GmWorld
 
     // Built only after every Create event of the load has run: a globalvar declared by another
     // object would otherwise be captured as an instance slot.
-    // shortcut: only names read or written statically on self without an index become slots; indexed
-    // arrays, pooled locals and names declared globalvar stay on the dictionary, upgrade when a hot
-    // object needs those on the fast path.
-    internal Dictionary<string, int>? SlotLayout(int obj)
+    // shortcut: only names read or written statically on self become slots; names bound as pooled
+    // locals or declared globalvar stay on the dictionary, upgrade when a hot object needs those.
+    internal SlotPlan? SlotLayout(int obj)
     {
         if (!SlotExperiment)
             return null;
@@ -1150,6 +1159,7 @@ public sealed partial class GmWorld
                     engineNames.Add(bracket > 0 ? key[..bracket] : key);
                 }
             var names = new HashSet<string>(StringComparer.Ordinal);
+            var indexed = new HashSet<string>(StringComparer.Ordinal);
             var excluded = new HashSet<string>(StringComparer.Ordinal);
             for (
                 int current = obj, depth = 0;
@@ -1158,19 +1168,24 @@ public sealed partial class GmWorld
             )
                 foreach (var entry in staticEvents)
                     if (entry.Key.Object == current)
-                        ScanActions(entry.Value, names, excluded);
-            names.RemoveWhere(excluded.Contains);
+                        ScanActions(entry.Value, names, indexed, excluded);
+            names.RemoveWhere(indexed.Contains);
             var layout = new Dictionary<string, int>(StringComparer.Ordinal);
             foreach (var name in names)
-                if (
-                    !slotReserved.Contains(name)
-                    && !IsArgumentName(name)
-                    && !Constants.ContainsKey(name)
-                    && !engineNames.Contains(name)
-                    && !GlobalNames.Contains(name)
-                )
+                if (CanBeSlot(name))
                     layout[name] = layout.Count;
-            return slotLayouts[obj] = layout.Count > 0 ? layout : null;
+            var arrayLayout = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (var name in indexed)
+                if (!excluded.Contains(name) && CanBeSlot(name))
+                    arrayLayout[name] = arrayLayout.Count;
+            if (!SlotArraySlots)
+                arrayLayout.Clear();
+            if (layout.Count == 0 && arrayLayout.Count == 0)
+                return slotLayouts[obj] = null;
+            return slotLayouts[obj] = new SlotPlan(
+                layout,
+                arrayLayout.Count > 0 ? arrayLayout : null
+            );
         }
         finally
         {
@@ -1178,11 +1193,23 @@ public sealed partial class GmWorld
         }
     }
 
+    private bool CanBeSlot(string name) =>
+        !slotReserved.Contains(name)
+        && !IsArgumentName(name)
+        && !Constants.ContainsKey(name)
+        && !engineNames.Contains(name)
+        && !GlobalNames.Contains(name);
+
     private static bool IsArgumentName(string name) =>
         name == "argument"
         || (name.StartsWith("argument", StringComparison.Ordinal) && int.TryParse(name[8..], out _));
 
-    private void ScanActions(JsonElement actions, HashSet<string> names, HashSet<string> excluded)
+    private void ScanActions(
+        JsonElement actions,
+        HashSet<string> names,
+        HashSet<string> indexed,
+        HashSet<string> excluded
+    )
     {
         foreach (var action in actions.EnumerateArray())
         {
@@ -1191,15 +1218,20 @@ public sealed partial class GmWorld
                 && code.ValueKind == JsonValueKind.String
                 && Code.TryGetValue(code.GetString()!, out var ast)
             )
-                ScanNode(ast, names, excluded);
+                ScanNode(ast, names, indexed, excluded);
             if (action.TryGetProperty("parameters", out var parameters))
-                ScanNode(parameters, names, excluded);
+                ScanNode(parameters, names, indexed, excluded);
         }
     }
 
-    // Collects self-scope variable names; a name used as an array base keeps the dictionary path.
-    // Deref fields need no exclusion: they are stored through the same scope, slot aware either way.
-    private static void ScanNode(JsonElement node, HashSet<string> names, HashSet<string> excluded)
+    // Collects self-scope variable names; an array base goes to the indexed set instead of the
+    // scalar set. Deref fields need no exclusion: they are stored through the same scope.
+    private static void ScanNode(
+        JsonElement node,
+        HashSet<string> names,
+        HashSet<string> indexed,
+        HashSet<string> excluded
+    )
     {
         if (node.ValueKind != JsonValueKind.Array || node.GetArrayLength() == 0)
             return;
@@ -1224,19 +1256,19 @@ public sealed partial class GmWorld
         if (tag == "binary" && node[1].GetString() is "Index" or "Deref")
         {
             var source = node[2];
-            bool indexed = node[1].GetString() == "Index";
-            if (indexed && source.ValueKind == JsonValueKind.Array && source[0].GetString() == "id")
-                excluded.Add(source[1].GetString()!);
+            bool isIndex = node[1].GetString() == "Index";
+            if (isIndex && source.ValueKind == JsonValueKind.Array && source[0].GetString() == "id")
+                indexed.Add(source[1].GetString()!);
             else
-                ScanNode(source, names, excluded);
-            if (!indexed)
+                ScanNode(source, names, indexed, excluded);
+            if (!isIndex)
                 return;
         }
         for (int index = 0; index < node.GetArrayLength(); index++)
-            ScanNode(node[index], names, excluded);
+            ScanNode(node[index], names, indexed, excluded);
     }
 
-    internal Dictionary<string, int>? SlotLayoutFor(int obj)
+    internal SlotPlan? SlotLayoutFor(int obj)
     {
         if (!SlotExperiment)
             return null;
@@ -1250,18 +1282,16 @@ public sealed partial class GmWorld
         if (!SlotExperiment)
             return;
         foreach (int obj in Objects.Keys.ToArray())
-        {
             SlotLayout(obj);
-            if (!slotLayouts.TryGetValue(obj, out var layout) || layout is null)
-                continue;
-            foreach (var instance in Instances)
-                if (instance.Object == obj && !ReferenceEquals(instance.Scope.Layout, layout))
-                    instance.Scope.UseLayout(layout);
-            PrewarmLayout(obj, layout);
-        }
+        foreach (var instance in Instances)
+            if (slotLayouts.TryGetValue(instance.Object, out var plan) && plan is not null)
+                instance.Scope.UseLayout(plan.Scalars, plan.Arrays);
+        foreach (var pair in slotLayouts)
+            if (pair.Value is { } plan)
+                PrewarmLayout(pair.Key, plan);
     }
 
-    private void PrewarmLayout(int obj, Dictionary<string, int> layout)
+    private void PrewarmLayout(int obj, SlotPlan plan)
     {
         if (!slotPrewarmed.Add(obj))
             return;
@@ -1278,7 +1308,7 @@ public sealed partial class GmWorld
                             && code.ValueKind == JsonValueKind.String
                             && Code.TryGetValue(code.GetString()!, out var ast)
                         )
-                            Evaluator.PrewarmSlot(ast, layout);
+                            Evaluator.PrewarmSlot(ast, plan);
     }
 
     private readonly HashSet<int> slotPrewarmed = new();

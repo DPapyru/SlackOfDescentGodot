@@ -44,8 +44,8 @@ public sealed partial class GmEvaluator
     // so play never pays for compilation or first-run JIT (nothing is executed here).
     public void Prewarm(JsonElement code) => Compile(code, plainContext);
 
-    public void PrewarmSlot(JsonElement code, Dictionary<string, int> layout) =>
-        Compile(code, SlotContext(layout));
+    internal void PrewarmSlot(JsonElement code, GmWorld.SlotPlan plan) =>
+        Compile(code, SlotContext(plan));
 
     private void Compile(JsonElement code, CompileContext context)
     {

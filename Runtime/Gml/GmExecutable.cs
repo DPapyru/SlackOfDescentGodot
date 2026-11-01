@@ -13,12 +13,22 @@ public sealed partial class GmEvaluator
         private readonly GmIndices indices;
         private readonly int target;
         private readonly int argument;
-        public Location(GmScope scope,string name,GmIndices indices){this.scope=scope;this.name=name;this.indices=indices;world=null;context=null;target=0;argument=-1;}
+        private readonly int arraySlot;
+        public Location(GmScope scope,string name,GmIndices indices){this.scope=scope;this.name=name;this.indices=indices;world=null;context=null;target=0;argument=-1;arraySlot=-1;}
+        public Location(GmScope scope,string name,GmIndices indices,int arraySlot){this.scope=scope;this.name=name;this.indices=indices;this.arraySlot=arraySlot;world=null;context=null;target=0;argument=-1;}
         public Location(GmWorld world,GmContext context,string name,GmIndices indices,int target=int.MinValue){this.world=world;this.context=context;this.name=name;this.indices=indices;this.target=target;scope=null;argument=-1;}
         public Location(GmContext context,int argument){this.context=context;this.argument=argument;world=null;scope=null;name="";indices=default;target=0;}
         public GmValue Get()
         {
-            if(scope is not null)return scope.Read(name,indices);
+            if(scope is not null)
+            {
+                if(arraySlot>=0)
+                {
+                    SlotArrayReads++;
+                    if(scope.TryReadArraySlot(arraySlot,indices,out var slotValue))return slotValue;
+                }
+                return scope.Read(name,indices);
+            }
             if(world is null)return argument>=0&&argument<context!.Arguments.Length?context.Arguments[argument]:0;
             if(target==int.MinValue)return world.Read(context!.Self,name,indices);
             var instance=world.ReferenceInstances(target,context!).FirstOrDefault();
@@ -28,7 +38,16 @@ public sealed partial class GmEvaluator
         }
         public void Set(GmValue value)
         {
-            if(scope is not null){scope.Write(name,value,indices);return;}
+            if(scope is not null)
+            {
+                if(arraySlot>=0)
+                {
+                    SlotArrayWrites++;
+                    if(scope.WriteArraySlot(arraySlot,name,indices,value))scope.Changed?.Invoke(name);
+                    return;
+                }
+                scope.Write(name,value,indices);return;
+            }
             if(world is null)
             {
                 if(argument<0||argument>=16)throw new IndexOutOfRangeException("Argument index");
@@ -64,16 +83,17 @@ public sealed partial class GmEvaluator
     private sealed class CompileContext
     {
         public readonly Dictionary<string,int>? Layout;
+        public readonly Dictionary<string,int>? ArrayLayout;
         public readonly Dictionary<JsonElement,Func<GmContext,GmValue>> Executables=new(GmJsonIdentity.Instance);
         public readonly Dictionary<JsonElement,Func<GmContext,GmIndices,Location>> References=new(GmJsonIdentity.Instance);
-        public CompileContext(Dictionary<string,int>? layout)=>Layout=layout;
+        public CompileContext(Dictionary<string,int>? layout,Dictionary<string,int>? arrayLayout){Layout=layout;ArrayLayout=arrayLayout;}
     }
-    private readonly CompileContext plainContext=new(null);
-    private readonly Dictionary<Dictionary<string,int>,CompileContext> slotContexts=new();
+    private readonly CompileContext plainContext=new(null,null);
+    private readonly Dictionary<GmWorld.SlotPlan,CompileContext> slotContexts=new(ReferenceEqualityComparer.Instance);
     private CompileContext compiling=null!;
-    private CompileContext SlotContext(Dictionary<string,int> layout)
+    private CompileContext SlotContext(GmWorld.SlotPlan plan)
     {
-        if(!slotContexts.TryGetValue(layout,out var context))slotContexts[layout]=context=new(layout);
+        if(!slotContexts.TryGetValue(plan,out var context))slotContexts[plan]=context=new(plan.Scalars,plan.Arrays);
         return context;
     }
     private Func<GmContext,GmIndices,Location> Reference(JsonElement node)
@@ -82,6 +102,9 @@ public sealed partial class GmEvaluator
         if(table.TryGetValue(node,out var result))return result;
         return table[node]=CompileReference(node);
     }
+    // Counters for GmSlotLayoutTests: prove the array slot path actually runs instead of falling back.
+    internal static long SlotArrayReads;
+    internal static long SlotArrayWrites;
     private readonly List<Func<GmContext,GmValue>> compiled=new();
     private bool collectCompiled;
     private readonly HashSet<string> entryLocals=new(StringComparer.Ordinal);
@@ -250,6 +273,17 @@ public sealed partial class GmEvaluator
         {
             var index=node[3];var items=(Tag(index)=="group"?index[1].EnumerateArray().ToArray():[index]).Select(Executable).ToArray();
             var reference=CompileReference(node[2]);
+            var baseNode=node[2];
+            if(compiling.ArrayLayout is { } arrayLayout&&(items.Length==1||items.Length==2)
+                &&baseNode.ValueKind==JsonValueKind.Array&&baseNode[0].GetString()=="id")
+            {
+                string arrayName=baseNode[1].GetString()!;
+                if(!entryLocals.Contains(arrayName)&&arrayLayout.TryGetValue(arrayName,out int arraySlot))
+                {
+                    if(items.Length==1)return (c,_)=>ArrayReference(c,arrayLayout,arraySlot,arrayName,new GmIndices(items[0](c).Int),reference);
+                    return (c,_)=>ArrayReference(c,arrayLayout,arraySlot,arrayName,new GmIndices(items[0](c).Int,items[1](c).Int),reference);
+                }
+            }
             if(items.Length==1)return (c,_)=>reference(c,new GmIndices(items[0](c).Int));
             if(items.Length==2)return (c,_)=>reference(c,new GmIndices(items[0](c).Int,items[1](c).Int));
             return (c,_)=>{var indices=new int[items.Length];for(int i=0;i<indices.Length;i++)indices[i]=items[i](c).Int;return reference(c,new GmIndices(indices));};
@@ -280,5 +314,18 @@ public sealed partial class GmEvaluator
             };
         }
         throw new InvalidOperationException("Invalid variable reference "+node);
+    }
+    private static Location ArrayReference(
+        GmContext c,
+        Dictionary<string,int> arrayLayout,
+        int arraySlot,
+        string name,
+        GmIndices indices,
+        Func<GmContext,GmIndices,Location> fallback
+    )
+    {
+        var scope=c.Self.Scope;
+        if(ReferenceEquals(scope.ArrayLayout,arrayLayout))return new(scope,name,indices,arraySlot);
+        return fallback(c,indices);
     }
 }

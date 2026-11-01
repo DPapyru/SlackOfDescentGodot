@@ -14,6 +14,7 @@ assertions+=FixedClockTests.Run();
 assertions+=CollisionOptimizationTests.Run(project,source);
 assertions+=ScopeArrayAllocationTests.Run();
 assertions+=GmlCallAllocationTests.Run(world);
+assertions+=WaitingPathTests.Run(world);
 assertions+=GmInstanceSdkTests.Run(world);
 assertions+=GmActorSdkTests.Run(world);
 assertions+=GmEventSdkTests.Run(world);

@@ -164,28 +164,32 @@ public readonly struct GmDrawCommand
         switch (kind)
         {
             case Kind.Action:
+                canvas.ResetDrawTransform();
                 action?.Invoke(canvas);
                 break;
             case Kind.Texture:
-                canvas.DrawSetTransform(position, angle, scale);
+                canvas.SetDrawTransform(position, angle, scale);
                 canvas.DrawTextureRectRegion(
                     texture!,
                     new Rect2(-origin, source.Size),
                     source,
                     tint
                 );
-                canvas.DrawSetTransform(Vector2.Zero);
                 break;
             case Kind.Rectangle:
+                canvas.ResetDrawTransform();
                 canvas.DrawRect(source, tint, filled);
                 break;
             case Kind.Line:
+                canvas.ResetDrawTransform();
                 canvas.DrawLine(position, origin, tint, angle);
                 break;
             case Kind.Circle:
+                canvas.ResetDrawTransform();
                 canvas.DrawCircle(position, angle, tint, filled);
                 break;
             case Kind.Ellipse:
+                canvas.ResetDrawTransform();
                 canvas.DrawEllipse(
                     position,
                     scale,
@@ -194,6 +198,7 @@ public readonly struct GmDrawCommand
                 );
                 break;
             case Kind.Triangles:
+                canvas.ResetDrawTransform();
                 RenderingServer.CanvasItemAddTriangleArray(
                     canvas.GetCanvasItem(),
                     indices!,
@@ -204,7 +209,7 @@ public readonly struct GmDrawCommand
                 );
                 break;
             case Kind.Text:
-                canvas.DrawSetTransform(position, angle, scale);
+                canvas.SetDrawTransform(position, angle, scale);
                 canvas.DrawString(
                     font!,
                     new(origin.X, font!.GetAscent(fontSize)),
@@ -214,7 +219,7 @@ public readonly struct GmDrawCommand
                     fontSize,
                     tint
                 );
-                canvas.DrawSetTransform(Vector2.Zero);
+                canvas.ResetDrawTransform();
                 break;
         }
     }
@@ -232,6 +237,37 @@ public partial class GmCanvas : Node2D
     private int batchIndex;
     private int lastBlend = -1;
     private int lastFilter = -1;
+
+
+    // 绘制命令里连续的贴图绘制共享同一个 transform，减少 canvas 命令条数。
+    private bool transformDirty;
+    internal bool RedrawQueued;
+    public static long TransformSetCalls, TransformResetCalls, RedrawCalls;
+
+    internal void SetDrawTransform(Vector2 position, float angle, Vector2 scale)
+    {
+        DrawSetTransform(position, angle, scale);
+        transformDirty = true;
+        TransformSetCalls++;
+    }
+
+    internal void ResetDrawTransform()
+    {
+        if (!transformDirty)
+            return;
+        DrawSetTransform(Vector2.Zero);
+        transformDirty = false;
+        TransformResetCalls++;
+    }
+
+    private void Queue()
+    {
+        if (RedrawQueued)
+            return;
+        RedrawQueued = true;
+        RedrawCalls++;
+        QueueRedraw();
+    }
 
     internal void DrawEllipse(Vector2 centre, Vector2 radius, Color tint, bool filled)
     {
@@ -256,6 +292,7 @@ public partial class GmCanvas : Node2D
         foreach (var batch in batches)
         {
             batch.Visible = false;
+            batch.RedrawQueued = false;
             batch.Commands.Clear();
             if (batch.screenCopy is not null)
                 batch.screenCopy.Visible = false;
@@ -270,7 +307,7 @@ public partial class GmCanvas : Node2D
         if (batchIndex > 0 && lastBlend == blend && lastFilter == filter && blend is not (5 or 6))
         {
             batches[batchIndex - 1].Commands.Add(command);
-            batches[batchIndex - 1].QueueRedraw();
+            batches[batchIndex - 1].Queue();
             return;
         }
         lastBlend = blend;
@@ -334,10 +371,11 @@ public partial class GmCanvas : Node2D
             MoveChild(batch.screenCopy, GetChildCount() - 1);
             batch.screenCopy.Visible = true;
         }
-        MoveChild(batch, GetChildCount() - 1);
+        if (batch.GetIndex() != GetChildCount() - 1)
+            MoveChild(batch, GetChildCount() - 1);
         batch.Material = material;
         batch.Commands.Add(command);
-        batch.QueueRedraw();
+        batch.Queue();
     }
 
     public GmPerformance? Perf;
@@ -347,6 +385,7 @@ public partial class GmCanvas : Node2D
         Perf?.BeginDraw("canvas_draw");
         try
         {
+            transformDirty = false;
             if (Commands.Count > 0)
                 StartBatches();
             Paint?.Invoke(this);
@@ -364,6 +403,7 @@ public partial class GmCanvas : Node2D
         }
         finally
         {
+            ResetDrawTransform();
             if (Perf is GmPerformance perf)
                 perf.EndDraw("canvas_draw");
         }
@@ -491,8 +531,20 @@ public sealed partial class GmGraphics
                     {
                         // 已销毁实例不能再分发 Draw 事件。
                         // 如果对象没有 Draw 事件，才通过 graphics.Instance() 绘制它的默认 sprite 状态。
-                        if (!instance.Destroyed && !graphics.world.Event(instance, 8, 0))
+                        long subTicks = 0,
+                            subAlloc = 0;
+                        if (buildPhases)
+                        {
+                            subTicks = (long)Time.GetTicksUsec();
+                            subAlloc = System.GC.GetAllocatedBytesForCurrentThread();
+                        }
+                        bool handled = !instance.Destroyed && graphics.world.Event(instance, 8, 0);
+                        if (buildPhases)
+                            MarkPhase(8, ref subTicks, ref subAlloc);
+                        if (!handled)
                             graphics.Instance(instance);
+                        if (buildPhases)
+                            MarkPhase(9, ref subTicks, ref subAlloc);
                     }
                     finally
                     {
@@ -722,6 +774,13 @@ public sealed partial class GmGraphics
 
     private void Add(GmDrawCommand command)
     {
+        long addTicks = 0,
+            addAlloc = 0;
+        if (buildPhases)
+        {
+            addTicks = (long)Time.GetTicksUsec();
+            addAlloc = System.GC.GetAllocatedBytesForCurrentThread();
+        }
         if (target >= 0 && effects.ContainsKey(target))
             SoftwareEffect(target);
         var draw = command.InBatch(blend, drawFilter);
@@ -732,6 +791,132 @@ public sealed partial class GmGraphics
             surface.Canvas.Commands.Add(draw);
             surface.Canvas.QueueRedraw();
         }
+        if (buildPhases)
+            MarkPhase(7, ref addTicks, ref addAlloc);
+    }
+
+    public static double CaptureSpriteMs;
+
+    // 分段计时（SLACK_BUILD_PHASES=1 生效；关闭时每段只有一次布尔判断）。
+    private static readonly bool buildPhases =
+        System.Environment.GetEnvironmentVariable("SLACK_BUILD_PHASES") == "1";
+    private static readonly long[] phaseTicks = new long[10];
+    private static readonly long[] phaseAlloc = new long[10];
+    private static readonly string[] phaseNames =
+    [
+        "setup_bg",
+        "collect",
+        "wrap",
+        "tiles_order",
+        "sort",
+        "dispatch",
+        "fg_bg",
+        "add_cmd",
+        "event",
+        "auto_inst",
+    ];
+    private static long phaseFrames;
+
+    private static long phaseDispatches, phaseCollected, phaseCommands;
+    private static readonly System.Collections.Generic.Dictionary<
+        string,
+        (long Ticks, long Alloc, long Calls)
+    > callStats = new();
+    private static readonly string[] callTop = new string[6];
+
+    internal static bool PhaseStats => buildPhases;
+
+    internal static void RecordCall(string name, long ticks, long alloc)
+    {
+        var previous = callStats.TryGetValue(name, out var value) ? value : default;
+        callStats[name] = (previous.Ticks + ticks, previous.Alloc + alloc, previous.Calls + 1);
+    }
+
+    private static void MarkPhase(int phase, ref long ticks, ref long alloc)
+    {
+        long now = (long)Time.GetTicksUsec();
+        long bytes = System.GC.GetAllocatedBytesForCurrentThread();
+        phaseTicks[phase] += now - ticks;
+        phaseAlloc[phase] += bytes - alloc;
+        ticks = now;
+        alloc = bytes;
+    }
+
+    private static void ReportPhases(double buildMs)
+    {
+        SampleCanvasCounters();
+        phaseFrames++;
+        phaseDispatches += lastDispatches;
+        phaseCollected += lastCollected;
+        phaseCommands += lastCommands;
+        if (phaseFrames % 30 != 0)
+            return;
+        var text = new System.Text.StringBuilder(
+            "[build-phases] n=" + phaseFrames
+                + " build=" + buildMs.ToString("F2") + "ms"
+                + " dispatched=" + (phaseDispatches / phaseFrames)
+                + " collected=" + (phaseCollected / phaseFrames)
+                + " commands=" + (phaseCommands / phaseFrames)
+        );
+        for (int i = 0; i < phaseNames.Length; i++)
+            if (phaseTicks[i] != 0)
+                text.Append(' ')
+                    .Append(phaseNames[i])
+                    .Append('=')
+                    .Append((phaseTicks[i] / (double)phaseFrames / 1000.0).ToString("F2"))
+                    .Append("ms/")
+                    .Append((phaseAlloc[i] / phaseFrames).ToString())
+                    .Append("B");
+        text.Append(" | canvas tset=")
+            .Append(phaseTransformSets / phaseFrames)
+            .Append(" treset=")
+            .Append(phaseTransformResets / phaseFrames)
+            .Append(" redraw=")
+            .Append(phaseRedraws / phaseFrames);
+        if (callStats.Count > 0)
+        {
+            var top = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<
+                string,
+                (long Ticks, long Alloc, long Calls)
+            >>(callStats);
+            top.Sort(static (x, y) => y.Value.Alloc.CompareTo(x.Value.Alloc));
+            for (int i = 0; i < top.Count && i < 6; i++)
+            {
+                var (ticks, alloc, calls) = top[i].Value;
+                text.Append(" | ")
+                    .Append(top[i].Key)
+                    .Append(" n=")
+                    .Append(calls / phaseFrames)
+                    .Append(" us=")
+                    .Append(calls == 0 ? 0 : ticks / calls)
+                    .Append(" B=")
+                    .Append(calls == 0 ? 0 : alloc / calls);
+            }
+            callStats.Clear();
+        }
+        GD.Print(text.ToString());
+        System.Array.Clear(phaseTicks);
+        System.Array.Clear(phaseAlloc);
+        phaseDispatches = phaseCollected = phaseCommands = 0;
+        phaseTransformSets = phaseTransformResets = phaseRedraws = 0;
+        phaseFrames = 0;
+    }
+
+    private static int lastDispatches, lastCollected, lastCommands;
+    private static long lastTransformSets, lastTransformResets, lastRedraws;
+    private static long phaseTransformSets, phaseTransformResets, phaseRedraws;
+
+    private static void SampleCanvasCounters()
+    {
+        long sets = GmCanvas.TransformSetCalls,
+            resets = GmCanvas.TransformResetCalls,
+            redraws = GmCanvas.RedrawCalls;
+        phaseTransformSets += sets - lastTransformSets;
+        phaseTransformResets += resets - lastTransformResets;
+        phaseRedraws += redraws - lastRedraws;
+        lastTransformSets = sets;
+        lastTransformResets = resets;
+        lastRedraws = redraws;
     }
 
     public long Builds { get; private set; }
@@ -800,6 +985,10 @@ public sealed partial class GmGraphics
             return;
         building = true;
         ulong started = Time.GetTicksUsec();
+        long markTicks = buildPhases ? (long)Time.GetTicksUsec() : 0,
+            markAlloc = buildPhases ? System.GC.GetAllocatedBytesForCurrentThread() : 0;
+        int dispatched = 0,
+            collected = 0;
         try
         {
             // 将本次 Build 归入绘制引擎的 kind=8 性能统计范围。
@@ -832,6 +1021,8 @@ public sealed partial class GmGraphics
                 depthDrawBuffers.Add(new());
             var buffer = depthDrawBuffers[depthDrawLevel++];
             var draws = buffer.Draws;
+            if (buildPhases)
+                MarkPhase(0, ref markTicks, ref markAlloc);
             try
             {
                 var collectMeasurement = world.Performance.MeasureDraw("build_collect");
@@ -856,10 +1047,17 @@ public sealed partial class GmGraphics
                         && IsMudVisible(instance)
                     )
                         buffer.Instances.Add(instance);
+                if (buildPhases)
+                {
+                    collected = buffer.Instances.Count;
+                    MarkPhase(1, ref markTicks, ref markAlloc);
+                }
 
                 // 将每个通过过滤的实例包装成延迟执行的对象绘制项。
                 foreach (var instance in buffer.Instances)
                     draws.Add(new(instance));
+                if (buildPhases)
+                    MarkPhase(2, ref markTicks, ref markAlloc);
 
                 // 房间图块发生变化时才重新读取图块的纹理、变换、深度和包围盒信息。
                 if (tilesVersion != world.TilesVersion)
@@ -927,18 +1125,28 @@ public sealed partial class GmGraphics
                     draws[i] = draws[i] with { Order = i };
 
                 collectMeasurement.Dispose();
+                if (buildPhases)
+                    MarkPhase(3, ref markTicks, ref markAlloc);
 
                 // 按深度排序所有对象、粒子、外部命令和图块；实体数量越多排序成本越高。
                 using (world.Performance.MeasureDraw("depth_sort"))
                     draws.Sort(depthDrawOrder);
+                if (buildPhases)
+                    MarkPhase(4, ref markTicks, ref markAlloc);
 
                 // 按排序结果逐项执行；实例项会在这里分发对象的 Draw 事件。
+                if (buildPhases)
+                    dispatched = draws.Count;
                 foreach (var draw in draws)
                     draw.Execute(this);
+                if (buildPhases)
+                    MarkPhase(5, ref markTicks, ref markAlloc);
 
                 // 所有前景绘制完成后加入需要位于最上层的背景内容。
                 using (world.Performance.MeasureDraw("misc_draw_build"))
                     RoomBackgrounds(true);
+                if (buildPhases)
+                    MarkPhase(6, ref markTicks, ref markAlloc);
             }
             finally
             {
@@ -956,6 +1164,13 @@ public sealed partial class GmGraphics
             LastBuildMilliseconds = (Time.GetTicksUsec() - started) / 1000.0;
             TotalBuildMilliseconds += LastBuildMilliseconds;
             world.Performance.BuildCompleted(LastBuildMilliseconds);
+            if (buildPhases)
+            {
+                lastDispatches = dispatched;
+                lastCollected = collected;
+                lastCommands = main.Count;
+                ReportPhases(LastBuildMilliseconds);
+            }
         }
     }
 
@@ -1017,6 +1232,63 @@ public sealed partial class GmGraphics
             );
         }
         blend = savedBlend;
+    }
+
+    private sealed class SpriteFrames
+    {
+        public int Hash;
+        public int Count;
+        public Vector2 Origin;
+        public Texture2D?[] Textures = System.Array.Empty<Texture2D?>();
+    }
+
+    private readonly Dictionary<int, SpriteFrames> spriteFrames = new();
+
+    // 每次绘制都读 JsonElement 的 path 会分配字符串；按 sprite 缓存帧贴图与原点。
+    // shortcut: 用元素哈希+帧数+原点识别替换（所有 sprite 变更都会换 JSON 元素），
+    // 若将来出现在同一 document 内原地改写帧 path 的路径，需要换成显式失效。
+    private bool SpriteFrame(
+        int id,
+        double frame,
+        out Texture2D texture,
+        out Vector2 origin
+    )
+    {
+        texture = null!;
+        origin = default;
+        if (!world.Sprites.TryGetValue(id, out var element))
+            return false;
+        var frames = element.GetProperty("frames");
+        int count = frames.GetArrayLength();
+        int hash = element.GetHashCode();
+        int originX = element.GetProperty("originX").GetInt32(),
+            originY = element.GetProperty("originY").GetInt32();
+        if (
+            !spriteFrames.TryGetValue(id, out var entry)
+            || entry.Hash != hash
+            || entry.Count != count
+            || entry.Origin.X != originX
+            || entry.Origin.Y != originY
+        )
+        {
+            entry = new SpriteFrames
+            {
+                Hash = hash,
+                Count = count,
+                Textures = count == 0 ? System.Array.Empty<Texture2D?>() : new Texture2D?[count],
+                Origin = new(originX, originY),
+            };
+            spriteFrames[id] = entry;
+        }
+        if (count == 0)
+            return false;
+        int index = ((int)Math.Floor(frame) % count + count) % count;
+        var cached = entry.Textures[index];
+        if (cached is null)
+            cached = entry.Textures[index] = Texture(frames[index].GetProperty("path").GetString()!);
+        texture = cached;
+        origin = entry.Origin;
+        return true;
     }
 
     private Texture2D Texture(string path)
@@ -1703,22 +1975,17 @@ public sealed partial class GmGraphics
                 == true
         )
             return;
-        if (!world.Sprites.TryGetValue(id, out var s))
+        if (!world.Sprites.ContainsKey(id))
             return;
         if (target < 0)
         {
             RecordSpriteAudit(id, frame, tint.A, position, scale);
         }
-        var frames = s.GetProperty("frames");
-        if (frames.GetArrayLength() == 0)
+        if (!SpriteFrame(id, frame, out var t, out var origin))
             return;
-        int f =
-            ((int)Math.Floor(frame) % frames.GetArrayLength() + frames.GetArrayLength())
-            % frames.GetArrayLength();
-        var t = Texture(frames[f].GetProperty("path").GetString()!);
         Textured(
             t,
-            new(s.GetProperty("originX").GetInt32(), s.GetProperty("originY").GetInt32()),
+            origin,
             new Rect2(Vector2.Zero, t.GetSize()),
             position,
             scale,
@@ -1872,12 +2139,42 @@ public sealed partial class GmGraphics
         "SLACK_MUD_EXPERIMENT"
     );
 
+    private GmValue[] callArgs = System.Array.Empty<GmValue>();
+
     public GmValue? Call(string name, GmValue[] a, GmContext context)
     {
-        double N(int i) => i < a.Length ? a[i].Number : 0;
-        int I(int i) => i < a.Length ? a[i].Int : 0;
-        float F(int i) => (float)N(i);
-        Vector2 P(int i) => new(F(i), F(i + 1));
+        var savedArgs = callArgs;
+        callArgs = a;
+        try
+        {
+            if (!buildPhases)
+                return Dispatch(name, a, context);
+            long ticks = (long)Time.GetTicksUsec(),
+                alloc = System.GC.GetAllocatedBytesForCurrentThread();
+            var result = Dispatch(name, a, context);
+            RecordCall(
+                name,
+                (long)Time.GetTicksUsec() - ticks,
+                System.GC.GetAllocatedBytesForCurrentThread() - alloc
+            );
+            return result;
+        }
+        finally
+        {
+            callArgs = savedArgs;
+        }
+    }
+
+    private double N(int i) => i < callArgs.Length ? callArgs[i].Number : 0;
+
+    private int I(int i) => i < callArgs.Length ? callArgs[i].Int : 0;
+
+    private float F(int i) => (float)N(i);
+
+    private Vector2 P(int i) => new(F(i), F(i + 1));
+
+    private GmValue? Dispatch(string name, GmValue[] a, GmContext context)
+    {
         switch (name)
         {
             case "slack_delete_sprite":
@@ -2129,10 +2426,8 @@ public sealed partial class GmGraphics
             case "draw_sprite_stretched":
             case "draw_sprite_stretched_ext":
             {
-                var frames = world.Sprites[I(0)].GetProperty("frames");
-                if (frames.GetArrayLength() == 0)
+                if (!SpriteFrame(I(0), 0, out var texture, out _))
                     return 0;
-                var texture = Texture(frames[0].GetProperty("path").GetString()!);
                 Textured(
                     texture,
                     Vector2.Zero,
@@ -2149,13 +2444,8 @@ public sealed partial class GmGraphics
             case "draw_sprite_part":
             case "draw_sprite_part_ext":
             {
-                var frames = world.Sprites[I(0)].GetProperty("frames");
-                if (frames.GetArrayLength() == 0)
+                if (!SpriteFrame(I(0), N(1), out var texture, out _))
                     return 0;
-                int f =
-                    ((int)Math.Floor(N(1)) % frames.GetArrayLength() + frames.GetArrayLength())
-                    % frames.GetArrayLength();
-                var texture = Texture(frames[f].GetProperty("path").GetString()!);
                 Textured(
                     texture,
                     Vector2.Zero,
@@ -2171,13 +2461,8 @@ public sealed partial class GmGraphics
             }
             case "draw_sprite_general":
             {
-                var frames = world.Sprites[I(0)].GetProperty("frames");
-                if (frames.GetArrayLength() == 0)
+                if (!SpriteFrame(I(0), N(1), out var texture, out _))
                     return 0;
-                int f =
-                    ((int)Math.Floor(N(1)) % frames.GetArrayLength() + frames.GetArrayLength())
-                    % frames.GetArrayLength();
-                var texture = Texture(frames[f].GetProperty("path").GetString()!);
                 Textured(
                     texture,
                     Vector2.Zero,

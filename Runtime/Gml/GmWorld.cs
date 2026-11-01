@@ -62,7 +62,7 @@ public sealed partial class GmWorld
     private readonly Dictionary<(int Object, int Kind, int Sub), int> eventOwners = new();
     private readonly Dictionary<int, int[]> collisionTargets = new();
     private readonly Dictionary<(int Actual, int Target), bool> objectRelations = new();
-    private readonly Dictionary<JsonElement, JsonElement[]> actionEntries = new(
+    private readonly Dictionary<JsonElement, ActionPlan[]> actionEntries = new(
         GmJsonIdentity.Instance
     );
     private int indexedCount = -1;
@@ -821,6 +821,19 @@ public sealed partial class GmWorld
 
     public bool HasEvent(int obj, int kind, int sub) => EventOwner(obj, kind, sub) >= 0;
 
+    // Actions of an object event after inheritance; null when the event is only known at runtime.
+    public JsonElement[]? EventActions(int obj, int kind, int sub)
+    {
+        if (addedEvents.ContainsKey((obj, kind, sub)))
+            return null;
+        int owner = EventOwner(obj, kind, sub);
+        if (owner < 0)
+            return [];
+        return staticEvents.TryGetValue((owner, kind, sub), out var actions)
+            ? actions.EnumerateArray().ToArray()
+            : null;
+    }
+
     public IEnumerable<GmInstance> EventInstances(int kind, int sub)
     {
         if (!eventObjects.TryGetValue((kind, sub), out var objects))
@@ -840,6 +853,52 @@ public sealed partial class GmWorld
         }
     }
 
+    private readonly Stack<GmContext> contextPool = new();
+    private readonly Stack<GmScope> localsPool = new();
+
+    // Event and action contexts are rented per dispatch: the local scope must not survive an event,
+    // so it is reset on return; a null locals argument shares the caller's scope.
+    private GmContext RentContext(
+        GmInstance instance,
+        GmInstance? other,
+        GmValue[] arguments,
+        GmScope? locals
+    )
+    {
+        var context = contextPool.Count > 0 ? contextPool.Pop() : new GmContext(instance);
+        if (locals is null)
+        {
+            locals = localsPool.Count > 0 ? localsPool.Pop() : new GmScope();
+            locals.Reset();
+        }
+        context.Self = instance;
+        context.Other = other ?? instance;
+        context.Arguments = arguments;
+        context.Locals = locals;
+        context.Flow = null;
+        context.Result = default;
+        return context;
+    }
+
+    private void ReturnContext(GmContext context, bool releaseLocals)
+    {
+        var locals = releaseLocals ? context.Locals : null;
+        context.Self = null!;
+        context.Other = null!;
+        context.Arguments = [];
+        context.Locals = null!;
+        context.Flow = null;
+        context.Result = default;
+        context.EventObject = -1;
+        context.EventKind = 0;
+        context.EventSub = 0;
+        contextPool.Push(context);
+        if (locals is null)
+            return;
+        locals.Reset();
+        localsPool.Push(locals);
+    }
+
     public bool Event(
         GmInstance instance,
         int kind,
@@ -854,38 +913,42 @@ public sealed partial class GmWorld
         {
             if (addedEvents.TryGetValue((obj, kind, sub), out var added))
             {
-                var context = new GmContext(instance, other)
-                {
-                    EventObject = obj,
-                    EventKind = kind,
-                    EventSub = sub,
-                };
+                var context = RentContext(instance, other, [], null);
+                context.EventObject = obj;
+                context.EventKind = kind;
+                context.EventSub = sub;
                 try
                 {
                     if (
                         !clearedEvents.Contains((obj, kind, sub))
-                        && staticEvents.TryGetValue((obj, kind, sub), out var actions)
+                        && staticEvents.TryGetValue((obj, kind, sub), out var addedActions)
                     )
-                        Actions(actions, context);
+                        Actions(addedActions, context);
                     foreach (var code in added.ToArray())
                         Evaluator.Run(code, context);
                 }
                 catch (GmFlow f) when (f.Kind is "exit" or "return") { }
+                finally
+                {
+                    ReturnContext(context, true);
+                }
                 return true;
             }
             if (staticEvents.TryGetValue((obj, kind, sub), out var entries))
             {
-                var c = new GmContext(instance, other)
-                {
-                    EventObject = obj,
-                    EventKind = kind,
-                    EventSub = sub,
-                };
+                var c = RentContext(instance, other, [], null);
+                c.EventObject = obj;
+                c.EventKind = kind;
+                c.EventSub = sub;
                 try
                 {
                     Actions(entries, c);
                 }
                 catch (GmFlow f) when (f.Kind is "exit" or "return") { }
+                finally
+                {
+                    ReturnContext(c, true);
+                }
                 return true;
             }
             obj = parents.GetValueOrDefault(obj, -1);
@@ -893,86 +956,129 @@ public sealed partial class GmWorld
         return false;
     }
 
+    // Action fields are resolved once per event action list: JsonElement.GetString() would otherwise
+    // decode the code key for every instance dispatch.
+    private readonly struct ActionPlan
+    {
+        public readonly JsonElement Action;
+        public readonly int Kind;
+        public readonly bool Condition;
+        public readonly bool Invert;
+        public readonly int Target;
+        public readonly string? Code;
+        public readonly string? Function;
+        public readonly bool Executes;
+        public readonly bool Relative;
+
+        public ActionPlan(JsonElement action)
+        {
+            Action = action;
+            Kind = action.GetProperty("kind").GetInt32();
+            Condition =
+                action.TryGetProperty("condition", out var condition) && condition.GetBoolean();
+            Invert = action.TryGetProperty("invert", out var invert) && invert.GetBoolean();
+            Target = action.TryGetProperty("target", out var target) ? target.GetInt32() : -1;
+            Code =
+                action.TryGetProperty("code", out var code)
+                && code.ValueKind == JsonValueKind.String
+                    ? code.GetString()
+                    : null;
+            Function =
+                action.TryGetProperty("function", out var function)
+                && function.ValueKind == JsonValueKind.String
+                    ? function.GetString()
+                    : null;
+            Executes =
+                action.TryGetProperty("execution", out var execution)
+                && execution.GetInt32() == 1;
+            Relative = action.TryGetProperty("relative", out var relative) && relative.GetBoolean();
+        }
+    }
+
     private void Actions(JsonElement actions, GmContext context)
     {
-        if (!actionEntries.TryGetValue(actions, out var entries))
-            actionEntries[actions] = entries = actions
+        if (!actionEntries.TryGetValue(actions, out var plans))
+            actionEntries[actions] = plans = actions
                 .EnumerateArray()
                 .Where(a =>
                     a.GetProperty("kind").GetInt32() != 0
                     || a.GetProperty("execution").GetInt32() != 0
                 )
+                .Select(a => new ActionPlan(a))
                 .ToArray();
         int index = 0;
-        while (index < entries.Length)
-            ActionBlock(entries, ref index, context, true);
+        while (index < plans.Length)
+            ActionBlock(plans, ref index, context, true);
     }
 
-    private void ActionBlock(JsonElement[] entries, ref int index, GmContext context, bool execute)
+    private void ActionBlock(ActionPlan[] plans, ref int index, GmContext context, bool execute)
     {
-        if (index >= entries.Length)
+        if (index >= plans.Length)
             return;
-        var action = entries[index++];
-        int kind = action.GetProperty("kind").GetInt32();
-        if (kind == 1)
+        var plan = plans[index++];
+        if (plan.Kind == 1)
         {
-            while (index < entries.Length && entries[index].GetProperty("kind").GetInt32() != 2)
-                ActionBlock(entries, ref index, context, execute);
-            if (index < entries.Length)
+            while (index < plans.Length && plans[index].Kind != 2)
+                ActionBlock(plans, ref index, context, execute);
+            if (index < plans.Length)
                 index++;
             return;
         }
-        if (kind == 4)
+        if (plan.Kind == 4)
         {
             if (execute)
                 throw new GmFlow("exit");
             return;
         }
-        if (kind is 2 or 3)
+        if (plan.Kind is 2 or 3)
             return;
-        bool condition = action.GetProperty("condition").GetBoolean();
-        var result = execute ? InvokeAction(action, context) : new GmValue(0);
-        if (condition)
+        var result = execute ? InvokeAction(plan, context) : new GmValue(0);
+        if (!plan.Condition)
+            return;
+        bool passed = result.Truth ^ plan.Invert;
+        ActionBlock(plans, ref index, context, execute && passed);
+        if (index < plans.Length && plans[index].Kind == 3)
         {
-            bool passed = result.Truth ^ action.GetProperty("invert").GetBoolean();
-            ActionBlock(entries, ref index, context, execute && passed);
-            if (index < entries.Length && entries[index].GetProperty("kind").GetInt32() == 3)
-            {
-                index++;
-                ActionBlock(entries, ref index, context, execute && !passed);
-            }
+            index++;
+            ActionBlock(plans, ref index, context, execute && !passed);
         }
     }
 
-    private GmValue InvokeAction(JsonElement action, GmContext context)
+    private GmValue InvokeAction(ActionPlan plan, GmContext context)
     {
         GmValue result = 0;
-        var targets =
-            action.GetProperty("target").GetInt32() == -1
-                ? [context.Self]
-                : Select(action.GetProperty("target").GetInt32(), context).ToArray();
-        foreach (var target in targets)
-        {
-            var c = new GmContext(target, context.Other, context.Arguments, context.Locals)
-            {
-                EventObject = context.EventObject,
-                EventKind = context.EventKind,
-                EventSub = context.EventSub,
-            };
-            if (action.GetProperty("code").ValueKind == JsonValueKind.String)
-                result = Evaluator.Run(action.GetProperty("code").GetString()!, c);
-            else if (action.GetProperty("execution").GetInt32() == 1)
-            {
-                var args = action
-                    .GetProperty("parameters")
-                    .EnumerateArray()
-                    .Select(p => Evaluator.Eval(p, c))
-                    .ToArray();
-                c.Locals.Write("argument_relative", action.GetProperty("relative").GetBoolean());
-                result = Call(action.GetProperty("function").GetString()!, args, c);
-            }
-        }
+        if (plan.Target == -1)
+            return InvokeActionOn(plan, context, context.Self) ?? result;
+        foreach (var other in Select(plan.Target, context).ToArray())
+            if (InvokeActionOn(plan, context, other) is GmValue executed)
+                result = executed;
         return result;
+    }
+
+    private GmValue? InvokeActionOn(ActionPlan plan, GmContext context, GmInstance target)
+    {
+        var c = RentContext(target, context.Other, context.Arguments, context.Locals);
+        c.EventObject = context.EventObject;
+        c.EventKind = context.EventKind;
+        c.EventSub = context.EventSub;
+        try
+        {
+            if (plan.Code is string code)
+                return Evaluator.Run(code, c);
+            if (!plan.Executes)
+                return null;
+            var args = plan
+                .Action.GetProperty("parameters")
+                .EnumerateArray()
+                .Select(p => Evaluator.Eval(p, c))
+                .ToArray();
+            c.Locals.Write("argument_relative", plan.Relative);
+            return Call(plan.Function!, args, c);
+        }
+        finally
+        {
+            ReturnContext(c, false);
+        }
     }
 
     internal void ChangeObject(GmInstance instance, int obj)

@@ -7,7 +7,14 @@ public sealed partial class GmWorld
     {
         if(CharacterSpriteBlur?.Invoke(args,context)==true)return 0;
         double x=args[2].Number,y=args[3].Number,angle=args[6].Number,alpha=args[8].Number;
-        void Draw(double px,double py,double rotation,double opacity)=>Call("draw_sprite_ext",[args[0],args[1],px,py,args[4],args[5],rotation,args[7],opacity],context);
+        // One argument buffer for every blurred slice: motion blur otherwise allocates an array per slice.
+        var slice=new GmValue[9];
+        slice[0]=args[0];slice[1]=args[1];slice[4]=args[4];slice[5]=args[5];slice[7]=args[7];
+        void Draw(double px,double py,double rotation,double opacity)
+        {
+            slice[2]=px;slice[3]=py;slice[6]=rotation;slice[8]=opacity;
+            Call("draw_sprite_ext",slice,context);
+        }
         double length=args[9].Number,rotation=args[11].Number,originalRotation=rotation;
         var mode=Globals.Read("config_MotionBlur");
         if(!mode.Truth||length>150||length<=1&&Math.Abs(rotation)<=1){Draw(x,y,angle,alpha);return 0;}

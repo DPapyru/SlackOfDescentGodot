@@ -41,7 +41,31 @@ public sealed partial class GmEvaluator
             foreach(var instance in targets)world.Write(instance,name,value,indices);
         }
     }
+    // One argument buffer per call site and nesting depth, so a call never allocates its argument array
+    // twice and a recursive call still gets its own values.
+    private sealed class CallArguments
+    {
+        private GmValue[]?[]buffers=new GmValue[4][];
+        private int depth;
+        private readonly int count;
+        public CallArguments(int count)=>this.count=count;
+        public GmValue[] Rent()
+        {
+            if(depth==buffers.Length)Array.Resize(ref buffers,buffers.Length*2);
+            var buffer=buffers[depth];
+            if(buffer is null||buffer.Length!=count)buffer=buffers[depth]=new GmValue[count];
+            depth++;
+            return buffer;
+        }
+        public void Return()=>depth--;
+    }
     private readonly Dictionary<JsonElement,Func<GmContext,GmValue>> executables=new(GmJsonIdentity.Instance);
+    private readonly Dictionary<JsonElement,Func<GmContext,GmIndices,Location>> references=new(GmJsonIdentity.Instance);
+    private Func<GmContext,GmIndices,Location> Reference(JsonElement node)
+    {
+        if(references.TryGetValue(node,out var result))return result;
+        return references[node]=CompileReference(node);
+    }
     private Func<GmContext,GmValue> Executable(JsonElement node)
     {
         if(executables.TryGetValue(node,out var result))return result;
@@ -102,7 +126,9 @@ public sealed partial class GmEvaluator
                     if(arguments.Length==2)return c=>world.CallFixed(name,arguments[0](c),arguments[1](c),2,c);
                     return c=>world.CallFixed(name,arguments[0](c),arguments[1](c),arguments[2](c),c);
                 }
-                return c=>{var values=arguments.Length==0?Array.Empty<GmValue>():new GmValue[arguments.Length];for(int i=0;i<values.Length;i++)values[i]=arguments[i](c);return world.Call(name,values,c);};
+                if(arguments.Length==0)return c=>world.Call(name,Array.Empty<GmValue>(),c);
+                var buffer=new CallArguments(arguments.Length);
+                return c=>{var values=buffer.Rent();try{for(int i=0;i<values.Length;i++)values[i]=arguments[i](c);return world.Call(name,values,c);}finally{buffer.Return();}};
             }
             case "if":
             {

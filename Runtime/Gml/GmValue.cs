@@ -116,10 +116,21 @@ public sealed class GmScope
     private readonly Dictionary<string, Dictionary<int, ArrayRow>> arrays = new(
         StringComparer.Ordinal
     );
+    // Base names that own literal "name[index]" entries in values; lets Contains skip building the key.
+    private readonly HashSet<string> composite = new(StringComparer.Ordinal);
     public readonly ValueDictionary Values;
     internal Action<string>? Changed;
 
     public GmScope() => Values = new(this);
+
+    internal void Reset()
+    {
+        values.Clear();
+        lengths.Clear();
+        arrays.Clear();
+        composite.Clear();
+        Changed = null;
+    }
 
     private sealed class ArrayRow
     {
@@ -240,6 +251,10 @@ public sealed class GmScope
             return TryGetDefined(Key(name, row, column), out _);
         if (arrays.TryGetValue(name, out var rows))
             return rows.TryGetValue(row, out var data) && data.TryGetValue(column, out _);
+        if (row == 0 && column == 0)
+            return values.ContainsKey(name);
+        if (!composite.Contains(name))
+            return false;
         return values.ContainsKey(Key(name, row, column));
     }
 
@@ -320,6 +335,9 @@ public sealed class GmScope
             string key = Key(name, row, column);
             if (values.TryGetValue(key, out var previous) && previous.Equals(value))
                 return;
+            int bracket = name.IndexOf('[');
+            if (bracket > 0)
+                composite.Add(name[..bracket]);
             values[key] = value;
             if (!lengths.TryGetValue((name, row), out var length) || length <= column)
                 lengths[(name, row)] = column + 1;

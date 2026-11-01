@@ -153,6 +153,13 @@ public sealed partial class GmWorld
     {
         Calls[name]=Calls.GetValueOrDefault(name)+1;
         if(name=="draw_sprite_blur")return DrawSpriteBlur(a,c);
+        // Draw commands are served by the rendering platform; skipping the asset/particle/room lookup
+        // chain keeps the per-command dispatch to one delegate call.
+        if(name.Length>5&&name.StartsWith("draw_",StringComparison.Ordinal)&&Platform is not null)
+        {
+            var drawn=Platform(name,a,c);
+            if(drawn is GmValue value)return value;
+        }
         if(name is "MotionInitialize" or "DoubleMotionInitialize")return InitializeMotion(name,a,c);
         if(name=="setMotionForPlayer")return LoadPlayerMotion(a,c);
         if(name=="addLoadCode"&&External.TryGetValue(a[3].ToString().Replace('\\','/'),out var loadedCode))
@@ -161,7 +168,13 @@ public sealed partial class GmWorld
             if(!addedEvents.TryGetValue(eventKey,out var events))addedEvents[eventKey]=events=new();
             events.Add(loadedCode);InvalidateEvents();return 0;
         }
-        if(Scripts.TryGetValue(name,out var key))return Evaluator.Run(key,new(c.Self,c.Other,a){EventObject=c.EventObject,EventKind=c.EventKind,EventSub=c.EventSub});
+        if(Scripts.TryGetValue(name,out var key))
+        {
+            var call=RentContext(c.Self,c.Other,a,null);
+            call.EventObject=c.EventObject;call.EventKind=c.EventKind;call.EventSub=c.EventSub;
+            try{return Evaluator.Run(key,call);}
+            finally{ReturnContext(call,true);}
+        }
         double N(int i)=>i<a.Length?a[i].Number:0;
         int I(int i)=>i<a.Length?a[i].Int:0;
         string S(int i)=>i<a.Length?a[i].ToString():"";

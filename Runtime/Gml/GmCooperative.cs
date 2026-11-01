@@ -6,8 +6,34 @@ public sealed partial class GmEvaluator
 {
     private readonly Dictionary<JsonElement, bool> waitingNodes = new(GmJsonIdentity.Instance);
     private readonly HashSet<string> checkingScripts = new();
+    private readonly HashSet<(int Object, int Kind, int Sub)> checkingEvents = new();
+    private readonly Dictionary<(int Object, int Kind, int Sub), bool> waitingEvents = new();
 
-    private bool CanWait(JsonElement node)
+    // Calls that always run on the cooperating path; instance_create is decided per target event.
+    private static readonly HashSet<string> WaitingCalls =
+        new(StringComparer.Ordinal)
+        {
+            "show_menu",
+            "get_string",
+            "show_message",
+            "show_message_ext",
+            "show_question",
+            "sleep",
+            "io_handle",
+            "keyboard_wait",
+            "event_user",
+            "event_perform",
+            "event_inherited",
+            "action_inherited",
+            "execute_string",
+            "execute_file",
+            "action_execute_script",
+            "instance_destroy",
+            "instance_change",
+            "action_kill_object",
+        };
+
+    internal bool CanWait(JsonElement node)
     {
         if (node.ValueKind != JsonValueKind.Array)
             return false;
@@ -16,38 +42,12 @@ public sealed partial class GmEvaluator
         if (Tag(node) == "call")
         {
             string name = node[1].GetString()!;
-            if (
-                name
-                is "show_menu"
-                    or "get_string"
-                    or "show_message"
-                    or "show_message_ext"
-                    or "show_question"
-                    or "sleep"
-                    or "io_handle"
-                    or "keyboard_wait"
-                    or "event_user"
-                    or "event_perform"
-                    or "event_inherited"
-                    or "action_inherited"
-                    or "execute_string"
-                    or "execute_file"
-                    or "action_execute_script"
-                    or "instance_create"
-                    or "instance_destroy"
-                    or "instance_change"
-                    or "action_kill_object"
-            )
+            if (name == "instance_create")
+                return waitingNodes[node] = CreatedEventCanWait(node);
+            if (WaitingCalls.Contains(name))
                 return waitingNodes[node] = true;
-            if (world.Scripts.TryGetValue(name, out var key))
-            {
-                if (!checkingScripts.Add(key))
-                    return true;
-                bool result = CanWait(world.Code[key]);
-                checkingScripts.Remove(key);
-                if (result)
-                    return waitingNodes[node] = true;
-            }
+            if (world.Scripts.TryGetValue(name, out var key) && ScriptCanWait(key))
+                return waitingNodes[node] = true;
         }
         foreach (var child in node.EnumerateArray())
             if (child.ValueKind == JsonValueKind.Array)
@@ -63,6 +63,104 @@ public sealed partial class GmEvaluator
                             return waitingNodes[node] = true;
             }
         return waitingNodes[node] = false;
+    }
+
+    private bool ScriptCanWait(string key)
+    {
+        if (!world.Code.TryGetValue(key, out var code) || !checkingScripts.Add(key))
+            return true;
+        try
+        {
+            return CanWait(code);
+        }
+        finally
+        {
+            checkingScripts.Remove(key);
+        }
+    }
+
+    // Object argument of a dispatch call; null when it is only known at runtime.
+    private int? ObjectId(JsonElement node)
+    {
+        if (Tag(node) == "id")
+            return world.Constants.TryGetValue(node[1].GetString()!, out var constant)
+                ? constant.Int
+                : null;
+        int literal = Tag(node) == "num" ? (int)node[1].GetDouble() : -1;
+        return world.Objects.ContainsKey(literal) ? literal : null;
+    }
+
+    // instance_create only needs the cooperating path when the created object's Create event can wait.
+    private bool CreatedEventCanWait(JsonElement call)
+    {
+        var arguments = call[2];
+        return arguments.GetArrayLength() < 3
+            || ObjectId(arguments[2]) is not int created
+            || EventCanWait(created, 0, 0);
+    }
+
+    // Whether an object's event may reach a call that suspends, following inheritance and added actions.
+    private bool EventCanWait(int obj, int kind, int sub)
+    {
+        var key = (obj, kind, sub);
+        if (waitingEvents.TryGetValue(key, out bool waiting))
+            return waiting;
+        if (!checkingEvents.Add(key))
+            return true;
+        bool result;
+        try
+        {
+            var actions = world.EventActions(obj, kind, sub);
+            result = actions is null;
+            if (actions is not null)
+                foreach (var action in actions)
+                {
+                    if (action.GetProperty("kind").GetInt32() is 1 or 2 or 3 or 4)
+                        continue;
+                    var code = action.GetProperty("code");
+                    if (code.ValueKind == JsonValueKind.String)
+                    {
+                        if (ScriptCanWait(code.GetString()!))
+                        {
+                            result = true;
+                            break;
+                        }
+                        continue;
+                    }
+                    if (action.GetProperty("execution").GetInt32() != 1)
+                        continue;
+                    string function = action.GetProperty("function").GetString()!;
+                    if (
+                        WaitingCalls.Contains(function)
+                        || (
+                            world.Scripts.TryGetValue(function, out var script)
+                            && ScriptCanWait(script)
+                        )
+                    )
+                    {
+                        result = true;
+                        break;
+                    }
+                    if (function == "action_create_object")
+                    {
+                        var parameters = action.GetProperty("parameters");
+                        if (
+                            parameters.GetArrayLength() == 0
+                            || ObjectId(parameters[0]) is not int created
+                            || EventCanWait(created, 0, 0)
+                        )
+                        {
+                            result = true;
+                            break;
+                        }
+                    }
+                }
+        }
+        finally
+        {
+            checkingEvents.Remove(key);
+        }
+        return waitingEvents[key] = result;
     }
 
     public async ValueTask<GmValue> RunAsync(string key, GmContext context)
@@ -254,7 +352,7 @@ public sealed partial class GmEvaluator
     )
     {
         if (!CanWait(node))
-            return CompileReference(node)(context, indices);
+            return Reference(node)(context, indices);
         if (Tag(node) == "binary" && node[1].GetString() == "Index")
         {
             var items = Tag(node[3]) == "group" ? node[3][1].EnumerateArray().ToArray() : [node[3]];
@@ -283,7 +381,7 @@ public sealed partial class GmEvaluator
                 ? new(world.Globals, name, indices)
                 : new(world, context, name, indices, target);
         }
-        return CompileReference(node)(context, indices);
+        return Reference(node)(context, indices);
     }
 
     private async ValueTask<GmValue> WaitNode(JsonElement node, GmContext context)
@@ -516,88 +614,87 @@ public sealed partial class GmWorld
 
     private async ValueTask ActionsAsync(JsonElement actions, GmContext context)
     {
-        if (!actionEntries.TryGetValue(actions, out var entries))
-            actionEntries[actions] = entries = actions
+        if (!actionEntries.TryGetValue(actions, out var plans))
+            actionEntries[actions] = plans = actions
                 .EnumerateArray()
                 .Where(a =>
                     a.GetProperty("kind").GetInt32() != 0
                     || a.GetProperty("execution").GetInt32() != 0
                 )
+                .Select(a => new ActionPlan(a))
                 .ToArray();
         int index = 0;
-        while (index < entries.Length)
-            index = await ActionBlockAsync(entries, index, context, true);
+        while (index < plans.Length)
+            index = await ActionBlockAsync(plans, index, context, true);
     }
 
     private async ValueTask<int> ActionBlockAsync(
-        JsonElement[] entries,
+        ActionPlan[] plans,
         int index,
         GmContext context,
         bool execute
     )
     {
-        if (index >= entries.Length)
+        if (index >= plans.Length)
             return index;
-        var action = entries[index++];
-        int kind = action.GetProperty("kind").GetInt32();
-        if (kind == 1)
+        var plan = plans[index++];
+        if (plan.Kind == 1)
         {
-            while (index < entries.Length && entries[index].GetProperty("kind").GetInt32() != 2)
-                index = await ActionBlockAsync(entries, index, context, execute);
-            return index < entries.Length ? index + 1 : index;
+            while (index < plans.Length && plans[index].Kind != 2)
+                index = await ActionBlockAsync(plans, index, context, execute);
+            return index < plans.Length ? index + 1 : index;
         }
-        if (kind == 4)
+        if (plan.Kind == 4)
         {
             if (execute)
                 throw new GmFlow("exit");
             return index;
         }
-        if (kind is 2 or 3)
+        if (plan.Kind is 2 or 3)
             return index;
         GmValue result = 0;
         if (execute)
         {
-            var targets =
-                action.GetProperty("target").GetInt32() == -1
-                    ? [context.Self]
-                    : Select(action.GetProperty("target").GetInt32(), context).ToArray();
-            foreach (var target in targets)
-            {
-                var c = new GmContext(target, context.Other, context.Arguments, context.Locals)
-                {
-                    EventObject = context.EventObject,
-                    EventKind = context.EventKind,
-                    EventSub = context.EventSub,
-                };
-                if (action.GetProperty("code").ValueKind == JsonValueKind.String)
-                    result = await Evaluator.RunAsync(action.GetProperty("code").GetString()!, c);
-                else if (action.GetProperty("execution").GetInt32() == 1)
-                {
-                    var args = action
-                        .GetProperty("parameters")
-                        .EnumerateArray()
-                        .Select(p => Evaluator.Eval(p, c))
-                        .ToArray();
-                    c.Locals.Write(
-                        "argument_relative",
-                        action.GetProperty("relative").GetBoolean()
-                    );
-                    result = await Evaluator.CallAsync(
-                        action.GetProperty("function").GetString()!,
-                        args,
-                        c
-                    );
-                }
-            }
+            if (plan.Target == -1)
+                result = await InvokeActionAsync(plan, context, context.Self) ?? result;
+            else
+                foreach (var target in Select(plan.Target, context).ToArray())
+                    if (await InvokeActionAsync(plan, context, target) is GmValue executed)
+                        result = executed;
         }
-        if (action.GetProperty("condition").GetBoolean())
+        if (plan.Condition)
         {
-            bool passed = result.Truth ^ action.GetProperty("invert").GetBoolean();
-            index = await ActionBlockAsync(entries, index, context, execute && passed);
-            if (index < entries.Length && entries[index].GetProperty("kind").GetInt32() == 3)
-                index = await ActionBlockAsync(entries, index + 1, context, execute && !passed);
+            bool passed = result.Truth ^ plan.Invert;
+            index = await ActionBlockAsync(plans, index, context, execute && passed);
+            if (index < plans.Length && plans[index].Kind == 3)
+                index = await ActionBlockAsync(plans, index + 1, context, execute && !passed);
         }
         return index;
+    }
+
+    private async ValueTask<GmValue?> InvokeActionAsync(
+        ActionPlan plan,
+        GmContext context,
+        GmInstance target
+    )
+    {
+        var c = new GmContext(target, context.Other, context.Arguments, context.Locals)
+        {
+            EventObject = context.EventObject,
+            EventKind = context.EventKind,
+            EventSub = context.EventSub,
+        };
+        if (plan.Code is string code)
+            return await Evaluator.RunAsync(code, c);
+        if (!plan.Executes)
+            return null;
+        var args = plan
+            .Action.GetProperty("parameters")
+            .EnumerateArray()
+            .Select(p => Evaluator.Eval(p, c))
+            .ToArray();
+        c.Locals.Write("argument_relative", plan.Relative);
+        return await Evaluator.CallAsync(plan.Function!, args, c);
     }
 
     private async ValueTask RunObjectEventAsync(int kind, int sub)

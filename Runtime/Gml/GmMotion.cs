@@ -2,6 +2,15 @@ namespace SlackOfDescent;
 
 public sealed partial class GmWorld
 {
+    private static readonly string[] MotionCopyFields = ["motStep", "motPosX", "motPosY"];
+    private static readonly string[] MotionDoubleFields =
+    [
+        "DoublechgAngle",
+        "DoublechgScaleX",
+        "DoublechgScaleY",
+        "DoublechgPartPosDir",
+        "DoublechgPartPosDis",
+    ];
     private static readonly (string Field,GmValue Value)[] MotionPartDefaults =
     [
         ("Left",1),("Right",-1),("Direction",1),("Angle",0),("ScaleX",1),("ScaleY",1),
@@ -37,7 +46,7 @@ public sealed partial class GmWorld
         int motion=args[0].Int;
         scope.Write("motString","Chara/Motion/"+args[1]+".txt",motion);
         scope.Write("motLong",scope.Read("data_motLong"),motion);
-        foreach(string field in new[]{"motStep","motPosX","motPosY"})scope.CopyArrayPrefix("data_"+field,field,motion,frames);
+        foreach(string field in MotionCopyFields)scope.CopyArrayPrefix("data_"+field,field,motion,frames);
         if(frames>0)foreach(var part in MotionParts(scope,parts,context))
             foreach(var field in MotionPartRows)part.Scope.CopyArrayPrefix("data_"+field.Field,field.Field,motion,frames);
         scope.Write("KeyFrm",Math.Max(0,frames));if(frames>0)scope.Write("i",Math.Max(0,parts));return 0;
@@ -62,7 +71,7 @@ public sealed partial class GmWorld
             {
                 scope.Write("i",Math.Max(0,parts));
                 foreach(var part in MotionParts(scope,parts,context))
-                    foreach(var field in new[]{"DoublechgAngle","DoublechgScaleX","DoublechgScaleY","DoublechgPartPosDir","DoublechgPartPosDis"})part.Scope.Write(field,0);
+                    foreach(var field in MotionDoubleFields)part.Scope.Write(field,0);
             }
             return 0;
         }

@@ -5,6 +5,32 @@ namespace SlackOfDescent;
 
 public sealed partial class GmWorld
 {
+    // room_set_* used to re-parse the entire room document (thousands of instances) per call; the node
+    // is cached and only re-serialized when a value actually changes.
+    private readonly Dictionary<int, JsonNode> roomNodes = new();
+
+    private JsonNode RoomNode(int id) =>
+        roomNodes.TryGetValue(id, out var node)
+            ? node
+            : roomNodes[id] = JsonNode.Parse(Rooms[id].GetRawText())!;
+
+    private static readonly string[] RoomViewFields =
+    [
+        "x",
+        "y",
+        "width",
+        "height",
+        "portX",
+        "portY",
+        "portWidth",
+        "portHeight",
+        "hborder",
+        "vborder",
+        "hspeed",
+        "vspeed",
+        "target",
+    ];
+
     public readonly List<JsonElement> Tiles=new();
     public readonly HashSet<int> HiddenTileLayers=new();
     private int nextTile;

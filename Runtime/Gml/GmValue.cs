@@ -286,6 +286,25 @@ public sealed class GmScope
     public GmValue ReadOr(string name, GmValue fallback = default) =>
         TryGetDefined(name, out var value) ? value : fallback;
 
+    // Read with indices, returning the fallback when undefined; mirrors Values.GetValueOrDefault(key)
+    // without building the composite key string.
+    internal GmValue ReadOr(string name, GmIndices indices, GmValue fallback = default)
+    {
+        var (row, column) = Position(indices);
+        if (arrays.TryGetValue(name, out var rows) && rows.TryGetValue(row, out var data))
+        {
+            if (data.TryGetValue(column, out var entry))
+                return entry;
+            if (column < data.Length)
+                return 0;
+        }
+        if (row == 0 && column == 0 && values.TryGetValue(name, out var plain))
+            return plain;
+        if (composite.Contains(name) && values.TryGetValue(Key(name, row, column), out var compositeValue))
+            return compositeValue;
+        return fallback;
+    }
+
     public void Write(string name, GmValue value, IReadOnlyList<int>? indices = null) =>
         Write(name, value, new GmIndices(indices));
 

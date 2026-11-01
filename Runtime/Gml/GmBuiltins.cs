@@ -92,10 +92,15 @@ public sealed partial class GmWorld
         return key;
     }
 
+    private readonly Dictionary<string,string> fileCode=new(StringComparer.OrdinalIgnoreCase);
+
     internal string FileCode(string path)
     {
-        path=path.Replace('\\','/');var saved=SavedFile(path);
-        return saved is not null?Compile(File.ReadAllText(saved)):External.TryGetValue(path,out var external)?external:Compile(File.ReadAllText(Resolve(path)));
+        path=path.Replace('\\','/');
+        if(fileCode.TryGetValue(path,out var cached))return cached;
+        var saved=SavedFile(path);
+        var code=saved is not null?Compile(File.ReadAllText(saved)):External.TryGetValue(path,out var external)?external:Compile(File.ReadAllText(Resolve(path)));
+        return fileCode[path]=code;
     }
 
     internal static bool HasFixedArguments(string name,int count)=>count switch
@@ -257,8 +262,8 @@ public sealed partial class GmWorld
             case "variable_local_exists":return Self.Scope.Values.ContainsKey(S(0));
             case "variable_global_get":return Globals.Read(S(0));case "variable_global_set":Globals.Write(S(0),V(1));return 0;
             case "variable_local_set":Write(Self,S(0),V(1));return 0;
-            case "variable_global_array_get":return Globals.Values.GetValueOrDefault(GmScope.Key(S(0),[I(1)]));case "variable_global_array2_get":return Globals.Values.GetValueOrDefault(GmScope.Key(S(0),[I(1),I(2)]));
-            case "variable_local_array_get":return Self.Scope.Values.GetValueOrDefault(GmScope.Key(S(0),[I(1)]));case "variable_local_array2_get":return Self.Scope.Values.GetValueOrDefault(GmScope.Key(S(0),[I(1),I(2)]));
+            case "variable_global_array_get":return Globals.ReadOr(S(0),new GmIndices(I(1)));case "variable_global_array2_get":return Globals.ReadOr(S(0),new GmIndices(I(1),I(2)));
+            case "variable_local_array_get":return Self.Scope.ReadOr(S(0),new GmIndices(I(1)));case "variable_local_array2_get":return Self.Scope.ReadOr(S(0),new GmIndices(I(1),I(2)));
             case "instance_create":return Create(I(2),N(0),N(1)).Id;
             case "instance_destroy":Event(Self,1,0);Self.Destroyed=true;return 0;
             case "instance_exists":case "instance_number":return FixedResult(name,V(0),default,c);
@@ -287,18 +292,37 @@ public sealed partial class GmWorld
             case "room_exists":return Rooms.ContainsKey(I(0));case "room_get_name":return Rooms[I(0)].GetProperty("name").GetString()!;
             case "room_set_width":case "room_set_height":case "room_set_caption":
             {
-                var node=JsonNode.Parse(Rooms[I(0)].GetRawText())!;
+                int room=I(0);var node=RoomNode(room);
                 string property=name=="room_set_width"?"width":name=="room_set_height"?"height":"caption";
-                node[property]=name=="room_set_caption"?JsonValue.Create(S(1)):JsonValue.Create(I(1));
-                Rooms[I(0)]=JsonSerializer.SerializeToElement(node);return 0;
+                if(name=="room_set_caption")
+                {
+                    string caption=S(1);
+                    if(node[property]?.GetValue<string>()==caption)return 0;
+                    node[property]=JsonValue.Create(caption);
+                }
+                else
+                {
+                    int value=I(1);
+                    if(node[property]?.GetValue<int>()==value)return 0;
+                    node[property]=JsonValue.Create(value);
+                }
+                Rooms[room]=JsonSerializer.SerializeToElement(node);return 0;
             }
             case "room_set_view":
             {
-                var node=JsonNode.Parse(Rooms[I(0)].GetRawText())!;
-                var view=node["views"]![I(1)]!;view["visible"]=N(2)>=0.5;
-                var properties=new[]{"x","y","width","height","portX","portY","portWidth","portHeight","hborder","vborder","hspeed","vspeed","target"};
-                for(int p=0;p<properties.Length;p++)view[properties[p]]=I(p+3);
-                Rooms[I(0)]=JsonSerializer.SerializeToElement(node);return 0;
+                int room=I(0);var node=RoomNode(room);
+                var view=node["views"]![I(1)]!;
+                bool changed=false;
+                bool visible=N(2)>=0.5;
+                if(view["visible"]?.GetValue<bool>()!=visible){view["visible"]=visible;changed=true;}
+                for(int p=0;p<RoomViewFields.Length;p++)
+                {
+                    int value=I(p+3);
+                    if(view[RoomViewFields[p]]?.GetValue<int>()==value)continue;
+                    view[RoomViewFields[p]]=value;changed=true;
+                }
+                if(!changed)return 0;
+                Rooms[room]=JsonSerializer.SerializeToElement(node);return 0;
             }
             case "room_next":{var ids=Manifest.GetProperty("roomOrder").EnumerateArray().Select(x=>x.GetInt32()).ToList();int i=ids.IndexOf(I(0));return i>=0&&i+1<ids.Count?ids[i+1]:-1;}
             case "room_goto":PendingRoom=I(0);return 0;case "room_restart":PendingRoom=CurrentRoom;return 0;

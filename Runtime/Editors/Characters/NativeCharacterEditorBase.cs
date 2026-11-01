@@ -24,12 +24,13 @@ public partial class NativeCharacterEditor
                     var asset = assets.First(a => a.Name == placement.Asset);
                     var part = replace && placement.Existing is string id ? Document.Definition.Parts.Single(p => p.Id == id) : AddBasePart(placement, asset);
                     if (part is null) continue;
+                    part.Target = placement.Slot.Target; part.Layer = placement.Slot.Layer;
                     ApplyBaseAssets(part, asset);
                     added++;
                 }
                 Document.EndEdit();
                 selectedPart = Math.Max(0, Document.Definition.Parts.Count - 1); selectedFrame = 0;
-                overallMode.ButtonPressed = true; workspace.CurrentTab = 1; Refresh(); OnPixelsEdited();
+                overallMode.ButtonPressed = true; workspace.CurrentTab = 0; Refresh(); OnPixelsEdited();
                 status.Text = string.Format(NativeLocalization.Text("已生成基底角色：{0} 个部位。"), added);
             }
             catch (Exception error) { ShowMessage(error.Message); }
@@ -59,19 +60,9 @@ public partial class NativeCharacterEditor
     private void ApplyBaseAssets(NativeCharacterPart part, (string Name, JsonElement Data) asset)
     {
         var images = asset.Data.GetProperty("frames").EnumerateArray().Select(f => ReadPng(Path.Combine(world.Root, f.GetProperty("path").GetString()!), true)).ToArray();
-        var anchor = BaseAnchor(asset.Name, asset.Data);
+        var anchor = TargetAnchor(part.Target);
         Document.ImportFrames(part.Id, images, anchorX: anchor.X, anchorY: anchor.Y);
     }
-    private (int X, int Y) BaseAnchor(string name, JsonElement data)
-    {
-        int x = data.GetProperty("originX").GetInt32(), y = data.GetProperty("originY").GetInt32();
-        if (world.Code.TryGetValue("external/" + Path.ChangeExtension(name, ".txt"), out var metadata))
-            foreach (var node in metadata[1].EnumerateArray())
-                if (node.GetArrayLength() > 3 && node[0].GetString() == "binary" && node[1].GetString() == "Assign" && node[2][0].GetString() == "id" && node[3][0].GetString() == "num")
-                {
-                    if (node[2][1].GetString() == "partx") x = (int)node[3][1].GetDouble();
-                    if (node[2][1].GetString() == "party") y = (int)node[3][1].GetDouble();
-                }
-        return (x, y);
-    }
+    private NativeCharacterBody? anchorSource;
+    private (int X, int Y) TargetAnchor(string target) { anchorSource ??= new NativeCharacterBody(world); return anchorSource.Anchor(target); }
 }

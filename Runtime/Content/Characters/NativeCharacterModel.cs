@@ -157,7 +157,7 @@ public sealed class NativeCharacterRepository(NativeContentStore store)
 
 public static class NativeCharacterTargets
 {
-    public static readonly string[] Names = ["HEAD", "BODY_TOP", "BODY_BOTTOM", "HAND1_ABOVE", "HAND2_ABOVE", "HAND1_BELOW", "HAND2_BELOW", "FOOT1_ABOVE", "FOOT2_ABOVE", "FOOT1_BELOW", "FOOT2_BELOW", "TAIL"];
+    public static readonly string[] Names = ["HEAD", "BODY_TOP", "BODY_BOTTOM", "HAND1_ABOVE", "HAND2_ABOVE", "HAND3_ABOVE", "HAND1_BELOW", "HAND2_BELOW", "HAND3_BELOW", "FOOT1_ABOVE", "FOOT2_ABOVE", "FOOT3_ABOVE", "FOOT1_BELOW", "FOOT2_BELOW", "FOOT3_BELOW", "TAIL"];
 }
 
 public static class NativeCharacterPng

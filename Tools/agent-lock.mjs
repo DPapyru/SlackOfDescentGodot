@@ -9,5 +9,5 @@ const args = process.argv.slice(2);
 const resource = args.shift() ?? 'build';
 const command = args.join(' ');
 if (!command) throw new Error('usage: node Tools/agent-lock.mjs <resource> <command...>');
-const result = spawnSync('flock', ['-w', '3600', path.join(lockDir, resource + '.lock'), 'bash', '-lc', command], { cwd: root, stdio: 'inherit', env: process.env });
+const result = spawnSync('flock', ['--close', '-w', '3600', path.join(lockDir, resource + '.lock'), 'bash', '-lc', command], { cwd: root, stdio: 'inherit', env: process.env });
 process.exit(result.status ?? 1);

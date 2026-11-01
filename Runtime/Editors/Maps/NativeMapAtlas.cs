@@ -9,13 +9,19 @@ public partial class NativeMapAtlas : Control
     public event Action<Rect2I>? RegionSelected;
     private Vector2I start;
     private bool selecting;
-    private const float AtlasScale = 1;
     private Vector2I selectionCell;
+    private float atlasScale = 1;
+    public float AtlasScale
+    {
+        get => atlasScale;
+        set { float next = Math.Clamp(value, .25f, 4); if (Mathf.IsEqualApprox(atlasScale, next)) return; atlasScale = next; Refresh(); }
+    }
     public override void _Ready() { TextureFilter = TextureFilterEnum.Nearest; MouseFilter = MouseFilterEnum.Stop; }
-    public void Refresh() { CustomMinimumSize = Atlas?.GetSize() * AtlasScale ?? new(200, 120); QueueRedraw(); }
+    public void Refresh() { CustomMinimumSize = Atlas is null ? new(200, 120) : Atlas.GetSize() * AtlasScale; QueueRedraw(); }
+    public void Fit() { if (Atlas is null) return; float available = GetParent() is Control parent && parent.Size.X > 8 ? parent.Size.X : Math.Max(200, Atlas.GetWidth()); AtlasScale = Math.Min(1, available / Math.Max(1, Atlas.GetWidth())); }
     public override void _Draw()
     {
-        DrawRect(new(Vector2.Zero, Size), new Color("20252d"));
+        DrawRect(new(Vector2.Zero, Size), new Color("1a1a1a"));
         if (Atlas is null) return;
         DrawTextureRect(Atlas, new(Vector2.Zero, Atlas.GetSize() * AtlasScale), false);
         DrawRect(new((Vector2)Region.Position * AtlasScale, (Vector2)Region.Size * AtlasScale), new Color(1, .9f, .2f, .25f));

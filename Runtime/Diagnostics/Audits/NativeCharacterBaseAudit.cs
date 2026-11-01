@@ -32,7 +32,7 @@ public partial class NativeCharacterEditor
     }
     public void GenerateBaseForAudit()
     {
-        GenerateBase(); overallMode.ButtonPressed = true; workspace.CurrentTab = 1;
+        GenerateBase(); overallMode.ButtonPressed = true; workspace.CurrentTab = 0;
         canvas.Mode = NativeCharacterCanvasMode.Overall; autoFit = true; FitCanvas();
         canvas.ShowReference = true; canvas.ReferenceOpacity = 0.4f; canvas.QueueRedraw();
     }
@@ -44,7 +44,7 @@ public partial class NativeCharacterEditor
     {
         void Expect(bool condition, string message) { if (!condition) throw new InvalidOperationException("Character base UI: " + message); }
         NewDocument();
-        overallMode.ButtonPressed = true; workspace.CurrentTab = 1;
+        overallMode.ButtonPressed = true; workspace.CurrentTab = 0;
         var plan = NativeCharacterBase.Resolve(Document.Definition.BasePreset, new HashSet<string>(assets.Select(a => a.Name), StringComparer.Ordinal));
         Expect(plan.Count >= 8, "the current preset resolves a full base, got " + plan.Count);
         GenerateBase();
@@ -56,11 +56,20 @@ public partial class NativeCharacterEditor
         {
             var part = generated.Single(p => p.Name == item.Part);
             var asset = assets.First(a => a.Name == item.Asset);
-            var anchor = BaseAnchor(asset.Name, asset.Data);
-            Expect(part.AnchorX == anchor.X && part.AnchorY == anchor.Y, part.Name + " keeps the original part anchor");
+            var anchor = TargetAnchor(item.Slot.Target);
+            Expect(part.AnchorX == anchor.X && part.AnchorY == anchor.Y, part.Name + " uses the original anchor of " + item.Slot.Target + ", got " + part.AnchorX + "," + part.AnchorY);
             Expect(part.Target == item.Slot.Target, part.Name + " attaches to " + item.Slot.Target);
             Expect(part.Frames.Count == asset.Data.GetProperty("frames").GetArrayLength(), part.Name + " imports every animation frame in order");
         }
+        using (var body = new NativeCharacterBody(world))
+            foreach (var part in generated.Where(p => p.OffsetX == 0 && p.OffsetY == 0))
+            {
+                var entry = body.Visible(Document.Definition).FirstOrDefault(item => item.Target == part.Target);
+                if (entry is null) continue;
+                var partCorner = NativeCharacterLayout.Corner(part);
+                Expect(partCorner.X + part.AnchorX == entry.Bounds.X + entry.Origin.X && partCorner.Y + part.AnchorY == entry.Bounds.Y + entry.Origin.Y,
+                    part.Name + " lands its origin on the base " + part.Target + " origin, off by " + (partCorner.X + part.AnchorX - entry.Bounds.X - entry.Origin.X) + "," + (partCorner.Y + part.AnchorY - entry.Bounds.Y - entry.Origin.Y));
+            }
         foreach (var part in generated.Where(p => p.Name is "Hair" or "Eye" or "Mouth")) Expect(part.Target == "HEAD", "head layers attach to HEAD");
         var bounds = NativeCharacterLayout.Bounds(Document.Definition);
         Expect(bounds.Width > 20 && bounds.Height > 20, "the generated base composes into a character sized rectangle, got " + bounds);

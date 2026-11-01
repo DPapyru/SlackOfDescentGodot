@@ -16,12 +16,17 @@ public partial class NativeMapCanvas : Control
     public NativeMapTool Tool { get; set; }
     private Vector2 pan;
     private float zoom = 1;
-    public Vector2 Pan { get => pan; set { pan = value; PointerMoved?.Invoke(pointer); } }
-    public float Zoom { get => zoom; set { zoom = value; PointerMoved?.Invoke(pointer); } }
+    public Vector2 Pan { get => pan; set { if (pan == value) return; pan = value; PointerMoved?.Invoke(pointer); ViewChanged?.Invoke(); } }
+    public float Zoom { get => zoom; set { float next = Math.Clamp(value, .03f, 8); if (Mathf.IsEqualApprox(zoom, next)) return; zoom = next; PointerMoved?.Invoke(pointer); ViewChanged?.Invoke(); } }
     public float GridSize { get; set; } = 32;
     public bool ShowTiles { get; set; } = true;
     public bool ShowEntities { get; set; } = true;
     public bool ShowSolidOverlay { get; set; } = true;
+    public bool ShowGrid { get; set; } = true;
+    public bool GridSnap { get; set; } = true;
+    public HashSet<int> HiddenDepths { get; } = new();
+    public Action<Vector2, bool>? SampleRequested { get; set; }
+    public Action? ViewChanged { get; set; }
     public int DrawnTiles { get; private set; }
     public int DrawnEntities { get; private set; }
     public int DrawnSolidRects { get; private set; }
@@ -31,12 +36,14 @@ public partial class NativeMapCanvas : Control
     public Action<Vector2, bool>? PaintAt { get; set; }
     public Action<Vector2?>? PointerMoved { get; set; }
     private Vector2? pointer;
-    private bool dragging, panning, editing, erase;
+    private bool dragging, panning, editing, erase, spacePanning;
+    private Vector2I lastPaintCell = new(int.MinValue, int.MinValue);
     private Vector2 lastPoint, dragStart, selectionStart;
     public NativeMapCanvas(GmWorld world)
     {
         this.world = world; backgrounds = world.Manifest.GetProperty("backgrounds").EnumerateArray().ToDictionary(b => b.GetProperty("id").GetInt32());
         MouseFilter = MouseFilterEnum.Stop; FocusMode = FocusModeEnum.All; TextureFilter = TextureFilterEnum.Nearest;
+        Resized += () => { ClampPan(); QueueRedraw(); ViewChanged?.Invoke(); };
     }
     public Vector2 ToRoom(Vector2 local) => local / Zoom + Pan;
     public Vector2 ToCanvas(Vector2 room) => (room - Pan) * Zoom;
@@ -82,13 +89,13 @@ public partial class NativeMapCanvas : Control
     public (JsonObject? Item, bool Tile) Hit(Vector2 roomPoint)
     {
         if (Document is null) return (null, false);
-        foreach (var item in Document.Instances.OfType<JsonObject>().Reverse()) if (ItemBounds(item, false).Grow(2 / Zoom).HasPoint(roomPoint)) return (item, false);
-        foreach (var item in Document.Tiles.OfType<JsonObject>().Reverse()) if (ItemBounds(item, true).HasPoint(roomPoint)) return (item, true);
+        foreach (var item in ShowEntities ? Document.Instances.OfType<JsonObject>().Reverse() : Enumerable.Empty<JsonObject>()) if (ItemBounds(item, false).Grow(2 / Zoom).HasPoint(roomPoint)) return (item, false);
+        foreach (var item in ShowTiles ? Document.Tiles.OfType<JsonObject>().Where(t => !HiddenDepths.Contains(Int(t, "depth"))).OrderBy(t => Int(t, "depth")) : Enumerable.Empty<JsonObject>()) if (ItemBounds(item, true).HasPoint(roomPoint)) return (item, true);
         return (null, false);
     }
     public override void _Draw()
     {
-        DrawRect(new(Vector2.Zero, Size), new Color("17212c")); DrawnTiles = 0; DrawnEntities = 0; DrawnSolidRects = 0; if (Document is null) return;
+        DrawRect(new(Vector2.Zero, Size), new Color("1e1e1e")); DrawnTiles = 0; DrawnEntities = 0; DrawnSolidRects = 0; if (Document is null) return;
         Rect2 visible = new(Pan, Size / Zoom), roomBounds = new(0, 0, Int(Document.Room, "width"), Int(Document.Room, "height"));
         DrawSetTransform(-Pan * Zoom, 0, Vector2.One * Zoom);
         DrawRect(roomBounds, Tint(Number(Document.Room, "colour", 8421504)));
@@ -102,7 +109,7 @@ public partial class NativeMapCanvas : Control
             int y1 = tileY ? (int)Math.Floor((visible.Position.Y - position.Y) / size.Y) : 0, y2 = tileY ? (int)Math.Ceiling((visible.End.Y - position.Y) / size.Y) : 1;
             for (int y = y1; y < y2; y++) for (int x = x1; x < x2; x++) DrawTextureRect(texture, new(position + new Vector2(x * size.X, y * size.Y), size), false);
         }
-        foreach (var item in ShowTiles ? Document.Tiles.OfType<JsonObject>().OrderByDescending(t => Int(t, "depth")) : Enumerable.Empty<JsonObject>())
+        foreach (var item in ShowTiles ? Document.Tiles.OfType<JsonObject>().Where(t => !HiddenDepths.Contains(Int(t, "depth"))).OrderByDescending(t => Int(t, "depth")) : Enumerable.Empty<JsonObject>())
         {
             Rect2 bounds = ItemBounds(item, true); if (!bounds.Intersects(visible)) continue; DrawnTiles++;
             if (backgrounds.TryGetValue(Int(item, "background", -1), out var background) && Texture(background.GetProperty("path").GetString()!) is Texture2D texture)
@@ -124,7 +131,7 @@ public partial class NativeMapCanvas : Control
             else { DrawRect(bounds, new Color(item["entityType"] is null ? "efb956" : "ce78f2"), false, 1 / Zoom); DrawLine(bounds.Position, bounds.End, Colors.White, 1 / Zoom); DrawLine(new(bounds.End.X, bounds.Position.Y), new(bounds.Position.X, bounds.End.Y), Colors.White, 1 / Zoom); }
             if (ShowSolidOverlay && Solid(item)) { DrawnSolidRects++; DrawRect(bounds, new Color(0.25f, 1, .45f, .6f), false, 1 / Zoom); }
         }
-        if (GridSize * Zoom >= 8)
+        if (ShowGrid && GridSize * Zoom >= 8)
         {
             Color line = new(1, 1, 1, .1f); float unit = Math.Max(1, GridSize);
             for (float x = MathF.Floor(visible.Position.X / unit) * unit; x < visible.End.X; x += unit) DrawLine(new(x, visible.Position.Y), new(x, visible.End.Y), line, 1 / Zoom);
@@ -137,10 +144,24 @@ public partial class NativeMapCanvas : Control
     public override void _GuiInput(InputEvent input)
     {
         if (Document is null) return;
+        if (input is InputEventKey { Keycode: Key.Space } space)
+        {
+            spacePanning = space.Pressed; if (!space.Pressed) panning = false; AcceptEvent(); return;
+        }
         if (input is InputEventMouseButton button)
         {
-            if (button.Pressed && button.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown) { ZoomAt(button.Position, button.ButtonIndex == MouseButton.WheelUp ? 1.15f : 1 / 1.15f); AcceptEvent(); return; }
-            if (button.ButtonIndex == MouseButton.Middle || (button.ButtonIndex == MouseButton.Left && Tool == NativeMapTool.Pan)) { panning = button.Pressed; lastPoint = button.Position; AcceptEvent(); return; }
+            if (button.Pressed && button.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown)
+            {
+                if (button.CtrlPressed) ZoomAt(button.Position, button.ButtonIndex == MouseButton.WheelUp ? 1.15f : 1 / 1.15f);
+                else { float distance = (button.ButtonIndex == MouseButton.WheelUp ? -36 : 36) / Zoom; Pan += button.ShiftPressed ? new Vector2(distance, 0) : new Vector2(0, distance); ClampPan(); QueueRedraw(); }
+                AcceptEvent(); return;
+            }
+            if (button.ButtonIndex == MouseButton.Middle || (button.ButtonIndex == MouseButton.Left && (Tool == NativeMapTool.Pan || spacePanning)))
+            { panning = button.Pressed; lastPoint = button.Position; GrabFocus(); AcceptEvent(); return; }
+            if (Tool == NativeMapTool.Zoom && button.ButtonIndex is MouseButton.Left or MouseButton.Right)
+            { if (button.Pressed) ZoomAt(button.Position, button.ButtonIndex == MouseButton.Right || button.AltPressed ? .8f : 1.25f); AcceptEvent(); return; }
+            if (Tool == NativeMapTool.Eyedrop && button.ButtonIndex == MouseButton.Left)
+            { if (button.Pressed) SampleRequested?.Invoke(ToRoom(button.Position), button.AltPressed); AcceptEvent(); return; }
             if (button.ButtonIndex is not (MouseButton.Left or MouseButton.Right)) return;
             if (!button.Pressed) { dragging = false; editing = false; AcceptEvent(); return; }
             GrabFocus(); erase = button.ButtonIndex == MouseButton.Right; dragging = true; lastPoint = ToRoom(button.Position); dragStart = lastPoint; editing = false;
@@ -148,7 +169,11 @@ public partial class NativeMapCanvas : Control
             {
                 var hit = Hit(lastPoint); Selection = hit.Item; SelectionIsTile = hit.Tile; Selected?.Invoke(hit.Item, hit.Tile); if (Selection is not null) selectionStart = new((float)Number(Selection, "x"), (float)Number(Selection, "y"));
             }
-            else { EditStarted?.Invoke(); editing = true; PaintAt?.Invoke(lastPoint, erase); }
+            else
+            {
+                EditStarted?.Invoke(); editing = true; PaintAt?.Invoke(lastPoint, erase);
+                float unit = GridSnap && !button.CtrlPressed ? GridSize : 1; lastPaintCell = new((int)Math.Floor(lastPoint.X / unit), (int)Math.Floor(lastPoint.Y / unit));
+            }
             AcceptEvent(); QueueRedraw(); return;
         }
         if (input is InputEventMouseMotion motion)
@@ -158,18 +183,26 @@ public partial class NativeMapCanvas : Control
             if (!dragging) return; Vector2 point = ToRoom(motion.Position);
             if (Tool == NativeMapTool.Select && !erase && Selection is not null)
             {
-                Vector2 target = selectionStart + point - dragStart; if (!motion.CtrlPressed) target = (target / GridSize).Round() * GridSize;
+                Vector2 target = selectionStart + point - dragStart; if (GridSnap && !motion.CtrlPressed) target = (target / GridSize).Round() * GridSize;
                 if (target == new Vector2((float)Number(Selection, "x"), (float)Number(Selection, "y"))) return;
                 if (!editing) { EditStarted?.Invoke(); editing = true; } Selection["x"] = (double)target.X; Selection["y"] = (double)target.Y; Edited?.Invoke(); QueueRedraw();
             }
-            else if (Tool != NativeMapTool.Entity || erase)
+            else if (Tool is not (NativeMapTool.Entity or NativeMapTool.Select) || erase)
             {
-                float distance = point.DistanceTo(lastPoint), step = Math.Max(1, GridSize / 3); int count = Math.Clamp((int)Math.Ceiling(distance / step), 1, 2048);
-                for (int i = 1; i <= count; i++) { Vector2 candidate = lastPoint.Lerp(point, (float)i / count); Vector2 cell = (candidate / GridSize).Floor(); Vector2 previousCell = (lastPoint / GridSize).Floor(); if (cell != previousCell) PaintAt?.Invoke(candidate, erase); }
+                float unit = GridSnap && !motion.CtrlPressed ? GridSize : 1, distance = point.DistanceTo(lastPoint), step = Math.Max(1, unit / 3); int count = Math.Clamp((int)Math.Ceiling(distance / step), 1, 2048);
+                for (int i = 1; i <= count; i++)
+                {
+                    Vector2 candidate = lastPoint.Lerp(point, (float)i / count); var cell = new Vector2I((int)Math.Floor(candidate.X / unit), (int)Math.Floor(candidate.Y / unit));
+                    if (cell != lastPaintCell) { PaintAt?.Invoke(candidate, erase); lastPaintCell = cell; }
+                }
             }
             lastPoint = point; AcceptEvent();
         }
     }
-    public override void _Notification(int what) { if (what == NotificationMouseExit) { pointer = null; PointerMoved?.Invoke(null); } }
+    public override void _Notification(int what)
+    {
+        if (what == NotificationMouseExit) { pointer = null; PointerMoved?.Invoke(null); }
+        else if (what == NotificationFocusExit) { panning = spacePanning = dragging = false; editing = false; }
+    }
     public override void _ExitTree() { foreach (var texture in textures.Values) texture?.Dispose(); textures.Clear(); }
 }

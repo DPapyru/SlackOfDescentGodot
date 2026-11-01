@@ -5,7 +5,7 @@ using static SlackOfDescent.NativeMapService;
 
 namespace SlackOfDescent;
 
-public enum NativeMapTool { Select, Tile, Erase, Collision, Entity, Pan }
+public enum NativeMapTool { Select, Tile, Erase, Collision, Entity, Pan, Zoom, Eyedrop }
 
 public partial class NativeMapEditor : Window
 {
@@ -46,69 +46,8 @@ public partial class NativeMapEditor : Window
     public override void _Ready()
     {
         Title = "地图编辑器"; Size = new(1180, 780); MinSize = new(900, 600); Transient = true; Exclusive = false;
-        var root = new VBoxContainer { Name = "EditorLayout" }; AddChild(root); root.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
-        var bar = new HBoxContainer(); root.AddChild(bar);
-        rooms = new OptionButton { Name = "OriginalRooms", AutoTranslateMode = AutoTranslateModeEnum.Disabled, CustomMinimumSize = new(190, 0) }; bar.AddChild(rooms);
-        foreach (var pair in world.Rooms.OrderBy(p => p.Key)) { rooms.AddItem($"{RoomLabel(pair.Value.GetProperty("name").GetString()!)}", pair.Key); if (pair.Key == Service.TestRoomId) rooms.Select(rooms.ItemCount - 1); }
-        Button(bar, "导入原版", "ImportOriginal", () => Guard(() => Import(rooms.GetSelectedId())));
-        Button(bar, "打开…", "OpenMap", () => Guard(OpenDialog));
-        Button(bar, "保存", "SaveMap", () => SaveRequested(false)); Button(bar, "另存为…", "SaveMapAs", () => SaveRequested(true));
-        undoButton = new Button { Text = "撤销", Name = "Undo" }; bar.AddChild(undoButton); undoButton.Pressed += Undo;
-        redoButton = new Button { Text = "重做", Name = "Redo" }; bar.AddChild(redoButton); redoButton.Pressed += Redo;
-        Button(bar, "房间与相机", "RoomSettings", OpenRoomSettings);
-        Button(bar, "地图目录", "MapLibrary", OpenMapLibrary); Button(bar, "事件", "MapEvents", OpenEventEditor);
-        Button(bar, "试玩 ▶", "PlayMap", Play);
-        var split = new HSplitContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill }; root.AddChild(split); split.SplitOffsets = [235];
-        var left = new VBoxContainer { CustomMinimumSize = new(230, 0) }; split.AddChild(left);
-        left.AddChild(new Label { Text = "工具（右键擦除／中键移动视野）" });
-        toolChoice = new OptionButton { Name = "MapTool" }; left.AddChild(toolChoice);
-        foreach (string text in new[] { "选择与移动", "绘制图块", "擦除", "碰撞区块", "放置实体", "移动视野" }) toolChoice.AddItem(text);
-        toolChoice.ItemSelected += index => { MapCanvas.Tool = (NativeMapTool)index; UpdateStatus(); };
-        grid = Field(left, "网格大小", "GridSize", 1, 128, 32); grid.ValueChanged += value => { if (MapCanvas is not null) { MapCanvas.GridSize = (float)value; MapCanvas.QueueRedraw(); } };
-        var tabs = new TabContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill }; left.AddChild(tabs);
-        var tilePanel = new VBoxContainer { Name = "图块" }; tabs.AddChild(tilePanel);
-        backgrounds = new OptionButton { Name = "TileBackground", AutoTranslateMode = AutoTranslateModeEnum.Disabled }; tilePanel.AddChild(backgrounds);
-        foreach (var background in world.Manifest.GetProperty("backgrounds").EnumerateArray()) backgrounds.AddItem(background.GetProperty("name").GetString()!, background.GetProperty("id").GetInt32());
-        int defaultBackground = Array.FindIndex(world.Manifest.GetProperty("backgrounds").EnumerateArray().ToArray(), b => b.GetProperty("id").GetInt32() == 20); if (defaultBackground >= 0) backgrounds.Select(defaultBackground);
-        sourceX = Field(tilePanel, "图集横坐标", "TileSourceX", 0, 16384, 0); sourceY = Field(tilePanel, "图集纵坐标", "TileSourceY", 0, 16384, 0);
-        tileWidth = Field(tilePanel, "图块宽度", "TileWidth", 1, 4096, 32); tileHeight = Field(tilePanel, "图块高度", "TileHeight", 1, 4096, 32);
-        depth = Field(tilePanel, "图层深度", "TileDepth", -1000000, 1000000, 10000);
-        BuildAtlas(tilePanel);
-        tilePanel.AddChild(new Label { Text = "同一网格、同一图层再次绘制会替换图块。\n碰撞工具使用左侧实体列表中的区块。", AutowrapMode = TextServer.AutowrapMode.WordSmart });
-        var entityPanel = new VBoxContainer { Name = "实体" }; tabs.AddChild(entityPanel);
-        var filter = new LineEdit { Name = "EntityFilter", PlaceholderText = "搜索实体／扩展" }; entityPanel.AddChild(filter);
-        entities = new ItemList { Name = "EntityPalette", AutoTranslateMode = AutoTranslateModeEnum.Disabled, SizeFlagsVertical = Control.SizeFlags.ExpandFill }; entityPanel.AddChild(entities);
-        entityFilter = filter; filter.TextChanged += PopulateEntities; BuildEntityPreview(entityPanel); PopulateEntities("");
-        var right = new HSplitContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; split.AddChild(right); right.SplitOffsets = [650];
-        var canvasFrame = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; right.AddChild(canvasFrame);
-        var canvasBar = new HBoxContainer(); canvasFrame.AddChild(canvasBar);
-        Button(canvasBar, "缩小", "ZoomOut", () => MapCanvas.ZoomAt(MapCanvas.Size / 2, .8f)); Button(canvasBar, "放大", "ZoomIn", () => MapCanvas.ZoomAt(MapCanvas.Size / 2, 1.25f));
-        Button(canvasBar, "显示全图", "FitRoom", () => MapCanvas.Fit()); Button(canvasBar, "实际大小", "ActualSize", () => { MapCanvas.Pan = new(0, 0); MapCanvas.Zoom = 1; MapCanvas.ClampPan(); MapCanvas.QueueRedraw(); });
-        spawnCenterButton = new Button { Text = "居中到出生点", Name = "SpawnCenter" }; canvasBar.AddChild(spawnCenterButton); spawnCenterButton.Pressed += CenterOnSpawn;
-        tilesToggle = new CheckBox { Text = "图块", Name = "ShowTiles", ButtonPressed = true }; canvasBar.AddChild(tilesToggle);
-        entitiesToggle = new CheckBox { Text = "实体", Name = "ShowEntities", ButtonPressed = true }; canvasBar.AddChild(entitiesToggle);
-        solidToggle = new CheckBox { Text = "碰撞框", Name = "ShowSolid", ButtonPressed = true }; canvasBar.AddChild(solidToggle);
-        tilesToggle.Toggled += on => { MapCanvas.ShowTiles = on; MapCanvas.QueueRedraw(); };
-        entitiesToggle.Toggled += on => { MapCanvas.ShowEntities = on; MapCanvas.QueueRedraw(); };
-        solidToggle.Toggled += on => { MapCanvas.ShowSolidOverlay = on; MapCanvas.QueueRedraw(); };
-        MapCanvas = new NativeMapCanvas(world) { Name = "MapCanvas", SizeFlagsVertical = Control.SizeFlags.ExpandFill, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new(300, 260), ClipContents = true };
-        canvasFrame.AddChild(MapCanvas);
-        MapCanvas.EditStarted = Remember; MapCanvas.Edited = Changed; MapCanvas.Selected = Select; MapCanvas.PaintAt = PaintAt;
-        MapCanvas.PointerMoved = point => { pointerRoom = point; UpdatePointerStatus(); };
-        var inspector = new VBoxContainer { CustomMinimumSize = new(230, 0) }; right.AddChild(inspector);
-        selectedTitle = new Label { AutoTranslateMode = AutoTranslateModeEnum.Disabled, Text = NativeLocalization.Text("未选择区块或实体"), Name = "SelectionTitle" }; inspector.AddChild(selectedTitle);
-        propX = Field(inspector, "横坐标", "PropertyX", -1000000, 1000000, 0); propY = Field(inspector, "纵坐标", "PropertyY", -1000000, 1000000, 0);
-        propScaleX = Field(inspector, "横向缩放", "PropertyScaleX", -1000, 1000, 1, .1); propScaleY = Field(inspector, "纵向缩放", "PropertyScaleY", -1000, 1000, 1, .1); propAngle = Field(inspector, "旋转角度", "PropertyAngle", -36000, 36000, 0);
-        foreach (var field in new[] { propX, propY, propScaleX, propScaleY, propAngle }) field.ValueChanged += _ => ApplyBasicProperties();
-        propertyForm = new VBoxContainer { Name = "EntityPropertyForm" }; inspector.AddChild(propertyForm);
-        inspector.AddChild(new Label { Text = "高级属性（JSON）" });
-        properties = new TextEdit { Name = "EntityProperties", AutoTranslateMode = AutoTranslateModeEnum.Disabled, SizeFlagsVertical = Control.SizeFlags.ExpandFill, CustomMinimumSize = new(220, 140), Text = "{}" }; inspector.AddChild(properties);
-        applyButton = new Button { Text = "应用属性", Name = "ApplyProperties" }; inspector.AddChild(applyButton); applyButton.Pressed += ApplyCustomProperties;
-        rawButton = new Button { Text = "编辑完整数据…", Name = "EditRawSelection" }; inspector.AddChild(rawButton); rawButton.Pressed += OpenRawSelection;
-        deleteButton = new Button { Text = "删除所选", Name = "DeleteSelection" }; inspector.AddChild(deleteButton); deleteButton.Pressed += DeleteSelection;
-        var statusBar = new HBoxContainer { Name = "StatusBar" }; root.AddChild(statusBar);
-        status = new Label { Name = "MapStatus", AutoTranslateMode = AutoTranslateModeEnum.Disabled, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; statusBar.AddChild(status);
-        pointerStatus = new Label { Name = "MapPointerStatus", AutoTranslateMode = AutoTranslateModeEnum.Disabled, HorizontalAlignment = HorizontalAlignment.Right }; statusBar.AddChild(pointerStatus);
+        Theme = NativeEditorTheme.Create();
+        BuildWorkbench();
         fileDialog = new FileDialog { Name = "MapFileDialog", Title = NativeLocalization.Text("选择地图文件"), Access = FileDialog.AccessEnum.Filesystem, UseNativeDialog = true, Filters = ["*.map.json ; " + NativeLocalization.Text("地图文件")], CurrentDir = store.Maps, Size = new(800, 560) }; AddChild(fileDialog);
         fileDialog.FileSelected += FileSelected;
         unsaved = new ConfirmationDialog { Name = "MapUnsaved", Title = "尚未保存", DialogText = "地图有未保存的修改。要先保存吗？", OkButtonText = "保存", CancelButtonText = "取消" }; AddChild(unsaved);
@@ -119,9 +58,10 @@ public partial class NativeMapEditor : Window
         CloseRequested += () => Guard(FinishClose);
         registry.Changed += RegistryChanged;
         Import(Service.TestRoomId);
+        LoadWorkbenchSettings();
         uiStarted = System.Diagnostics.Stopwatch.GetTimestamp();
     }
-    public override void _ExitTree() { registry.Changed -= RegistryChanged; foreach (var texture in paletteTextures.Values) texture.Dispose(); }
+    public override void _ExitTree() { SaveWorkbenchSettings(); registry.Changed -= RegistryChanged; foreach (var texture in paletteTextures.Values) texture.Dispose(); }
     private static string RoomLabel(string name) => name;
     private static void Button(Node parent, string label, string name, Action action) { var button = new Button { Text = label, Name = name }; parent.AddChild(button); button.Pressed += action; }
     private static SpinBox Field(Node parent, string label, string name, double min, double max, double value, double step = 1)
@@ -141,7 +81,7 @@ public partial class NativeMapEditor : Window
     }
     private void SetDocument(NativeMapDocument document, string? path)
     {
-        Document = document; FilePath = path; Dirty = false; undo.Clear(); redo.Clear(); selected = null; MapCanvas.Document = document; Select(null, false); UpdateStatus(); FitWhenReady();
+        Document = document; FilePath = path; Dirty = false; undo.Clear(); redo.Clear(); selected = null; MapCanvas.Document = document; MapCanvas.HiddenDepths.Clear(); Select(null, false); UpdateStatus(); FitWhenReady();
     }
     private int fitAttempts;
     public void FitWhenReady()
@@ -172,6 +112,7 @@ public partial class NativeMapEditor : Window
         Title = NativeLocalization.Text("地图编辑器") + " — " + Document.Name + (Dirty ? " *" : ""); MapCanvas.GridSize = (float)grid.Value;
         UpdateCommandState();
         UpdatePointerStatus();
+        QueueWorkbenchSync();
     }
     public const string SpawnObject = "objSetRespawn";
     private JsonObject? FindSpawn() => world.Constants.TryGetValue(SpawnObject, out var id)
@@ -203,13 +144,16 @@ public partial class NativeMapEditor : Window
         string cell = pointerRoom is { } room ? string.Format(NativeLocalization.Text("（图块 {0}, {1}）"), Math.Floor(room.X / Math.Max(1, grid.Value)), Math.Floor(room.Y / Math.Max(1, grid.Value))) : "";
         string text = pointerRoom is { } point ? string.Format(NativeLocalization.Text("缩放 {0:0}%　鼠标 {1:0}, {2:0}{3}"), zoom * 100, point.X, point.Y, cell) : string.Format(NativeLocalization.Text("缩放 {0:0}%"), zoom * 100);
         if (pointerStatus.Text != text) pointerStatus.Text = text;
+        if (zoomInput is not null && !zoomInput.HasFocus()) zoomInput.Text = (zoom * 100).ToString("0") + "%";
     }
     private void Select(JsonObject? item, bool tile)
     {
         selected = item; selectedTile = tile; MapCanvas.Selection = item; MapCanvas.SelectionIsTile = tile; updating = true;
         selectedTitle.Text = item is null ? NativeLocalization.Text("未选择区块或实体") : NativeLocalization.Text(tile ? "图块" : "实体") + " #" + Int(item, "id");
         propX.Value = item is null ? 0 : Number(item, "x"); propY.Value = item is null ? 0 : Number(item, "y"); propScaleX.Value = item is null ? 1 : Number(item, "xscale", 1); propScaleY.Value = item is null ? 1 : Number(item, "yscale", 1); propAngle.Value = item is null ? 0 : Number(item, "angle");
-        properties.Text = item?["properties"]?.ToJsonString(NativeContentStore.Json) ?? "{}"; updating = false; RefreshPropertyForm(); MapCanvas.QueueRedraw();
+        properties.Text = item?["properties"]?.ToJsonString(NativeContentStore.Json) ?? "{}"; updating = false; RefreshPropertyForm(); UpdateCommandState(); MapCanvas.QueueRedraw();
+        propAngle.Editable = item is not null && !tile; properties.Editable = item is not null;
+        if (selectionStatus is not null) selectionStatus.Text = item is null ? L("未选择", "None") : L(tile ? "图块" : "实体", tile ? "Tile" : "Entity") + " #" + Int(item, "id");
     }
     private void ApplyBasicProperties()
     {
@@ -241,13 +185,15 @@ public partial class NativeMapEditor : Window
     }
     private void PaintAt(Vector2 point, bool erase)
     {
-        float unit = (float)grid.Value; double x = Math.Floor(point.X / unit) * unit, y = Math.Floor(point.Y / unit) * unit;
+        if (point.X < 0 || point.Y < 0 || point.X >= Int(Document.Room, "width") || point.Y >= Int(Document.Room, "height")) return;
+        float unit = (float)grid.Value; bool snap = snapToggle.ButtonPressed && !Input.IsKeyPressed(Key.Ctrl); double x = snap ? Math.Floor(point.X / unit) * unit : Math.Floor(point.X), y = snap ? Math.Floor(point.Y / unit) * unit : Math.Floor(point.Y);
         if (erase || MapCanvas.Tool == NativeMapTool.Erase)
         {
             var hit = MapCanvas.Hit(point); if (hit.Item is not null) { (hit.Tile ? Document.Tiles : Document.Instances).Remove(hit.Item); if (selected == hit.Item) Select(null, false); Changed(); } return;
         }
         if (MapCanvas.Tool == NativeMapTool.Tile)
         {
+            if (backgrounds.ItemCount == 0) return;
             foreach (var item in Document.Tiles.OfType<JsonObject>().Where(t => Number(t, "x") == x && Number(t, "y") == y && Int(t, "depth") == (int)depth.Value).ToArray()) Document.Tiles.Remove(item);
             Service.AddTile(Document, backgrounds.GetSelectedId(), x, y, (int)sourceX.Value, (int)sourceY.Value, (int)tileWidth.Value, (int)tileHeight.Value, (int)depth.Value); Changed(); return;
         }
@@ -298,7 +244,7 @@ public partial class NativeMapEditor : Window
             try
             {
                 var replacement = JsonNode.Parse(text.Text)?.AsObject() ?? throw new InvalidDataException("房间数据必须是对象。"); replacement["width"] = (int)width.Value; replacement["height"] = (int)height.Value; replacement["instances"] = Document.Instances.DeepClone(); replacement["tiles"] = Document.Tiles.DeepClone();
-                var candidate = Document.Clone(); candidate.Room = replacement; candidate.Name = name.Text; Service.Validate(candidate); Remember(); Document.Room = replacement; Document.Name = name.Text; selected = null; Select(null, false); Changed(); dialog.QueueFree();
+                var candidate = Document.Clone(); candidate.Room = replacement; candidate.Name = name.Text; Service.Validate(candidate); Remember(); Document.Room = replacement; Document.Name = name.Text; selected = null; Select(null, false); Changed(); MapCanvas.Fit(); dialog.QueueFree();
             }
             catch (Exception exception) { Message(exception.Message); }
         };
@@ -314,15 +260,10 @@ public partial class NativeMapEditor : Window
     }
     public override void _UnhandledKeyInput(InputEvent input)
     {
-        if (input is not InputEventKey { Pressed: true, Echo: false } key) return;
-        if (key.CtrlPressed && key.Keycode == Key.S) SaveRequested(key.ShiftPressed);
-        else if (key.CtrlPressed && key.Keycode == Key.Z) { if (key.ShiftPressed) Redo(); else Undo(); }
-        else if (key.CtrlPressed && key.Keycode == Key.Y) Redo();
-        else if (key.CtrlPressed && key.Keycode == Key.D) DuplicateSelection();
-        else if (key.Keycode == Key.Delete && !properties.HasFocus()) DeleteSelection();
-        else if (!key.CtrlPressed && !key.AltPressed && !TypingInField() && ToolShortcut(key.Keycode) is int tool) SelectTool(tool);
-        else return;
-        SetInputAsHandled();
+        if (input is not InputEventKey { Pressed: true, Echo: false } key || TypingInField()) return;
+        string? action = shortcuts.FirstOrDefault(pair => pair.Value == ShortcutText(key)).Key;
+        if (action is not null) { RunMapAction(action); SetInputAsHandled(); return; }
+        if (ToolShortcut(key.Keycode) is int tool && !key.CtrlPressed && !key.AltPressed) { SelectTool(tool); SetInputAsHandled(); }
     }
     private bool TypingInField() => GetViewport()?.GuiGetFocusOwner() switch { LineEdit or TextEdit => true, SpinBox box => box.GetLineEdit().HasFocus(), _ => false };
     private static int? ToolShortcut(Key code) => code switch
@@ -334,9 +275,9 @@ public partial class NativeMapEditor : Window
     public void SelectTool(int tool)
     {
         if (toolChoice is null || MapCanvas is null || tool < 0 || tool >= toolChoice.ItemCount) return;
-        if (toolChoice.Selected == tool) return;
         toolChoice.Select(tool);
         MapCanvas.Tool = (NativeMapTool)tool;
+        SyncToolOptions();
         UpdateStatus();
         MapCanvas.GrabFocus();
     }

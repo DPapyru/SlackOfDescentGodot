@@ -12,7 +12,7 @@ public partial class NativeCharacterEditor
         PopulateAssets("Character-Nana_Body_Top.gif");
         int original = Enumerable.Range(0, originalAssets.ItemCount).Single(i => assets[originalAssets.GetItemMetadata(i).AsInt32()].Name == "Chara/Doll/Body/Character-Nana_Body_Top.gif");
         originalAssets.Select(original); ImportOriginal();
-        Expect(CurrentPart!.AnchorX == 11 && CurrentPart.AnchorY == 19 && CurrentPart.Frames.Count > 1, "original animation uses its skeleton anchor");
+        Expect(CurrentPart!.AnchorX == 10 && CurrentPart.AnchorY == 20 && CurrentPart.Frames.Count > 1, "original animation uses the BODY_TOP original anchor 10,20 instead of the asset origin 11,19, got " + CurrentPart.AnchorX + "," + CurrentPart.AnchorY);
         string rgb = Path.Combine(output, "import-01-rgb.png"), palette = Path.Combine(output, "import-02-palette.png");
         File.WriteAllBytes(rgb, Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP4L6fBLabIoPE/ICrgPwAcNQSoOnZbNgAAAABJRU5ErkJggg=="));
         File.WriteAllBytes(palette, Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAMAAABFaP0WAAAADFBMVEX/HigLFiEo/1BaUP/utSiJAAAABHRSTlP/AID/excXrQAAAA5JREFUeJxjYGBkYGIGAAARAAeeoioSAAAAAElFTkSuQmCC"));

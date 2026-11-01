@@ -152,7 +152,25 @@ public partial class GameHost
         characterEditor.PreviewAdvanceRequested+=AdvanceCharacterPreview;
         characterEditor.PreviewResetRequested+=()=>{isolatedPreview?.Reset();previewCanvas?.QueueRedraw();};
         characterEditor.Closed+=CloseCharacterEditor;
-        ShowEditorWindow(characterEditor);characterEditor.ApplyRuntimePreview();
+        ShowEditorWindow(characterEditor);InitializeCharacterPreview();
+    }
+    private async void InitializeCharacterPreview()
+    {
+        if(previewBusy)return;
+        previewBusy=true;
+        try{await EnsureCharacterPreviewAsync();}
+        catch(Exception e){characterEditor?.SetPreviewState(NativeLocalization.Text("预览失败：")+NativeLocalization.Text(e.Message));}
+        finally{previewBusy=false;}
+        characterEditor?.ApplyRuntimePreview();
+    }
+    private async Task<bool> EnsureCharacterPreviewAsync()
+    {
+        if(isolatedPreview is not null)return true;
+        if(previewViewport is null||characterEditor is null)return false;
+        isolatedPreview=new(previewViewport,world,content,nativeDrawRepository,mods.LoadedMods.Select(m=>m.Directory));
+        await isolatedPreview.InitializeAsync();previewReady=true;
+        FrameCharacterPreview();previewCanvas?.QueueRedraw();
+        return true;
     }
     private static void ShowEditorWindow(Window window)
     {
@@ -181,14 +199,11 @@ public partial class GameHost
         previewBusy=true;
         try
         {
-            if(isolatedPreview is null)
-            {
-                isolatedPreview=new(previewViewport!,world,content,nativeDrawRepository,mods.LoadedMods.Select(m=>m.Directory));
-                await isolatedPreview.InitializeAsync();previewReady=true;
-            }
+            if(isolatedPreview is null&&!await EnsureCharacterPreviewAsync())return;
             if(characterEditor is null)return;
-            isolatedPreview.Registry.CharacterDirectories[definition.Id]=characterEditor.PreviewDirectory;
-            previewDefinition=definition;await isolatedPreview.ApplyAsync(definition);FrameCharacterPreview();previewCanvas?.QueueRedraw();
+            var preview=isolatedPreview!;
+            preview.Registry.CharacterDirectories[definition.Id]=characterEditor.PreviewDirectory;
+            previewDefinition=definition;await preview.ApplyAsync(definition);FrameCharacterPreview();previewCanvas?.QueueRedraw();
             characterEditor?.SetPreviewState(string.Format(NativeLocalization.Text("真实运行时：{0}；动作与碰撞已绑定。"),definition.BasePreset));
         }
         catch(Exception e){characterEditor?.SetPreviewState(NativeLocalization.Text("预览失败：")+NativeLocalization.Text(e.Message));}

@@ -22,7 +22,7 @@ public partial class NativeCharacterEditor
         for (int i = 0; i < assets.Count; i++)
         {
             var asset = assets[i]; if (!NativeContentLocalization.Matches(registry, asset.Name, asset.Name, query)) continue;
-            int index = originalAssets.AddItem(NativeContentLocalization.Display(registry, asset.Name, asset.Name)); originalAssets.SetItemMetadata(index, i); originalAssets.SetItemTooltip(index, asset.Name);
+            int index = originalAssets.AddItem(Path.GetFileNameWithoutExtension(asset.Name), AssetThumbnail(asset.Name, asset.Data)); originalAssets.SetItemMetadata(index, i); originalAssets.SetItemTooltip(index, asset.Name);
         }
     }
     private static NativePixelClipboard ReadPng(string path, bool original = false)
@@ -62,15 +62,8 @@ public partial class NativeCharacterEditor
         {
             var asset = assets[originalAssets.GetItemMetadata(originalAssets.GetSelectedItems()[0]).AsInt32()];
             var images = asset.Data.GetProperty("frames").EnumerateArray().Select(f => ReadPng(Path.Combine(world.Root, f.GetProperty("path").GetString()!), true)).ToArray();
-            int x = asset.Data.GetProperty("originX").GetInt32(), y = asset.Data.GetProperty("originY").GetInt32();
-            if (world.Code.TryGetValue("external/" + Path.ChangeExtension(asset.Name, ".txt"), out var metadata))
-                foreach (var node in metadata[1].EnumerateArray())
-                    if (node.GetArrayLength() > 3 && node[0].GetString() == "binary" && node[1].GetString() == "Assign" && node[2][0].GetString() == "id" && node[3][0].GetString() == "num")
-                    {
-                        if (node[2][1].GetString() == "partx") x = (int)node[3][1].GetDouble();
-                        if (node[2][1].GetString() == "party") y = (int)node[3][1].GetDouble();
-                    }
-            Document.ImportFrames(CurrentPart.Id, images, anchorX: x, anchorY: y); selectedFrame = 0; Refresh(); OnPixelsEdited();
+            var anchor = TargetAnchor(CurrentPart.Target);
+            Document.ImportFrames(CurrentPart.Id, images, anchorX: anchor.X, anchorY: anchor.Y); selectedFrame = 0; Refresh(); OnPixelsEdited();
         }
         catch (Exception error) { ShowMessage(error.Message); }
     }

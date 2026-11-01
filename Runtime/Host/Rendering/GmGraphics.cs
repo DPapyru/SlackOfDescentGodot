@@ -239,7 +239,6 @@ public partial class GmCanvas : Node2D
     private int lastFilter = -1;
 
 
-    // 绘制命令里连续的贴图绘制共享同一个 transform，减少 canvas 命令条数。
     private bool transformDirty;
     internal bool RedrawQueued;
     public static long TransformSetCalls, TransformResetCalls, RedrawCalls;
@@ -489,8 +488,6 @@ public sealed partial class GmGraphics
 
         public void Execute(GmGraphics graphics)
         {
-            // action 不为空表示该命令已经保存了完整的画布操作。
-            // 直接执行这个操作并返回，后面的其他命令载荷分支不再检查。
             if (action is not null)
             {
                 using var phase = graphics.world.Performance.MeasureDraw("misc_draw_build");
@@ -498,8 +495,6 @@ public sealed partial class GmGraphics
                 return;
             }
 
-            // particles 不为空表示该命令的完整绘制工作交给粒子系统处理。
-            // 粒子命令没有 instance、texture 或 path 的后备绘制路径，因此执行后立即返回。
             if (particles is not null)
             {
                 using var phase = graphics.world.Performance.MeasureDraw("misc_draw_build");
@@ -507,8 +502,6 @@ public sealed partial class GmGraphics
                 return;
             }
 
-            // instance 不为空表示这是一个普通世界对象的绘制命令。
-            // 下面的性能统计范围用于记录该对象 kind=8（Draw 事件）的绘制构建耗时。
             if (instance is not null)
             {
                 using var phase = graphics.world.Performance.MeasureDraw("object_draw_build");
@@ -517,20 +510,14 @@ public sealed partial class GmGraphics
                     8
                 );
 
-                // path 不为空表示对象使用外部或原生视觉资源。
-                // 直接绘制该资源，不再分发对象自己的 GML Draw 事件。
                 if (path is not null)
                     graphics.DrawExternal(path, origin, position, scale, angle);
                 else
                 {
-                    // 普通实例绘制期间，角色渲染可能需要读取当前绘制对象来替换或装饰 sprite。
-                    // 因此先保存调用者原有的绘制上下文，再把当前实例设为上下文。
                     var previous = graphics.characterDrawingInstance;
                     graphics.characterDrawingInstance = instance;
                     try
                     {
-                        // 已销毁实例不能再分发 Draw 事件。
-                        // 如果对象没有 Draw 事件，才通过 graphics.Instance() 绘制它的默认 sprite 状态。
                         long subTicks = 0,
                             subAlloc = 0;
                         if (buildPhases)
@@ -548,15 +535,12 @@ public sealed partial class GmGraphics
                     }
                     finally
                     {
-                        // 无论事件执行过程中抛出异常还是提前退出，都要恢复调用者原有的绘制上下文。
                         graphics.characterDrawingInstance = previous;
                     }
                 }
                 return;
             }
 
-            // 走到这里表示前三类载荷都不存在，当前命令是预先准备好的纹理绘制。
-            // 使用命令中保存的位置、缩放、源区域和颜色直接绘制纹理。
             using var texturePhase = graphics.world.Performance.MeasureDraw("misc_draw_build");
             graphics.Textured(texture!, Vector2.Zero, source, position, scale, 0, tint);
         }
@@ -797,7 +781,6 @@ public sealed partial class GmGraphics
 
     public static double CaptureSpriteMs;
 
-    // 分段计时（SLACK_BUILD_PHASES=1 生效；关闭时每段只有一次布尔判断）。
     private static readonly bool buildPhases =
         System.Environment.GetEnvironmentVariable("SLACK_BUILD_PHASES") == "1";
     private static readonly long[] phaseTicks = new long[10];
@@ -980,7 +963,6 @@ public sealed partial class GmGraphics
 
     public void Build()
     {
-        // 防止在一次绘制构建尚未完成时再次进入，避免重复填充同一批绘制命令。
         if (building)
             return;
         building = true;
@@ -992,13 +974,10 @@ public sealed partial class GmGraphics
             collected = 0;
         try
         {
-            // 将本次 Build 归入绘制引擎的 kind=8 性能统计范围。
             using var measurement = world.Performance.Objects.Begin(-2, 8);
 
-            // 清空上一帧留下的主绘制命令，但保留可复用的列表和批次对象。
             Begin();
 
-            // 有视口时使用当前摄像机位置；没有视口时以房间左上角作为绘制原点。
             Camera = world.Engine.ReadOr("view_enabled").Truth
                 ? new(
                     (float)world.Engine.Read("view_xview", [0]).Number,
@@ -1006,7 +985,6 @@ public sealed partial class GmGraphics
                 )
                 : Vector2.Zero;
 
-            // 有视口时使用视口尺寸；没有视口时使用整个房间尺寸。
             viewSize = world.Engine.ReadOr("view_enabled").Truth
                 ? new(
                     (float)world.Engine.Read("view_wview", [0]).Number,
@@ -1014,10 +992,8 @@ public sealed partial class GmGraphics
                 )
                 : new(world.Engine.Read("room_width").Int, world.Engine.Read("room_height").Int);
 
-            // 先加入绘制到场景之前的背景内容。
             RoomBackgrounds(false);
 
-            // 按嵌套 Build 层级取得可复用的深度绘制缓冲区。
             if (depthDrawLevel == depthDrawBuffers.Count)
                 depthDrawBuffers.Add(new());
             var buffer = depthDrawBuffers[depthDrawLevel++];
@@ -1027,15 +1003,12 @@ public sealed partial class GmGraphics
             try
             {
                 var collectMeasurement = world.Performance.MeasureDraw("build_collect");
-                // 注入额外的底层绘制命令，例如原生角色或编辑器装饰层。
                 AdditionalDrawCommands?.Invoke(draws);
 
-                // 将外部绘制回调产生的深度绘制项转换为统一的 DepthDraw。
                 if (AdditionalDraws is not null)
                     foreach (var draw in AdditionalDraws())
                         draws.Add(new(draw.Depth, draw.Draw));
 
-                // 自动绘制的粒子系统直接进入深度排序队列。
                 foreach (var system in world.Particles.Systems.Values)
                     if (system.AutoDraw)
                         draws.Add(new(system));
@@ -1054,25 +1027,21 @@ public sealed partial class GmGraphics
                     MarkPhase(1, ref markTicks, ref markAlloc);
                 }
 
-                // 将每个通过过滤的实例包装成延迟执行的对象绘制项。
                 foreach (var instance in buffer.Instances)
                     draws.Add(new(instance));
                 if (buildPhases)
                     MarkPhase(2, ref markTicks, ref markAlloc);
 
-                // 房间图块发生变化时才重新读取图块的纹理、变换、深度和包围盒信息。
                 if (tilesVersion != world.TilesVersion)
                 {
                     tileData.Clear();
                     tilesVersion = world.TilesVersion;
                     foreach (var tile in world.Tiles)
                     {
-                        // 被隐藏的图层不进入缓存，也不会参与本帧绘制。
                         int depth = tile.GetProperty("depth").GetInt32();
                         if (world.HiddenTileLayers.Contains(depth))
                             continue;
 
-                        // 保存图块的源区域、位置、缩放和颜色，供后续帧复用。
                         var source = new Rect2(
                             (float)tile.GetProperty("sourceX").GetDouble(),
                             (float)tile.GetProperty("sourceY").GetDouble(),
@@ -1102,11 +1071,9 @@ public sealed partial class GmGraphics
                     }
                 }
 
-                // 用摄像机和视口尺寸建立图块可见区域；边缘额外扩展一个像素。
                 var visible = new Rect2(Camera - Vector2.One, viewSize + Vector2.One * 2);
                 foreach (var tile in tileData)
                 {
-                    // 图块包围盒完全不相交时跳过，避免把不可见图块加入排序队列。
                     if (!visible.Intersects(tile.Bounds, true))
                         continue;
                     draws.Add(
@@ -1121,7 +1088,6 @@ public sealed partial class GmGraphics
                     );
                 }
 
-                // 记录加入队列时的稳定顺序，用于相同 depth 的绘制保持原始顺序。
                 for (int i = 0; i < draws.Count; i++)
                     draws[i] = draws[i] with { Order = i };
 
@@ -1129,13 +1095,11 @@ public sealed partial class GmGraphics
                 if (buildPhases)
                     MarkPhase(3, ref markTicks, ref markAlloc);
 
-                // 按深度排序所有对象、粒子、外部命令和图块；实体数量越多排序成本越高。
                 using (world.Performance.MeasureDraw("depth_sort"))
                     draws.Sort(depthDrawOrder);
                 if (buildPhases)
                     MarkPhase(4, ref markTicks, ref markAlloc);
 
-                // 按排序结果逐项执行；实例项会在这里分发对象的 Draw 事件。
                 if (buildPhases)
                     dispatched = draws.Count;
                 foreach (var draw in draws)
@@ -1143,7 +1107,6 @@ public sealed partial class GmGraphics
                 if (buildPhases)
                     MarkPhase(5, ref markTicks, ref markAlloc);
 
-                // 所有前景绘制完成后加入需要位于最上层的背景内容。
                 using (world.Performance.MeasureDraw("misc_draw_build"))
                     RoomBackgrounds(true);
                 if (buildPhases)
@@ -1151,7 +1114,6 @@ public sealed partial class GmGraphics
             }
             finally
             {
-                // 清空本次内容但保留缓冲区对象，供下一次 Build 复用。
                 draws.Clear();
                 buffer.Instances.Clear();
                 depthDrawLevel--;
@@ -1159,7 +1121,6 @@ public sealed partial class GmGraphics
         }
         finally
         {
-            // 无论绘制过程中是否抛出异常，都要解除重入锁并记录 Build 耗时。
             building = false;
             Builds++;
             LastBuildMilliseconds = (Time.GetTicksUsec() - started) / 1000.0;
@@ -1245,9 +1206,6 @@ public sealed partial class GmGraphics
 
     private readonly Dictionary<int, SpriteFrames> spriteFrames = new();
 
-    // 每次绘制都读 JsonElement 的 path 会分配字符串；按 sprite 缓存帧贴图与原点。
-    // shortcut: 用元素哈希+帧数+原点识别替换（所有 sprite 变更都会换 JSON 元素），
-    // 若将来出现在同一 document 内原地改写帧 path 的路径，需要换成显式失效。
     private bool SpriteFrame(
         int id,
         double frame,
@@ -1465,7 +1423,6 @@ public sealed partial class GmGraphics
     private static readonly bool deferSpriteUpdates =
         System.Environment.GetEnvironmentVariable("SLACK_NO_SPRITE_DEFER") != "1";
 
-    // 把挂起的 sprite 帧一次性写回世界：连续 sprite_add_from_surface 只序列化一次。
     private void FlushSprites()
     {
         if (spriteDirty.Count == 0)
@@ -1597,8 +1554,6 @@ public sealed partial class GmGraphics
             CaptureStage(4, ref stageTicks, ref stageBytes);
         if (append is int id)
         {
-            // 追加帧时不再 Parse/Serialize 整个 sprite（随帧数线性变贵）；
-            // 复用可变的 JsonNode，并直接把帧/掩码节点挂上去。
             var current = world.Sprites[id];
             int currentHash = current.GetHashCode();
             int currentFrames = current.GetProperty("frames").GetArrayLength();
@@ -2910,8 +2865,7 @@ public sealed partial class GmGraphics
                 var logical = SurfaceSize(I(0));
                 var actual = texture.GetSize();
                 var surfaceScale =
-                    (name == "draw_surface_ext" ? P(3) : Vector2.One)
-                    * (
+                    (name == "draw_surface_ext" ? P(3) : Vector2.One) * (
                         effects.TryGetValue(I(0), out var sourceEffect)
                             ? new Vector2(sourceEffect.Divisor, sourceEffect.Divisor)
                             : Vector2.One

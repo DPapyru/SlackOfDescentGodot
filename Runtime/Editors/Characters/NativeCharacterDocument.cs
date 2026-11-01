@@ -15,11 +15,14 @@ public sealed class NativeCharacterDocument
     private readonly Stack<Snapshot> redo = new();
     private Snapshot? transaction;
     private string saved = "";
-    private sealed record Snapshot(CharacterDefinition Definition, Dictionary<string, byte[]> Pixels, Dictionary<string, string> Missing);
+    private sealed record Snapshot(CharacterDefinition Definition, Dictionary<string, byte[]> Pixels, Dictionary<string, string> Missing, string Label);
     public bool Dirty => Fingerprint() != saved;
     public bool CanUndo => undo.Count > 0;
+    public IReadOnlyList<string> UndoLabels => undo.Reverse().Select(snapshot => snapshot.Label).ToList();
+    public IReadOnlyList<string> RedoLabels => redo.Select(snapshot => snapshot.Label).ToList();
     public bool CanRedo => redo.Count > 0;
     public int UndoCount => undo.Count;
+    public int RedoCount => redo.Count;
     public NativeCharacterDocument(CharacterDefinition definition, Dictionary<string, byte[]>? data = null)
     {
         Definition = Clone(definition);
@@ -37,19 +40,19 @@ public sealed class NativeCharacterDocument
     }
     public byte[] Pixels(NativeCharacterPart part, int frame) => pixels[part.Frames[frame].Id];
     public byte[] Pixels(string frameId) => pixels[frameId];
-    public void BeginEdit() => transaction ??= Capture();
+    public void BeginEdit(string label = "") => transaction ??= Capture(label);
     public void EndEdit()
     {
         if (transaction is null) return;
         if (Fingerprint(transaction) != Fingerprint()) { undo.Push(transaction); redo.Clear(); }
         transaction = null;
     }
-    public void Edit(Action change) { BeginEdit(); try { change(); } finally { EndEdit(); } }
+    public void Edit(Action change, string? label = null) { BeginEdit(label ?? ""); try { change(); } finally { EndEdit(); } }
     public NativeCharacterPart AddPart(string name, int width = 32, int height = 32, int layer = 0)
     {
         CheckSize(width, height);
         var part = new NativeCharacterPart { Name = name, Width = width, Height = height, AnchorX = width / 2, AnchorY = height * 3 / 4, Layer = layer };
-        Edit(() => { Definition.Parts.Add(part); AddFrameRaw(part, null); });
+        Edit(() => { Definition.Parts.Add(part); AddFrameRaw(part, null); }, "添加部位");
         return part;
     }
     public void ImportFrames(string partId, IReadOnlyList<NativePixelClipboard> images, bool append = false, int? anchorX = null, int? anchorY = null)
@@ -75,18 +78,18 @@ public sealed class NativeCharacterDocument
             {
                 var frame = new NativeCharacterFrame(); part.Frames.Add(frame); pixels.Add(frame.Id, (byte[])image.Rgba.Clone());
             }
-        });
+        }, append ? "追加动画帧" : "导入动画帧");
     }
     public void RemovePart(string partId) => Edit(() =>
     {
         var part = Definition.Parts.Single(p => p.Id == partId);
         foreach (var frame in part.Frames) pixels.Remove(frame.Id);
         Definition.Parts.Remove(part);
-    });
+    }, "删除部位");
     public int AddFrame(string partId, int? duplicate = null)
     {
         var part = Definition.Parts.Single(p => p.Id == partId);
-        Edit(() => AddFrameRaw(part, duplicate)); return part.Frames.Count - 1;
+        Edit(() => AddFrameRaw(part, duplicate), duplicate is null ? "添加帧" : "复制帧"); return part.Frames.Count - 1;
     }
     private void AddFrameRaw(NativeCharacterPart part, int? duplicate)
     {
@@ -99,14 +102,14 @@ public sealed class NativeCharacterDocument
     {
         var part = Definition.Parts.Single(p => p.Id == partId);
         if (part.Frames.Count == 1) throw new InvalidOperationException("每个部件至少保留一帧。");
-        Edit(() => { pixels.Remove(part.Frames[index].Id); part.Frames.RemoveAt(index); });
+        Edit(() => { pixels.Remove(part.Frames[index].Id); part.Frames.RemoveAt(index); }, "删除帧");
     }
     public void Paint(string partId, int frame, int x, int y, byte r, byte g, byte b, byte a)
     {
         var part = Definition.Parts.Single(p => p.Id == partId);
         if (x < 0 || y < 0 || x >= part.Width || y >= part.Height) return;
         bool standalone = transaction is null;
-        if (standalone) BeginEdit();
+        if (standalone) BeginEdit("绘制");
         int offset = (y * part.Width + x) * 4;
         var rgba = Pixels(part, frame); rgba[offset] = r; rgba[offset + 1] = g; rgba[offset + 2] = b; rgba[offset + 3] = a;
         if (standalone) EndEdit();
@@ -130,7 +133,7 @@ public sealed class NativeCharacterDocument
             var destination = Pixels(part, frame);
             for (int row = 0; row < rect.Height; row++)
                 Buffer.BlockCopy(clipboard.Rgba, ((rect.Y - y + row) * clipboard.Width + rect.X - x) * 4, destination, ((rect.Y + row) * part.Width + rect.X) * 4, rect.Width * 4);
-        });
+        }, "粘贴");
         return rect;
     }
     public bool Undo()
@@ -174,10 +177,10 @@ public sealed class NativeCharacterDocument
     }
     private static void CheckSize(int width, int height)
     { if (width is < 1 or > 256 || height is < 1 or > 256) throw new InvalidDataException("画布宽高必须为 1–256。"); }
-    private Snapshot Capture() => new(Clone(Definition), pixels.ToDictionary(p => p.Key, p => (byte[])p.Value.Clone(), StringComparer.Ordinal), new(MissingFrames, StringComparer.Ordinal));
+    private Snapshot Capture(string label = "") => new(Clone(Definition), pixels.ToDictionary(p => p.Key, p => (byte[])p.Value.Clone(), StringComparer.Ordinal), new(MissingFrames, StringComparer.Ordinal), label);
     private void Restore(Snapshot state) { Definition = state.Definition; pixels = state.Pixels; MissingFrames.Clear(); foreach (var pair in state.Missing) MissingFrames.Add(pair.Key, pair.Value); }
     private static CharacterDefinition Clone(CharacterDefinition source) => JsonSerializer.Deserialize<CharacterDefinition>(JsonSerializer.SerializeToUtf8Bytes(source, NativeContentStore.Json), NativeContentStore.Json)!;
-    private string Fingerprint() => Fingerprint(new(Definition, pixels, MissingFrames));
+    private string Fingerprint() => Fingerprint(new(Definition, pixels, MissingFrames, ""));
     private static string Fingerprint(Snapshot value)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);

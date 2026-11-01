@@ -12,6 +12,15 @@ public partial class NativeCharacterEditor
     {
         if (!IsNodeReady()) throw new InvalidOperationException("编辑器必须先加入场景树。");
         Directory.CreateDirectory(outputDirectory); RunAssetUiAudit(outputDirectory); RunBaseUiAudit(outputDirectory); NewDocument();
+        int previewRequests = 0; Action<CharacterDefinition> counted = _ => previewRequests++; PreviewRequested += counted;
+        try
+        {
+            ApplyRuntimePreview();
+            if (previewRequests != 0) throw new InvalidOperationException("空文档不应替换运行时预览，已请求 " + previewRequests + " 次");
+            Document.Paint(CurrentPart!.Id, 0, 0, 0, 200, 20, 40, 255); OnPixelsEdited(); ApplyRuntimePreview();
+            if (previewRequests != 1) throw new InvalidOperationException("有像素后应恰好应用一次运行时预览，实际 " + previewRequests);
+        }
+        finally { PreviewRequested -= counted; }
         characterName.Text = "UI 像素审核"; characterName.EmitSignal(LineEdit.SignalName.TextChanged, characterName.Text); Document.Definition.Dependencies.Add("missing.example.dependency");
         Document.Definition.Extra = new() { ["futureMetadata"] = JsonSerializer.SerializeToElement(new { keep = true }) };
         SelectPart(1); canvas.PaintColor = new Color(0.8f, 0.2f, 0.4f, 0.5f); canvas.Tool = NativeCharacterTool.Brush;

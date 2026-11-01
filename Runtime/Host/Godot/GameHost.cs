@@ -265,7 +265,13 @@ public partial class GameHost : Node2D
 
     public override void _Ready()
     {
-        Engine.MaxFps = 60;
+        Engine.MaxFps =
+            int.TryParse(
+                System.Environment.GetEnvironmentVariable("SLACK_MAX_FPS"),
+                out int maxFps
+            ) && maxFps > 0
+                ? maxFps
+                : 30;
         TextureFilter = TextureFilterEnum.Linear;
         ApplyStretchOverride();
 #if INCLUDE_DIAGNOSTICS
@@ -865,6 +871,7 @@ public partial class GameHost : Node2D
                 long perfNative = world.Performance.Start();
                 try
                 {
+                    bool stepped = false;
                     for (int count = nativeClock.Advance(delta); count > 0; count--)
                     {
                         nativeClock.BeginTick();
@@ -880,6 +887,11 @@ public partial class GameHost : Node2D
                         );
                         if (!nativeClock.LegacyDue(world.Engine.Read("room_speed").Number))
                             continue;
+                        if (stepped)
+                        {
+                            nativeClock.DiscardLegacy();
+                            continue;
+                        }
                         pendingFrame = StepFrameAsync();
                         if (!pendingFrame.IsCompleted)
                         {
@@ -888,6 +900,7 @@ public partial class GameHost : Node2D
                         }
                         pendingFrame.GetAwaiter().GetResult();
                         pendingFrame = null;
+                        stepped = true;
                         if (world.IsLoadingRoom)
                         {
                             nativeClock.RoomChanged();

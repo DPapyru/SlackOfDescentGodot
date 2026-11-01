@@ -26,5 +26,7 @@ public sealed class GmFixedClock
         return true;
     }
     public void Pause() { accumulated = 0; }
+
+    public void DiscardLegacy() => legacyAccumulated = 0;
     public void RoomChanged() { accumulated = 0; legacyAccumulated = 0; }
 }

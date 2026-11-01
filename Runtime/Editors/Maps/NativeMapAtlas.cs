@@ -15,7 +15,7 @@ public partial class NativeMapAtlas : Control
     public void Refresh() { CustomMinimumSize = Atlas?.GetSize() * AtlasScale ?? new(200, 120); QueueRedraw(); }
     public override void _Draw()
     {
-        DrawRect(new(Vector2.Zero, Size), new Color("20252d"));
+        DrawRect(new(Vector2.Zero, Size), new Color("1a1a1a"));
         if (Atlas is null) return;
         DrawTextureRect(Atlas, new(Vector2.Zero, Atlas.GetSize() * AtlasScale), false);
         DrawRect(new((Vector2)Region.Position * AtlasScale, (Vector2)Region.Size * AtlasScale), new Color(1, .9f, .2f, .25f));

@@ -32,6 +32,7 @@ public partial class NativeMapEditor
         }
         await Tick(); Expect(Document.Instances.Count == 1227 && Document.Tiles.Count == 1647, "all original content loaded in rendered editor");
         { int pan = RunPanBoundaryAudit(); checks += pan; GD.Print("MAP_PAN_OK checks=", pan); }
+        checks += await RunWorkbenchAudit();
         MapCanvas.Zoom = .7f; MapCanvas.Pan = new(0, 0); MapCanvas.QueueRedraw(); await Tick();
         await ChooseTool(1); int tilesBefore = Document.Tiles.Count;
         await CanvasClick(new(400, 96)); Expect(Document.Tiles.Count == tilesBefore + 1, "tile drawing from routed mouse event");
@@ -50,7 +51,7 @@ public partial class NativeMapEditor
         await Click(Find<Button>("Undo")); Expect(placed["properties"] is not null, "undo button handled");
         await Click(Find<Button>("Redo")); placed = Document.Instances.OfType<JsonObject>().Single(i => Int(i, "id") == placedId); Expect(Int(placed["properties"]!.AsObject(), "editorAudit") == 73, "redo restores custom properties");
         string path = Path.Combine(directory, "中文 保存目录", "渲染 地图.map.json"); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        await Click(Find<Button>("SaveMapAs")); await Tick(); Expect(fileDialog.UseNativeDialog && fileDialog.FileMode == FileDialog.FileModeEnum.SaveFile, "system save dialog requested");
+        RunMapAction("file.saveAs"); await Tick(); Expect(fileDialog.UseNativeDialog && fileDialog.FileMode == FileDialog.FileModeEnum.SaveFile, "system save dialog requested");
         string? external = System.Environment.GetEnvironmentVariable("SLACK_MAP_NATIVE_DIALOG");
         if (external == "1")
         {
@@ -59,17 +60,25 @@ public partial class NativeMapEditor
         else { fileDialog.Hide(); fileDialog.EmitSignal(FileDialog.SignalName.FileSelected, path); await Tick(); }
         Expect(!Dirty && File.Exists(path), "save dialog selection writes Unicode path atomically");
         await ChooseTool(2); await CanvasClick(new(608, 128)); Expect(Document.Instances.Count == entitiesBefore + 1 && Dirty, "erase tool removes placed entity");
-        await Click(Find<Button>("OpenMap")); await Tick(); Expect(unsaved.Visible, "unsaved edits prompt before open"); unsaved.EmitSignal(AcceptDialog.SignalName.CustomAction, "discard"); await Tick();
+        RunMapAction("file.open"); await Tick(); Expect(unsaved.Visible, "unsaved edits prompt before open"); unsaved.EmitSignal(AcceptDialog.SignalName.CustomAction, "discard"); await Tick();
         Expect(fileDialog.FileMode == FileDialog.FileModeEnum.OpenFile && fileDialog.UseNativeDialog, "system open dialog requested");
         if (external == "1") { DisplayServer.ClipboardSet(path); GD.Print("MAP_NATIVE_OPEN_READY ", path); await WaitFor(() => !Dirty && Document.Instances.Count == entitiesBefore + 2, 45); }
         else { fileDialog.Hide(); fileDialog.EmitSignal(FileDialog.SignalName.FileSelected, path); await Tick(); }
         Expect(Document.Instances.Count == entitiesBefore + 2 && Document.Tiles.Count == tilesBefore + 1 && !Dirty, "saved content reloads through dialog");
         placed = Document.Instances.OfType<JsonObject>().Single(i => Int(i, "id") == placedId); Expect(Number(placed, "x") == 608 && Int(placed["properties"]!.AsObject(), "editorAudit") == 73, "loaded entity position and custom props");
         SavePath(path, false); Expect(overwrite.Visible, "existing target requires overwrite confirmation"); overwrite.EmitSignal(ConfirmationDialog.SignalName.Confirmed); overwrite.Hide(); await Tick();
-        await Click(Find<Button>("PlayMap")); await WaitFor(() => Visible, 30); Expect(world.Instances.Any(i => i.Id == placedId && !i.Destroyed), "playtest reconstructs placed entity");
+        RunMapAction("map.play"); await WaitFor(() => Visible, 30); Expect(world.Instances.Any(i => i.Id == placedId && !i.Destroyed), "playtest reconstructs placed entity");
         var actor = world.Instances.Single(i => i.Id == placedId); Expect(actor.Scope.ReadOr("editorAudit").Number == 73, "playtest applies saved property");
         Expect(Visible && Document.Instances.Count == entitiesBefore + 2, "return from playtest retains editor document");
         File.WriteAllText(Path.Combine(directory, "ui.json"), JsonSerializer.Serialize(new { checks, nativeDialog = external == "1", entities = Document.Instances.Count, tiles = Document.Tiles.Count, path, passed = true }, NativeContentStore.Json));
+        if (DisplayServer.GetName() != "headless")
+        {
+            foreach (var windowSize in new[] { new Vector2I(1180, 780), new Vector2I(1462, 875) })
+            {
+                Size = windowSize; await Tick(); RenderingServer.ForceDraw(true);
+                using var shot = GetTexture().GetImage(); shot.SavePng(Path.Combine(directory, "map-" + windowSize.X + ".png"));
+            }
+        }
         GD.Print("MAP_UI_OK checks=", checks, " nativeDialog=", external == "1");
     }
     private async Task WaitFor(Func<bool> predicate, double timeout)

@@ -48,97 +48,17 @@ public partial class NativeCharacterEditor : Window
     private static string L(string chinese, string english) => NativeLocalization.IsChinese ? chinese : english;
     public override void _Ready()
     {
-        Title = L("角色编辑器", "Character editor"); Name = "NativeCharacterEditor"; Size = new(1180, 800); MinSize = new(960, 700); Unresizable = false; Transient = true;
+        Title = L("角色编辑器", "Character editor"); Name = "NativeCharacterEditor";
+        Size = new(1440, 900); MinSize = new(960, 700); Unresizable = false; Transient = true;
+        Theme = NativeEditorTheme.Create();
         CloseRequested += RequestClose;
-        var margin = new MarginContainer(); AddChild(margin); margin.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
-        foreach (string side in new[] { "left", "top", "right", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, 10);
-        var root = new VBoxContainer(); margin.AddChild(root);
-        var file = Row(root);
-        Button(file, L("新建角色", "New character"), () => ConfirmUnsaved(NewDocument));
-        savedCharacters = new OptionButton { AutoTranslateMode = AutoTranslateModeEnum.Disabled, CustomMinimumSize = new(160, 32) }; file.AddChild(savedCharacters);
-        Button(file, L("载入", "Open"), () => ConfirmUnsaved(LoadSelected)); Button(file, L("保存", "Save"), SaveRequested);
-        Button(file, L("保存到 Mod 项目…", "Save to Mod project…"), SaveToProject);
-        characterName = new LineEdit { AutoTranslateMode = AutoTranslateModeEnum.Disabled, PlaceholderText = L("角色名称", "Character name"), CustomMinimumSize = new(140, 32), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; file.AddChild(characterName);
-        characterName.TextChanged += value => Change(() => Document.Definition.Name = value); Button(file, L("关闭", "Close"), RequestClose);
-        var columns = new HSplitContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill, SplitOffsets = [260] }; root.AddChild(columns);
-        var sidebar = new TabContainer { CustomMinimumSize = new(260, 0) }; columns.AddChild(sidebar);
-        VBoxContainer Page(string title)
-        {
-            var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; sidebar.AddChild(scroll); sidebar.SetTabTitle(sidebar.GetTabCount() - 1, title);
-            var page = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; scroll.AddChild(page); return page;
-        }
-        var partPage = Page(L("部位", "Parts"));
-        var emptyHint = new VBoxContainer { Name = "EmptyHint" }; partPage.AddChild(emptyHint);
-        Button(emptyHint, L("生成基底角色", "Generate base character"), GenerateBase);
-        emptyHint.AddChild(new Label { Text = L("先一键生成完整基底，再用整体画布描改。", "Generate a complete base first, then trace it on the overall canvas."), AutowrapMode = TextServer.AutowrapMode.WordSmart });
-        partPage.AddChild(new Label { Text = L("未替换的部位保留原样", "Unassigned parts keep their original appearance") });
-        parts = new ItemList { AutoTranslateMode = AutoTranslateModeEnum.Disabled, CustomMinimumSize = new(245, 240) }; partPage.AddChild(parts); parts.ItemSelected += index => SelectPart((int)index);
-        var add = Row(partPage); Button(add, L("＋部位", "+ Part"), () => AddPart(L("部位", "Part"), 0)); Button(add, L("＋装饰", "+ Decoration"), () => AddPart(L("装饰", "Decoration"), 20));
-        var dimensions = Row(partPage); dimensions.AddChild(new Label { Text = L("尺寸", "Size") }); newWidth = Spin(dimensions, 1, 256, _ => { }); newHeight = Spin(dimensions, 1, 256, _ => { }); newWidth.Value = newHeight.Value = 32;
-        Button(partPage, L("删除当前部位", "Remove selected part"), () => Confirm("删除当前部件及全部动画帧？", () => { if (CurrentPart is { } part) Document.RemovePart(part.Id); selectedPart = Math.Max(0, selectedPart - 1); Refresh(); }));
-        var assetPage = Page(L("素材", "Assets"));
-        var baseButton = new Button { Text = L("生成基底角色", "Generate base character") }; assetPage.AddChild(baseButton); baseButton.Pressed += GenerateBase;
-        Button(assetPage, L("导入 PNG／动画帧…", "Import PNG / animation frames…"), () => ImportPng(false));
-        Button(assetPage, L("追加 PNG 动画帧…", "Append PNG frames…"), () => ImportPng(true));
-        var search = new LineEdit { AutoTranslateMode = AutoTranslateModeEnum.Disabled, PlaceholderText = L("搜索原版素材 / ID", "Search original assets / ID") }; assetPage.AddChild(search);
-        originalAssets = new ItemList { AutoTranslateMode = AutoTranslateModeEnum.Disabled, CustomMinimumSize = new(245, 380) }; assetPage.AddChild(originalAssets);
-        search.TextChanged += PopulateAssets; Button(assetPage, L("使用所选原版素材", "Use selected original asset"), ImportOriginal); LoadAssets(); PopulateAssets("");
-        var properties = Page(L("属性", "Properties"));
-        partName = new LineEdit { AutoTranslateMode = AutoTranslateModeEnum.Disabled, PlaceholderText = L("部位名称", "Part name") }; properties.AddChild(partName); partName.TextChanged += value => { if (CurrentPart is { } part) Change(() => part.Name = value); };
-        properties.AddChild(new Label { Text = L("绑定部位", "Attach to part") }); targetChoice = new OptionButton(); properties.AddChild(targetChoice);
-        foreach (string name in NativeCharacterTargets.Names) targetChoice.AddItem(name);
-        targetChoice.ItemSelected += index => { if (CurrentPart is { } part) Change(() => part.Target = NativeCharacterTargets.Names[(int)index]); };
-        replaceOriginal = new CheckBox { Text = L("替换此部位的原纹理", "Replace original part textures") }; properties.AddChild(replaceOriginal); replaceOriginal.Toggled += value => { if (CurrentPart is { } part) Change(() => part.ReplaceOriginal = value); };
-        partVisible = new CheckBox { Text = L("显示部位", "Visible") }; properties.AddChild(partVisible); partVisible.Toggled += value => { if (CurrentPart is { } part) Change(() => part.Visible = value); };
-        anchorX = PropertySpin(properties, L("锚点 X", "Anchor X"), value => { if (CurrentPart is { } p) Change(() => p.AnchorX = (int)value); });
-        anchorY = PropertySpin(properties, L("锚点 Y", "Anchor Y"), value => { if (CurrentPart is { } p) Change(() => p.AnchorY = (int)value); });
-        offsetX = PropertySpin(properties, L("偏移 X", "Offset X"), value => { if (CurrentPart is { } p) Change(() => p.OffsetX = (int)value); });
-        offsetY = PropertySpin(properties, L("偏移 Y", "Offset Y"), value => { if (CurrentPart is { } p) Change(() => p.OffsetY = (int)value); });
-        layer = PropertySpin(properties, L("图层", "Layer"), value => { if (CurrentPart is { } p) Change(() => p.Layer = (int)value); });
-        workspace = new TabContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; columns.AddChild(workspace);
-        var preview = new VBoxContainer(); workspace.AddChild(preview); workspace.SetTabTitle(0, L("完整角色", "Complete character"));
-        PreviewSurface.CustomMinimumSize = new(640, 360); PreviewSurface.SizeFlagsVertical = Control.SizeFlags.ExpandFill; preview.AddChild(PreviewSurface);
-        runtimeState = new Label { AutoTranslateMode = AutoTranslateModeEnum.Disabled, AutowrapMode = TextServer.AutowrapMode.WordSmart, Text = L("加载独立动作预览…", "Loading action preview…") }; preview.AddChild(runtimeState);
-        var settings = Row(preview); settings.AddChild(new Label { Text = L("基础行为", "Base behavior") });
-        preset = new OptionButton { AutoTranslateMode = AutoTranslateModeEnum.Disabled }; foreach (var value in Presets) preset.AddItem(value); settings.AddChild(preset);
-        preset.ItemSelected += index => Change(() => { Document.Definition.BasePreset = preset.GetItemText((int)index); Document.Definition.Appearance = "Character-" + Document.Definition.BasePreset; });
-        settings.AddChild(new Label { Text = L("跳跃", "Jump") }); jump = ActionChoice(settings, CharacterActionSlot.Jump);
-        settings.AddChild(new Label { Text = L("冲刺", "Dash") }); dash = ActionChoice(settings, CharacterActionSlot.Dash);
-        var runtimeButtons = Row(preview); Button(runtimeButtons, L("应用到预览", "Apply to preview"), ApplyRuntimePreview); Button(runtimeButtons, L("重置", "Reset"), () => PreviewResetRequested?.Invoke());
-        runtimePlay = new CheckButton { Text = L("播放动作", "Play actions") }; runtimeButtons.AddChild(runtimePlay); Button(runtimeButtons, L("单步", "Step"), StepRuntime);
-        var movement = Row(preview); left = new CheckButton { Text = L("左", "Left") }; movement.AddChild(left); right = new CheckButton { Text = L("右", "Right") }; movement.AddChild(right); Button(movement, L("跳跃", "Jump"), () => { jumpQueued = true; StepRuntime(); }); Button(movement, L("冲刺", "Dash"), () => { dashQueued = true; StepRuntime(); });
-        var pixel = new VBoxContainer(); workspace.AddChild(pixel); workspace.SetTabTitle(1, L("部位像素", "Part pixels"));
-        var tools = Row(pixel); var group = new ButtonGroup(); var toolButtons = new Dictionary<NativeCharacterTool, Button>();
-        foreach (var (text, tool) in new[] { (L("画笔 B", "Brush B"), NativeCharacterTool.Brush), (L("橡皮 E", "Eraser E"), NativeCharacterTool.Eraser), (L("选区 S", "Select S"), NativeCharacterTool.Select) })
-        { var button = new Button { Text = text, ToggleMode = true, ButtonGroup = group, ButtonPressed = tool == NativeCharacterTool.Brush }; tools.AddChild(button); button.Pressed += () => canvas.Tool = tool; toolButtons[tool] = button; }
-        SetTool = tool => { if (toolButtons.TryGetValue(tool, out var button)) button.SetPressedNoSignal(true); if (canvas is not null) canvas.Tool = tool; };
-        color = new ColorPickerButton { Color = new Color(0.3f, 0.7f, 1, 1), CustomMinimumSize = new(50, 32), EditAlpha = true }; tools.AddChild(color); color.ColorChanged += value => canvas.PaintColor = value;
-        tools.AddChild(new Label { Text = L("笔刷", "Brush") }); brushSize = Spin(tools, 1, 16, value => { if (canvas is not null) canvas.BrushSize = (int)value; }); brushSize.Value = 1;
-        Button(tools, L("填充选区", "Fill selection"), () => FillSelection(color.Color));
-        zoomSpin = Spin(tools, 2, 24, value => { if (canvas is not null) canvas.Zoom = (int)value; }); zoomSpin.Value = 10;
-        Button(tools, L("撤销", "Undo"), Undo); Button(tools, L("重做", "Redo"), Redo); Button(tools, L("复制", "Copy"), Copy); Button(tools, L("粘贴", "Paste"), Paste);
-        var canvasScroll = new ScrollContainer { CustomMinimumSize = new(350, 300), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, SizeFlagsVertical = Control.SizeFlags.ExpandFill }; pixel.AddChild(canvasScroll);
-        canvas = new NativeCharacterPixelCanvas { Name = "像素画布", PaintColor = color.Color }; canvasScroll.AddChild(canvas); canvas.Edited += OnPixelsEdited;
-        canvasScroll.Resized += () => { if (autoFit && !fitting) FitCanvas(); };
-        canvas.ZoomChanged += () => { if (fitting) return; autoFit = false; if (zoomSpin is not null && Math.Abs(zoomSpin.Value - canvas.Zoom) > 0.5) zoomSpin.Value = canvas.Zoom; };
-        canvas.ColorPicked += value => { color.Color = value; canvas.PaintColor = value; };
-        var view = Row(pixel); showReference = new CheckButton { Text = L("显示基底参照", "Show base reference"), ButtonPressed = true }; view.AddChild(showReference);
-        showReference.Toggled += value => { canvas.ShowReference = value; canvas.QueueRedraw(); };
-        var opacity = Spin(view, 5, 100, value => { canvas.ReferenceOpacity = (float)(value / 100); canvas.QueueRedraw(); }); opacity.Value = 35; referenceOpacity = opacity;
-        overallMode = new CheckButton { Text = L("整体画布", "Overall canvas") }; view.AddChild(overallMode);
-        overallMode.Toggled += value => { canvas.Mode = value ? NativeCharacterCanvasMode.Overall : NativeCharacterCanvasMode.Part; autoFit = true; if (value) FitCanvas(); canvas.QueueRedraw(); };
-        view.AddChild(new Label { Name = "CanvasHint", Text = L("整体画布：笔画自动落到命中的部位", "Overall canvas: strokes land on the hit part") });
-        composite = new NativeCharacterComposite { CustomMinimumSize = new(240, 100) }; pixel.AddChild(composite);
-        animate = new CheckButton { Text = L("播放部位动画", "Play part animation"), ButtonPressed = true }; pixel.AddChild(animate);
-        var timeline = Row(pixel); frames = new OptionButton { CustomMinimumSize = new(90, 32) }; timeline.AddChild(frames); frames.ItemSelected += index => { selectedFrame = (int)index; Refresh(); };
-        Button(timeline, L("＋帧", "+ Frame"), () => AddFrame(false)); Button(timeline, L("复制帧", "Duplicate frame"), () => AddFrame(true)); Button(timeline, L("删除帧", "Delete frame"), DeleteFrame);
-        timeline.AddChild(new Label { Text = L("拍数", "Ticks") }); duration = Spin(timeline, 1, 600, value => { if (CurrentPart is { } p) Change(() => p.Frames[selectedFrame].Duration = (int)value); });
-        timeline.AddChild(new Label { Text = "FPS" }); fps = Spin(timeline, 1, 60, value => Change(() => Document.Definition.AnimationFps = value));
-        status = new Label { AutoTranslateMode = AutoTranslateModeEnum.Disabled, AutowrapMode = TextServer.AutowrapMode.WordSmart }; root.AddChild(status);
+        BuildEditorLayout();
         confirmation = new ConfirmationDialog { Title = L("请确认", "Confirm"), OkButtonText = L("确定", "OK"), CancelButtonText = L("取消", "Cancel") }; AddChild(confirmation);
         confirmation.Confirmed += () => { var action = pendingConfirmation; pendingConfirmation = null; action?.Invoke(); }; confirmation.Canceled += () => pendingConfirmation = null;
         message = new AcceptDialog { Title = L("角色编辑器", "Character editor"), OkButtonText = L("确定", "OK") }; AddChild(message);
-        RefreshSaved(); Refresh();
+        FilesDropped += DroppedFiles;
+        LoadEditorSettings(); RefreshSaved(); Refresh();
+        CallDeferred(nameof(CheckDraft));
     }
     private NativeCharacterPart? CurrentPart => Document.Definition.Parts.Count > 0 ? Document.Definition.Parts[Math.Clamp(selectedPart, 0, Document.Definition.Parts.Count - 1)] : null;
     private static HBoxContainer Row(Node parent) { var row = new HBoxContainer(); parent.AddChild(row); return row; }
@@ -156,7 +76,8 @@ public partial class NativeCharacterEditor : Window
     private void Change(Action action)
     {
         if (refreshing) return;
-        Document.Edit(action); previewDirty = true; previewDirtyTime = 0; RefreshTitle(); composite.Invalidate(); canvas.InvalidateOrder(); canvas.QueueRedraw();
+        Document.Edit(action); draftPending = true; previewDirty = true; previewDirtyTime = 0; RefreshTitle(); composite.Invalidate(); canvas.InvalidateOrder(); canvas.QueueRedraw();
+        RefreshEditorPanels();
         if (CurrentPart is { } part && selectedPart < parts.ItemCount) parts.SetItemText(selectedPart, $"{part.Name}  [{part.Layer}]  {part.Width}×{part.Height}  {part.Target}");
     }
     private void Refresh()
@@ -185,7 +106,7 @@ public partial class NativeCharacterEditor : Window
             var wanted = overallMode.ButtonPressed ? NativeCharacterCanvasMode.Overall : NativeCharacterCanvasMode.Part;
             if (canvas.Mode != wanted) { canvas.Mode = wanted; autoFit = true; FitCanvas(); }
             zoomSpin.Value = canvas.Zoom;
-            canvas.Bind(Document, p?.Id, selectedFrame); composite.Document = Document; composite.Invalidate(); RefreshTitle();
+            canvas.Bind(Document, p?.Id, selectedFrame); canvas.SelectedFrame = selectedFrame; composite.Document = Document; composite.SelectedFrame = selectedFrame; composite.Invalidate(); RefreshEditorPanels(); RefreshTitle();
         }
         finally { refreshing = false; }
     }
@@ -199,6 +120,7 @@ public partial class NativeCharacterEditor : Window
     {
         Title = (Document.Dirty ? "＊ " : "") + L("角色编辑器", "Character editor") + " — " + Document.Definition.Name;
         if (status is not null) status.Text = string.Format(NativeLocalization.Text("{0}　ID：{1}　部件：{2}　撤销：{3}　依赖：{4}"), NativeLocalization.Text(Document.Dirty ? "尚未保存" : "已保存"), Document.Definition.Id, Document.Definition.Parts.Count, Document.UndoCount, string.Join("、", Document.Definition.Dependencies));
+        RefreshDocumentTab();
         if(status is not null&&Document.MissingFrames.Count>0)status.Text+="\n"+NativeLocalization.Text("缺少或损坏的帧（保留原始引用）：")+string.Join("、",Document.MissingFrames.Values);
     }
     private void RefreshSaved()
@@ -249,7 +171,7 @@ public partial class NativeCharacterEditor : Window
     private void Copy()
     {
         if (CurrentPart is not { } part) return;
-        try { clipboard = Document.Copy(part.Id, selectedFrame, canvas.Selection); if (DisplayServer.GetName() != "headless") DisplayServer.ClipboardSet(clipboard.Encode()); status.Text = string.Format(NativeLocalization.Text("已复制 {0}×{1}，包含全部 RGBA 通道。"), clipboard.Width, clipboard.Height); }
+        try { clipboard = Document.Copy(part.Id, selectedFrame, PartSelection(part)); if (DisplayServer.GetName() != "headless") DisplayServer.ClipboardSet(clipboard.Encode()); status.Text = string.Format(NativeLocalization.Text("已复制 {0}×{1}，包含全部 RGBA 通道。"), clipboard.Width, clipboard.Height); }
         catch (Exception e) { ShowMessage(e.Message); }
     }
     private void Paste()
@@ -258,7 +180,15 @@ public partial class NativeCharacterEditor : Window
         var data = DisplayServer.GetName() != "headless" ? NativePixelClipboard.Decode(DisplayServer.ClipboardGet()) ?? clipboard : clipboard;
         if (data is null) { ShowMessage("请先复制像素选区或整帧。"); return; }
         var position = canvas.Selection is { } rect ? new Vector2I(rect.X, rect.Y) : canvas.Cursor;
-        canvas.Selection = Document.Paste(part.Id, selectedFrame, data, position.X, position.Y); OnPixelsEdited();
+        if (canvas.Mode == NativeCharacterCanvasMode.Overall) { var c = NativeCharacterLayout.Corner(part); position = canvas.ToCharacter(position) - new Vector2I(c.X, c.Y); }
+        var pasted = Document.Paste(part.Id, selectedFrame, data, position.X, position.Y);
+        if (canvas.Mode == NativeCharacterCanvasMode.Overall)
+        {
+            var corner = NativeCharacterLayout.Corner(part); var origin = canvas.Origin;
+            canvas.Selection = new(pasted.X + corner.X - origin.X, pasted.Y + corner.Y - origin.Y, pasted.Width, pasted.Height);
+        }
+        else canvas.Selection = pasted;
+        OnPixelsEdited();
     }
     private void FitCanvas()
     {
@@ -278,6 +208,7 @@ public partial class NativeCharacterEditor : Window
     private void FillSelection(Color value)
     {
         if (CurrentPart is not { } part) return;
+        if (canvas.Mode == NativeCharacterCanvasMode.Overall) { FillOverallSelection(value); return; }
         var area = (canvas.Selection ?? new NativePixelRect(0, 0, part.Width, part.Height)).Clip(part.Width, part.Height);
         if (area.Width <= 0 || area.Height <= 0) return;
         byte r = (byte)Math.Clamp((int)Math.Round(value.R * 255), 0, 255), g = (byte)Math.Clamp((int)Math.Round(value.G * 255), 0, 255), b = (byte)Math.Clamp((int)Math.Round(value.B * 255), 0, 255), a = (byte)Math.Clamp((int)Math.Round(value.A * 255), 0, 255);
@@ -286,7 +217,7 @@ public partial class NativeCharacterEditor : Window
         finally { Document.EndEdit(); }
         OnPixelsEdited();
     }
-    private void OnPixelsEdited() { previewDirty = true; previewDirtyTime = 0; canvas.Invalidate(); composite.Invalidate(); RefreshTitle(); }
+    private void OnPixelsEdited() { previewDirty = true; previewDirtyTime = 0; draftPending = true; canvas.Invalidate(); composite.Invalidate(); RefreshEditorPanels(); RefreshTitle(); }
     public void SetPreviewState(string text) { if (runtimeState is not null) runtimeState.Text = NativeLocalization.Text(text); }
     public void ApplyRuntimePreview()
     {
@@ -309,24 +240,20 @@ public partial class NativeCharacterEditor : Window
     {
         if (composite is null) return;
         if (previewDirty && PreviewRequested is not null && (previewDirtyTime += delta) >= 0.3) ApplyRuntimePreview();
-        if (animate.ButtonPressed) composite.Advance(delta);
+        AdvanceTimeline(delta);
+        SaveDraftOnIdle(delta);
         if (!runtimePlay.ButtonPressed) { previewAccumulator = 0; return; }
         previewAccumulator += Math.Min(delta, 0.1);
         while (previewAccumulator >= FrameContext.FixedDelta) { previewAccumulator -= FrameContext.FixedDelta; StepRuntime(); }
     }
     public override void _ExitTree()
     {
+        SaveEditorSettings(); SaveDraft(false);
+        foreach (var texture in editorTextures.Values) texture.Dispose(); editorTextures.Clear();
         if (Directory.Exists(PreviewDirectory)) Directory.Delete(PreviewDirectory, true);
     }
     public override void _UnhandledKeyInput(InputEvent input)
     {
-        if (input is not InputEventKey { Pressed: true, Echo: false } key || confirmation.Visible || message.Visible) return;
-        bool handled = true;
-        if (key.CtrlPressed) switch (key.Keycode) { case Key.C: Copy(); break; case Key.V: Paste(); break; case Key.Z: if (key.ShiftPressed) Redo(); else Undo(); break; case Key.Y: Redo(); break; case Key.S: SaveRequested(); break; default: handled = false; break; }
-        else if (GuiGetFocusOwner() is LineEdit) return;
-        else switch (key.Keycode) { case Key.B: SetTool?.Invoke(NativeCharacterTool.Brush); break; case Key.E: SetTool?.Invoke(NativeCharacterTool.Eraser); break; case Key.S: SetTool?.Invoke(NativeCharacterTool.Select); break; case Key.Delete: ClearSelection(); break; case Key.Escape: canvas.Selection = null; canvas.QueueRedraw(); break; default: handled = false; break; }
-        if (handled) GetViewport().SetInputAsHandled();
+        HandleEditorShortcut(input);
     }
-
-
 }

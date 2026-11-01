@@ -41,7 +41,7 @@ public partial class NativeMapEditor
         }
         var scroll = new ScrollContainer { Name = "TileAtlasScroll", CustomMinimumSize = new(210, 160), SizeFlagsVertical = Control.SizeFlags.ExpandFill }; parent.AddChild(scroll);
         atlas = new NativeMapAtlas { Name = "TileAtlas" }; scroll.AddChild(atlas);
-        atlas.RegionSelected += region => { sourceX.Value = region.Position.X; sourceY.Value = region.Position.Y; tileWidth.Value = region.Size.X; tileHeight.Value = region.Size.Y; toolChoice.Select((int)NativeMapTool.Tile); if (MapCanvas is not null) MapCanvas.Tool = NativeMapTool.Tile; };
+        atlas.RegionSelected += region => { sourceX.Value = region.Position.X; sourceY.Value = region.Position.Y; tileWidth.Value = region.Size.X; tileHeight.Value = region.Size.Y; if (MapCanvas is not null) SelectTool((int)NativeMapTool.Tile); };
         backgrounds.ItemSelected += _ => RefreshAtlas(); search.TextChanged += Populate;
         foreach (var field in new[] { sourceX, sourceY, tileWidth, tileHeight }) field.ValueChanged += _ => { atlas.Region = new((int)sourceX.Value, (int)sourceY.Value, (int)tileWidth.Value, (int)tileHeight.Value); atlas.QueueRedraw(); };
         Populate("");
@@ -51,6 +51,12 @@ public partial class NativeMapEditor
         if (atlas is null) return;
         var background = world.Manifest.GetProperty("backgrounds").EnumerateArray().FirstOrDefault(x => x.GetProperty("id").GetInt32() == backgrounds.GetSelectedId());
         atlas.Atlas = background.ValueKind == JsonValueKind.Undefined ? null : PaletteTexture(background.GetProperty("path").GetString()!); atlas.Refresh();
+        if (currentAtlas is not null)
+        {
+            int current = backgrounds.GetSelectedId();
+            if (displayedBackground != current) { previousBackground = displayedBackground; displayedBackground = current; previousAtlas.Icon = currentAtlas.Icon; }
+            currentAtlas.Icon = atlas.Atlas; previousAtlas.Disabled = previousBackground < 0;
+        }
     }
     private void BuildEntityPreview(VBoxContainer parent)
     {

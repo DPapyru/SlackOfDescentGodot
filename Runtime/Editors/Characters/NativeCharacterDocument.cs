@@ -20,6 +20,7 @@ public sealed class NativeCharacterDocument
     public bool CanUndo => undo.Count > 0;
     public bool CanRedo => redo.Count > 0;
     public int UndoCount => undo.Count;
+    public int RedoCount => redo.Count;
     public NativeCharacterDocument(CharacterDefinition definition, Dictionary<string, byte[]>? data = null)
     {
         Definition = Clone(definition);

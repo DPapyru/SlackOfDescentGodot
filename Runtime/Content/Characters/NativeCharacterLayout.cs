@@ -35,6 +35,26 @@ public static class NativeCharacterLayout
     }
 }
 
+public static class NativeCharacterAnimation
+{
+    public static int FrameIndex(NativeCharacterPart part, int selectedFrame, bool playing, double elapsed, double fps)
+    {
+        if (part.Frames.Count == 0) return 0;
+        if (!playing) return Math.Clamp(selectedFrame, 0, part.Frames.Count - 1);
+        int total = part.Frames.Sum(f => Math.Max(1, f.Duration));
+        int tick = Tick(elapsed, fps, total);
+        for (int index = 0; index < part.Frames.Count; index++)
+        {
+            int duration = Math.Max(1, part.Frames[index].Duration);
+            if (tick < duration) return index;
+            tick -= duration;
+        }
+        return part.Frames.Count - 1;
+    }
+    public static int BodyFrameIndex(int count, int selectedFrame, bool playing, double elapsed, double fps) => count <= 0 ? 0 : playing ? Tick(elapsed, fps, count) : Math.Clamp(selectedFrame, 0, count - 1);
+    private static int Tick(double elapsed, double fps, int count) => (int)(Math.Floor(Math.Max(0, elapsed) * fps) % Math.Max(1, count));
+}
+
 public sealed record NativeCharacterBaseSlot(string Target, int Layer, string Folder, string[] Files);
 
 public sealed record NativeCharacterBasePlacement(NativeCharacterBaseSlot Slot, string Asset, string Part, string? Existing);
@@ -44,16 +64,20 @@ public static class NativeCharacterBase
     public static readonly string[] Presets = ["Nana", "Ryoko", "Yuki"];
     private static readonly NativeCharacterBaseSlot[] Table =
     [
-        new("FOOT2_BELOW", -40, "Foot_Below", ["Socks2_below", "Socks0_below"]),
-        new("FOOT1_BELOW", -30, "Foot_Below", ["Shoes_below"]),
+        new("FOOT1_BELOW", -43, "Foot_Below", ["Socks0_below"]),
+        new("FOOT2_BELOW", -42, "Foot_Below", ["Socks1_below"]),
+        new("FOOT3_BELOW", -41, "Foot_Below", ["Socks2_below"]),
+        new("FOOT3_BELOW", -40, "Foot_Below", ["Shoes_below"]),
         new("TAIL", -10, "Tail", ["Tail"]),
         new("BODY_BOTTOM", 0, "Body", ["Body_Bottom", "Body_Bottom_Pants"]),
         new("BODY_TOP", 10, "Body", ["Body_Top"]),
         new("HEAD", 30, "Head", ["Hair"]),
         new("HEAD", 31, "Head", ["Eye"]),
         new("HEAD", 32, "Head", ["Mouth"]),
-        new("FOOT2_ABOVE", 40, "Foot_Above", ["Socks2_above", "Socks0_above"]),
-        new("FOOT1_ABOVE", 41, "Foot_Above", ["Shoes_above"]),
+        new("FOOT1_ABOVE", 38, "Foot_Above", ["Socks0_above"]),
+        new("FOOT2_ABOVE", 39, "Foot_Above", ["Socks1_above"]),
+        new("FOOT3_ABOVE", 40, "Foot_Above", ["Socks2_above"]),
+        new("FOOT3_ABOVE", 41, "Foot_Above", ["Shoes_above"]),
         new("HAND2_ABOVE", 50, "Hand_Above", ["Hand2_above"]),
         new("HAND1_ABOVE", 51, "Hand_Above", ["Hand1_above"]),
     ];

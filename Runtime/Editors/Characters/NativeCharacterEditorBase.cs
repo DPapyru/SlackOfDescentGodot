@@ -24,6 +24,7 @@ public partial class NativeCharacterEditor
                     var asset = assets.First(a => a.Name == placement.Asset);
                     var part = replace && placement.Existing is string id ? Document.Definition.Parts.Single(p => p.Id == id) : AddBasePart(placement, asset);
                     if (part is null) continue;
+                    part.Target = placement.Slot.Target; part.Layer = placement.Slot.Layer;
                     ApplyBaseAssets(part, asset);
                     added++;
                 }

@@ -22,7 +22,7 @@ public partial class NativeCharacterEditor
         for (int i = 0; i < assets.Count; i++)
         {
             var asset = assets[i]; if (!NativeContentLocalization.Matches(registry, asset.Name, asset.Name, query)) continue;
-            int index = originalAssets.AddItem(NativeContentLocalization.Display(registry, asset.Name, asset.Name)); originalAssets.SetItemMetadata(index, i); originalAssets.SetItemTooltip(index, asset.Name);
+            int index = originalAssets.AddItem(Path.GetFileNameWithoutExtension(asset.Name), AssetThumbnail(asset.Name, asset.Data)); originalAssets.SetItemMetadata(index, i); originalAssets.SetItemTooltip(index, asset.Name);
         }
     }
     private static NativePixelClipboard ReadPng(string path, bool original = false)

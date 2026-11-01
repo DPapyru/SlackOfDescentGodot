@@ -56,7 +56,9 @@ public static class CharacterBaseTests
         var resolved = NativeCharacterBase.Resolve("Nana", available);
         Check(resolved.Count == 9, "every available slot resolves exactly once, got " + resolved.Count);
         Check(resolved.Select(r => r.Asset).Distinct().Count() == resolved.Count, "base generation never plans the same asset twice");
-        Check(resolved.All(r => r.Slot.Target is "BODY_BOTTOM" or "BODY_TOP" or "HEAD" or "HAND1_ABOVE" or "HAND2_ABOVE" or "FOOT1_ABOVE" or "FOOT2_ABOVE"), "planned parts attach to real doll bones");
+        Check(resolved.All(r => NativeCharacterTargets.Names.Contains(r.Slot.Target)), "planned parts attach to real doll bones");
+        Check(resolved.Single(r => r.Part == "Shoes_above").Slot.Target == "FOOT3_ABOVE", "shoes attach to the foot instead of the thigh");
+        Check(resolved.Single(r => r.Part == "Socks2_above").Slot.Target == "FOOT3_ABOVE", "ankle socks share the foot attachment");
         Check(resolved.Select(r => r.Slot.Layer).Distinct().Count() == resolved.Count, "planned layers stay unique so the draw order is stable");
         Check(resolved.Select(r => r.Slot.Layer).SequenceEqual(resolved.Select(r => r.Slot.Layer).Order()), "planned layers increase with the intended draw order");
         Check(NativeCharacterBase.Resolve("Ryoko", available).All(r => r.Asset.Contains("Ryoko", StringComparison.Ordinal)) || NativeCharacterBase.Resolve("Ryoko", available).Count == 0, "presets select their own asset family");
@@ -64,7 +66,7 @@ public static class CharacterBaseTests
         var ryo = new HashSet<string>(StringComparer.Ordinal) { "Chara/Doll/Body/Character-Ryoko_Body_Bottom_Pants.gif", "Chara/Doll/Foot_Above/Character-Ryoko_Socks0_above.gif" };
         var ryoko = NativeCharacterBase.Resolve("Ryoko", ryo);
         Check(ryoko.Count == 2 && ryoko.All(r => r.Asset.Contains("Ryoko", StringComparison.Ordinal)), "fallback assets resolve for the active preset");
-        Check(ryoko.Single(r => r.Slot.Target == "FOOT2_ABOVE").Asset.EndsWith("Socks0_above.gif", StringComparison.Ordinal), "the first available fallback wins");
+        Check(ryoko.Single(r => r.Slot.Target == "FOOT1_ABOVE").Asset.EndsWith("Socks0_above.gif", StringComparison.Ordinal), "thigh socks attach to the thigh");
 
         var existing = new CharacterDefinition();
         var previous = Make(existing, "HEAD", 8, 8, 5, 4, 4);
@@ -86,6 +88,14 @@ public static class CharacterBaseTests
         Check(composed.Width > 0 && composed.Height > 0, "a generated base document composes into a drawable rectangle");
         Check(target.Definition.Parts.All(p => p.Frames.Count > 0 && p.AnchorX == 2 && p.AnchorY == 3), "generated parts keep imported frames and anchors");
         Check(target.CanUndo, "generating a base document is undoable");
+        foreach (string bone in new[] { "HAND3_ABOVE", "HAND3_BELOW", "FOOT3_ABOVE", "FOOT3_BELOW" })
+            Check(NativeCharacterTargets.Names.Contains(bone) && NativeCharacterBones.Index(bone) >= 0, "hand and foot targets are available: " + bone);
+        var sequence = new NativeCharacterPart { Frames = [new() { Duration = 2 }, new() { Duration = 1 }, new() { Duration = 3 }] };
+        Check(NativeCharacterAnimation.FrameIndex(sequence, 2, false, 0, 8) == 2, "manual frame selection reaches the requested layer frame");
+        Check(NativeCharacterAnimation.BodyFrameIndex(3, 2, false, 0, 8) == 2, "manual frame selection also advances the base body");
+        Check(NativeCharacterAnimation.FrameIndex(sequence, 9, false, 0, 8) == 2 && NativeCharacterAnimation.BodyFrameIndex(1, 9, false, 0, 8) == 0, "shorter layer and base body sequences hold their last frame");
+        Check(NativeCharacterAnimation.FrameIndex(sequence, 0, true, .25, 8) == 1 && NativeCharacterAnimation.FrameIndex(sequence, 0, true, .375, 8) == 2, "playback respects frame durations on the shared clock");
+        Check(NativeCharacterAnimation.FrameIndex(sequence, 0, true, .75, 8) == 0, "playback wraps at the end of the duration sequence");
         return checks;
     }
     private static NativeCharacterPart Make(CharacterDefinition definition, string target, int width, int height, int layer, int anchorX, int anchorY)

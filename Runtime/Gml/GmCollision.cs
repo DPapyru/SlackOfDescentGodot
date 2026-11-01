@@ -68,11 +68,13 @@ public sealed partial class GmWorld
     {
         instance.Scope.Changed=name=>
         {
+            // A sprite or speed change must re-validate the animation pass instead of staying skipped.
+            if(name is "sprite_index" or "mask_index" or "image_speed")instance.AnimationSettled=false;
             if(name is "x" or "y" or "sprite_index" or "mask_index" or "image_xscale" or "image_yscale" or "image_angle")changedColliders.Add(instance);
             else if(name=="image_index"&&Mask(instance,out var mask)&&(!instance.HasBounds||!ReferenceEquals(instance.BoundsKey.Mask,mask)))changedColliders.Add(instance);
         };
     }
-    internal void InvalidateCollisionSprites(){collisionIndexedCount=-1;geometryVersion++;}
+    internal void InvalidateCollisionSprites(){collisionIndexedCount=-1;geometryVersion++;spriteFrameCounts.Clear();}
     internal void ForgetCollisionSprite(JsonElement sprite)=>collisionMasks.Remove(sprite);
     private void IndexCollider(GmInstance instance)
     {

@@ -31,6 +31,9 @@ public sealed class GmInstance
         }
     }
     internal Action? VisibilityChanged;
+    // True once a zero-speed instance is known to sit inside its sprite's frame range, so the animation
+    // pass can skip it without changing Animation End behaviour for out-of-range frames.
+    internal bool AnimationSettled;
     public GmScope Scope = new();
     internal (
         GmMask Mask,
@@ -1639,16 +1642,21 @@ public sealed partial class GmWorld
         phase = Performance.Start();
         foreach (var i in Instances.Where(i => !i.Destroyed && i.Active).ToArray())
         {
-            var sprite = i.Scope.ReadOr("sprite_index", -1).Int;
-            int n = Sprites.TryGetValue(sprite, out var s)
-                ? s.GetProperty("frames").GetArrayLength()
-                : 0;
-            var index = i.Scope.ReadOr("image_index").Number + i.Scope.ReadOr("image_speed").Number;
-            i.Scope.Write("image_index", index);
+            double speed = i.Scope.ReadOr("image_speed").Number;
+            if (speed == 0 && i.AnimationSettled)
+                continue;
+            int n = SpriteFrameCount(i.Scope.ReadOr("sprite_index", -1).Int);
+            double index = i.Scope.ReadOr("image_index").Number + speed;
             if (index >= n)
             {
                 i.Scope.Write("image_index", index - n);
+                i.AnimationSettled = false;
                 await EventAsync(i, 7, 7);
+            }
+            else
+            {
+                i.Scope.Write("image_index", index);
+                i.AnimationSettled = speed == 0;
             }
         }
         RemoveDestroyed();
@@ -1659,6 +1667,18 @@ public sealed partial class GmWorld
         StepEndObserver?.Invoke();
         Performance.End("total", total);
         Performance.Report(Frame, CurrentRoom);
+    }
+
+    private readonly Dictionary<int, int> spriteFrameCounts = new();
+
+    private int SpriteFrameCount(int sprite)
+    {
+        if (spriteFrameCounts.TryGetValue(sprite, out int count))
+            return count;
+        count = Sprites.TryGetValue(sprite, out var definition)
+            ? definition.GetProperty("frames").GetArrayLength()
+            : 0;
+        return spriteFrameCounts[sprite] = count;
     }
 
     private void RemoveDestroyed()

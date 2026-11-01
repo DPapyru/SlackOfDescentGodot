@@ -16,6 +16,7 @@ assertions+=ScopeArrayAllocationTests.Run();
 assertions+=GmlCallAllocationTests.Run(world);
 assertions+=WaitingPathTests.Run(world);
 assertions+=GmSlotLayoutTests.Run(world);
+assertions+=GmCallSiteTests.Run(world);
 assertions+=GmInstanceSdkTests.Run(world);
 assertions+=GmActorSdkTests.Run(world);
 assertions+=GmEventSdkTests.Run(world);

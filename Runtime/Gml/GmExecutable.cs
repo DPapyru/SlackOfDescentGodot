@@ -192,6 +192,12 @@ public sealed partial class GmEvaluator
             case "call":
             {
                 string name=node[1].GetString()!;var arguments=node[2].EnumerateArray().Select(Executable).ToArray();
+                if(world.CallSite(name,arguments.Length) is { } site)
+                {
+                    if(arguments.Length==0)return c=>site(Array.Empty<GmValue>(),c);
+                    var siteBuffer=new CallArguments(arguments.Length);
+                    return c=>{var values=siteBuffer.Rent();try{for(int i=0;i<values.Length;i++)values[i]=arguments[i](c);return site(values,c);}finally{siteBuffer.Return();}};
+                }
                 if(GmWorld.HasFixedArguments(name,arguments.Length))
                 {
                     if(arguments.Length==1)return c=>world.CallFixed(name,arguments[0](c),default,1,c);

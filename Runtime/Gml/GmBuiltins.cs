@@ -178,6 +178,51 @@ public sealed partial class GmWorld
         return fileCode[path]=code;
     }
 
+    // Compile-time call-site resolution: a static name binds straight to the platform or math
+    // implementation, so the hot path skips the generic dispatch chain (call stats, Scripts lookup,
+    // name comparisons). Returns null when the call must keep the generic path.
+    internal static bool CallSiteSpecialization =
+        System.Environment.GetEnvironmentVariable("SLACK_CALL_SITE") != "0";
+
+    internal Func<GmValue[], GmContext, GmValue>? CallSite(string name, int count)
+    {
+        if (!CallSiteSpecialization || Scripts.ContainsKey(name))
+            return null;
+        if (count is 1 or 2 && HasFixedArguments(name, count) && MathSite(name) is { } math)
+            return (a, c) =>
+                CallObserver is null && CallInterceptor is null ? math(a) : CallFixed(name, a[0], count == 2 ? a[1] : 0, count, c);
+        if (name is "make_color_rgb" && count == 3)
+            return (a, c) =>
+                CallObserver is null && CallInterceptor is null
+                    ? ((a[0].Int & 255) | ((a[1].Int & 255) << 8) | ((a[2].Int & 255) << 16))
+                    : Call(name, a, c);
+        if (Platform is not null && name.Length > 5 && name.StartsWith("draw_", StringComparison.Ordinal) && name != "draw_sprite_blur")
+            return (a, c) =>
+            {
+                if (CallObserver is not null || CallInterceptor is not null)
+                    return Call(name, a, c);
+                return Platform?.Invoke(name, a, c) ?? Call(name, a, c);
+            };
+        return null;
+    }
+
+    private static Func<GmValue[], GmValue>? MathSite(string name) => name switch
+    {
+        "abs" => a => System.Math.Abs(a[0].Number),
+        "floor" => a => System.Math.Floor(a[0].Number),
+        "ceil" => a => System.Math.Ceiling(a[0].Number),
+        "round" => a => System.Math.Round(a[0].Number, MidpointRounding.ToEven),
+        "sign" => a => System.Math.Sign(a[0].Number),
+        "sqrt" => a => System.Math.Sqrt(a[0].Number),
+        "sqr" => a => a[0].Number * a[0].Number,
+        "sin" => a => System.Math.Sin(a[0].Number),
+        "cos" => a => System.Math.Cos(a[0].Number),
+        "power" => a => System.Math.Pow(a[0].Number, a[1].Number),
+        "min" => a => double.IsNaN(a[0].Number) || !(a[1].Number < a[0].Number || double.IsNaN(a[1].Number)) ? a[0].Number : a[1].Number,
+        "max" => a => double.IsNaN(a[0].Number) || a[1].Number > a[0].Number ? a[1].Number : a[0].Number,
+        _ => null,
+    };
+
     internal static bool HasFixedArguments(string name,int count)=>count switch
     {
         1=>name is "abs" or "ceil" or "floor" or "round" or "sign" or "sqrt" or "sqr" or "sin" or "cos" or "arccos" or "degtorad" or "radtodeg" or "random" or "irandom"

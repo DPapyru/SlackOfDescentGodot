@@ -66,15 +66,20 @@ public sealed partial class GmEvaluator
         if(references.TryGetValue(node,out var result))return result;
         return references[node]=CompileReference(node);
     }
+    private readonly List<Func<GmContext,GmValue>> compiled=new();
+    private bool collectCompiled;
+
     private Func<GmContext,GmValue> Executable(JsonElement node)
     {
         if(executables.TryGetValue(node,out var result))return result;
         var body=CompileNode(node);
-        return executables[node]=c=>
+        var compiledNode=executables[node]=c=>
         {
             if(--remaining<0)throw new InvalidOperationException("GML instruction budget exceeded");
             return body(c);
         };
+        if(collectCompiled)compiled.Add(compiledNode);
+        return compiledNode;
     }
     private bool ExecuteLoop(Func<GmContext,GmValue> body,GmContext context)
     {

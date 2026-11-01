@@ -5,14 +5,48 @@ namespace SlackOfDescent;
 
 public sealed partial class GmWorld
 {
-    // room_set_* used to re-parse the entire room document (thousands of instances) per call; the node
-    // is cached and only re-serialized when a value actually changes.
-    private readonly Dictionary<int, JsonNode> roomNodes = new();
+    // room_set_* never rewrites the room document (thousands of instances per room, ~1.6MB to parse and
+    // serialize): the edited values are kept as small overrides and applied when the room is loaded.
+    private sealed class RoomOverrides
+    {
+        public int? Width;
+        public int? Height;
+        public string? Caption;
+        public readonly Dictionary<int, ViewOverride> Views = new();
 
-    private JsonNode RoomNode(int id) =>
-        roomNodes.TryGetValue(id, out var node)
-            ? node
-            : roomNodes[id] = JsonNode.Parse(Rooms[id].GetRawText())!;
+        public ViewOverride View(int view) =>
+            Views.TryGetValue(view, out var found) ? found : Views[view] = new();
+    }
+
+    private sealed class ViewOverride
+    {
+        public bool? Visible;
+        public readonly int?[] Fields = new int?[RoomViewFields.Length];
+    }
+
+    private readonly Dictionary<int, RoomOverrides> roomOverrides = new();
+
+    private RoomOverrides Overrides(int id) =>
+        roomOverrides.TryGetValue(id, out var found)
+            ? found
+            : roomOverrides[id] = new RoomOverrides();
+
+    private static readonly string[] EngineViewNames =
+    [
+        "xview",
+        "yview",
+        "wview",
+        "hview",
+        "xport",
+        "yport",
+        "wport",
+        "hport",
+        "hborder",
+        "vborder",
+        "hspeed",
+        "vspeed",
+        "object",
+    ];
 
     private static readonly string[] RoomViewFields =
     [
@@ -74,14 +108,14 @@ public sealed partial class GmWorld
         {
             case "room_instance_add":
             {
-                var node=JsonNode.Parse(Rooms[I(0)].GetRawText())!;
+                int room=I(0);var node=JsonNode.Parse(Rooms[room].GetRawText())!;
                 int id=NextId++;var code="room_added/"+id;Code[code]=JsonSerializer.SerializeToElement(new object[]{"group",Array.Empty<object>()});
                 node["instances"]!.AsArray().Add(JsonSerializer.SerializeToNode(new{id,@object=I(3),x=args[1].Number,y=args[2].Number,xscale=1,yscale=1,angle=0,blend=16777215,code}));
-                Rooms[I(0)]=JsonSerializer.SerializeToElement(node);return id;
+                Rooms[room]=JsonSerializer.SerializeToElement(node);return id;
             }
             case "room_instance_clear":
             {
-                var node=JsonNode.Parse(Rooms[I(0)].GetRawText())!;node["instances"]=new JsonArray();Rooms[I(0)]=JsonSerializer.SerializeToElement(node);return 0;
+                int room=I(0);var node=JsonNode.Parse(Rooms[room].GetRawText())!;node["instances"]=new JsonArray();Rooms[room]=JsonSerializer.SerializeToElement(node);return 0;
             }
             case "tile_add":
             {

@@ -1089,8 +1089,22 @@ public sealed partial class GmWorld
 
     public void LoadRoom(int id) => LoadRoomAsync(id).GetAwaiter().GetResult();
 
+    private bool prewarmed;
+
+    private void PrewarmCode()
+    {
+        if (prewarmed)
+            return;
+        prewarmed = true;
+        foreach (var code in Code.Values)
+            Evaluator.Prewarm(code);
+    }
+
     public async ValueTask LoadRoomAsync(int id)
     {
+        PrewarmCode();
+        long loadStarted = Performance.Enabled ? GC.GetAllocatedBytesForCurrentThread() : 0;
+        long loadTicks = Performance.Enabled ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
         id = NativeServices?.Maps.ResolveRoom(id) ?? id;
         if (!Rooms.TryGetValue(id, out var room))
             throw new InvalidOperationException("Missing room " + id);
@@ -1119,8 +1133,15 @@ public sealed partial class GmWorld
         HiddenTileLayers.Clear();
         TilesVersion++;
         nextTile = Math.Max(nextTile, Manifest.GetProperty("lastTileId").GetInt32());
-        Engine.Write("room_width", room.GetProperty("width").GetInt32());
-        Engine.Write("room_height", room.GetProperty("height").GetInt32());
+        roomOverrides.TryGetValue(id, out var overrides);
+        Engine.Write(
+            "room_width",
+            overrides?.Width ?? room.GetProperty("width").GetInt32()
+        );
+        Engine.Write(
+            "room_height",
+            overrides?.Height ?? room.GetProperty("height").GetInt32()
+        );
         Engine.Write("room_speed", room.GetProperty("speed").GetInt32());
         Engine.Write("background_color", room.GetProperty("colour").GetDouble());
         Engine.Write("view_enabled", room.GetProperty("viewsEnabled").GetBoolean());
@@ -1128,26 +1149,18 @@ public sealed partial class GmWorld
         int vi = 0;
         foreach (var view in room.GetProperty("views").EnumerateArray())
         {
-            foreach (
-                var pair in new Dictionary<string, string>
-                {
-                    { "xview", "x" },
-                    { "yview", "y" },
-                    { "wview", "width" },
-                    { "hview", "height" },
-                    { "xport", "portX" },
-                    { "yport", "portY" },
-                    { "wport", "portWidth" },
-                    { "hport", "portHeight" },
-                    { "hborder", "hborder" },
-                    { "vborder", "vborder" },
-                    { "hspeed", "hspeed" },
-                    { "vspeed", "vspeed" },
-                    { "object", "target" },
-                }
-            )
-                Engine.Write("view_" + pair.Key, view.GetProperty(pair.Value).GetDouble(), vi);
-            Engine.Write("view_visible", view.GetProperty("visible").GetBoolean(), vi++);
+            var editedView = overrides is not null && overrides.Views.TryGetValue(vi, out var foundView) ? foundView : null;
+            for (int field = 0; field < RoomViewFields.Length; field++)
+                Engine.Write(
+                    "view_" + EngineViewNames[field],
+                    editedView?.Fields[field] ?? view.GetProperty(RoomViewFields[field]).GetDouble(),
+                    vi
+                );
+            Engine.Write(
+                "view_visible",
+                editedView?.Visible ?? view.GetProperty("visible").GetBoolean(),
+                vi++
+            );
         }
         var created = new List<(GmInstance Instance, JsonElement Data)>();
         foreach (var data in room.GetProperty("instances").EnumerateArray())
@@ -1180,6 +1193,13 @@ public sealed partial class GmWorld
         NativeServices?.Maps.RoomEntered(id);
         NativeServices?.Dispatch(roomEvent, NativeEventPhase.After);
         Trace.Add("room:" + room.GetProperty("name").GetString());
+        if (loadStarted > 0)
+            Console.WriteLine(
+                "ROOM_LOAD room=" + id
+                + " alloc=" + (GC.GetAllocatedBytesForCurrentThread() - loadStarted)
+                + "B ms=" + System.Diagnostics.Stopwatch
+                    .GetElapsedTime(loadTicks).TotalMilliseconds.ToString("0.0")
+            );
     }
 
     public void Step() => StepAsync().GetAwaiter().GetResult();

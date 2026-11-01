@@ -984,6 +984,7 @@ public sealed partial class GmGraphics
         if (building)
             return;
         building = true;
+        FlushSprites();
         ulong started = Time.GetTicksUsec();
         long markTicks = buildPhases ? (long)Time.GetTicksUsec() : 0,
             markAlloc = buildPhases ? System.GC.GetAllocatedBytesForCurrentThread() : 0;
@@ -1396,6 +1397,136 @@ public sealed partial class GmGraphics
         blend = savedBlend;
     }
 
+    private static readonly bool captureProbe =
+        System.Environment.GetEnvironmentVariable("SLACK_CAPTURE_PROBE") == "1";
+    private static readonly long[] captureTicks = new long[8];
+    private static readonly long[] captureBytes = new long[8];
+    private static readonly long[] captureCounts = new long[8];
+    private static readonly string[] captureStages =
+    [
+        "getregion",
+        "getdata",
+        "prepare",
+        "imagetexture",
+        "mask",
+        "jsondoc",
+        "jsonupdate",
+        "other",
+    ];
+    private static long captureCalls, capturePixels, captureMaskMismatch;
+
+    private static void CaptureStage(int stage, ref long ticks, ref long bytes)
+    {
+        long now = (long)Time.GetTicksUsec(),
+            allocated = System.GC.GetAllocatedBytesForCurrentThread();
+        captureTicks[stage] += now - ticks;
+        captureBytes[stage] += allocated - bytes;
+        ticks = now;
+        bytes = allocated;
+    }
+
+    private static void ReportCapture()
+    {
+        if (!captureProbe || captureCalls == 0)
+            return;
+        var text = new System.Text.StringBuilder(
+            "[capture] calls=" + captureCalls + " pixels=" + capturePixels + " totalB="
+        );
+        long total = 0;
+        for (int i = 0; i < captureStages.Length; i++)
+            total += captureBytes[i];
+        text.Append(total).Append(" maskMismatch=").Append(captureMaskMismatch);
+        for (int i = 0; i < captureStages.Length; i++)
+            if (captureCounts[i] != 0 || captureBytes[i] != 0)
+                text.Append(' ')
+                    .Append(captureStages[i])
+                    .Append('=')
+                    .Append((captureTicks[i] / 1000.0).ToString("F1"))
+                    .Append("ms/")
+                    .Append(captureBytes[i])
+                    .Append('B');
+        GD.Print(text.ToString());
+        System.Array.Clear(captureTicks);
+        System.Array.Clear(captureBytes);
+        System.Array.Clear(captureCounts);
+        captureCalls = 0;
+        capturePixels = 0;
+    }
+
+    private sealed class SpriteNodeCache
+    {
+        public JsonNode Node = null!;
+        public int Hash;
+        public int Frames;
+    }
+
+    private readonly Dictionary<int, SpriteNodeCache> spriteNodes = new();
+    private readonly HashSet<int> spriteDirty = new();
+    private static readonly bool deferSpriteUpdates =
+        System.Environment.GetEnvironmentVariable("SLACK_NO_SPRITE_DEFER") != "1";
+
+    // 把挂起的 sprite 帧一次性写回世界：连续 sprite_add_from_surface 只序列化一次。
+    private void FlushSprites()
+    {
+        if (spriteDirty.Count == 0)
+            return;
+        foreach (int id in spriteDirty)
+            if (spriteNodes.TryGetValue(id, out var cached))
+            {
+                var built = JsonSerializer.SerializeToElement(cached.Node);
+                world.Sprites[id] = built;
+                cached.Hash = built.GetHashCode();
+            }
+        spriteDirty.Clear();
+        world.InvalidateCollisionSprites();
+    }
+
+    private static void MaskStats(
+        byte[] rgba,
+        int width,
+        int height,
+        out int left,
+        out int right,
+        out int top,
+        out int bottom
+    )
+    {
+        left = width - 1;
+        right = 0;
+        top = height - 1;
+        bottom = 0;
+        bool found = false;
+        for (int y = 0; y < height; y++)
+        for (int x = 0; x < width; x++)
+        {
+            if (rgba[(y * width + x) * 4 + 3] == 0)
+                continue;
+            if (!found)
+            {
+                left = right = x;
+                top = bottom = y;
+                found = true;
+                continue;
+            }
+            if (x < left) left = x;
+            if (x > right) right = x;
+            if (y < top) top = y;
+            if (y > bottom) bottom = y;
+        }
+    }
+
+    private static string MaskData(byte[] rgba, int width, int height) =>
+        string.Create(
+            width * height,
+            (Pixels: rgba, Width: width),
+            static (span, state) =>
+            {
+                int index = 3;
+                for (int i = 0; i < span.Length; i++, index += 4)
+                    span[i] = state.Pixels[index] != 0 ? '1' : '0';
+            }
+        );
+
     private int CaptureSprite(
         Image source,
         Rect2I region,
@@ -1406,6 +1537,14 @@ public sealed partial class GmGraphics
         int? append = null
     )
     {
+        long stageTicks = 0,
+            stageBytes = 0;
+        if (captureProbe)
+        {
+            stageTicks = (long)Time.GetTicksUsec();
+            stageBytes = System.GC.GetAllocatedBytesForCurrentThread();
+            captureCalls++;
+        }
         int x = Math.Max(0, region.Position.X),
             y = Math.Max(0, region.Position.Y);
         int width = Math.Min(region.Size.X, source.GetWidth() - x),
@@ -1414,38 +1553,124 @@ public sealed partial class GmGraphics
             throw new ArgumentException("Empty sprite capture region");
         using var image = source.GetRegion(new(x, y, width, height));
         image.Convert(Image.Format.Rgba8);
+        if (captureProbe)
+        {
+            capturePixels += (long)width * height;
+            CaptureStage(0, ref stageTicks, ref stageBytes);
+        }
         var pixels = image.GetData();
+        if (captureProbe)
+            CaptureStage(1, ref stageTicks, ref stageBytes);
         GmPixels.Prepare(pixels, width, height, transparency, smooth);
+        if (captureProbe)
+            CaptureStage(2, ref stageTicks, ref stageBytes);
         using var prepared = Image.CreateFromData(width, height, false, Image.Format.Rgba8, pixels);
         var path = "generated/" + Guid.NewGuid().ToString("N");
         textures[path] = ImageTexture.CreateFromImage(prepared);
-        var frame = new
+        if (captureProbe)
+            CaptureStage(3, ref stageTicks, ref stageBytes);
+        MaskStats(pixels, width, height, out int maskLeft, out int maskRight, out int maskTop, out int maskBottom);
+        string maskData = MaskData(pixels, width, height);
+        if (captureProbe && System.Environment.GetEnvironmentVariable("SLACK_CAPTURE_CHECK") == "1")
         {
-            path,
-            width,
-            height,
+            var reference = GmPixels.Mask(pixels, width, height);
+            bool same =
+                reference.GetProperty("left").GetInt32() == maskLeft
+                && reference.GetProperty("right").GetInt32() == maskRight
+                && reference.GetProperty("top").GetInt32() == maskTop
+                && reference.GetProperty("bottom").GetInt32() == maskBottom
+                && reference.GetProperty("data").GetString() == maskData;
+            if (!same)
+                captureMaskMismatch++;
+        }
+        var mask = new JsonObject
+        {
+            ["width"] = width,
+            ["height"] = height,
+            ["left"] = maskLeft,
+            ["right"] = maskRight,
+            ["top"] = maskTop,
+            ["bottom"] = maskBottom,
+            ["data"] = maskData,
         };
-        var mask = GmPixels.Mask(pixels, width, height);
+        if (captureProbe)
+            CaptureStage(4, ref stageTicks, ref stageBytes);
         if (append is int id)
         {
-            var node = JsonNode.Parse(world.Sprites[id].GetRawText())!;
-            node["frames"]!.AsArray().Add(JsonSerializer.SerializeToNode(frame));
-            node["masks"]!.AsArray().Add(JsonNode.Parse(mask.GetRawText()));
-            world.Sprites[id] = JsonSerializer.SerializeToElement(node);
-            world.InvalidateCollisionSprites();
+            // 追加帧时不再 Parse/Serialize 整个 sprite（随帧数线性变贵）；
+            // 复用可变的 JsonNode，并直接把帧/掩码节点挂上去。
+            var current = world.Sprites[id];
+            int currentHash = current.GetHashCode();
+            int currentFrames = current.GetProperty("frames").GetArrayLength();
+            if (
+                !spriteNodes.TryGetValue(id, out var cached)
+                || cached.Hash != currentHash
+                || cached.Frames != currentFrames
+            )
+            {
+                cached = new SpriteNodeCache
+                {
+                    Node = JsonNode.Parse(current.GetRawText())!,
+                    Hash = currentHash,
+                    Frames = currentFrames,
+                };
+                spriteNodes[id] = cached;
+            }
+            if (captureProbe)
+                CaptureStage(5, ref stageTicks, ref stageBytes);
+            cached.Node["frames"]!.AsArray().Add(
+                new JsonObject
+                {
+                    ["path"] = path,
+                    ["width"] = width,
+                    ["height"] = height,
+                }
+            );
+            cached.Node["masks"]!.AsArray().Add(mask);
+            cached.Frames = currentFrames + 1;
+            if (deferSpriteUpdates)
+                spriteDirty.Add(id);
+            else
+            {
+                var built = JsonSerializer.SerializeToElement(cached.Node);
+                world.Sprites[id] = built;
+                cached.Hash = built.GetHashCode();
+                world.InvalidateCollisionSprites();
+            }
+            if (captureProbe)
+            {
+                CaptureStage(6, ref stageTicks, ref stageBytes);
+                if (captureCalls % 64 == 0)
+                    ReportCapture();
+            }
             return id;
         }
-        return world.RegisterSprite(
+        int registered = world.RegisterSprite(
             JsonSerializer.SerializeToElement(
-                new
+                new JsonObject
                 {
-                    originX,
-                    originY,
-                    frames = new[] { frame },
-                    masks = new[] { mask },
+                    ["originX"] = originX,
+                    ["originY"] = originY,
+                    ["frames"] = new JsonArray
+                    {
+                        new JsonObject
+                        {
+                            ["path"] = path,
+                            ["width"] = width,
+                            ["height"] = height,
+                        },
+                    },
+                    ["masks"] = new JsonArray { mask },
                 }
             )
         );
+        if (captureProbe)
+        {
+            CaptureStage(6, ref stageTicks, ref stageBytes);
+            if (captureCalls % 64 == 0)
+                ReportCapture();
+        }
+        return registered;
     }
 
     private void Textured(
@@ -2143,6 +2368,8 @@ public sealed partial class GmGraphics
 
     public GmValue? Call(string name, GmValue[] a, GmContext context)
     {
+        if (spriteDirty.Count > 0 && name != "sprite_add_from_surface")
+            FlushSprites();
         var savedArgs = callArgs;
         callArgs = a;
         try

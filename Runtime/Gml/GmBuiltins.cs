@@ -9,7 +9,60 @@ namespace SlackOfDescent;
 public sealed partial class GmWorld
 {
     private readonly Dictionary<int,List<GmValue>> lists=new();
-    private readonly Dictionary<int,(string[] Lines,int Line)> textReads=new();
+    // Text files are read lazily: the item/motion data files are large, and materializing every line
+    // (plus a full CR-stripped copy) up front dominated the room-load allocation.
+    private sealed class TextFileCursor
+    {
+        private readonly string? text;
+        private readonly StreamReader? stream;
+        private int offset;
+        private string? peeked;
+        private bool ended;
+
+        public TextFileCursor(string text)
+        {
+            this.text = text;
+        }
+
+        public TextFileCursor(StreamReader stream)
+        {
+            this.stream = stream;
+        }
+
+        public string? Peek()
+        {
+            if (peeked is not null || ended)
+                return peeked;
+            if (text is not null)
+            {
+                if (offset >= text.Length)
+                {
+                    ended = true;
+                    return null;
+                }
+                int newline = text.IndexOf('\n', offset);
+                int end = newline < 0 ? text.Length : newline;
+                var line = text.AsSpan(offset, end - offset);
+                offset = end + 1;
+                peeked = line.IndexOf('\r') >= 0 ? line.ToString().Replace("\r", "") : line.ToString();
+                return peeked;
+            }
+            peeked = stream!.ReadLine();
+            if (peeked is null)
+                ended = true;
+            return peeked;
+        }
+
+        public void Advance()
+        {
+            if (Peek() is not null)
+                peeked = null;
+        }
+
+        public void Close() => stream?.Dispose();
+    }
+
+    private readonly Dictionary<int, TextFileCursor> textReads = new();
     private readonly Dictionary<int,StreamWriter> textWrites=new();
     private readonly Dictionary<int,FileStream> binaries=new();
     private readonly Dictionary<int,string> externals=new();
@@ -17,9 +70,31 @@ public sealed partial class GmWorld
     private int foundIndex;
     private int handle=1;
     private readonly Dictionary<string,string> dynamicCode=new(StringComparer.Ordinal);
-    private Dictionary<string,string>? sourceText;
 
-    private Dictionary<string,string> Sources=>sourceText??=JsonSerializer.Deserialize<Dictionary<string,string>>(File.ReadAllText(Path.Combine(Root,"sources.json")))!.ToDictionary(p=>p.Key,p=>p.Value,StringComparer.OrdinalIgnoreCase);
+    // sources.json holds every packed GML source; materializing the whole map (and copying all of its
+    // strings) on the first read dominated the room-load allocation, so entries are resolved on demand.
+    private JsonDocument? sourceDocument;
+    private readonly Dictionary<string,string?> sourceEntries=new(StringComparer.OrdinalIgnoreCase);
+
+    private bool TrySource(string path,out string text)
+    {
+        text="";
+        if(!sourceEntries.TryGetValue(path,out var cached))
+        {
+            sourceDocument??=JsonDocument.Parse(File.ReadAllBytes(Path.Combine(Root,"sources.json")));
+            cached=null;
+            foreach(var property in sourceDocument.RootElement.EnumerateObject())
+                if(string.Equals(property.Name,path,StringComparison.OrdinalIgnoreCase))
+                {
+                    cached=property.Value.GetString();
+                    break;
+                }
+            sourceEntries[path]=cached;
+        }
+        if(cached is null)return false;
+        text=cached;
+        return true;
+    }
 
     private static string CasePath(string root,string path)
     {
@@ -292,37 +367,41 @@ public sealed partial class GmWorld
             case "room_exists":return Rooms.ContainsKey(I(0));case "room_get_name":return Rooms[I(0)].GetProperty("name").GetString()!;
             case "room_set_width":case "room_set_height":case "room_set_caption":
             {
-                int room=I(0);var node=RoomNode(room);
-                string property=name=="room_set_width"?"width":name=="room_set_height"?"height":"caption";
+                int room=I(0);var overrides=Overrides(room);
                 if(name=="room_set_caption")
                 {
                     string caption=S(1);
-                    if(node[property]?.GetValue<string>()==caption)return 0;
-                    node[property]=JsonValue.Create(caption);
+                    if(overrides.Caption==caption)return 0;
+                    overrides.Caption=caption;
                 }
                 else
                 {
                     int value=I(1);
-                    if(node[property]?.GetValue<int>()==value)return 0;
-                    node[property]=JsonValue.Create(value);
+                    if(name=="room_set_width")
+                    {
+                        if(overrides.Width==value)return 0;
+                        overrides.Width=value;
+                    }
+                    else
+                    {
+                        if(overrides.Height==value)return 0;
+                        overrides.Height=value;
+                    }
                 }
-                Rooms[room]=JsonSerializer.SerializeToElement(node);return 0;
+                return 0;
             }
             case "room_set_view":
             {
-                int room=I(0);var node=RoomNode(room);
-                var view=node["views"]![I(1)]!;
-                bool changed=false;
+                var view=Overrides(I(0)).View(I(1));
                 bool visible=N(2)>=0.5;
-                if(view["visible"]?.GetValue<bool>()!=visible){view["visible"]=visible;changed=true;}
+                if(view.Visible!=visible)view.Visible=visible;
                 for(int p=0;p<RoomViewFields.Length;p++)
                 {
                     int value=I(p+3);
-                    if(view[RoomViewFields[p]]?.GetValue<int>()==value)continue;
-                    view[RoomViewFields[p]]=value;changed=true;
+                    if(view.Fields[p]==value)continue;
+                    view.Fields[p]=value;
                 }
-                if(!changed)return 0;
-                Rooms[room]=JsonSerializer.SerializeToElement(node);return 0;
+                return 0;
             }
             case "room_next":{var ids=Manifest.GetProperty("roomOrder").EnumerateArray().Select(x=>x.GetInt32()).ToList();int i=ids.IndexOf(I(0));return i>=0&&i+1<ids.Count?ids[i+1]:-1;}
             case "room_goto":PendingRoom=I(0);return 0;case "room_restart":PendingRoom=CurrentRoom;return 0;
@@ -331,14 +410,22 @@ public sealed partial class GmWorld
             case "file_exists":{var path=S(0).Replace('\\','/');return path.Equals("bin/bGM/bGM.exe",StringComparison.OrdinalIgnoreCase)||File.Exists(Resolve(path))||External.ContainsKey(path)||Media.ContainsKey(path);}
             case "file_find_first":foundFiles=FindFiles(S(0));foundIndex=0;return foundFiles.FirstOrDefault()??"";
             case "file_find_next":return ++foundIndex<foundFiles.Length?foundFiles[foundIndex]:"";
-            case "file_text_open_read":{int id=handle++;var path=S(0).Replace('\\','/');var saved=SavedFile(path);textReads[id]=(saved is not null?File.ReadAllLines(saved):Sources.TryGetValue(path,out var text)?text.Replace("\r","").Split('\n'):External.ContainsKey(path)?[]:File.ReadAllLines(Resolve(path)),0);return id;}
-            case "file_text_eof":return textReads[I(0)].Line>=textReads[I(0)].Lines.Length;
-            case "file_text_read_string":{var f=textReads[I(0)];return f.Line<f.Lines.Length?f.Lines[f.Line]:"";}
-            case "file_text_readln":{var f=textReads[I(0)];textReads[I(0)]=(f.Lines,f.Line+1);return 0;}
+            case "file_text_open_read":
+            {
+                int id=handle++;var path=S(0).Replace('\\','/');var saved=SavedFile(path);
+                textReads[id]=saved is not null?new TextFileCursor(new StreamReader(saved))
+                    :TrySource(path,out var text)?new TextFileCursor(text)
+                    :External.ContainsKey(path)?new TextFileCursor("")
+                    :new TextFileCursor(new StreamReader(Resolve(path)));
+                return id;
+            }
+            case "file_text_eof":return textReads[I(0)].Peek() is null;
+            case "file_text_read_string":return textReads[I(0)].Peek()??"";
+            case "file_text_readln":textReads[I(0)].Advance();return 0;
             case "file_text_open_write":{int id=handle++;textWrites[id]=new StreamWriter(Resolve(S(0),true));return id;}
             case "file_text_write_string":textWrites[I(0)].Write(S(1));return 0;
             case "file_text_writeln":textWrites[I(0)].WriteLine();return 0;
-            case "file_text_close":textReads.Remove(I(0));if(textWrites.Remove(I(0),out var writer))writer.Dispose();return 0;
+            case "file_text_close":if(textReads.Remove(I(0),out var reader))reader.Close();if(textWrites.Remove(I(0),out var writer))writer.Dispose();return 0;
             case "file_bin_open":{int id=handle++;binaries[id]=new FileStream(Resolve(S(0),I(1)!=0),I(1)==0?FileMode.Open:FileMode.OpenOrCreate,I(1)==0?FileAccess.Read:FileAccess.ReadWrite);return id;}
             case "file_bin_read_byte":return binaries[I(0)].ReadByte();
             case "file_bin_write_byte":binaries[I(0)].WriteByte((byte)I(1));return 0;

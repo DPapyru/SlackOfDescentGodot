@@ -15,9 +15,10 @@ dotnet build -p:IncludeDiagnostics=true -v:q 2>&1 | grep -E ': error' && exit 1 
 run="$out/run.sh"
 printf '#!/bin/sh\nexec %q --display-driver x11 --log-file %q --path %q -- --audit --menu %s --frames 300 %s --dialog-choice 1 --input-text Nana --live-frames %s\n' "$godot" "$out/engine.log" "$root" "$menu" "$mud" "$frames" > "$run"
 chmod +x "$run"
-systemd-run --user --wait --collect --unit="ccgame-map-$(date +%s)-$$" \
+slot_env=(); [ -n "${SLACK_SLOT_DRAW:-}" ] && slot_env=(--setenv=SLACK_SLOT_DRAW="$SLACK_SLOT_DRAW")
+  timeout "${RUN_TIMEOUT:-180}" systemd-run --user --wait --collect --unit="ccgame-map-$(date +%s)-$$" \
   --setenv=XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" \
   --setenv=WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}" \
-  --setenv=DISPLAY="${DISPLAY:-:1}" \
+  --setenv=DISPLAY="${DISPLAY:-:1}" "${slot_env[@]}" \
   -- /bin/sh "$run" > "$out/systemd.log" 2>&1 || true
 grep -h 'LIVE_PERF\|AUDIT room' "$out/engine.log" | tail -3

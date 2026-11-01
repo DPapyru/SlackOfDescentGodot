@@ -719,6 +719,8 @@ public sealed partial class GmWorld
         if (!Objects.TryGetValue(obj, out var o))
             throw new InvalidOperationException("Missing object " + obj);
         var instance = new GmInstance { Id = id ?? NextId++, Object = obj };
+        if (SlotExperiment && slotLayouts.TryGetValue(obj, out var slotLayout) && slotLayout is not null)
+            instance.Scope.UseLayout(slotLayout);
         foreach (
             var pair in new Dictionary<string, GmValue>
             {
@@ -1084,12 +1086,202 @@ public sealed partial class GmWorld
     internal void ChangeObject(GmInstance instance, int obj)
     {
         instance.Object = obj;
+        if (SlotExperiment)
+            instance.Scope.UseLayout(slotLayouts.GetValueOrDefault(obj));
         InvalidateObjects();
     }
 
     public void LoadRoom(int id) => LoadRoomAsync(id).GetAwaiter().GetResult();
 
     private bool prewarmed;
+
+    internal static bool SlotExperiment =
+        System.Environment.GetEnvironmentVariable("SLACK_SLOT_DRAW") != "0";
+    private readonly Dictionary<int, Dictionary<string, int>?> slotLayouts = new();
+    private readonly HashSet<int> slotLayoutBuilding = new();
+    private readonly HashSet<string> engineNames = new(StringComparer.Ordinal);
+    private int slotGlobalsSeen;
+    private static readonly HashSet<string> slotReserved = new(StringComparer.Ordinal)
+    {
+        "id","object_index","bbox_left","bbox_top","bbox_right","bbox_bottom","room","debug_mode",
+        "instance_count","instance_id","event_type","event_number","sprite_width","sprite_height",
+        "sprite_xoffset","sprite_yoffset","image_number","self","other","global","argument_count",
+        "hspeed","vspeed","speed","direction",
+    };
+
+    private bool SlotEligible(int obj)
+    {
+        if (!Objects.TryGetValue(obj, out var definition))
+            return false;
+        var name = definition.GetProperty("name").GetString()!;
+        return name is "objMud" or "objSwampSurface" or "objSwampSurface2"
+            || name.StartsWith("objQuicksand", StringComparison.Ordinal);
+    }
+
+    // Built only after every Create event of the load has run: a globalvar declared by another
+    // object would otherwise be captured as an instance slot.
+    // shortcut: only names read or written statically on self without an index become slots; indexed
+    // arrays, pooled locals and names declared globalvar stay on the dictionary, upgrade when a hot
+    // object needs those on the fast path.
+    internal Dictionary<string, int>? SlotLayout(int obj)
+    {
+        if (!SlotExperiment)
+            return null;
+        if (GlobalNames.Count != slotGlobalsSeen)
+        {
+            slotGlobalsSeen = GlobalNames.Count;
+            slotLayouts.Clear();
+            slotPrewarmed.Clear();
+            foreach (var instance in Instances)
+                instance.Scope.UseLayout(null);
+        }
+        if (slotLayouts.TryGetValue(obj, out var cached))
+            return cached;
+        if (!SlotEligible(obj))
+            return slotLayouts[obj] = null;
+        if (!slotLayoutBuilding.Add(obj))
+            return null;
+        try
+        {
+            if (engineNames.Count == 0)
+                foreach (var key in Engine.Values.Keys)
+                {
+                    int bracket = key.IndexOf('[');
+                    engineNames.Add(bracket > 0 ? key[..bracket] : key);
+                }
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            var excluded = new HashSet<string>(StringComparer.Ordinal);
+            for (
+                int current = obj, depth = 0;
+                current >= 0 && depth < 64;
+                current = parents.GetValueOrDefault(current, -1), depth++
+            )
+                foreach (var entry in staticEvents)
+                    if (entry.Key.Object == current)
+                        ScanActions(entry.Value, names, excluded);
+            names.RemoveWhere(excluded.Contains);
+            var layout = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (var name in names)
+                if (
+                    !slotReserved.Contains(name)
+                    && !IsArgumentName(name)
+                    && !Constants.ContainsKey(name)
+                    && !engineNames.Contains(name)
+                    && !GlobalNames.Contains(name)
+                )
+                    layout[name] = layout.Count;
+            return slotLayouts[obj] = layout.Count > 0 ? layout : null;
+        }
+        finally
+        {
+            slotLayoutBuilding.Remove(obj);
+        }
+    }
+
+    private static bool IsArgumentName(string name) =>
+        name == "argument"
+        || (name.StartsWith("argument", StringComparison.Ordinal) && int.TryParse(name[8..], out _));
+
+    private void ScanActions(JsonElement actions, HashSet<string> names, HashSet<string> excluded)
+    {
+        foreach (var action in actions.EnumerateArray())
+        {
+            if (
+                action.TryGetProperty("code", out var code)
+                && code.ValueKind == JsonValueKind.String
+                && Code.TryGetValue(code.GetString()!, out var ast)
+            )
+                ScanNode(ast, names, excluded);
+            if (action.TryGetProperty("parameters", out var parameters))
+                ScanNode(parameters, names, excluded);
+        }
+    }
+
+    // Collects self-scope variable names; a name used as an array base keeps the dictionary path.
+    // Deref fields need no exclusion: they are stored through the same scope, slot aware either way.
+    private static void ScanNode(JsonElement node, HashSet<string> names, HashSet<string> excluded)
+    {
+        if (node.ValueKind != JsonValueKind.Array || node.GetArrayLength() == 0)
+            return;
+        var tag = node[0].ValueKind == JsonValueKind.String ? node[0].GetString() : null;
+        switch (tag)
+        {
+            case "id":
+                names.Add(node[1].GetString()!);
+                return;
+            case "num":
+            case "str":
+                return;
+            case "var":
+                return;
+            case "globalvar":
+                // A globalvar declaration makes the name global for the whole object; the entry-level
+                // var scan is precise per code entry, so "var" needs no exclusion here.
+                foreach (var declared in node[1].EnumerateArray())
+                    excluded.Add(declared.GetString()!);
+                return;
+        }
+        if (tag == "binary" && node[1].GetString() is "Index" or "Deref")
+        {
+            var source = node[2];
+            bool indexed = node[1].GetString() == "Index";
+            if (indexed && source.ValueKind == JsonValueKind.Array && source[0].GetString() == "id")
+                excluded.Add(source[1].GetString()!);
+            else
+                ScanNode(source, names, excluded);
+            if (!indexed)
+                return;
+        }
+        for (int index = 0; index < node.GetArrayLength(); index++)
+            ScanNode(node[index], names, excluded);
+    }
+
+    internal Dictionary<string, int>? SlotLayoutFor(int obj)
+    {
+        if (!SlotExperiment)
+            return null;
+        if (GlobalNames.Count != slotGlobalsSeen)
+            return SlotLayout(obj);
+        return slotLayouts.TryGetValue(obj, out var layout) ? layout : null;
+    }
+
+    private void PrewarmSlots()
+    {
+        if (!SlotExperiment)
+            return;
+        foreach (int obj in Objects.Keys.ToArray())
+        {
+            SlotLayout(obj);
+            if (!slotLayouts.TryGetValue(obj, out var layout) || layout is null)
+                continue;
+            foreach (var instance in Instances)
+                if (instance.Object == obj && !ReferenceEquals(instance.Scope.Layout, layout))
+                    instance.Scope.UseLayout(layout);
+            PrewarmLayout(obj, layout);
+        }
+    }
+
+    private void PrewarmLayout(int obj, Dictionary<string, int> layout)
+    {
+        if (!slotPrewarmed.Add(obj))
+            return;
+        for (
+            int current = obj, depth = 0;
+            current >= 0 && depth < 64;
+            current = parents.GetValueOrDefault(current, -1), depth++
+        )
+            foreach (var entry in staticEvents)
+                if (entry.Key.Object == current)
+                    foreach (var action in entry.Value.EnumerateArray())
+                        if (
+                            action.TryGetProperty("code", out var code)
+                            && code.ValueKind == JsonValueKind.String
+                            && Code.TryGetValue(code.GetString()!, out var ast)
+                        )
+                            Evaluator.PrewarmSlot(ast, layout);
+    }
+
+    private readonly HashSet<int> slotPrewarmed = new();
 
     private void PrewarmCode()
     {
@@ -1192,6 +1384,7 @@ public sealed partial class GmWorld
             await EventAsync(i, 7, 4);
         NativeServices?.Maps.RoomEntered(id);
         NativeServices?.Dispatch(roomEvent, NativeEventPhase.After);
+        PrewarmSlots();
         Trace.Add("room:" + room.GetProperty("name").GetString());
         if (loadStarted > 0)
             Console.WriteLine(

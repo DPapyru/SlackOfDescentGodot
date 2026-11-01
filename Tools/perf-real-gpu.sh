@@ -35,10 +35,11 @@ for condition in "${conditions[@]}"; do
       "$godot" "$driver" "$dir/engine.log" "$root" "$warmup" "$samples" "$condition"
   } > "$run"
   chmod +x "$run"
+  slot_env=(); [ -n "${SLACK_SLOT_DRAW:-}" ] && slot_env=(--setenv=SLACK_SLOT_DRAW="$SLACK_SLOT_DRAW")
   timeout "${RUN_TIMEOUT:-180}" systemd-run --user --wait --collect --unit="ccgame-perf-$(date +%s)-$$" \
     --setenv=XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" \
     --setenv=WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}" \
-    --setenv=DISPLAY="${DISPLAY:-:0}" \
+    --setenv=DISPLAY="${DISPLAY:-:0}" "${slot_env[@]}" \
     --setenv=SLACK_MUD_MATRIX_REPORT="$dir/matrix.json" \
     --setenv=SLACK_PERF="${SLACK_PERF:-0}" \
     --setenv=SLACK_USER_ROOT="$dir/user" \

@@ -113,6 +113,12 @@ public sealed class GmScope
 {
     private readonly Dictionary<string, GmValue> values = new(StringComparer.Ordinal);
     private readonly Dictionary<(string, int), int> lengths = new();
+
+    // Names that resolve to slots live only here: the layout is shared per object type and the
+    // instance owns the values (see GmWorld.SlotLayout).
+    internal Dictionary<string, int>? Layout;
+    internal GmValue[]? SlotValues;
+    internal bool[]? SlotDefined;
     private readonly Dictionary<string, Dictionary<int, ArrayRow>> arrays = new(
         StringComparer.Ordinal
     );
@@ -130,6 +136,42 @@ public sealed class GmScope
         arrays.Clear();
         composite.Clear();
         Changed = null;
+        Layout = null;
+        SlotValues = null;
+        SlotDefined = null;
+    }
+
+    internal void UseLayout(Dictionary<string, int>? next)
+    {
+        if (ReferenceEquals(Layout, next))
+            return;
+        if (Layout is not null)
+            foreach (var pair in Layout)
+                if (SlotDefined![pair.Value])
+                    values[pair.Key] = SlotValues![pair.Value];
+        Layout = next;
+        if (next is null)
+        {
+            SlotValues = null;
+            SlotDefined = null;
+            return;
+        }
+        SlotValues = new GmValue[next.Count];
+        SlotDefined = new bool[next.Count];
+        foreach (var pair in next)
+            if (values.Remove(pair.Key, out var existing))
+            {
+                SlotValues[pair.Value] = existing;
+                SlotDefined[pair.Value] = true;
+            }
+    }
+
+    internal bool TrySlot(string name, out int slot)
+    {
+        if (Layout is not null && Layout.TryGetValue(name, out slot))
+            return true;
+        slot = 0;
+        return false;
     }
 
     private sealed class ArrayRow
@@ -234,6 +276,16 @@ public sealed class GmScope
 
     private bool TryGetDefined(string key, out GmValue value)
     {
+        if (Layout is not null && Layout.TryGetValue(key, out int slot))
+        {
+            if (!SlotDefined![slot])
+            {
+                value = default;
+                return false;
+            }
+            value = SlotValues![slot];
+            return true;
+        }
         if (values.TryGetValue(key, out value))
             return true;
         if (arrays.Count == 0)
@@ -247,6 +299,8 @@ public sealed class GmScope
     internal bool Contains(string name, GmIndices indices)
     {
         var (row, column) = Position(indices);
+        if (row == 0 && column == 0 && TrySlot(name, out int slot))
+            return SlotDefined![slot];
         if (name.IndexOf('[') >= 0)
             return TryGetDefined(Key(name, row, column), out _);
         if (arrays.TryGetValue(name, out var rows))
@@ -349,6 +403,13 @@ public sealed class GmScope
                 data.Entries[column] = value;
             data.Length = Math.Max(data.Length, column + 1);
         }
+        else if (row == 0 && column == 0 && TrySlot(name, out int slot))
+        {
+            if (SlotDefined![slot] && SlotValues![slot].Equals(value))
+                return;
+            SlotValues[slot] = value;
+            SlotDefined[slot] = true;
+        }
         else
         {
             string key = Key(name, row, column);
@@ -429,7 +490,9 @@ public sealed class GmScope
         public GmValue this[string key] =>
             TryGetValue(key, out var value) ? value : throw new KeyNotFoundException(key);
         public int Count =>
-            scope.values.Count + scope.arrays.Values.Sum(rows => rows.Values.Sum(row => row.Count));
+            scope.values.Count
+            + scope.arrays.Values.Sum(rows => rows.Values.Sum(row => row.Count))
+            + (scope.SlotDefined?.Count(defined => defined) ?? 0);
         public IEnumerable<string> Keys => this.Select(p => p.Key);
         public IEnumerable<GmValue> Values => this.Select(p => p.Value);
 
@@ -440,6 +503,10 @@ public sealed class GmScope
 
         public IEnumerator<KeyValuePair<string, GmValue>> GetEnumerator()
         {
+            if (scope.Layout is not null)
+                foreach (var pair in scope.Layout)
+                    if (scope.SlotDefined![pair.Value])
+                        yield return new(pair.Key, scope.SlotValues![pair.Value]);
             foreach (var entry in scope.values)
                 yield return entry;
             foreach (var field in scope.arrays)

@@ -37,13 +37,22 @@ public sealed partial class GmEvaluator
     private long reportTime=Environment.TickCount64;
     private readonly bool profiling=Environment.GetEnvironmentVariable("SLACK_PROFILE")=="1";
     public Action<string,double,long>? DiagnosticSample;
-    public GmEvaluator(GmWorld world) { this.world = world; }
+    public GmEvaluator(GmWorld world) { this.world = world; compiling = plainContext; }
     public void ResetBudget(long budget = 20_000_000) => remaining = budget;
     private static string Tag(JsonElement e) => e[0].GetString()!;
     // Mirrors what the first execution of a code entry would do, and forces JIT of every compiled node,
     // so play never pays for compilation or first-run JIT (nothing is executed here).
-    public void Prewarm(JsonElement code)
+    public void Prewarm(JsonElement code) => Compile(code, plainContext);
+
+    public void PrewarmSlot(JsonElement code, Dictionary<string, int> layout) =>
+        Compile(code, SlotContext(layout));
+
+    private void Compile(JsonElement code, CompileContext context)
     {
+        var previous = compiling;
+        compiling = context;
+        entryLocals.Clear();
+        CollectVarNames(code, entryLocals);
         compiled.Clear();
         collectCompiled = true;
         try
@@ -54,6 +63,7 @@ public sealed partial class GmEvaluator
         finally
         {
             collectCompiled = false;
+            compiling = previous;
         }
         foreach (var node in compiled)
         {
@@ -66,6 +76,26 @@ public sealed partial class GmEvaluator
             catch (NotSupportedException) { }
         }
         compiled.Clear();
+    }
+
+    private GmValue EvalSlot(JsonElement code, CompileContext context, GmContext c)
+    {
+        if (!context.Executables.TryGetValue(code, out var executable))
+        {
+            var previous = compiling;
+            compiling = context;
+            entryLocals.Clear();
+            CollectVarNames(code, entryLocals);
+            try
+            {
+                executable = Executable(code);
+            }
+            finally
+            {
+                compiling = previous;
+            }
+        }
+        return executable(c);
     }
 
     public GmValue Run(string key, GmContext context)
@@ -86,7 +116,8 @@ public sealed partial class GmEvaluator
         long allocated=measure?GC.GetAllocatedBytesForCurrentThread():0;
         try
         {
-            var result=Eval(code,context);
+            var slotLayout=world.SlotLayoutFor(context.Self.Object);
+            var result=slotLayout is null?Eval(code,context):EvalSlot(code,SlotContext(slotLayout),context);
             if(context.Flow is not null){result=context.Result;context.Flow=null;context.Result=default;}
             return result;
         }

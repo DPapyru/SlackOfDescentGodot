@@ -59,21 +59,50 @@ public sealed partial class GmEvaluator
         }
         public void Return()=>depth--;
     }
-    private readonly Dictionary<JsonElement,Func<GmContext,GmValue>> executables=new(GmJsonIdentity.Instance);
-    private readonly Dictionary<JsonElement,Func<GmContext,GmIndices,Location>> references=new(GmJsonIdentity.Instance);
+    // One compiled cache per variable layout: the slot fast path is only valid for the layout it was
+    // compiled against, so the plain cache and each slot layout own their own trees.
+    private sealed class CompileContext
+    {
+        public readonly Dictionary<string,int>? Layout;
+        public readonly Dictionary<JsonElement,Func<GmContext,GmValue>> Executables=new(GmJsonIdentity.Instance);
+        public readonly Dictionary<JsonElement,Func<GmContext,GmIndices,Location>> References=new(GmJsonIdentity.Instance);
+        public CompileContext(Dictionary<string,int>? layout)=>Layout=layout;
+    }
+    private readonly CompileContext plainContext=new(null);
+    private readonly Dictionary<Dictionary<string,int>,CompileContext> slotContexts=new();
+    private CompileContext compiling=null!;
+    private CompileContext SlotContext(Dictionary<string,int> layout)
+    {
+        if(!slotContexts.TryGetValue(layout,out var context))slotContexts[layout]=context=new(layout);
+        return context;
+    }
     private Func<GmContext,GmIndices,Location> Reference(JsonElement node)
     {
-        if(references.TryGetValue(node,out var result))return result;
-        return references[node]=CompileReference(node);
+        var table=compiling.References;
+        if(table.TryGetValue(node,out var result))return result;
+        return table[node]=CompileReference(node);
     }
     private readonly List<Func<GmContext,GmValue>> compiled=new();
     private bool collectCompiled;
+    private readonly HashSet<string> entryLocals=new(StringComparer.Ordinal);
+
+    private static void CollectVarNames(JsonElement node, HashSet<string> names)
+    {
+        if(node.ValueKind!=JsonValueKind.Array||node.GetArrayLength()==0)return;
+        if(node[0].ValueKind==JsonValueKind.String&&node[0].GetString() is "var" or "globalvar")
+        {
+            foreach(var declared in node[1].EnumerateArray())names.Add(declared.GetString()!);
+            return;
+        }
+        for(int index=0;index<node.GetArrayLength();index++)CollectVarNames(node[index],names);
+    }
 
     private Func<GmContext,GmValue> Executable(JsonElement node)
     {
-        if(executables.TryGetValue(node,out var result))return result;
+        var table=compiling.Executables;
+        if(table.TryGetValue(node,out var result))return result;
         var body=CompileNode(node);
-        var compiledNode=executables[node]=c=>
+        var compiledNode=table[node]=c=>
         {
             if(--remaining<0)throw new InvalidOperationException("GML instruction budget exceeded");
             return body(c);
@@ -95,7 +124,22 @@ public sealed partial class GmEvaluator
         {
             case "num":{GmValue value=node[1].GetDouble();return _=>value;}
             case "str":{GmValue value=node[1].GetString()!;return _=>value;}
-            case "id":{string name=node[1].GetString()!;return c=>Read(c,name,null);}
+            case "id":
+            {
+                string name=node[1].GetString()!;
+                if(compiling.Layout is { } layout&&!entryLocals.Contains(name)&&layout.TryGetValue(name,out int slot))
+                    return c=>
+                    {
+                        var scope=c.Self.Scope;
+                        if(ReferenceEquals(scope.Layout,layout))
+                        {
+                            if(scope.SlotDefined![slot])return scope.SlotValues![slot];
+                            throw new KeyNotFoundException("Uninitialized variable "+name);
+                        }
+                        return Read(c,name,null);
+                    };
+                return c=>Read(c,name,null);
+            }
             case "group":
             {
                 var statements=node[1].EnumerateArray().Select(Executable).ToArray();

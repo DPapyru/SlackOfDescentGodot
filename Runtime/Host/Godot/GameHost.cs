@@ -23,6 +23,9 @@ public partial class GameHost : Node2D
     private long lastFramesDrawn;
     private static readonly bool fbDiag =
         System.Environment.GetEnvironmentVariable("SLACK_FB_DIAG") == "1";
+    // Catch up at most one late step per process; more would spiral into permanent catch-up.
+    private static readonly int maxStepsPerProcess =
+        System.Environment.GetEnvironmentVariable("SLACK_CATCHUP") == "0" ? 1 : 2;
     private long buildCount;
     private Task? pendingFrame;
     private int modalDepth;
@@ -871,7 +874,7 @@ public partial class GameHost : Node2D
                 long perfNative = world.Performance.Start();
                 try
                 {
-                    bool stepped = false;
+                    int steps = 0;
                     for (int count = nativeClock.Advance(delta); count > 0; count--)
                     {
                         nativeClock.BeginTick();
@@ -887,7 +890,7 @@ public partial class GameHost : Node2D
                         );
                         if (!nativeClock.LegacyDue(world.Engine.Read("room_speed").Number))
                             continue;
-                        if (stepped)
+                        if (steps >= maxStepsPerProcess)
                         {
                             nativeClock.DiscardLegacy();
                             continue;
@@ -900,7 +903,7 @@ public partial class GameHost : Node2D
                         }
                         pendingFrame.GetAwaiter().GetResult();
                         pendingFrame = null;
-                        stepped = true;
+                        steps++;
                         if (world.IsLoadingRoom)
                         {
                             nativeClock.RoomChanged();

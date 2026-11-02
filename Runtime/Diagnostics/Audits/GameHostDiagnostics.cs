@@ -57,7 +57,7 @@ public partial class GameHost
                 if(roomIndex>=0&&roomIndex+1<commandArgs.Length)
                 {
                     for(int i=0;i<180;i++)StepFrame();
-                    var context=new GmContext(world.Instances.First(i=>world.IsObject(i.Object,world.Constants["objTitle"].Int)));
+                    var context=new GmContext(menuIndex<0?world.Instances.First(i=>world.IsObject(i.Object,world.Constants["objTitle"].Int)):new GmInstance());
                     world.Globals.Write("StartArea",0);
                     world.Call("DataItemReset",[],context);world.Call("DataItemLoad",[],context);
                     world.LoadRoom(int.Parse(commandArgs[roomIndex+1]));

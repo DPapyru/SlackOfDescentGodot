@@ -966,6 +966,7 @@ public sealed partial class GmGraphics
         if (building)
             return;
         building = true;
+        drawEvents.Clear();
         FlushSprites();
         ulong started = Time.GetTicksUsec();
         long markTicks = buildPhases ? (long)Time.GetTicksUsec() : 0,
@@ -1019,6 +1020,11 @@ public sealed partial class GmGraphics
                         && instance.Active
                         && instance.Scope.ReadOr("visible").Truth
                         && IsMudVisible(instance)
+                        && (
+                            target >= 0
+                            || HasDrawEvent(instance.Object)
+                            || !OutsideDrawView(instance)
+                        )
                     )
                         buffer.Instances.Add(instance);
                 if (buildPhases)
@@ -1205,6 +1211,8 @@ public sealed partial class GmGraphics
     }
 
     private readonly Dictionary<int, SpriteFrames> spriteFrames = new();
+    private readonly Dictionary<int, (int Hash, int Count, float Extent)> spriteExtents = new();
+    private readonly Dictionary<int, bool> drawEvents = new();
 
     private bool SpriteFrame(
         int id,
@@ -1248,6 +1256,77 @@ public sealed partial class GmGraphics
         texture = cached;
         origin = entry.Origin;
         return true;
+    }
+
+    private bool SpriteExtent(int id, out float extent)
+    {
+        extent = 0;
+        if (!world.Sprites.TryGetValue(id, out var element))
+            return false;
+        var frames = element.GetProperty("frames");
+        int count = frames.GetArrayLength();
+        if (count == 0)
+            return false;
+        int hash = element.GetHashCode();
+        if (
+            !spriteExtents.TryGetValue(id, out var cached)
+            || cached.Hash != hash
+            || cached.Count != count
+        )
+        {
+            float originX = element.GetProperty("originX").GetSingle(),
+                originY = element.GetProperty("originY").GetSingle();
+            float max = 0;
+            for (int index = 0; index < count; index++)
+            {
+                var frame = frames[index];
+                if (
+                    !frame.TryGetProperty("width", out var width)
+                    || !frame.TryGetProperty("height", out var height)
+                )
+                    return false;
+                max = MathF.Max(
+                    max,
+                    GmDrawCull.CornerRadius(originX, originY, width.GetSingle(), height.GetSingle())
+                );
+            }
+            spriteExtents[id] = cached = (hash, count, max);
+        }
+        extent = cached.Extent;
+        return true;
+    }
+
+    private bool HasDrawEvent(int obj)
+    {
+        if (!drawEvents.TryGetValue(obj, out bool has))
+            drawEvents[obj] = has = world.HasEvent(obj, 8, 0);
+        return has;
+    }
+
+    private bool OutsideDrawView(GmInstance instance)
+    {
+#if INCLUDE_DIAGNOSTICS
+        if (SpriteAudit is not null)
+            return false;
+#endif
+        if (captureProbe)
+            return false;
+        var scope = instance.Scope;
+        if (!SpriteExtent(scope.ReadOr("sprite_index", -1).Int, out float extent))
+            return false;
+        var scale = new Vector2(
+            (float)scope.ReadOr("image_xscale", 1).Number,
+            (float)scope.ReadOr("image_yscale", 1).Number
+        );
+        return GmDrawCull.Outside(
+            (float)scope.ReadOr("x").Number,
+            (float)scope.ReadOr("y").Number,
+            extent * Math.Max(Math.Abs(scale.X), Math.Abs(scale.Y)),
+            Camera.X,
+            Camera.Y,
+            viewSize.X,
+            viewSize.Y
+        );
     }
 
     private Texture2D Texture(string path)

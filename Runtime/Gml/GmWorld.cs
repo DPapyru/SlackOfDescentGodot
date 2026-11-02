@@ -1447,7 +1447,7 @@ public sealed partial class GmWorld
         if (!IsLoadingRoom)
             GameTime += 1 / Math.Max(1, Engine.Read("room_speed").Number);
         Engine.Write("current_time", GameTime * 1000);
-        var live = Instances.Where(i => !i.Destroyed && i.Active).ToArray();
+        var live = LiveSnapshot();
         foreach (var i in live)
         {
             i.Scope.Write("xprevious", i.Scope.ReadOr("x"));
@@ -1483,12 +1483,14 @@ public sealed partial class GmWorld
         Performance.End("begin_input", phase);
         phase = Performance.Start();
         await RunObjectEventAsync(3, 0);
-        live = Instances.Where(i => !i.Destroyed && i.Active).ToArray();
+        live = LiveSnapshot();
         Performance.End("step", phase);
         phase = Performance.Start();
         NativeServices?.Motions.BeforePhysics();
-        foreach (var i in live.Where(i => !i.Destroyed && i.Active))
+        foreach (var i in live)
         {
+            if (i.Destroyed || !i.Active)
+                continue;
             var h = i.Scope.ReadOr("hspeed").Number;
             var v = i.Scope.ReadOr("vspeed").Number;
             var friction = i.Scope.ReadOr("friction").Number;
@@ -1520,8 +1522,10 @@ public sealed partial class GmWorld
         Performance.End("motion_boundary", phase);
         phase = Performance.Start();
         long pairProbe = Performance.Start();
-        foreach (var i in live.Where(i => !i.Destroyed && i.Active))
+        foreach (var i in live)
         {
+            if (i.Destroyed || !i.Active)
+                continue;
             if (!collisionTargets.TryGetValue(i.Object, out var targets))
             {
                 var collected = new HashSet<int>();
@@ -1640,7 +1644,7 @@ public sealed partial class GmWorld
         PublishFrame();
         Performance.End("draw", phase);
         phase = Performance.Start();
-        foreach (var i in Instances.Where(i => !i.Destroyed && i.Active).ToArray())
+        foreach (var i in LiveSnapshot())
         {
             double speed = i.Scope.ReadOr("image_speed").Number;
             if (speed == 0 && i.AnimationSettled)
@@ -1670,6 +1674,16 @@ public sealed partial class GmWorld
     }
 
     private readonly Dictionary<int, int> spriteFrameCounts = new();
+    private readonly List<GmInstance> liveSnapshot = new();
+
+    private List<GmInstance> LiveSnapshot()
+    {
+        liveSnapshot.Clear();
+        foreach (var instance in Instances)
+            if (!instance.Destroyed && instance.Active)
+                liveSnapshot.Add(instance);
+        return liveSnapshot;
+    }
 
     private int SpriteFrameCount(int sprite)
     {

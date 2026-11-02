@@ -12,3 +12,5 @@ __pycache__/
 *.tmp
 *.import
 Thumbs.db
+GameData/
+a.out

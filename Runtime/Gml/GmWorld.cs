@@ -48,6 +48,13 @@ public sealed class GmInstance
     internal int CollisionOrder;
     internal long InactiveEffectExpiry;
     internal bool DestroyedNotified;
+    // MotionRest means the last motion pass left zero velocities, so the pass is a no-op until a
+    // physics write arrives; Previous* cache the values already stored in xprevious/yprevious.
+    internal bool MotionRest;
+    internal bool MotionTouched;
+    internal bool PreviousKnown;
+    internal double PreviousX;
+    internal double PreviousY;
 }
 
 public sealed partial class GmWorld
@@ -1450,8 +1457,15 @@ public sealed partial class GmWorld
         var live = LiveSnapshot();
         foreach (var i in live)
         {
-            i.Scope.Write("xprevious", i.Scope.ReadOr("x"));
-            i.Scope.Write("yprevious", i.Scope.ReadOr("y"));
+            var x = i.Scope.ReadOr("x");
+            var y = i.Scope.ReadOr("y");
+            if (!i.PreviousKnown || x.IsString || i.PreviousX != x.Number)
+                i.Scope.Write("xprevious", x);
+            if (!i.PreviousKnown || y.IsString || i.PreviousY != y.Number)
+                i.Scope.Write("yprevious", y);
+            i.PreviousX = x.Number;
+            i.PreviousY = y.Number;
+            i.PreviousKnown = true;
         }
         long sub = Performance.Start();
         await RunObjectEventAsync(3, 1);
@@ -1491,6 +1505,8 @@ public sealed partial class GmWorld
         {
             if (i.Destroyed || !i.Active)
                 continue;
+            if (!i.MotionTouched && i.MotionRest)
+                continue;
             var h = i.Scope.ReadOr("hspeed").Number;
             var v = i.Scope.ReadOr("vspeed").Number;
             var friction = i.Scope.ReadOr("friction").Number;
@@ -1517,6 +1533,8 @@ public sealed partial class GmWorld
             }
             i.Scope.Write("x", i.Scope.ReadOr("x").Number + h);
             i.Scope.Write("y", i.Scope.ReadOr("y").Number + v);
+            i.MotionTouched = false;
+            i.MotionRest = h == 0 && v == 0 && friction == 0 && g == 0;
         }
         BoundaryEvents();
         Performance.End("motion_boundary", phase);
@@ -1650,7 +1668,13 @@ public sealed partial class GmWorld
             if (speed == 0 && i.AnimationSettled)
                 continue;
             int n = SpriteFrameCount(i.Scope.ReadOr("sprite_index", -1).Int);
-            double index = i.Scope.ReadOr("image_index").Number + speed;
+            var image = i.Scope.ReadOr("image_index");
+            double index = image.Number + speed;
+            if (n == 1 && speed == 1 && index == 1 && !image.IsString && !HasEvent(i.Object, 7, 7))
+            {
+                i.AnimationSettled = false;
+                continue;
+            }
             if (index >= n)
             {
                 i.Scope.Write("image_index", index - n);

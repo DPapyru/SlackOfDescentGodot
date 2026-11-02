@@ -418,6 +418,7 @@ public sealed partial class GmGraphics
         private readonly Action? action;
         private readonly GmParticleSystem? particles;
         private readonly GmInstance? instance;
+        private readonly bool hasDraw;
         private readonly Texture2D? texture;
         private readonly string? path;
         private readonly Rect2 source;
@@ -441,11 +442,12 @@ public sealed partial class GmGraphics
             this.particles = particles;
         }
 
-        public DepthDraw(GmInstance instance)
+        public DepthDraw(GmInstance instance, bool hasDraw)
         {
             this = default;
             Depth = instance.Scope.ReadOr("depth").Number;
             this.instance = instance;
+            this.hasDraw = hasDraw;
         }
 
         public DepthDraw(
@@ -525,7 +527,8 @@ public sealed partial class GmGraphics
                             subTicks = (long)Time.GetTicksUsec();
                             subAlloc = System.GC.GetAllocatedBytesForCurrentThread();
                         }
-                        bool handled = !instance.Destroyed && graphics.world.Event(instance, 8, 0);
+                        bool handled =
+                            !instance.Destroyed && hasDraw && graphics.world.Event(instance, 8, 0);
                         if (buildPhases)
                             MarkPhase(8, ref subTicks, ref subAlloc);
                         if (!handled)
@@ -966,7 +969,7 @@ public sealed partial class GmGraphics
         if (building)
             return;
         building = true;
-        drawEvents.Clear();
+        buildSerial++;
         FlushSprites();
         ulong started = Time.GetTicksUsec();
         long markTicks = buildPhases ? (long)Time.GetTicksUsec() : 0,
@@ -1014,19 +1017,90 @@ public sealed partial class GmGraphics
                     if (system.AutoDraw)
                         draws.Add(new(system));
 
+                ObjectPlan? lastPlan = null;
+                int lastObject = int.MinValue;
+                float camX = Camera.X,
+                    camY = Camera.Y,
+                    viewW = viewSize.X,
+                    viewH = viewSize.Y;
+#if INCLUDE_DIAGNOSTICS
+                bool cullDisabled = SpriteAudit is not null || captureProbe;
+#else
+                bool cullDisabled = captureProbe;
+#endif
                 foreach (var instance in world.Instances)
+                {
+                    if (instance.Destroyed || !instance.Active)
+                        continue;
+                    var scope = instance.Scope;
+                    int objectId = instance.Object;
+                    ObjectPlan plan;
+                    if (objectId == lastObject)
+                        plan = lastPlan!;
+                    else
+                    {
+                        if (!objectPlans.TryGetValue(objectId, out plan))
+                            objectPlans[objectId] = plan = new ObjectPlan();
+                        if (plan.Build != buildSerial || !ReferenceEquals(scope.Layout, plan.Layout))
+                            ResolvePlan(plan, objectId, scope);
+                        lastObject = objectId;
+                        lastPlan = plan;
+                    }
+                    bool direct = ReferenceEquals(scope.Layout, plan.Layout);
+                    var values = scope.SlotValues!;
+                    var defined = scope.SlotDefined!;
+                    int visibleSlot = plan.Visible;
                     if (
-                        !instance.Destroyed
-                        && instance.Active
-                        && instance.Scope.ReadOr("visible").Truth
-                        && IsMudVisible(instance)
-                        && (
-                            target >= 0
-                            || HasDrawEvent(instance.Object)
-                            || !OutsideDrawView(instance)
+                        !(
+                            direct && visibleSlot >= 0 && defined[visibleSlot]
+                                ? values[visibleSlot].Truth
+                                : scope.ReadOr("visible").Truth
                         )
                     )
-                        buffer.Instances.Add(instance);
+                        continue;
+                    if (plan.Mud && !IsMudVisible(instance))
+                        continue;
+                    if (target < 0 && !cullDisabled && !plan.HasDraw)
+                    {
+                        int spriteSlot = plan.Sprite;
+                        int spriteId =
+                            direct && spriteSlot >= 0 && defined[spriteSlot]
+                                ? (int)values[spriteSlot].Number
+                                : scope.ReadOr("sprite_index", -1).Int;
+                        if (SpriteExtent(plan, spriteId, out float extent))
+                        {
+                            int xSlot = plan.X,
+                                ySlot = plan.Y,
+                                scaleXSlot = plan.ScaleX,
+                                scaleYSlot = plan.ScaleY;
+                            double px =
+                                    direct && xSlot >= 0 && defined[xSlot]
+                                        ? values[xSlot].Number
+                                        : scope.ReadOr("x").Number,
+                                py =
+                                    direct && ySlot >= 0 && defined[ySlot]
+                                        ? values[ySlot].Number
+                                        : scope.ReadOr("y").Number,
+                                scaleX =
+                                    direct && scaleXSlot >= 0 && defined[scaleXSlot]
+                                        ? values[scaleXSlot].Number
+                                        : scope.ReadOr("image_xscale", 1).Number,
+                                scaleY =
+                                    direct && scaleYSlot >= 0 && defined[scaleYSlot]
+                                        ? values[scaleYSlot].Number
+                                        : scope.ReadOr("image_yscale", 1).Number;
+                            float radius = extent * (float)Math.Max(Math.Abs(scaleX), Math.Abs(scaleY));
+                            if (
+                                px + radius < camX - 1
+                                || px - radius > camX + viewW + 1
+                                || py + radius < camY - 1
+                                || py - radius > camY + viewH + 1
+                            )
+                                continue;
+                        }
+                    }
+                    buffer.Instances.Add(instance);
+                }
                 if (buildPhases)
                 {
                     collected = buffer.Instances.Count;
@@ -1034,7 +1108,7 @@ public sealed partial class GmGraphics
                 }
 
                 foreach (var instance in buffer.Instances)
-                    draws.Add(new(instance));
+                    draws.Add(new(instance, objectPlans[instance.Object].HasDraw));
                 if (buildPhases)
                     MarkPhase(2, ref markTicks, ref markAlloc);
 
@@ -1212,7 +1286,8 @@ public sealed partial class GmGraphics
 
     private readonly Dictionary<int, SpriteFrames> spriteFrames = new();
     private readonly Dictionary<int, (int Hash, int Count, float Extent)> spriteExtents = new();
-    private readonly Dictionary<int, bool> drawEvents = new();
+    private readonly Dictionary<int, ObjectPlan> objectPlans = new();
+    private long buildSerial;
 
     private bool SpriteFrame(
         int id,
@@ -1258,75 +1333,92 @@ public sealed partial class GmGraphics
         return true;
     }
 
+    private bool SpriteExtent(ObjectPlan plan, int id, out float extent)
+    {
+        if (id == plan.LastSprite)
+        {
+            extent = plan.LastExtent;
+            return plan.LastHasExtent;
+        }
+        bool has = SpriteExtent(id, out extent);
+        plan.LastSprite = id;
+        plan.LastExtent = extent;
+        plan.LastHasExtent = has;
+        return has;
+    }
+
     private bool SpriteExtent(int id, out float extent)
     {
         extent = 0;
         if (!world.Sprites.TryGetValue(id, out var element))
             return false;
+        int hash = element.GetHashCode();
+        if (spriteExtents.TryGetValue(id, out var cached) && cached.Hash == hash)
+        {
+            extent = cached.Extent;
+            return cached.Count > 0;
+        }
         var frames = element.GetProperty("frames");
         int count = frames.GetArrayLength();
         if (count == 0)
-            return false;
-        int hash = element.GetHashCode();
-        if (
-            !spriteExtents.TryGetValue(id, out var cached)
-            || cached.Hash != hash
-            || cached.Count != count
-        )
         {
-            float originX = element.GetProperty("originX").GetSingle(),
-                originY = element.GetProperty("originY").GetSingle();
-            float max = 0;
-            for (int index = 0; index < count; index++)
-            {
-                var frame = frames[index];
-                if (
-                    !frame.TryGetProperty("width", out var width)
-                    || !frame.TryGetProperty("height", out var height)
-                )
-                    return false;
-                max = MathF.Max(
-                    max,
-                    GmDrawCull.CornerRadius(originX, originY, width.GetSingle(), height.GetSingle())
-                );
-            }
-            spriteExtents[id] = cached = (hash, count, max);
+            spriteExtents[id] = (hash, 0, 0);
+            return false;
         }
+        float originX = element.GetProperty("originX").GetSingle(),
+            originY = element.GetProperty("originY").GetSingle();
+        float max = 0;
+        for (int index = 0; index < count; index++)
+        {
+            var frame = frames[index];
+            if (
+                !frame.TryGetProperty("width", out var width)
+                || !frame.TryGetProperty("height", out var height)
+            )
+                return false;
+            max = MathF.Max(
+                max,
+                GmDrawCull.CornerRadius(originX, originY, width.GetSingle(), height.GetSingle())
+            );
+        }
+        spriteExtents[id] = cached = (hash, count, max);
         extent = cached.Extent;
         return true;
     }
 
-    private bool HasDrawEvent(int obj)
+    private sealed class ObjectPlan
     {
-        if (!drawEvents.TryGetValue(obj, out bool has))
-            drawEvents[obj] = has = world.HasEvent(obj, 8, 0);
-        return has;
+        public Dictionary<string, int>? Layout;
+        public long Build = -1;
+        public int LastSprite = -2;
+        public float LastExtent;
+        public bool LastHasExtent;
+        public int Visible,
+            Sprite,
+            X,
+            Y,
+            ScaleX,
+            ScaleY;
+        public bool HasDraw,
+            Mud;
     }
 
-    private bool OutsideDrawView(GmInstance instance)
+    private static int Slot(GmScope scope, string name) =>
+        scope.Layout is not null && scope.Layout.TryGetValue(name, out int slot) ? slot : -1;
+
+    private void ResolvePlan(ObjectPlan plan, int obj, GmScope scope)
     {
-#if INCLUDE_DIAGNOSTICS
-        if (SpriteAudit is not null)
-            return false;
-#endif
-        if (captureProbe)
-            return false;
-        var scope = instance.Scope;
-        if (!SpriteExtent(scope.ReadOr("sprite_index", -1).Int, out float extent))
-            return false;
-        var scale = new Vector2(
-            (float)scope.ReadOr("image_xscale", 1).Number,
-            (float)scope.ReadOr("image_yscale", 1).Number
-        );
-        return GmDrawCull.Outside(
-            (float)scope.ReadOr("x").Number,
-            (float)scope.ReadOr("y").Number,
-            extent * Math.Max(Math.Abs(scale.X), Math.Abs(scale.Y)),
-            Camera.X,
-            Camera.Y,
-            viewSize.X,
-            viewSize.Y
-        );
+        plan.Build = buildSerial;
+        plan.Layout = scope.Layout;
+        plan.Visible = Slot(scope, "visible");
+        plan.Sprite = Slot(scope, "sprite_index");
+        plan.X = Slot(scope, "x");
+        plan.Y = Slot(scope, "y");
+        plan.ScaleX = Slot(scope, "image_xscale");
+        plan.ScaleY = Slot(scope, "image_yscale");
+        plan.HasDraw = world.HasEvent(obj, 8, 0);
+        plan.Mud = mudObjectIds.Contains(obj);
+        plan.LastSprite = -2;
     }
 
     private Texture2D Texture(string path)

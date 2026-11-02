@@ -70,6 +70,8 @@ public sealed partial class GmWorld
         {
             // A sprite or speed change must re-validate the animation pass instead of staying skipped.
             if(name is "sprite_index" or "mask_index" or "image_speed")instance.AnimationSettled=false;
+            if(name is "hspeed" or "vspeed" or "speed" or "direction" or "friction" or "gravity" or "gravity_direction")instance.MotionTouched=true;
+            else if(name is "xprevious" or "yprevious")instance.PreviousKnown=false;
             if(name is "x" or "y" or "sprite_index" or "mask_index" or "image_xscale" or "image_yscale" or "image_angle")changedColliders.Add(instance);
             else if(name=="image_index"&&Mask(instance,out var mask)&&(!instance.HasBounds||!ReferenceEquals(instance.BoundsKey.Mask,mask)))changedColliders.Add(instance);
         };

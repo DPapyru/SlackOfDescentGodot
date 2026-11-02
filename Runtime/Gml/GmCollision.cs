@@ -57,6 +57,7 @@ public sealed partial class GmWorld
     private readonly Stack<HashSet<GmInstance>> nearbyPool=new();
     private readonly Dictionary<(int Left,int Top,int Right,int Bottom),GmInstance[]> collisionRegions=new();
     private long collisionRegionsVersion=-1;
+    private readonly HashSet<GmInstance> emptyColliders=new();
     private int collisionIndexedCount=-1;
     private const int CollisionCellSize=128;
     private static (int Left,int Top,int Right,int Bottom) Cells(GmBounds b)=>((int)Math.Floor(b.Left/CollisionCellSize),(int)Math.Floor(b.Top/CollisionCellSize),(int)Math.Floor(b.Right/CollisionCellSize),(int)Math.Floor(b.Bottom/CollisionCellSize));
@@ -81,6 +82,7 @@ public sealed partial class GmWorld
     private void IndexCollider(GmInstance instance)
     {
         var bounds=instance.Destroyed?new GmBounds(0,0,-1,-1):Bounds(instance);
+        if(bounds.Empty)emptyColliders.Add(instance);else emptyColliders.Remove(instance);
         if(collisionMembership.TryGetValue(instance,out var previous)?previous==bounds:bounds.Empty)return;
         geometryVersion++;
         if(collisionMembership.Remove(instance,out var old))
@@ -108,7 +110,7 @@ public sealed partial class GmWorld
         if(collisionIndexedCount!=Instances.Count)
         {
             geometryVersion++;
-            collisionCells.Clear();collisionMembership.Clear();largeColliders.Clear();changedColliders.Clear();
+            collisionCells.Clear();collisionMembership.Clear();largeColliders.Clear();changedColliders.Clear();emptyColliders.Clear();
             for(int i=0;i<Instances.Count;i++){var instance=Instances[i];instance.CollisionOrder=i;WatchCollider(instance);IndexCollider(instance);}
             nextCollisionOrder=Instances.Count;
             collisionIndexedCount=Instances.Count;

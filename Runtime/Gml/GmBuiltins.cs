@@ -390,17 +390,37 @@ public sealed partial class GmWorld
             case "instance_find":return Select(I(0),c).Skip(Math.Max(0,I(1))).FirstOrDefault()?.Id??-4;
             case "instance_nearest":return Select(I(2),c).OrderBy(i=>Math.Pow(i.Scope.ReadOr("x").Number-N(0),2)+Math.Pow(i.Scope.ReadOr("y").Number-N(1),2)).FirstOrDefault()?.Id??-4;
             case "instance_activate_object":foreach(var i in ActivationInstances(I(0)))i.Active=true;return 0;
-            case "instance_deactivate_object":foreach(var i in Select(I(0),c).ToArray())i.Active=false;return 0;
+            case "instance_deactivate_object":foreach(var i in Select(I(0),c))i.Active=false;return 0;
             case "instance_activate_region":case "instance_deactivate_region":
             {
                 var region=new GmBounds(N(0),N(1),N(0)+N(2),N(1)+N(3));
-                bool activate=name=="instance_activate_region";
-                IEnumerable<GmInstance> candidates=N(4)>=0.5?Nearby(region).Concat(Instances.Where(i=>!i.Destroyed&&i.Active!=activate&&Bounds(i).Empty)):Instances;
-                foreach(var i in candidates.Where(i=>!i.Destroyed&&i.Active!=activate&&!(name=="instance_deactivate_region"&&N(5)>=0.5&&i==Self)))
+                bool activate=name=="instance_activate_region",inside=N(4)>=0.5,
+                    notme=name=="instance_deactivate_region"&&N(5)>=0.5;
+                EnsureCollisionIndex();
+                if(inside)
                 {
-                    var bounds=Bounds(i);
-                    if(bounds.Empty){double x=i.Scope.ReadOr("x").Number,y=i.Scope.ReadOr("y").Number;bounds=new(x,y,x,y);}
-                    if(bounds.Overlaps(region)==(N(4)>=0.5))i.Active=activate;
+                    foreach(var i in Nearby(region))
+                    {
+                        if(i.Destroyed||i.Active==activate||(notme&&i==Self))continue;
+                        if(collisionMembership.TryGetValue(i,out var bounds)&&bounds.Overlaps(region))i.Active=activate;
+                    }
+                    foreach(var i in emptyColliders)
+                    {
+                        if(i.Destroyed||i.Active==activate||(notme&&i==Self))continue;
+                        double x=i.Scope.ReadOr("x").Number,y=i.Scope.ReadOr("y").Number;
+                        if(new GmBounds(x,y,x,y).Overlaps(region))i.Active=activate;
+                    }
+                }
+                else
+                {
+                    foreach(var i in Instances)
+                    {
+                        if(i.Destroyed||i.Active==activate||(notme&&i==Self))continue;
+                        bool overlap;
+                        if(collisionMembership.TryGetValue(i,out var bounds))overlap=bounds.Overlaps(region);
+                        else{double x=i.Scope.ReadOr("x").Number,y=i.Scope.ReadOr("y").Number;overlap=new GmBounds(x,y,x,y).Overlaps(region);}
+                        if(!overlap)i.Active=activate;
+                    }
                 }
                 return 0;
             }

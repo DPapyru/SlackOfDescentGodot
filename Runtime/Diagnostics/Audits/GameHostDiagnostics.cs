@@ -15,6 +15,11 @@ public partial class GameHost
     private long liveFirstFrame;
     private long liveStart;
     private long liveEnd;
+    private bool liveWalk;
+    private int liveWalkOffset;
+    private int liveWalkTick;
+    private bool liveWalkRight=true;
+    private bool liveWalkJump;
     private bool captured;
     private int rendered;
     private bool StartDiagnostics()
@@ -96,7 +101,15 @@ public partial class GameHost
                 if(state is not null)File.WriteAllText(state,JsonSerializer.Serialize(new{room=world.CurrentRoom,frame=world.Frame,seed=world.Random.Seed,globals=world.Globals.Values.ToDictionary(p=>p.Key,p=>p.Value.ToString()),engine=world.Engine.Values.ToDictionary(p=>p.Key,p=>p.Value.ToString()),instances=world.Instances.Select(i=>new{id=i.Id,obj=i.Object,active=i.Active,destroyed=i.Destroyed,values=i.Scope.Values.ToDictionary(p=>p.Key,p=>p.Value.ToString())})}));
                 int live=Array.IndexOf(commandArgs,"--live-frames");
                 if(commandArgs.Contains("--fps-audit")){fpsAuditStart=Stopwatch.GetTimestamp();Engine.MaxFps=60;return;}
-                if(live>=0&&live+1<commandArgs.Length){liveFirstFrame=world.Frame;liveEnd=world.Frame+int.Parse(commandArgs[live+1]);liveStart=Stopwatch.GetTimestamp();return;}
+                if(live>=0&&live+1<commandArgs.Length)
+                {
+                    if(commandArgs.Contains("--live-walk"))
+                    {
+                        liveWalk=true;
+                        liveWalkOffset=world.Globals.ReadOr("controllMode").Int==world.Constants["CTRL_KEY"].Int?12:0;
+                    }
+                    liveFirstFrame=world.Frame;liveEnd=world.Frame+int.Parse(commandArgs[live+1]);liveStart=Stopwatch.GetTimestamp();return;
+                }
             }
             catch(Exception e){Fail(e);}
             if(failure is null&&OS.GetCmdlineUserArgs().Contains("--capture"))
@@ -135,6 +148,24 @@ public partial class GameHost
                 }
                 return true;
             }
+            if(liveWalk&&liveEnd>0&&world.Frame<liveEnd)
+            {
+                liveWalkTick++;
+                bool right=liveWalkTick/45%2==0;
+                if(right!=liveWalkRight)
+                {
+                    liveWalkRight=right;
+                    _Input(new InputEventKey{Keycode=GodotKey(world.Globals.Read("key",[liveWalkOffset]).Int),Pressed=!right});
+                    _Input(new InputEventKey{Keycode=GodotKey(world.Globals.Read("key",[liveWalkOffset+1]).Int),Pressed=right});
+                }
+                bool jump=liveWalkTick%20>=15;
+                if(jump!=liveWalkJump)
+                {
+                    liveWalkJump=jump;
+                    _Input(new InputEventKey{Keycode=GodotKey(world.Globals.Read("key",[liveWalkOffset+5]).Int),Pressed=jump});
+                }
+
+            }
             if(liveEnd>0)liveTimes.Add(delta*1000);
         return false;
     }
@@ -142,6 +173,13 @@ public partial class GameHost
     {
             if(liveEnd>0&&world.Frame>=liveEnd)
             {
+                if(liveWalk)
+                {
+                    _Input(new InputEventKey{Keycode=GodotKey(world.Globals.Read("key",[liveWalkOffset]).Int),Pressed=false});
+                    _Input(new InputEventKey{Keycode=GodotKey(world.Globals.Read("key",[liveWalkOffset+1]).Int),Pressed=false});
+                    _Input(new InputEventKey{Keycode=GodotKey(world.Globals.Read("key",[liveWalkOffset+5]).Int),Pressed=false});
+                    liveWalk=false;
+                }
                 liveTimes.Sort();
                 GD.Print("LIVE_PERF room=",world.CurrentRoom," logic_fps=",((world.Frame-liveFirstFrame)/Stopwatch.GetElapsedTime(liveStart).TotalSeconds).ToString("F2")," render_fps=",(1000/liveTimes.Average()).ToString("F2")," p95_ms=",liveTimes[(int)((liveTimes.Count-1)*0.95)].ToString("F2")," max_ms=",liveTimes[^1].ToString("F2"));
                 SetProcess(false);

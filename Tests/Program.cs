@@ -22,6 +22,7 @@ assertions+=GmActorSdkTests.Run(world);
 assertions+=GmEventSdkTests.Run(world);
 assertions+=StepSnapshotTests.Run(world);
 assertions+=StepSkipTests.Run(world);
+assertions+=RegionActivationTests.Run(world);
 var engineRouting=new GmInstance();
 world.Engine.Write("routing_array",99,[3]);
 engineRouting.Scope.Write("routing_array",7,[1]);

@@ -7,6 +7,7 @@ public static class MotionGraphTests
         int count=0;
         void Check(bool ok,string message){if(!ok)throw new Exception(message);count++;}
         bool Throws(Action action,string text){try{action();return false;}catch(Exception error){return error.Message.Contains(text,StringComparison.Ordinal);}}
+        (double X,double Y) Compose((double X,double Y) parent,double angle,double x,double y){var (offsetX,offsetY)=MotionRigCoordinates.Rotate(x,y,angle);return (parent.X+offsetX,parent.Y+offsetY);}
         var clip=new MotionClip{Id="idle",Duration=4,Loop=false,Tracks=[new(){Bone="HEAD",Keys=[new(){Frame=0,Angle=350},new(){Frame=4,X=8,Angle=10,ScaleX=2,Picture=3}]}]};
         var pose=clip.Sample(2)["HEAD"];
         Check(pose.X==4&&pose.ScaleX==1.5&&Math.Abs(pose.Angle-360)<.001&&pose.Picture==0,"timeline interpolation and stepped pictures");
@@ -30,6 +31,29 @@ public static class MotionGraphTests
         var duplicateSlots=new MotionGraph{Skeleton="legacy:objEnemyDoll",Clips=[new(){Tracks=[new(){Bone="process:0"},new(){Bone="process:1"}]}],States=[new(){Id="idle",Clip="idle"}],EntitySlots=new(){{"process:0","process:0"},{"process:1","process:0"}}};duplicateSlots.Clips[0].Id="idle";Check(Throws(() => duplicateSlots.Validate(),"occupied"),"duplicate entity slots report conflict");
         var drag=new MotionGraph{Id="ik.drag",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_TOP",Keys=[new(){Frame=0,X=0,Y=0}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=3,Y=0}]},new(){Bone="HAND1_BELOW",Keys=[new(){Frame=0,X=3,Y=0}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND1_BELOW"}]};
         var dragDoc=new MotionGraphDocument(drag);var dragged=dragDoc.Drag("idle","HAND1_BELOW",0,4,2);var midPose=dragDoc.Graph.Clips[0].Tracks.Single(t=>t.Bone=="HAND1_ABOVE").Keys[0];var endPose=dragDoc.Graph.Clips[0].Tracks.Single(t=>t.Bone=="HAND1_BELOW").Keys[0];Check(dragged.Success&&Math.Abs(Math.Sqrt(midPose.X*midPose.X+midPose.Y*midPose.Y)-3)<.001&&Math.Abs(Math.Sqrt(endPose.X*endPose.X+endPose.Y*endPose.Y)-3)<.001,"IK drag preserves both segment lengths");dragDoc.Undo();Check(dragDoc.Graph.Clips[0].Tracks.Single(t=>t.Bone=="HAND1_BELOW").Keys[0].X==3,"IK drag is one undo operation");
+        var viewport=new MotionView(100,200,320,240,640,480);
+        var mapped=MotionViewport.ToWorld(400,300,640,480,viewport);var mappedBack=MotionViewport.ToSurface(300,350,640,480,viewport);
+        Check(Math.Abs(mapped.X-300)<.001&&Math.Abs(mapped.Y-350)<.001&&Math.Abs(mappedBack.X-400)<.001&&Math.Abs(mappedBack.Y-300)<.001,"viewport maps a 1:1 surface and round trips");
+        var zoomed=MotionViewport.ToWorld(400,300,400,300,new(0,0,320,240,640,480));
+        Check(Math.Abs(zoomed.X-320)<.001&&Math.Abs(zoomed.Y-240)<.001,"viewport scales a smaller surface onto the port");
+        var barStart=MotionViewport.ToWorld(200,0,800,300,new(0,0,320,240,640,480));var barEnd=MotionViewport.ToWorld(600,300,800,300,new(0,0,320,240,640,480));var barBack=MotionViewport.ToSurface(320,240,800,300,new(0,0,320,240,640,480));
+        Check(Math.Abs(barStart.X)<.001&&Math.Abs(barStart.Y)<.001&&Math.Abs(barEnd.X-320)<.001&&Math.Abs(barEnd.Y-240)<.001&&Math.Abs(barBack.X-600)<.001&&Math.Abs(barBack.Y-300)<.001,"viewport honours letterbox bars and round trips");
+        Check(Math.Abs(MotionViewport.WorldPerPixel(800,300,new(0,0,320,240,640,480))-.8)<.001&&Math.Abs(MotionViewport.WorldPerPixel(640,480,new(0,0,320,240,640,480))-.5)<.001,"viewport converts a 12px pick radius to world units");
+        Check(Math.Abs(MotionViewport.WorldPerPixel(800,300,new(0,0,320,240,640,480))*12-9.6)<.001,"viewport turns the 12px pick radius into 9.6 world units");
+        Check(MotionViewport.WorldPerPixel(0,0,new(0,0,320,240,640,480))==0,"viewport reports no scale for an empty surface");
+        var composeGraph=new MotionGraph{Id="ik.compose",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_TOP",Keys=[new(){Frame=0,Angle=15}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=3,Y=0}]},new(){Bone="HAND1_BELOW",Keys=[new(){Frame=0,X=3,Y=0}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND1_BELOW"}]};
+        var composeDoc=new MotionGraphDocument(composeGraph);var composeResult=composeDoc.Drag("idle","HAND1_BELOW",0,4,2);
+        var composed=composeDoc.Graph.Clips[0].Sample(0);
+        var rootPoint=(composed["BODY_TOP"].X,composed["BODY_TOP"].Y);
+        var midPoint=Compose(rootPoint,composed["BODY_TOP"].Angle,composed["HAND1_ABOVE"].X,composed["HAND1_ABOVE"].Y);
+        var endPoint=Compose(midPoint,composed["BODY_TOP"].Angle+composed["HAND1_ABOVE"].Angle,composed["HAND1_BELOW"].X,composed["HAND1_BELOW"].Y);
+        Check(composeResult.Success&&Math.Abs(endPoint.X-4)<.01&&Math.Abs(endPoint.Y-2)<.01,"IK writeback composes to the dragged target");
+        Check(Math.Abs(Math.Sqrt(composed["HAND1_ABOVE"].X*composed["HAND1_ABOVE"].X+composed["HAND1_ABOVE"].Y*composed["HAND1_ABOVE"].Y)-3)<.001&&Math.Abs(Math.Sqrt(composed["HAND1_BELOW"].X*composed["HAND1_BELOW"].X+composed["HAND1_BELOW"].Y*composed["HAND1_BELOW"].Y)-3)<.001,"IK writeback keeps both segment lengths");
+        composeDoc.Undo();Check(composeDoc.Graph.Clips[0].Sample(0)["BODY_TOP"].Angle==15&&composeDoc.Graph.Clips[0].Sample(0)["HAND1_BELOW"].X==3,"IK writeback is a single undo step");
+        var spinGraph=new MotionGraph{Id="spin",Clips=[new(){Id="idle",Duration=10,Tracks=[new(){Bone="HEAD",Keys=[new(){Frame=0,X=3,Y=0}]}]}],States=[new(){Id="idle",Clip="idle"}]};
+        var spinDoc=new MotionGraphDocument(spinGraph);var spinResult=spinDoc.Drag("idle","HEAD",0,0,5);
+        var headPose=spinDoc.Graph.Clips[0].Sample(0)["HEAD"];var headPoint=Compose((0d,0d),0d,headPose.X,headPose.Y);
+        Check(spinResult.Success&&Math.Abs(headPoint.X)<.001&&Math.Abs(headPoint.Y-3)<.001&&Math.Abs(Math.Sqrt(headPose.X*headPose.X+headPose.Y*headPose.Y)-3)<.001,"unbound bone drag keeps its length and points at the target");
         int imported=0,rejected=0;
         foreach(var pair in world.Code.Where(p=>p.Key.StartsWith("external/Chara/Motion/",StringComparison.Ordinal)))
             try{var motion=MotionImport.FromAst(pair.Value,pair.Key,"Nana");motion.Validate();imported++;}

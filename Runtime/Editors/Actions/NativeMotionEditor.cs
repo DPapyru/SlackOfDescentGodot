@@ -27,6 +27,7 @@ public partial class NativeMotionEditor : Window
     private bool busy,closing,refreshing;
     private bool dragging;
     private string? draggedBone;
+    private NativeMotionOverlay? overlay;
     private double dragX,dragY;
     private double elapsed;
     private string? path;
@@ -59,7 +60,7 @@ public partial class NativeMotionEditor : Window
         foreach(string key in world.Code.Keys.Where(k=>k.StartsWith("external/Chara/Motion/",StringComparison.Ordinal)).Order())original.AddItem(key["external/Chara/Motion/".Length..^4]);
         var content=Row(root);content.SizeFlagsVertical=Control.SizeFlags.ExpandFill;
         var left=new VBoxContainer{CustomMinimumSize=new(410,0)};content.AddChild(left);
-        surface=new TextureRect{CustomMinimumSize=new(400,300),StretchMode=TextureRect.StretchModeEnum.KeepAspectCentered,ExpandMode=TextureRect.ExpandModeEnum.IgnoreSize};left.AddChild(surface);surface.GuiInput+=SurfaceInput;
+        surface=new TextureRect{CustomMinimumSize=new(400,300),StretchMode=TextureRect.StretchModeEnum.KeepAspectCentered,ExpandMode=TextureRect.ExpandModeEnum.IgnoreSize};left.AddChild(surface);overlay=new NativeMotionOverlay();surface.AddChild(overlay);overlay.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);surface.GuiInput+=SurfaceInput;surface.Resized+=SyncOverlay;
         viewport=new SubViewport{Size=new(640,480),RenderTargetUpdateMode=SubViewport.UpdateMode.Always,TransparentBg=false};AddChild(viewport);
         canvas=new GmCanvas();viewport.AddChild(canvas);surface.Texture=viewport.GetTexture();
         var playback=Row(left);Button(playback,"重载预览",()=>InitializePreview());playing=new CheckButton{Text="播放"};playback.AddChild(playing);Button(playback,"单帧",()=>Step());
@@ -115,7 +116,7 @@ public partial class NativeMotionEditor : Window
         refreshing=true;graphId.Text=document.Graph.Id;int skeletonIndex=Array.IndexOf(new[]{"Nana","Ryoko","Yuki"},document.Graph.Skeleton);if(skeletonIndex>=0)skeleton.Select(skeletonIndex);else skeleton.Select(0);
         int selected=(int)clipChoice.Selected;clipChoice.Clear();foreach(var c in document.Graph.Clips)clipChoice.AddItem(c.Id);clipChoice.Select(Math.Clamp(selected,0,clipChoice.ItemCount-1));
         selected=(int)stateChoice.Selected;stateChoice.Clear();foreach(var s in document.Graph.States)stateChoice.AddItem(s.Id);stateChoice.Select(Math.Clamp(selected,0,stateChoice.ItemCount-1));
-        parametersText.Text=JsonSerializer.Serialize(document.Graph.Parameters,NativeContentStore.Json);refreshing=false;RefreshTimeline();ReadState();RefreshGraph();
+        parametersText.Text=JsonSerializer.Serialize(document.Graph.Parameters,NativeContentStore.Json);refreshing=false;RefreshTimeline();ReadState();RefreshGraph();SyncOverlay();
     }
     private static string NodeName(string id)=>"state_"+Convert.ToHexString(System.Text.Encoding.UTF8.GetBytes(id));
 
@@ -155,20 +156,25 @@ public partial class NativeMotionEditor : Window
         if(dragging&&input is InputEventMouseMotion motion){(dragX,dragY)=CanvasPosition(motion.Position);x.Value=dragX;y.Value=dragY;}
     }
 
-    private string? PickBone(Vector2 position)
+    private string? PickBone(Vector2 position)=>PickBoneAt(position);
+
+    internal string? PickBoneAt(Vector2 position)
     {
         if(PreviewActor is not {} actor||surface.Size.X<=0||surface.Size.Y<=0)return null;
-        (double X,double Y)=CanvasPosition(position);string? best=null;double distance=double.MaxValue;
-        foreach(var node in actor.Services.Motions.Skeleton(actor)){double d=Math.Sqrt((node.X-X)*(node.X-X)+(node.Y-Y)*(node.Y-Y));if(d<distance){distance=d;best=node.Name;}}
-        if(Math.Sqrt((actor.X-X)*(actor.X-X)+(actor.Y-Y)*(actor.Y-Y))<distance){best="root";distance=0;}
-        return distance<=64?best:null;
+        var (X,Y)=CanvasPosition(position);string? best=null;double distance=MotionViewport.WorldPerPixel(surface.Size.X,surface.Size.Y,PreviewView)*12;
+        foreach(var node in actor.Services.Motions.Skeleton(actor)){double d=Math.Sqrt((node.X-X)*(node.X-X)+(node.Y-Y)*(node.Y-Y));if(d>distance)continue;distance=d;best=node.Name;}
+        return Math.Sqrt((actor.X-X)*(actor.X-X)+(actor.Y-Y)*(actor.Y-Y))<distance?"root":best;
     }
 
-    private (double X,double Y) CanvasPosition(Vector2 position)
+    private MotionView PreviewView=>PreviewActor is {} actor?new((int)actor.X,(int)actor.Y-40,320,240,640,480):new(0,0,320,240,640,480);
+
+    private void SyncOverlay()
     {
-        if(PreviewActor is not {} actor)return (0,0);
-        return (actor.Instance.Scope.ReadOr("x").Number+(position.X/Math.Max(1,surface.Size.X)-.5)*640,actor.Instance.Scope.ReadOr("y").Number-40+(position.Y/Math.Max(1,surface.Size.Y)-.5)*480);
+        if(overlay is null||PreviewActor is not {} actor)return;
+        overlay.Sync(actor.Services.Motions.Skeleton(actor),bone.Selected>=0?bone.GetItemText((int)bone.Selected):null,document.Graph.IkChains,PreviewView,new((float)actor.X,(float)actor.Y));
     }
+
+    private (double X,double Y) CanvasPosition(Vector2 position)=>MotionViewport.ToWorld(position.X,position.Y,surface.Size.X,surface.Size.Y,PreviewView);
 
     private (double X,double Y) LocalTarget(string node,double worldX,double worldY)
     {
@@ -246,7 +252,7 @@ public partial class NativeMotionEditor : Window
             if(MotionSkeleton.IsLegacy(document.Graph.Skeleton)){string resource=document.Graph.Skeleton[7..];targetPreview=CreateLegacyPreview(resource);actor=new(preview.World,targetPreview);}
             else {targetPreview=null;actor=new(preview.World,preview.Player!);}
             PopulateSkeleton();preview.Bridge.Services.Motions.Play(actor,document.Graph);
-            canvas.Paint=c=>preview.Graphics.Render(c);preview.FrameOn((int)actor.X,(int)actor.Y-40,320,240,640,480);preview.Graphics.Build();canvas.QueueRedraw();status.Text="预览已加载。";
+            canvas.Paint=c=>preview.Graphics.Render(c);preview.FrameOn((int)actor.X,(int)actor.Y-40,320,240,640,480);preview.Graphics.Build();canvas.QueueRedraw();SyncOverlay();status.Text="预览已加载。";
         }
         catch(Exception e){status.Text=e.GetBaseException().Message;}
         finally{busy=false;}
@@ -264,7 +270,7 @@ public partial class NativeMotionEditor : Window
             foreach(var key in new[]{Key.Left,Key.Right,Key.Space})activePreview.Input.Key(activePreview.World,(int)key switch{(int)Key.Left=>37,(int)Key.Right=>39,_=>32},Input.IsKeyPressed(key));
             await activePreview.AdvanceAsync(new(Input.IsKeyPressed(Key.Left),Input.IsKeyPressed(Key.Right),Input.IsKeyPressed(Key.Space),false));
             var state=active.Services.Motions.State(active);playState.Text=$"{state?.State}  frame={state?.Frame:F1}  x={active.X:F2} y={active.Y:F2} suspended={state?.Suspended}";
-            activePreview.FrameOn((int)active.X,(int)active.Y-40,320,240,640,480);canvas.QueueRedraw();
+            activePreview.FrameOn((int)active.X,(int)active.Y-40,320,240,640,480);canvas.QueueRedraw();SyncOverlay();
         }
         catch(Exception e){playing.ButtonPressed=false;status.Text=e.GetBaseException().Message;}
         finally{busy=false;}

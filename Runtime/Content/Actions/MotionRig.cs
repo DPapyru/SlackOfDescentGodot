@@ -187,6 +187,13 @@ public static class MotionRigCoordinates
         double radians = parentAngle * Math.PI / 180, dx = (worldX - parentX) * Math.Sign(direction), dy = worldY - parentY;
         return (dx * Math.Cos(radians) - dy * Math.Sin(radians), dx * Math.Sin(radians) + dy * Math.Cos(radians));
     }
+
+    public static (double X, double Y) Rotate(double x, double y, double angle)
+    {
+        if (!double.IsFinite(x) || !double.IsFinite(y) || !double.IsFinite(angle)) throw new InvalidDataException("旋转需要有限数值。");
+        double radians = angle * Math.PI / 180;
+        return (x * Math.Cos(radians) + y * Math.Sin(radians), -x * Math.Sin(radians) + y * Math.Cos(radians));
+    }
 }
 
 public static class MotionPoseEditor
@@ -199,21 +206,27 @@ public static class MotionPoseEditor
         var chain = graph.IkChains?.FirstOrDefault(item => item.Enabled && item.End == bone);
         if (chain is not null)
         {
-            var root = clip.Sample(frame).GetValueOrDefault(chain.Root);
-            var mid = clip.Sample(frame).GetValueOrDefault(chain.Mid);
-            var end = clip.Sample(frame).GetValueOrDefault(chain.End);
-            double midX = root.X + mid.X, midY = root.Y + mid.Y;
-            double endX = midX + end.X, endY = midY + end.Y;
+            var sample = clip.Sample(frame);
+            var root = sample.GetValueOrDefault(chain.Root);
+            var mid = sample.GetValueOrDefault(chain.Mid);
+            var end = sample.GetValueOrDefault(chain.End);
+            var midOffset = MotionRigCoordinates.Rotate(mid.X, mid.Y, root.Angle);
+            double midX = root.X + midOffset.X, midY = root.Y + midOffset.Y;
+            var endOffset = MotionRigCoordinates.Rotate(end.X, end.Y, root.Angle + mid.Angle);
+            double endX = midX + endOffset.X, endY = midY + endOffset.Y;
             bool bend = bendPositive ?? ((midX - root.X) * (endY - midY) - (midY - root.Y) * (endX - midX) >= 0);
             var result = MotionIk.Solve(root.X, root.Y, midX, midY, endX, endY, targetX, targetY, bend);
             if (!result.Success) return result;
-            double firstLength = Math.Sqrt(mid.X * mid.X + mid.Y * mid.Y), rootRadians = result.RootAngle * Math.PI / 180;
+            double firstLength = Math.Sqrt(mid.X * mid.X + mid.Y * mid.Y), secondLength = Math.Sqrt(end.X * end.X + end.Y * end.Y);
+            double rootRadians = result.RootAngle * Math.PI / 180, midRadians = result.MidAngle * Math.PI / 180;
             double solvedMidX = root.X + Math.Cos(rootRadians) * firstLength, solvedMidY = root.Y + Math.Sin(rootRadians) * firstLength;
-            SetKey(clip, chain.Root, frame, new MotionPose(root.X, root.Y, result.RootAngle, root.ScaleX, root.ScaleY, root.Picture));
-            double localMid = Normalize(result.MidAngle - result.RootAngle);
-            double solvedTargetX = result.Clamped ? result.TargetX : targetX, solvedTargetY = result.Clamped ? result.TargetY : targetY;
-            SetKey(clip, chain.Mid, frame, new MotionPose(solvedMidX - root.X, solvedMidY - root.Y, localMid, mid.ScaleX, mid.ScaleY, mid.Picture));
-            SetKey(clip, chain.End, frame, new MotionPose(solvedTargetX - solvedMidX, solvedTargetY - solvedMidY, end.Angle, end.ScaleX, end.ScaleY, end.Picture));
+            double solvedEndX = solvedMidX + Math.Cos(midRadians) * secondLength, solvedEndY = solvedMidY + Math.Sin(midRadians) * secondLength;
+            double localMidAngle = Normalize(result.MidAngle - result.RootAngle);
+            var localMid = MotionRigCoordinates.Rotate(solvedMidX - root.X, solvedMidY - root.Y, -result.RootAngle);
+            var localEnd = MotionRigCoordinates.Rotate(solvedEndX - solvedMidX, solvedEndY - solvedMidY, -(result.RootAngle + localMidAngle));
+            SetKey(clip, chain.Root, frame, new MotionPose(root.X, root.Y, Normalize(result.RootAngle), root.ScaleX, root.ScaleY, root.Picture));
+            SetKey(clip, chain.Mid, frame, new MotionPose(localMid.X, localMid.Y, localMidAngle, mid.ScaleX, mid.ScaleY, mid.Picture));
+            SetKey(clip, chain.End, frame, new MotionPose(localEnd.X, localEnd.Y, end.Angle, end.ScaleX, end.ScaleY, end.Picture));
             return result;
         }
         var current = clip.Sample(frame).GetValueOrDefault(bone);

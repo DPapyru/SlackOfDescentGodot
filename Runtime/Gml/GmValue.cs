@@ -114,19 +114,14 @@ public sealed class GmScope
     private readonly Dictionary<string, GmValue> values = new(StringComparer.Ordinal);
     private readonly Dictionary<(string, int), int> lengths = new();
 
-    // Names that resolve to slots live only here: the layout is shared per object type and the
-    // instance owns the values (see GmWorld.SlotLayout).
     internal Dictionary<string, int>? Layout;
     internal GmValue[]? SlotValues;
     internal bool[]? SlotDefined;
-    // Array base names get their own layout token: the container replaces the name lookup, the
-    // rows/columns inside it behave exactly like the dictionary path.
     internal Dictionary<string, int>? ArrayLayout;
     internal Dictionary<int, ArrayRow>[]? ArraySlots;
     private readonly Dictionary<string, Dictionary<int, ArrayRow>> arrays = new(
         StringComparer.Ordinal
     );
-    // Base names that own literal "name[index]" entries in values; lets Contains skip building the key.
     private readonly HashSet<string> composite = new(StringComparer.Ordinal);
     public readonly ValueDictionary Values;
     internal Action<string>? Changed;
@@ -299,8 +294,6 @@ public sealed class GmScope
 
     private bool TryGetDefined(string key, out GmValue value)
     {
-        // An undefined slot falls through: the name may still own array entries written through the
-        // dictionary path (engine writes such as alarm[]).
         if (Layout is not null && Layout.TryGetValue(key, out int slot) && SlotDefined![slot])
         {
             value = SlotValues![slot];
@@ -360,8 +353,6 @@ public sealed class GmScope
     public GmValue ReadOr(string name, GmValue fallback = default) =>
         TryGetDefined(name, out var value) ? value : fallback;
 
-    // Read with indices, returning the fallback when undefined; mirrors Values.GetValueOrDefault(key)
-    // without building the composite key string.
     internal GmValue ReadOr(string name, GmIndices indices, GmValue fallback = default)
     {
         var (row, column) = Position(indices);
@@ -445,7 +436,6 @@ public sealed class GmScope
         Changed?.Invoke(name);
     }
 
-    // Slot containers are created on first write; reads only look them up.
     private bool TryArrayRows(string name, out Dictionary<int, ArrayRow>? rows)
     {
         if (ArrayLayout is not null && ArrayLayout.TryGetValue(name, out int slot))

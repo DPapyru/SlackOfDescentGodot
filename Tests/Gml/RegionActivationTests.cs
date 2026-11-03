@@ -1,8 +1,6 @@
 using System.Text.Json;
 using SlackOfDescent;
 
-// Pins instance_activate/deactivate_region and the object variants against the collision index:
-// inside/outside, notme, empty-bounds (point) instances and object selectors must be unchanged.
 public static class RegionActivationTests
 {
     public static int Run(GmWorld shared)

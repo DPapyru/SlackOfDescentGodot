@@ -40,8 +40,6 @@ public sealed partial class GmEvaluator
     public GmEvaluator(GmWorld world) { this.world = world; compiling = plainContext; }
     public void ResetBudget(long budget = 20_000_000) => remaining = budget;
     private static string Tag(JsonElement e) => e[0].GetString()!;
-    // Mirrors what the first execution of a code entry would do, and forces JIT of every compiled node,
-    // so play never pays for compilation or first-run JIT (nothing is executed here).
     public void Prewarm(JsonElement code) => Compile(code, plainContext);
 
     internal void PrewarmSlot(JsonElement code, GmWorld.SlotPlan plan) =>

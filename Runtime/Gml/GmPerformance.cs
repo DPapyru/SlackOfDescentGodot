@@ -191,7 +191,7 @@ public sealed class GmPerformance
 
         WriteLog(new{type="cadence",time=DateTimeOffset.UtcNow,frame=world.Frame,room=world.CurrentRoom,
             targetLogicFps=world.Engine.Read("room_speed").Number,logicFps=sample.LogicFps,processFps=sample.ProcessFps,
-            completedRenderFps=renderIntervals.Count/sample.Seconds,process=Summary(processTimes),renderInterval=Summary(renderIntervals), // FramePostDraw callback rate = _Process rate, NOT screen present rate
+            completedRenderFps=renderIntervals.Count/sample.Seconds,process=Summary(processTimes),renderInterval=Summary(renderIntervals),
             seconds=sample.Seconds,gc,objectProfile=Objects.Enabled?Objects.Snapshot(world,sample.Seconds,processSteps,allocatedBytes,processTimes.Sum()):null,
             logicSteps=processSteps,catchUpProcesses,maxStepsPerProcess=maxSteps,graphics=stats,
             build=new{count=buildDelta,totalMs=buildMsDelta,meanMs=buildDelta==0?0:buildMsDelta/buildDelta,

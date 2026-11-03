@@ -1,8 +1,6 @@
 using System.Text.Json;
 using SlackOfDescent;
 
-// Pins the per-boundary snapshot semantics of StepAsync: instances created or destroyed by events
-// must be seen by exactly the passes the original per-boundary Instances.Where(...).ToArray() saw.
 public static class StepSnapshotTests
 {
     public static int Run(GmWorld shared)

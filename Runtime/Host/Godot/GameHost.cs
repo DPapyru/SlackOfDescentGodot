@@ -23,7 +23,6 @@ public partial class GameHost : Node2D
     private long lastFramesDrawn;
     private static readonly bool fbDiag =
         System.Environment.GetEnvironmentVariable("SLACK_FB_DIAG") == "1";
-    // Catch up at most one late step per process; more would spiral into permanent catch-up.
     private static readonly int maxStepsPerProcess =
         System.Environment.GetEnvironmentVariable("SLACK_CATCHUP") == "0" ? 1 : 2;
     private long buildCount;

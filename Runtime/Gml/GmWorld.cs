@@ -31,8 +31,6 @@ public sealed class GmInstance
         }
     }
     internal Action? VisibilityChanged;
-    // True once a zero-speed instance is known to sit inside its sprite's frame range, so the animation
-    // pass can skip it without changing Animation End behaviour for out-of-range frames.
     internal bool AnimationSettled;
     public GmScope Scope = new();
     internal (
@@ -48,8 +46,6 @@ public sealed class GmInstance
     internal int CollisionOrder;
     internal long InactiveEffectExpiry;
     internal bool DestroyedNotified;
-    // MotionRest means the last motion pass left zero velocities, so the pass is a no-op until a
-    // physics write arrives; Previous* cache the values already stored in xprevious/yprevious.
     internal bool MotionRest;
     internal bool MotionTouched;
     internal bool PreviousKnown;
@@ -833,7 +829,6 @@ public sealed partial class GmWorld
 
     public bool HasEvent(int obj, int kind, int sub) => EventOwner(obj, kind, sub) >= 0;
 
-    // Actions of an object event after inheritance; null when the event is only known at runtime.
     public JsonElement[]? EventActions(int obj, int kind, int sub)
     {
         if (addedEvents.ContainsKey((obj, kind, sub)))
@@ -868,8 +863,6 @@ public sealed partial class GmWorld
     private readonly Stack<GmContext> contextPool = new();
     private readonly Stack<GmScope> localsPool = new();
 
-    // Event and action contexts are rented per dispatch: the local scope must not survive an event,
-    // so it is reset on return; a null locals argument shares the caller's scope.
     private GmContext RentContext(
         GmInstance instance,
         GmInstance? other,
@@ -968,8 +961,6 @@ public sealed partial class GmWorld
         return false;
     }
 
-    // Action fields are resolved once per event action list: JsonElement.GetString() would otherwise
-    // decode the code key for every instance dispatch.
     private readonly struct ActionPlan
     {
         public readonly JsonElement Action;
@@ -1138,10 +1129,6 @@ public sealed partial class GmWorld
             || name.StartsWith("objQuicksand", StringComparison.Ordinal);
     }
 
-    // Built only after every Create event of the load has run: a globalvar declared by another
-    // object would otherwise be captured as an instance slot.
-    // shortcut: only names read or written statically on self become slots; names bound as pooled
-    // locals or declared globalvar stay on the dictionary, upgrade when a hot object needs those.
     internal SlotPlan? SlotLayout(int obj)
     {
         if (!SlotExperiment)
@@ -1234,8 +1221,6 @@ public sealed partial class GmWorld
         }
     }
 
-    // Collects self-scope variable names; an array base goes to the indexed set instead of the
-    // scalar set. Deref fields need no exclusion: they are stored through the same scope.
     private static void ScanNode(
         JsonElement node,
         HashSet<string> names,
@@ -1257,8 +1242,6 @@ public sealed partial class GmWorld
             case "var":
                 return;
             case "globalvar":
-                // A globalvar declaration makes the name global for the whole object; the entry-level
-                // var scan is precise per code entry, so "var" needs no exclusion here.
                 foreach (var declared in node[1].EnumerateArray())
                     excluded.Add(declared.GetString()!);
                 return;

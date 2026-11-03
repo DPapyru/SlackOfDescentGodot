@@ -54,6 +54,27 @@ public static class MotionGraphTests
         var spinDoc=new MotionGraphDocument(spinGraph);var spinResult=spinDoc.Drag("idle","HEAD",0,0,5);
         var headPose=spinDoc.Graph.Clips[0].Sample(0)["HEAD"];var headPoint=Compose((0d,0d),0d,headPose.X,headPose.Y);
         Check(spinResult.Success&&Math.Abs(headPoint.X)<.001&&Math.Abs(headPoint.Y-3)<.001&&Math.Abs(Math.Sqrt(headPose.X*headPose.X+headPose.Y*headPose.Y)-3)<.001,"unbound bone drag keeps its length and points at the target");
+        var dirtyDoc=new MotionGraphDocument(new MotionGraph{Clips=[new(){Id="idle"}],States=[new(){Id="idle",Clip="idle"}]});
+        Check(!dirtyDoc.Dirty,"new document starts clean");
+        dirtyDoc.Edit(g=>g.Clips[0].Duration=30);Check(dirtyDoc.Dirty,"edit marks the document dirty");
+        string dirtyPath=Path.Combine(Path.GetTempPath(),"motion-dirty-"+Guid.NewGuid().ToString("N")+".motion.json");dirtyDoc.Save(dirtyPath);
+        Check(!dirtyDoc.Dirty&&File.Exists(dirtyPath),"save clears the dirty flag");File.Delete(dirtyPath);
+        var renameGraph=new MotionGraph{Clips=[new(){Id="idle"}],States=[new(){Id="idle",Clip="idle",Transitions=[new(){Target="run"}]},new(){Id="run",Clip="idle"}],Entry="idle"};
+        MotionGraphEdits.RenameState(renameGraph,"run","walk");
+        Check(renameGraph.States[1].Id=="walk"&&renameGraph.States[0].Transitions[0].Target=="walk","rename state rewrites transitions");
+        MotionGraphEdits.RenameState(renameGraph,"idle","stand");Check(renameGraph.Entry=="stand","rename entry state rewrites the entry");
+        Check(Throws(()=>MotionGraphEdits.RenameState(renameGraph,"walk","stand"),"已存在"),"rename rejects duplicate ids");
+        MotionGraphEdits.RemoveState(renameGraph,"walk");
+        Check(renameGraph.States.Count==1&&renameGraph.States.All(s=>s.Transitions.All(t=>t.Target!="walk")),"remove state drops inbound transitions");
+        Check(Throws(()=>MotionGraphEdits.RemoveState(renameGraph,"stand"),"至少保留"),"remove refuses the last state");
+        var entryGraph=new MotionGraph{Clips=[new(){Id="idle"}],States=[new(){Id="idle",Clip="idle"},new(){Id="run",Clip="idle"}],Entry="idle"};
+        MotionGraphEdits.RemoveState(entryGraph,"idle");Check(entryGraph.Entry=="run"&&entryGraph.States.Count==1,"removing the entry reassigns it");
+        Check(MotionExport.ValidId("motion.dash-2_x")&&!MotionExport.ValidId("bad/id")&&!MotionExport.ValidId("")&&!MotionExport.ValidId("动作")&&!MotionExport.ValidId("../x"),"motion ids accept letters digits dot underscore hyphen");
+        Check(MotionExport.MotionPath("dash")=="motions/dash.motion.json","motion export path lives under motions");
+        var presetProject=new MotionProject(new(MotionTargetKind.PlayerPreset,"Ryoko"),new MotionGraphDocument(new MotionGraph{Id="p",Skeleton="Ryoko",Clips=[new(){Id="idle"}],States=[new(){Id="idle",Clip="idle"}]}));
+        Check(!presetProject.Dirty&&presetProject.Target.Skeleton("Nana")=="Ryoko","player preset project targets the preset skeleton");
+        presetProject.Document.Edit(g=>g.Clips[0].Duration=12);Check(presetProject.Dirty,"project dirty follows its document");
+        Check(new MotionProjectTarget(MotionTargetKind.PlayerCharacter,"hero").Skeleton("Yuki")=="Yuki"&&new MotionProjectTarget(MotionTargetKind.Entity,"objEnemyDoll").Skeleton("Nana")=="legacy:objEnemyDoll","project targets resolve skeleton ids without schema changes");
         int imported=0,rejected=0;
         foreach(var pair in world.Code.Where(p=>p.Key.StartsWith("external/Chara/Motion/",StringComparison.Ordinal)))
             try{var motion=MotionImport.FromAst(pair.Value,pair.Key,"Nana");motion.Validate();imported++;}

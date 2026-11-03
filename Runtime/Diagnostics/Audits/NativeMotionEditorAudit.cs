@@ -62,6 +62,24 @@ public partial class NativeMotionEditor
         Expect(exportedManifest.Content!.Motions.TryGetValue("audit.export",out var exportedPath)&&exportedPath=="motions/audit.export.motion.json","motion export updates the manifest");
         var exportedContent=new ContentRegistry();using(var exportedManager=new NativeModManager(exportedContent)){var loaded=exportedManager.Reload(package);Expect(loaded.Success&&exportedContent.MotionGraphs.ContainsKey("audit.export"),"exported motion registers through an isolated reload");}
         Expect(MotionExport.ValidId(document.Graph.Id)&&!MotionExport.ValidId("bad id"),"motion export validates ids");
+        Change(g=>g.Clips[0].Duration=31);
+        bool exportFailed=false;
+        var writable=UnixFileMode.UserRead|UnixFileMode.UserWrite|UnixFileMode.UserExecute|UnixFileMode.GroupRead|UnixFileMode.GroupExecute|UnixFileMode.OtherRead|UnixFileMode.OtherExecute;
+        if(!OperatingSystem.IsWindows())File.SetUnixFileMode(package,writable&~UnixFileMode.UserWrite&~UnixFileMode.GroupWrite&~UnixFileMode.OtherWrite);
+        try{ExportToProject(package);}catch(Exception error)when(error is IOException or InvalidDataException or UnauthorizedAccessException){exportFailed=true;}
+        finally{if(!OperatingSystem.IsWindows())File.SetUnixFileMode(package,writable);}
+        Expect(exportFailed&&Project.Dirty,"failed export keeps the project dirty");
+        int closed=0;
+        ConfirmDirtyClose(()=>closed++);
+        Expect(pendingConfirmation is not null&&confirmation.DialogText.Contains(projects[0].Document.Graph.Id),"window close confirms the first dirty project");
+        var firstConfirm=pendingConfirmation;pendingConfirmation=null;confirmation.Hide();firstConfirm!();
+        Expect(pendingConfirmation is not null&&confirmation.DialogText.Contains(projects[1].Document.Graph.Id),"window close confirms each dirty project in turn");
+        pendingConfirmation=null;confirmation.Hide();
+        Expect(closed==0,"cancelling a dirty confirmation stops the close");
+        ConfirmDirtyClose(()=>closed++);
+        var confirmFirst=pendingConfirmation;pendingConfirmation=null;confirmation.Hide();confirmFirst!();
+        var confirmSecond=pendingConfirmation;pendingConfirmation=null;confirmation.Hide();confirmSecond!();
+        Expect(closed==1,"confirming every dirty project closes the window");
         SwitchProject(projectIndex,false);RemoveProject(projects.Count-1,false);
         Expect(projects.Count==projectIndex+1&&activeProject==projectIndex,"project tabs return to the first document");
         InitializePreview();await Ready();

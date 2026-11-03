@@ -26,7 +26,19 @@ public partial class NativeMotionEditor
     private void SwitchProject(int index,bool initializePreview=true)
     {
         if(index<0||index>=projects.Count||index==activeProject)return;
-        CaptureProjectState();activeProject=index;Refresh();if(initializePreview)InitializePreview();
+        CaptureProjectState();activeProject=index;ActivateProject();if(initializePreview)InitializePreview();
+    }
+    private void ActivateProject(){Refresh();frame.Value=Project.Frame;}
+    internal void ConfirmDirtyClose(Action done)
+    {
+        var dirty=projects.Where(project=>project.Dirty).ToList();
+        void Step(int position)
+        {
+            if(position>=dirty.Count){done();return;}
+            var project=dirty[position];
+            Confirm("项目 "+project.Document.Graph.Id+" 有未保存的修改，关闭后丢失。确定关闭？",()=>Step(position+1));
+        }
+        Step(0);
     }
     private void CloseProject(int index)
     {
@@ -42,7 +54,7 @@ public partial class NativeMotionEditor
         projects.RemoveAt(index);
         if(index<activeProject)activeProject--;
         activeProject=Math.Clamp(activeProject,0,projects.Count-1);
-        Refresh();if(initializePreview)InitializePreview();
+        ActivateProject();if(initializePreview)InitializePreview();
     }
     private List<MotionProjectTarget> TargetChoices()
     {
@@ -79,7 +91,7 @@ public partial class NativeMotionEditor
         if(projects.Any(project=>project.Document.Graph.Id==id))throw new InvalidDataException("项目标识已存在："+id);
         var graph=new MotionGraph{Id=id,Skeleton=target.Skeleton(CharacterPreset(target)),Clips=[new()],States=[new(){Movement=new(){InputSpeed=4,Gravity=.6,JumpSpeed=10}}]};
         CaptureProjectState();projects.Add(new MotionProject(target,new(graph)));activeProject=projects.Count-1;
-        Refresh();if(initializePreview)InitializePreview();
+        ActivateProject();if(initializePreview)InitializePreview();
     }
     private void ChangeTargetDialog()
     {
@@ -118,6 +130,7 @@ public partial class NativeMotionEditor
     }
     internal void ExportToProject(string directory)
     {
+        bool wasDirty=document.Dirty;
         string id=document.Graph.Id;
         if(!MotionExport.ValidId(id))throw new InvalidDataException("动作图标识只能包含字母、数字、点、下划线、连字符。");
         var library=new NativeModLibrary(store);
@@ -142,6 +155,7 @@ public partial class NativeMotionEditor
             if(existed)manifest.Content.Motions[id]=previous!;else manifest.Content.Motions.Remove(id);
             try{library.SaveProjectManifest(directory,manifest);}catch(Exception error){status.Text=error.GetBaseException().Message;}
             if(File.Exists(backup))File.Move(backup,target,true);else if(File.Exists(target))File.Delete(target);
+            document.RestoreDirty(wasDirty);
             throw;
         }
         if(File.Exists(backup))File.Delete(backup);

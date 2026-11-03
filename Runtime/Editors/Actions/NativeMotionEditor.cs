@@ -126,10 +126,8 @@ public partial class NativeMotionEditor : Window
     private void ShowMessage(string text){message.DialogText=text;message.PopupCentered();}
     private void RequestClose()
     {
-        var dirty=projects.Where(project=>project.Dirty).Select(project=>project.Document.Graph.Id).ToArray();
         void Close(){closing=true;preview?.Dispose();QueueFree();}
-        if(dirty.Length==0){Close();return;}
-        Confirm("以下项目有未保存的修改，关闭后丢失：\n"+string.Join("\n",dirty),Close);
+        ConfirmDirtyClose(Close);
     }
     private void ImportOriginal()=>Guard(()=>{string name=original.GetItemText((int)original.Selected);document=new(MotionImport.FromAst(world.Code["external/Chara/Motion/"+name+".txt"],name.Replace('/','.'),document.Graph.Skeleton));path=null;Refresh();InitializePreview();status.Text="已导入："+name;});
     private void Save(){if(path is null){ChooseFile(true);return;}Guard(()=>{document.Save(path);Refresh();status.Text="已保存："+path;});}

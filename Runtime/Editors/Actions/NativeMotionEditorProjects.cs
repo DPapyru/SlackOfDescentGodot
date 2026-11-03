@@ -154,8 +154,8 @@ public partial class NativeMotionEditor
         {
             if(existed)manifest.Content.Motions[id]=previous!;else manifest.Content.Motions.Remove(id);
             try{library.SaveProjectManifest(directory,manifest);}catch(Exception error){status.Text=error.GetBaseException().Message;}
-            if(File.Exists(backup))File.Move(backup,target,true);else if(File.Exists(target))File.Delete(target);
-            document.RestoreDirty(wasDirty);
+            try{if(File.Exists(backup))File.Move(backup,target,true);else if(File.Exists(target))File.Delete(target);}
+            finally{document.RestoreDirty(wasDirty);RefreshTabs();}
             throw;
         }
         if(File.Exists(backup))File.Delete(backup);

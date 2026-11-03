@@ -75,6 +75,28 @@ public static class MotionGraphTests
         Check(!presetProject.Dirty&&presetProject.Target.Skeleton("Nana")=="Ryoko","player preset project targets the preset skeleton");
         presetProject.Document.Edit(g=>g.Clips[0].Duration=12);Check(presetProject.Dirty,"project dirty follows its document");
         Check(new MotionProjectTarget(MotionTargetKind.PlayerCharacter,"hero").Skeleton("Yuki")=="Yuki"&&new MotionProjectTarget(MotionTargetKind.Entity,"objEnemyDoll").Skeleton("Nana")=="legacy:objEnemyDoll","project targets resolve skeleton ids without schema changes");
+        var registered=MotionImport.Registered(world.Code["external/Chara/Nana/motion_list.txt"]);
+        Check(registered.Count>0&&registered.Any(item=>item.Name=="STAND_0"&&item.Resource=="PlayerCommon/StandFem0"),"motion list registration parses PlayerMotionLoad entries");
+        var malformedAst=new object[]{"group",new object[]{
+            new object[]{"call","PlayerMotionLoad",new object[]{new object[]{"str",""},new object[]{"str",""},new object[]{"str","Player/X"}}},
+            new object[]{"call","PlayerMotionLoad",new object[]{new object[]{"str",""},new object[]{"str","A"},new object[]{"str",""}}},
+            new object[]{"call","PlayerMotionLoad",new object[]{new object[]{"str",""},new object[]{"str","A"},new object[]{"str","Res/One"}}},
+            new object[]{"call","PlayerMotionLoad",new object[]{new object[]{"str",""},new object[]{"str","A"},new object[]{"str","Res/Two"}}},
+            new object[]{"call","Other",new object[0]},
+            new object[]{"binary","Assign",1,2}}};
+        using(var malformed=System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(malformedAst)))
+        {
+            var filtered=MotionImport.Registered(malformed.RootElement);
+            Check(filtered.Count==1&&filtered[0].Name=="A"&&filtered[0].Resource=="Res/One","motion registration skips empty, malformed and duplicate entries");
+        }
+        using(var empty=System.Text.Json.JsonDocument.Parse("{\"unused\":0}"))
+            Check(MotionImport.Registered(empty.RootElement).Count==0,"non list nodes register nothing");
+        var escapedAst=new object[]{"group",new object[]{new object[]{"call","PlayerMotionLoad",new object[]{new object[]{"str",""},new object[]{"str","名字 \"x\""},new object[]{"str","Res\\Path"}}}}};
+        using(var escaped=System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(escapedAst)))
+        {
+            var items=MotionImport.Registered(escaped.RootElement);
+            Check(items.Count==1&&items[0].Name=="名字 \"x\""&&items[0].Resource=="Res\\Path","motion registration keeps escaped names and resources intact");
+        }
         int imported=0,rejected=0;
         foreach(var pair in world.Code.Where(p=>p.Key.StartsWith("external/Chara/Motion/",StringComparison.Ordinal)))
             try{var motion=MotionImport.FromAst(pair.Value,pair.Key,"Nana");motion.Validate();imported++;}

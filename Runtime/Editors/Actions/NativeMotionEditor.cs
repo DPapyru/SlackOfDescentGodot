@@ -126,6 +126,7 @@ public partial class NativeMotionEditor : Window
     private void ShowMessage(string text){message.DialogText=text;message.PopupCentered();}
     private void RequestClose()
     {
+        if(closing)return;
         void Close(){closing=true;preview?.Dispose();QueueFree();}
         ConfirmDirtyClose(Close);
     }
@@ -196,7 +197,7 @@ public partial class NativeMotionEditor : Window
             string resource=document.Graph.Skeleton[7..];int objectId=world.Objects.FirstOrDefault(pair=>pair.Value.GetProperty("name").GetString()==resource).Key;instance=world.Instances.FirstOrDefault(i=>!i.Destroyed&&i.Object==objectId)??throw new InvalidOperationException("没有目标实体实例："+resource);
         }
         if(instance is null)throw new InvalidOperationException("没有游戏角色");
-        var actor=new ActorContext(world,instance);actor.Services.Motions.Play(actor,document.Graph);status.Text=MotionSkeleton.IsLegacy(document.Graph.Skeleton)?"已应用到目标实体；关闭编辑器后继续运行。":"已应用到游戏角色；关闭编辑器后继续运行。";
+        var actor=new ActorContext(world,instance);actor.Services.Motions.Play(actor,document.Graph);status.Text=(MotionSkeleton.IsLegacy(document.Graph.Skeleton)?"已应用到目标实体":"已应用到游戏角色")+"；关闭编辑器后继续运行；要持久化请保存到 Mod 项目或角色。";
     });
     private void BindSavedCharacter()=>Guard(()=>
     {

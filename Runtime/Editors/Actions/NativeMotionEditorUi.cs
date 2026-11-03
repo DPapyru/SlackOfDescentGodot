@@ -46,6 +46,7 @@ public partial class NativeMotionEditor
             case "showNames":if(overlay is not null)overlay.ShowNames=!overlay.ShowNames;break;
             case "reloadPreview":InitializePreview();break;
             case "applyGame":ApplyToGame();break;
+            case "help":ShowHelp();break;
         }
     }
     public override void _Ready()
@@ -68,6 +69,7 @@ public partial class NativeMotionEditor
         AddMenu(bar,"文件",menu=>{MenuItem(menu,"新建项目…","new");MenuItem(menu,"打开…","open");MenuItem(menu,"保存","save");MenuItem(menu,"另存为…","saveAs");MenuItem(menu,"保存到 Mod 项目…","saveProject");menu.AddSeparator();MenuItem(menu,"将动作图保存到角色","bindCharacter");menu.AddSeparator();MenuItem(menu,"关闭项目","close");MenuItem(menu,"退出","quit");});
         AddMenu(bar,"编辑",menu=>{MenuItem(menu,"撤销","undo");MenuItem(menu,"重做","redo");});
         AddMenu(bar,"视图",menu=>{MenuItem(menu,"显示骨架","showBones",overlay?.ShowBones??true);MenuItem(menu,"显示骨骼名","showNames",overlay?.ShowNames??false);menu.AddSeparator();MenuItem(menu,"重载预览","reloadPreview");MenuItem(menu,"应用到游戏角色","applyGame");});
+        AddMenu(bar,"帮助",menu=>MenuItem(menu,"状态机说明…","help"));
         var brand=new Label{Text="骨架动作与状态图",HorizontalAlignment=HorizontalAlignment.Right,SizeFlagsHorizontal=Control.SizeFlags.ExpandFill};bar.AddChild(brand);
     }
     private void BuildProjectBar(VBoxContainer root)
@@ -257,5 +259,47 @@ public partial class NativeMotionEditor
         var condition=transition.Conditions[index];
         conditionKind.Select((int)condition.Kind);conditionComparison.Select((int)condition.Comparison);
         conditionKey.Value=condition.Key;conditionValue.Value=condition.Value;conditionParameter.Text=condition.Parameter;
+    }
+
+    internal string HelpText()
+    {
+        string preset=HelpPreset();
+        var text=new System.Text.StringBuilder();
+        text.AppendLine("一、状态机是什么");
+        text.AppendLine("状态：角色当前正在播哪一段动作。片段：一段带关键帧的姿态轨道。转换：满足条件时从当前状态切到目标状态。条件：按键/落地/速度/血量/受击/计时/参数等判断。运动：状态自带的速度、重力与位移。事件：片段内指定帧或接触区间触发的伤害、交互、生成、销毁、SDK 与地图事件。");
+        text.AppendLine();
+        text.AppendLine("二、原版对照");
+        text.AppendLine("状态 ↔ objPlayerDoll 的 Step 里硬编码的 MotionNum 分支。");
+        text.AppendLine("片段 ↔ motion_list.txt 里 PlayerMotionLoad 注册的 Motion。");
+        text.AppendLine("转换 ↔ 原版 MotionChange(motion, 关键帧, 时长) 及其触发条件。");
+        text.AppendLine("条件 ↔ 原版 Step 里的 if/switch 判断。");
+        text.AppendLine("运动 ↔ 原版对 speed/gravity/vspeed 的赋值加上 place_free 碰撞。");
+        text.AppendLine("事件 ↔ 原版 data_mot 的事件帧与碰撞判定。");
+        text.AppendLine("受击/死亡/束缚/泥潭 ↔ 图控制器里 Forced() 的优先分支，会挂起图播放。");
+        text.AppendLine();
+        text.AppendLine("三、新动作从哪来与边界");
+        text.AppendLine("来源：编辑器内新建动作图；Mod 的 content.motions + content.characters；SDK 的 Motions.Play / Motions.Parameter 与地图/图事件。");
+        text.AppendLine("边界：不扩展原版 MotionNum，原版 Step 不会自动播放新动作；不支持自定义骨架拓扑；一个角色同时只有一个图控制器。");
+        text.AppendLine();
+        text.AppendLine("四、原版动作名清单（"+preset+"）");
+        foreach(var item in Registered(preset))text.AppendLine(item.Name+" → "+item.Resource);
+        return text.ToString();
+    }
+    private IReadOnlyList<MotionRegistered> Registered(string preset)
+    {
+        if(world.Code.TryGetValue("external/Chara/"+preset+"/motion_list.txt",out var ast))return MotionImport.Registered(ast);
+        return world.Code.TryGetValue("external/Chara/Nana/motion_list.txt",out var fallback)?MotionImport.Registered(fallback):[];
+    }
+    private string HelpPreset()=>Project.Target.Kind switch
+    {
+        MotionTargetKind.PlayerPreset=>Project.Target.Id,
+        MotionTargetKind.PlayerCharacter=>CharacterPreset(Project.Target),
+        _=>"Nana"
+    };
+    private void ShowHelp()
+    {
+        var dialog=new AcceptDialog{Title="状态机说明",OkButtonText="关闭",Size=new(820,620)};
+        dialog.AddChild(new TextEdit{Text=HelpText(),Editable=false,SizeFlagsVertical=Control.SizeFlags.ExpandFill,SizeFlagsHorizontal=Control.SizeFlags.ExpandFill});
+        AddChild(dialog);dialog.Confirmed+=dialog.QueueFree;dialog.Canceled+=dialog.QueueFree;dialog.PopupCenteredRatio(.8f);
     }
 }

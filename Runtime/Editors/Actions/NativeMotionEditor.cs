@@ -18,6 +18,7 @@ public partial class NativeMotionEditor : Window
     private Label status=null!,playState=null!,targetLabel=null!;
     private LineEdit stateId=null!,stateRename=null!,clipId=null!,conditionParameter=null!;
     private CheckButton playing=null!,loop=null!,rootTrack=null!;
+    private OptionButton speedChoice=null!;
     private TextureRect surface=null!;
     private HSlider timelineSlider=null!;
     private ItemList keyList=null!,transitionList=null!,conditionList=null!,boneList=null!,ikList=null!;
@@ -33,6 +34,12 @@ public partial class NativeMotionEditor : Window
     private AcceptDialog message=null!;
     private Action? pendingConfirmation;
     private bool busy,closing,refreshing,refreshingTabs;
+    private double playbackSpeed=1;
+    private string? lastState,lastTransition;
+    private double lastFrame;
+    private readonly List<string> lastEvents=new();
+    private bool rightHeld;
+    private double lastRightTap;
     private bool dragging;
     private string? draggedBone;
     private double dragX,dragY;
@@ -135,7 +142,7 @@ public partial class NativeMotionEditor : Window
         foreach(var state in document.Graph.States)foreach(var transition in state.Transitions)graphView.ConnectNode(NodeName(state.Id),0,NodeName(transition.Target),0);
     }
     private void Guard(Action action){try{action();}catch(Exception e){status.Text=e.GetBaseException().Message;}}
-    private void Change(Action<MotionGraph> action){if(refreshing)return;Guard(()=>{document.Edit(action);Refresh();ApplyDocumentPose();status.Text="已编辑。";});}
+    private void Change(Action<MotionGraph> action){if(refreshing)return;Guard(()=>{document.Edit(action);Refresh();ApplyDocumentPose();if(playing.ButtonPressed)RestartPlayback();status.Text="已编辑。";});}
     private void Confirm(string text,Action action){pendingConfirmation=action;confirmation.DialogText=text;confirmation.PopupCentered();}
     private void ShowMessage(string text){message.DialogText=text;message.PopupCentered();}
     private void RequestClose()
@@ -157,14 +164,14 @@ public partial class NativeMotionEditor : Window
         if(busy)return;busy=true;playing.ButtonPressed=false;
         try
         {
-            preview?.Dispose();targetPreview=null;preview=new(viewport,world,registry,new(store),packages);await preview.InitializeAsync();
-            if(closing)return;
+             preview?.Dispose();targetPreview=null;preview=new(viewport,world,registry,new(store),packages);await preview.InitializeAsync();
+             if(closing)return;
             var target=Project.Target;
             ActorContext actor;
             if(target.Kind==MotionTargetKind.Entity){targetPreview=CreateLegacyPreview(target.Id);actor=new(preview.World,targetPreview);}
             else {await preview.ApplyAsync(CharacterDefinition(target));targetPreview=null;actor=new(preview.World,preview.Player!);}
-            PopulateSkeleton();preview.Bridge.Services.Motions.Play(actor,document.Graph);
-            canvas.Paint=c=>preview.Graphics.Render(c);FitView();status.Text="预览已加载。";
+             PopulateSkeleton();preview.Bridge.Services.Motions.Play(actor,document.Graph);
+             canvas.Paint=c=>preview.Graphics.Render(c);FitView();status.Text="预览已加载。";
         }
         catch(Exception e){status.Text=e.GetBaseException().Message;}
         finally{busy=false;}
@@ -185,23 +192,83 @@ public partial class NativeMotionEditor : Window
         double x=preview.Player?.Scope.ReadOr("x").Number??96,y=preview.Player?.Scope.ReadOr("y").Number??0;
         var root=preview.World.Create(objectId,x,y,run:false);var child=preview.World.Create(objectId,x+24,y,run:false);child.Scope.Write("parent",root.Id);child.Scope.Write("PartPosDir",0);child.Scope.Write("PartPosDis",24);root.Scope.Write("Process",child.Object,0);return root;
     }
-    public override void _Process(double delta)
+    public override void _Process(double delta)=>TickPlayback(delta);
+    internal void TickPlayback(double delta)
     {
-        if(!playing.ButtonPressed||busy||preview is null)return;elapsed+=Math.Min(delta,.1);
-        if(elapsed>=FrameContext.FixedDelta){elapsed-=FrameContext.FixedDelta;Step();}
+        if(!playing.ButtonPressed||busy||preview is null)return;
+        elapsed+=Math.Min(delta,.5)*playbackSpeed;
+        int steps=0;while(elapsed>=FrameContext.FixedDelta&&steps<30){elapsed-=FrameContext.FixedDelta;steps++;}
+        if(steps>0)Advance(steps);
     }
-    private async void Step()
+    private void Step()=>Advance(1);
+    private async void Advance(int steps)
     {
         var activePreview=preview;if(busy||activePreview is null||PreviewActor is not {} active)return;busy=true;
         try
         {
-            foreach(var key in new[]{Key.Left,Key.Right,Key.Space})activePreview.Input.Key(activePreview.World,(int)key switch{(int)Key.Left=>37,(int)Key.Right=>39,_=>32},Input.IsKeyPressed(key));
-            await activePreview.AdvanceAsync(new(Input.IsKeyPressed(Key.Left),Input.IsKeyPressed(Key.Right),Input.IsKeyPressed(Key.Space),false));
-            var state=active.Services.Motions.State(active);playState.Text=$"{state?.State}  frame={state?.Frame:F1}  x={active.X:F2} y={active.Y:F2} suspended={state?.Suspended}";
+            for(int i=0;i<steps;i++)
+            {
+                await activePreview.AdvanceAsync(PreviewInput());
+                var state=active.Services.Motions.State(active);
+                if(state is null)continue;
+                if(lastState is not null&&lastState!=state.State)lastTransition=lastState+" → "+state.State;
+                lastEvents.Clear();
+                var clip=document.Graph.Clips.FirstOrDefault(item=>item.Id==document.Graph.States.FirstOrDefault(s=>s.Id==state.State)?.Clip);
+                if(clip is not null)foreach(var item in clip.Events.Where(e=>!e.Contact&&e.Start>lastFrame&&e.Start<=state.Frame))lastEvents.Add(item.Value.Length>0?item.Value:item.Id);
+                lastState=state.State;lastFrame=state.Frame;
+                playState.Text=$"{state.State}  frame={state.Frame:F1}  x={active.X:F2} y={active.Y:F2} suspended={state.Suspended}";
+            }
             canvas.QueueRedraw();SyncOverlay();
         }
         catch(Exception e){playing.ButtonPressed=false;status.Text=e.GetBaseException().Message;}
         finally{busy=false;}
+    }
+    private NativeCharacterPreviewInput PreviewInput()
+    {
+        if(PreviewActor is not {} actor)return new(false,false,false,false);
+        bool Held(int slot)=>Input.IsKeyPressed(GodotKey(NativeActorActions.Key(actor,slot)));
+        bool right=Held(1),dash=false;
+        if(right&&!rightHeld){double now=Time.GetTicksMsec();dash=now-lastRightTap<250;lastRightTap=now;}
+        rightHeld=right;
+        return new(Held(0),right,Held(5),dash);
+    }
+    private static Key GodotKey(int code)=>code switch
+    {
+        8=>Key.Backspace,9=>Key.Tab,13=>Key.Enter,16=>Key.Shift,17=>Key.Ctrl,18=>Key.Alt,27=>Key.Escape,32=>Key.Space,
+        33=>Key.Pageup,34=>Key.Pagedown,35=>Key.End,36=>Key.Home,37=>Key.Left,38=>Key.Up,39=>Key.Right,40=>Key.Down,45=>Key.Insert,46=>Key.Delete,
+        >=112 and <=123=>Key.F1+(code-112),_=>(Key)code
+    };
+    private string KeyLegend()
+    {
+        if(PreviewActor is not {} actor)return "";
+        string Name(int slot)=>OS.GetKeycodeString(GodotKey(NativeActorActions.Key(actor,slot)));
+        return "左 "+Name(0)+"   右 "+Name(1)+"   跳 "+Name(5)+"   冲刺 双击"+Name(1);
+    }
+    private void RestartPlayback()
+    {
+        Guard(()=>
+        {
+            if(preview is null||PreviewActor is not {} actor)return;
+            preview.Bridge.Services.Motions.Play(actor,document.Graph);
+            preview.Bridge.Services.Motions.Seek(actor,frame.Value);
+            lastState=document.Graph.Entry;lastFrame=frame.Value;lastTransition=null;lastEvents.Clear();elapsed=0;
+            UpdatePlaybackOverlay();
+        });
+    }
+    private void UpdatePlaybackOverlay()
+    {
+        if(overlay is null)return;
+        if(PreviewActor is not {} actor){overlay.Legend="";overlay.Playback="";return;}
+        overlay.Legend="键位  "+KeyLegend();
+        var state=actor.Services.Motions.State(actor);
+        if(state is null){overlay.Playback="状态：未播放";return;}
+        var clip=document.Graph.Clips.FirstOrDefault(item=>item.Id==document.Graph.States.FirstOrDefault(s=>s.Id==state.State)?.Clip);
+        var text=new System.Text.StringBuilder();
+        text.Append("状态 ").Append(state.State).Append("  帧 ").Append(state.Frame.ToString("F1"));
+        if(clip is not null)text.Append('/').Append(clip.Duration.ToString("F0"));
+        if(lastTransition is not null)text.Append("  转换 ").Append(lastTransition);
+        if(lastEvents.Count>0)text.Append("  事件 ").Append(string.Join(",",lastEvents));
+        overlay.Playback=text.ToString();
     }
     private void ApplyToGame()=>Guard(()=>
     {

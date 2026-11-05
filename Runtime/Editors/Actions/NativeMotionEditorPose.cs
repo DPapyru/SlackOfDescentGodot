@@ -186,6 +186,7 @@ public partial class NativeMotionEditor
     {
         if(overlay is null||PreviewActor is not {} actor)return;
         overlay.Sync(actor.Services.Motions.Skeleton(actor),highlightedBone,IkChains,PreviewView,new((float)actor.X,(float)actor.Y));
+        UpdatePlaybackOverlay();
     }
 
     private MotionPose LocalPose(string name)=>name is "root" or "__root__"?Clip.RootPose(frame.Value):Clip.Sample(frame.Value).GetValueOrDefault(name);

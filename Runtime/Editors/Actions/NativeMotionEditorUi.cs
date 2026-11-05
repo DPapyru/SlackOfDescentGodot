@@ -87,7 +87,9 @@ public partial class NativeMotionEditor
     private void BuildToolbar(VBoxContainer root)
     {
         var bar=Row(root);bar.Name="Toolbar";
-        Button(bar,"重载预览",InitializePreview);Button(bar,"取景",FitView);playing=new CheckButton{Text="播放"};bar.AddChild(playing);Button(bar,"单帧",Step);
+        Button(bar,"重载预览",InitializePreview);Button(bar,"取景",FitView);playing=new CheckButton{Text="播放"};bar.AddChild(playing);playing.Toggled+=on=>{if(on)RestartPlayback();else UpdatePlaybackOverlay();};Button(bar,"单帧",Step);
+        speedChoice=new OptionButton();foreach(string speed in new[]{"0.5x","1x","2x"})speedChoice.AddItem(speed);speedChoice.Select(1);bar.AddChild(speedChoice);
+        speedChoice.ItemSelected+=index=>playbackSpeed=index switch{0=>.5,2=>2,_=>1};
         Button(bar,"应用到游戏角色",ApplyToGame);
         playState=new Label{Name="PlayState",AutowrapMode=TextServer.AutowrapMode.WordSmart,SizeFlagsHorizontal=Control.SizeFlags.ExpandFill};bar.AddChild(playState);
     }

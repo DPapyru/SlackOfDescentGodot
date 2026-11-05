@@ -10,8 +10,11 @@ public partial class NativeMotionOverlay : Control
     private Vector2 actor;
     private string? selected;
     private bool showBones = true, showNames;
+    private string legend = "", playback = "";
     public bool ShowBones { get => showBones; set { showBones = value; QueueRedraw(); } }
     public bool ShowNames { get => showNames; set { showNames = value; QueueRedraw(); } }
+    public string Legend { get => legend; set { legend = value; QueueRedraw(); } }
+    public string Playback { get => playback; set { playback = value; QueueRedraw(); } }
     private static readonly Color BoneColor = new(0.85f, 0.85f, 0.9f, 0.6f);
     private static readonly Color RootColor = new(0.3f, 0.9f, 1f, 0.9f);
     public override void _Ready() => MouseFilter = MouseFilterEnum.Ignore;
@@ -21,7 +24,10 @@ public partial class NativeMotionOverlay : Control
     }
     public override void _Draw()
     {
-        if (!showBones || nodes.Length == 0 || Size.X <= 0 || Size.Y <= 0) return;
+        if (Size.X <= 0 || Size.Y <= 0) return;
+        if (legend.Length > 0) DrawString(ThemeDB.FallbackFont, new Vector2(8, Size.Y - 8), legend, HorizontalAlignment.Left, -1, 12, new Color(1f, 1f, 1f, .9f));
+        if (playback.Length > 0) DrawString(ThemeDB.FallbackFont, new Vector2(8, 16), playback, HorizontalAlignment.Left, -1, 12, new Color(1f, 1f, 1f, .9f));
+        if (!showBones || nodes.Length == 0) return;
         var byInstance = nodes.GroupBy(node => node.Instance).ToDictionary(group => group.Key, group => group.First());
         var root = Surface(actor.X, actor.Y);
         foreach (var node in nodes)

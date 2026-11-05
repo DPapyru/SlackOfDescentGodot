@@ -25,12 +25,7 @@ public partial class NativeMotionEditor
         }
         await Ready();
         var skeleton=preview!.Bridge.Services.Motions.Skeleton(new(preview.World,preview.Player!));
-        foreach(var node in skeleton)
-        {
-            var (surfaceX,surfaceY)=MotionViewport.ToSurface(node.X,node.Y,surface.Size.X,surface.Size.Y,PreviewView);
-            var picked=PickBoneAt(new((float)surfaceX,(float)surfaceY));var hit=skeleton.FirstOrDefault(item=>item.Name==picked);
-            Expect(hit is not null&&Math.Abs(hit.X-node.X)<.001&&Math.Abs(hit.Y-node.Y)<.001,"skeleton pick hits "+node.Name);
-        }
+        Expect(skeleton.Count==15,"preview exposes the 15 part skeleton");
         document=new(new MotionGraph{Id="audit.ik",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_TOP",Keys=[new(){Frame=0}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=3}]},new(){Bone="HAND1_BELOW",Keys=[new(){Frame=0,X=3}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND1_BELOW"}]});
         Refresh();
         var ikDragged=document.Drag("idle","HAND1_BELOW",0,4,2);
@@ -119,6 +114,107 @@ public partial class NativeMotionEditor
         SelectBone("HEAD");frame.Value=2;x.Value=4;y.Value=-16;angle.Value=17;sx.Value=1.25;sy.Value=.8;picture.Value=1;WriteKey();
         Expect(Clip.Tracks.Single(t=>t.Bone=="HEAD").Keys.Any(k=>k.Frame==2&&k.Angle==17&&k.Picture==1),"timeline writes a real bone key");
         document.Undo();Expect(!Clip.Tracks.Single(t=>t.Bone=="HEAD").Keys.Any(k=>k.Frame==2),"undo removes timeline key");document.Redo();
+        document.Edit(g=>g.IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND1_BELOW"}]);
+        Refresh();var canvasActor=PreviewActor!;canvasActor.Write("Direction",1);ApplyDocumentPose();
+        var canvasNodes=canvasActor.Services.Motions.Skeleton(canvasActor);
+        string? Topmost(double x,double y)
+        {
+            string? best=null;double bestDepth=double.MaxValue;int bestOrder=-1;
+            foreach(var node in canvasNodes)
+            {
+                var part=canvasActor.World.Instances.FirstOrDefault(item=>item.Id==node.Instance);
+                if(part is null||part.Destroyed||!part.Active||!part.Scope.ReadOr("visible").Truth)continue;
+                var bounds=canvasActor.World.Bounds(part);
+                if(bounds.Empty||x<bounds.Left||x>bounds.Right||y<bounds.Top||y>bounds.Bottom)continue;
+                double depth=part.Scope.ReadOr("depth").Number;int order=canvasActor.World.Instances.IndexOf(part);
+                if(depth<bestDepth||(depth==bestDepth&&order>bestOrder)){best=node.Name;bestDepth=depth;bestOrder=order;}
+            }
+            return best;
+        }
+        Vector2 SurfacePoint(double x,double y){var (sx,sy)=MotionViewport.ToSurface(x,y,surface.Size.X,surface.Size.Y,PreviewView);return new((float)sx,(float)sy);}
+        Vector2 PointFor(string name)
+        {
+            var node=canvasNodes.Single(item=>item.Name==name);var bounds=canvasActor.World.Bounds(canvasActor.World.Instances.First(item=>item.Id==node.Instance));
+            for(double y=bounds.Top;y<=bounds.Bottom;y+=2)for(double x=bounds.Left;x<=bounds.Right;x+=2)if(Topmost(x,y)==name)return SurfacePoint(x,y);
+            throw new InvalidOperationException("No unoccluded canvas point for "+name);
+        }
+        int pickable=0;
+        foreach(var node in canvasNodes){var expectedName=Topmost(node.X,node.Y);if(expectedName is null)continue;pickable++;Expect(PickBoneAt(SurfacePoint(node.X,node.Y))==expectedName,"part rect hit picks the topmost bone at "+node.Name);}
+        Expect(pickable>0,"visible part rects are pickable");
+        bool overlaps=false;
+        for(int a=0;a<canvasNodes.Count&&!overlaps;a++)for(int b=a+1;b<canvasNodes.Count&&!overlaps;b++)
+        {
+            var first=canvasActor.World.Bounds(canvasActor.World.Instances.First(item=>item.Id==canvasNodes[a].Instance));
+            var second=canvasActor.World.Bounds(canvasActor.World.Instances.First(item=>item.Id==canvasNodes[b].Instance));
+            double left=Math.Max(first.Left,second.Left),right=Math.Min(first.Right,second.Right),top=Math.Max(first.Top,second.Top),bottom=Math.Min(first.Bottom,second.Bottom);
+            if(right<left||bottom<top)continue;
+            double x=(left+right)/2,y=(top+bottom)/2;
+            var expectedName=Topmost(x,y);Expect(expectedName is not null&&expectedName==PickBoneAt(SurfacePoint(x,y)),"overlapping part rects pick the topmost bone");
+            overlaps=true;
+        }
+        Expect(overlaps,"character part rects overlap somewhere");
+        string Serialized()=>System.Text.Json.JsonSerializer.Serialize(document.Graph,NativeContentStore.Json);
+        var emptyBefore=Serialized();var blankPoint=SurfacePoint(canvasActor.X+400,canvasActor.Y+400);
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=blankPoint});
+        Expect(!dragging&&highlightedBone is null&&boneList.GetSelectedItems().Length==0,"clicking empty canvas clears the selection");
+        Expect(Serialized()==emptyBefore,"clicking empty canvas leaves the document untouched");
+        var headNode=canvasNodes.Single(item=>item.Name=="HEAD");var headPoint=PointFor("HEAD");
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=headPoint});
+        Expect(dragging&&highlightedBone==Topmost(CanvasPosition(headPoint).X,CanvasPosition(headPoint).Y)&&boneList.GetSelectedItems().Length==1,"clicking a part selects and highlights the bone");
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Right,Pressed=true,Position=headPoint});
+        Expect(!dragging&&Serialized()==emptyBefore,"right click cancels the drag without editing");
+        var fkBefore=Clip.Sample(frame.Value)["HEAD"];
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=headPoint});
+        Expect(dragging&&Math.Abs(Clip.Sample(frame.Value)["HEAD"].Angle-fkBefore.Angle)<.001,"pressing an FK bone does not jump");
+        var fkTarget=SurfacePoint(CanvasPosition(headPoint).X+24,CanvasPosition(headPoint).Y-8);
+        SurfaceInput(new InputEventMouseMotion{Position=fkTarget});
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=fkTarget});
+        var fkPose=Clip.Sample(frame.Value)["HEAD"];double fkLength=Math.Sqrt(fkBefore.X*fkBefore.X+fkBefore.Y*fkBefore.Y);
+        Expect(Math.Abs(Math.Sqrt(fkPose.X*fkPose.X+fkPose.Y*fkPose.Y)-fkLength)<.001,"FK drag keeps the bone length");
+        Expect(Clip.Tracks.Single(item=>item.Bone=="HEAD").Keys.Any(key=>key.Frame==frame.Value),"FK drag writes the current frame key");
+        RunAction("undo");Expect(Math.Abs(Clip.Sample(frame.Value)["HEAD"].Angle-fkBefore.Angle)<.001,"FK drag is one undo step");RunAction("redo");
+        var shiftBefore=Clip.Sample(frame.Value)["HEAD"];
+        var shiftStart=PointFor("HEAD");
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,ShiftPressed=true,Position=shiftStart});
+        var shiftTarget=SurfacePoint(CanvasPosition(shiftStart).X-12,CanvasPosition(shiftStart).Y+10);
+        var (shiftWorldX,shiftWorldY)=CanvasPosition(shiftTarget);var shiftExpected=LocalTarget("HEAD",shiftWorldX,shiftWorldY,false);
+        SurfaceInput(new InputEventMouseMotion{Position=shiftTarget});
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,ShiftPressed=true,Position=shiftTarget});
+        var shiftPose=Clip.Sample(frame.Value)["HEAD"];
+        Expect(Math.Abs(shiftPose.X-shiftExpected.X)<.001&&Math.Abs(shiftPose.Y-shiftExpected.Y)<.001,"shift drag writes local X/Y");
+        Expect(Math.Abs(shiftPose.Angle-shiftBefore.Angle)<.001,"shift drag keeps the angle");
+        RunAction("undo");Expect(Math.Abs(Clip.Sample(frame.Value)["HEAD"].X-fkPose.X)<.001,"shift drag is one undo step");RunAction("redo");
+        var chainBefore=Clip.Sample(frame.Value);
+        double midLength=Math.Sqrt(chainBefore["HAND1_ABOVE"].X*chainBefore["HAND1_ABOVE"].X+chainBefore["HAND1_ABOVE"].Y*chainBefore["HAND1_ABOVE"].Y);
+        double endLength=Math.Sqrt(chainBefore["HAND1_BELOW"].X*chainBefore["HAND1_BELOW"].X+chainBefore["HAND1_BELOW"].Y*chainBefore["HAND1_BELOW"].Y);
+        var endPoint=PointFor("HAND1_BELOW");
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=endPoint});
+        Expect(dragging&&dragMode==DragMode.Ik,"dragging an IK chain end uses IK by default");
+        var farPoint=SurfacePoint(canvasActor.X+120,canvasActor.Y-60);
+        SurfaceInput(new InputEventMouseMotion{Position=farPoint});
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=farPoint});
+        var chainPose=Clip.Sample(frame.Value);
+        Expect(Math.Abs(Math.Sqrt(chainPose["HAND1_ABOVE"].X*chainPose["HAND1_ABOVE"].X+chainPose["HAND1_ABOVE"].Y*chainPose["HAND1_ABOVE"].Y)-midLength)<.001&&Math.Abs(Math.Sqrt(chainPose["HAND1_BELOW"].X*chainPose["HAND1_BELOW"].X+chainPose["HAND1_BELOW"].Y*chainPose["HAND1_BELOW"].Y)-endLength)<.001,"IK drag keeps both segment lengths");
+        Expect(status.Text.Contains("夹"),"unreachable IK target is clamped to the chain reach");
+        Expect(Math.Abs(chainPose["BODY_TOP"].Angle-chainBefore["BODY_TOP"].Angle)>.001,"IK drag rotates the chain root");
+        var altBefore=Clip.Sample(frame.Value)["BODY_TOP"].Angle;var altPoint=PointFor("HAND1_BELOW");
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,AltPressed=true,Position=altPoint});
+        Expect(dragging&&dragMode==DragMode.Fk,"alt switches an IK end to temporary FK");
+        var altTarget=SurfacePoint(CanvasPosition(altPoint).X+14,CanvasPosition(altPoint).Y-14);
+        SurfaceInput(new InputEventMouseMotion{Position=altTarget});
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,AltPressed=true,Position=altTarget});
+        var altPose=Clip.Sample(frame.Value)["HAND1_BELOW"];
+        Expect(Math.Abs(Clip.Sample(frame.Value)["BODY_TOP"].Angle-altBefore)<.001,"temporary FK leaves the IK chain root untouched");
+        Expect(Math.Abs(Math.Sqrt(altPose.X*altPose.X+altPose.Y*altPose.Y)-endLength)<.001,"temporary FK keeps the end length");
+        RunAction("undo");Expect(Math.Abs(Clip.Sample(frame.Value)["HAND1_BELOW"].X-chainPose["HAND1_BELOW"].X)<.001,"FK override is one undo step");RunAction("redo");
+        SelectBone("HAND1_ABOVE");
+        Expect(highlightedBone=="HAND1_ABOVE"&&bone.GetItemText((int)bone.Selected)=="HAND1_ABOVE"&&boneList.GetSelectedItems().Length==1&&boneList.GetItemText(boneList.GetSelectedItems()[0])=="HAND1_ABOVE","bone selection highlights the canvas and the left list");
+        var cancelBefore=Serialized();var cancelStart=PointFor("HEAD");
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=cancelStart});
+        SurfaceInput(new InputEventMouseMotion{Position=SurfacePoint(CanvasPosition(cancelStart).X+30,CanvasPosition(cancelStart).Y-30)});
+        SurfaceInput(new InputEventKey{Keycode=Key.Escape,Pressed=true});
+        Expect(!dragging&&Serialized()==cancelBefore,"Escape cancels the drag without editing");
+        await Shot("motion-drag");
         Change(g=>{g.States.Add(new(){Id="next",Clip=Clip.Id});g.States[0].Transitions.Add(new(){Target="next",Conditions=[new(){Kind=MotionConditionKind.Timer,Comparison=MotionComparison.GreaterOrEqual,Value=4}]});});
         Expect(graphView.GetChildren().OfType<GraphNode>().Count()==2&&graphView.GetConnectionList().Count==1,"state nodes and transition edge are visible");
         Change(_=>Clip.Events.Add(new(){Start=2,Kind=MotionEventKind.SdkEvent,Value="editor.frame"}));

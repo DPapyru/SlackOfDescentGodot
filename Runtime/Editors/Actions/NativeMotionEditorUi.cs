@@ -107,7 +107,7 @@ public partial class NativeMotionEditor
         var tabs=new TabContainer{SizeFlagsVertical=Control.SizeFlags.ExpandFill};dock.AddChild(tabs);
         var bones=Page(tabs,"骨架节点");
         boneList=List(bones,160);boneList.SizeFlagsVertical=Control.SizeFlags.ExpandFill;
-        boneList.ItemSelected+=index=>SelectBone(boneList.GetItemText((int)index));
+        boneList.ItemSelected+=index=>{if(!syncingBone)SelectBone(boneList.GetItemText((int)index));};
         Button(bones,"刷新骨架",PopulateSkeleton);
         var ik=Page(tabs,"IK 链");
         ikList=List(ik,140);ikList.SizeFlagsVertical=Control.SizeFlags.ExpandFill;
@@ -120,7 +120,7 @@ public partial class NativeMotionEditor
     private void BuildTrackPage()
     {
         var page=Page(inspector,"轨道");
-        var track=Row(page);track.AddChild(new Label{Text="骨骼"});bone=new OptionButton{SizeFlagsHorizontal=Control.SizeFlags.ExpandFill};track.AddChild(bone);bone.ItemSelected+=_=>ReadKey();
+        var track=Row(page);track.AddChild(new Label{Text="骨骼"});bone=new OptionButton{SizeFlagsHorizontal=Control.SizeFlags.ExpandFill};track.AddChild(bone);bone.ItemSelected+=_=>{if(!syncingBone)SelectBone(bone.GetItemText((int)bone.Selected));};
         rootTrack=new CheckButton{Text="姿态根偏移"};track.AddChild(rootTrack);rootTrack.Toggled+=_=>ReadKey();
         var translate=Row(page);x=Number(translate,"X");y=Number(translate,"Y");angle=Number(translate,"角度",-36000,36000);
         var scale=Row(page);sx=Number(scale,"缩放X",-100,100,1);sy=Number(scale,"缩放Y",-100,100,1);picture=Number(scale,"贴图帧",0,10000);picture.Step=1;

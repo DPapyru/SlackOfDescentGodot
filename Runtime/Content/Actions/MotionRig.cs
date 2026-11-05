@@ -198,13 +198,13 @@ public static class MotionRigCoordinates
 
 public static class MotionPoseEditor
 {
-    public static MotionIkResult Drag(MotionGraph graph, string clipId, string bone, double frame, double targetX, double targetY, bool? bendPositive = null)
+    public static MotionIkResult Drag(MotionGraph graph, string clipId, string bone, double frame, double targetX, double targetY, bool? bendPositive = null, bool forceFk = false)
     {
         var clip = graph.Clips.SingleOrDefault(item => item.Id == clipId) ?? throw new InvalidDataException("Motion clip is missing: " + clipId);
         if (!double.IsFinite(frame) || !double.IsFinite(targetX) || !double.IsFinite(targetY)) return MotionIkResult.Invalid("拖动坐标必须是有限数值。");
         if (bone.Length == 0) return MotionIkResult.Invalid("请选择骨骼节点。");
         var chain = graph.IkChains?.FirstOrDefault(item => item.Enabled && item.End == bone);
-        if (chain is not null)
+        if (chain is not null && !forceFk)
         {
             var sample = clip.Sample(frame);
             var root = sample.GetValueOrDefault(chain.Root);
@@ -214,7 +214,7 @@ public static class MotionPoseEditor
             double midX = root.X + midOffset.X, midY = root.Y + midOffset.Y;
             var endOffset = MotionRigCoordinates.Rotate(end.X, end.Y, root.Angle + mid.Angle);
             double endX = midX + endOffset.X, endY = midY + endOffset.Y;
-            bool bend = bendPositive ?? ((midX - root.X) * (endY - midY) - (midY - root.Y) * (endX - midX) >= 0);
+            bool bend = bendPositive ?? Bend(graph, clipId, bone, frame) ?? true;
             var result = MotionIk.Solve(root.X, root.Y, midX, midY, endX, endY, targetX, targetY, bend);
             if (!result.Success) return result;
             double firstLength = Math.Sqrt(mid.X * mid.X + mid.Y * mid.Y), secondLength = Math.Sqrt(end.X * end.X + end.Y * end.Y);
@@ -240,6 +240,31 @@ public static class MotionPoseEditor
         double angle = Math.Atan2(-targetY, targetX) * 180 / Math.PI;
         SetKey(clip, bone, frame, new MotionPose(Math.Cos(angle * Math.PI / 180) * length, -Math.Sin(angle * Math.PI / 180) * length, angle, current.ScaleX, current.ScaleY, current.Picture));
         return new(true, false, angle, angle, angle, length, "");
+    }
+
+    public static bool? Bend(MotionGraph graph, string clipId, string bone, double frame)
+    {
+        var clip = graph.Clips.SingleOrDefault(item => item.Id == clipId);
+        var chain = graph.IkChains?.FirstOrDefault(item => item.Enabled && item.End == bone);
+        if (clip is null || chain is null) return null;
+        var sample = clip.Sample(frame);
+        var root = sample.GetValueOrDefault(chain.Root);
+        var mid = sample.GetValueOrDefault(chain.Mid);
+        var end = sample.GetValueOrDefault(chain.End);
+        var midOffset = MotionRigCoordinates.Rotate(mid.X, mid.Y, root.Angle);
+        double midX = root.X + midOffset.X, midY = root.Y + midOffset.Y;
+        var endOffset = MotionRigCoordinates.Rotate(end.X, end.Y, root.Angle + mid.Angle);
+        double endX = midX + endOffset.X, endY = midY + endOffset.Y;
+        return (midX - root.X) * (endY - midY) - (midY - root.Y) * (endX - midX) >= 0;
+    }
+
+    public static void Translate(MotionGraph graph, string clipId, string bone, double frame, double x, double y)
+    {
+        var clip = graph.Clips.SingleOrDefault(item => item.Id == clipId) ?? throw new InvalidDataException("Motion clip is missing: " + clipId);
+        if (!double.IsFinite(frame) || !double.IsFinite(x) || !double.IsFinite(y)) throw new InvalidDataException("拖动坐标必须是有限数值。");
+        if (bone.Length == 0) throw new InvalidDataException("请选择骨骼节点。");
+        var current = clip.Sample(frame).GetValueOrDefault(bone);
+        SetKey(clip, bone is "root" or "__root__" ? null : bone, frame, new MotionPose(x, y, current.Angle, current.ScaleX, current.ScaleY, current.Picture));
     }
 
     private static void SetRootKey(MotionClip clip, double frame, MotionPose pose)

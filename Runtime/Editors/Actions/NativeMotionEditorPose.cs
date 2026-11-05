@@ -4,29 +4,103 @@ namespace SlackOfDescent;
 
 public partial class NativeMotionEditor
 {
+    private enum DragMode { Root, Fk, Ik, Local }
     private MotionView PreviewView=>PreviewActor is {} actor?new((int)actor.X,(int)actor.Y-40,320,240,640,480):new(0,0,320,240,640,480);
+    private DragMode dragMode;
+    private double dragStartAngle,dragStartPointer;
+    private bool dragBend,syncingBone;
+    private string? highlightedBone;
 
     private void SurfaceInput(InputEvent input)
     {
-        if(input is InputEventKey{Pressed:true,Keycode:Key.Escape}&&dragging){dragging=false;draggedBone=null;status.Text="已取消拖动，文档未修改。";return;}
+        if(input is InputEventKey{Pressed:true,Keycode:Key.Escape}){CancelDrag();return;}
         if(input is InputEventMouseButton button&&button.ButtonIndex==MouseButton.Left)
         {
-            if(button.Pressed){draggedBone=PickBone(button.Position);dragging=draggedBone is not null;if(dragging){(dragX,dragY)=CanvasPosition(button.Position);SelectBone(draggedBone!);}}
-            else if(dragging&&draggedBone is {} name){dragging=false;var local=LocalTarget(name,dragX,dragY);var result=document.Drag(Clip.Id,name,frame.Value,local.X,local.Y);status.Text=result.Success?(result.Clamped?result.Reason:"节点已更新；一次拖动生成一个撤销记录。"):result.Reason;Refresh();ApplyDocumentPose();}
-            return;
+            if(button.Pressed)
+            {
+                draggedBone=PickBoneAt(button.Position);
+                if(draggedBone is null){ClearBoneSelection();return;}
+                SelectBone(draggedBone);
+                dragging=true;(dragX,dragY)=CanvasPosition(button.Position);
+                BeginDrag(button);
+                return;
+            }
+            if(!dragging||draggedBone is not {} name)return;
+            dragging=false;CommitDrag(name);return;
         }
-        if(input is InputEventMouseButton{ButtonIndex:MouseButton.Right,Pressed:true}&&dragging){dragging=false;draggedBone=null;status.Text="已取消拖动，文档未修改。";return;}
+        if(input is InputEventMouseButton{ButtonIndex:MouseButton.Right,Pressed:true}&&dragging){CancelDrag();return;}
         if(dragging&&input is InputEventMouseMotion motion){(dragX,dragY)=CanvasPosition(motion.Position);x.Value=dragX;y.Value=dragY;}
     }
 
-    private string? PickBone(Vector2 position)=>PickBoneAt(position);
+    public override void _UnhandledKeyInput(InputEvent @event){if(@event is InputEventKey{Pressed:true,Keycode:Key.Escape})CancelDrag();}
+
+    private void BeginDrag(InputEventMouseButton button)
+    {
+        string name=draggedBone!;
+        var local=LocalTarget(name,dragX,dragY,false);
+        dragStartAngle=LocalPose(name).Angle;
+        dragStartPointer=Math.Atan2(-local.Y,local.X)*180/Math.PI;
+        if(button.ShiftPressed)dragMode=DragMode.Local;
+        else if(name=="root")dragMode=DragMode.Root;
+        else if(button.AltPressed)dragMode=DragMode.Fk;
+        else if(IsIkEnd(name)){dragMode=DragMode.Ik;dragBend=MotionPoseEditor.Bend(document.Graph,Clip.Id,name,frame.Value)??true;}
+        else dragMode=DragMode.Fk;
+    }
+
+    private void CommitDrag(string name)
+    {
+        try
+        {
+            if(dragMode==DragMode.Local)
+            {
+                var local=LocalTarget(name,dragX,dragY,false);
+                document.Translate(Clip.Id,name,frame.Value,local.X,local.Y);
+                status.Text="已写入局部 X/Y；一次拖动生成一个撤销记录。";
+            }
+            else
+            {
+                var (targetX,targetY)=DragTarget(name);
+                var result=document.Drag(Clip.Id,name,frame.Value,targetX,targetY,dragMode==DragMode.Ik?dragBend:null,dragMode==DragMode.Fk);
+                status.Text=result.Success?(result.Clamped?result.Reason:"节点已更新；一次拖动生成一个撤销记录。"):result.Reason;
+            }
+            Refresh();ApplyDocumentPose();
+        }
+        catch(InvalidDataException error){status.Text=error.Message;Refresh();ApplyDocumentPose();}
+    }
+
+    private (double X,double Y) DragTarget(string name)
+    {
+        if(dragMode==DragMode.Fk)
+        {
+            var local=LocalTarget(name,dragX,dragY,false);
+            double pointer=Math.Atan2(-local.Y,local.X)*180/Math.PI;
+            double angle=dragStartAngle+pointer-dragStartPointer,radians=angle*Math.PI/180;
+            return (Math.Cos(radians),-Math.Sin(radians));
+        }
+        return LocalTarget(name,dragX,dragY,dragMode==DragMode.Ik);
+    }
+
+    private void CancelDrag()
+    {
+        if(!dragging)return;
+        dragging=false;draggedBone=null;status.Text="已取消拖动，文档未修改。";
+    }
 
     internal string? PickBoneAt(Vector2 position)
     {
         if(PreviewActor is not {} actor||surface.Size.X<=0||surface.Size.Y<=0)return null;
-        var (X,Y)=CanvasPosition(position);string? best=null;double distance=MotionViewport.WorldPerPixel(surface.Size.X,surface.Size.Y,PreviewView)*12;
-        foreach(var node in actor.Services.Motions.Skeleton(actor)){double d=Math.Sqrt((node.X-X)*(node.X-X)+(node.Y-Y)*(node.Y-Y));if(d>distance)continue;distance=d;best=node.Name;}
-        return Math.Sqrt((actor.X-X)*(actor.X-X)+(actor.Y-Y)*(actor.Y-Y))<distance?"root":best;
+        var (X,Y)=CanvasPosition(position);var instances=actor.World.Instances;
+        string? best=null;double bestDepth=double.MaxValue;int bestOrder=-1;
+        foreach(var node in actor.Services.Motions.Skeleton(actor))
+        {
+            var part=instances.FirstOrDefault(item=>item.Id==node.Instance);
+            if(part is null||part.Destroyed||!part.Active||!part.Scope.ReadOr("visible").Truth)continue;
+            var bounds=actor.World.Bounds(part);
+            if(bounds.Empty||X<bounds.Left||X>bounds.Right||Y<bounds.Top||Y>bounds.Bottom)continue;
+            double depth=part.Scope.ReadOr("depth").Number;int order=instances.IndexOf(part);
+            if(depth<bestDepth||(depth==bestDepth&&order>bestOrder)){best=node.Name;bestDepth=depth;bestOrder=order;}
+        }
+        return best;
     }
 
     private (double X,double Y) CanvasPosition(Vector2 position)=>MotionViewport.ToWorld(position.X,position.Y,surface.Size.X,surface.Size.Y,PreviewView);
@@ -45,15 +119,17 @@ public partial class NativeMotionEditor
     private void SyncOverlay()
     {
         if(overlay is null||PreviewActor is not {} actor)return;
-        overlay.Sync(actor.Services.Motions.Skeleton(actor),bone.Selected>=0?bone.GetItemText((int)bone.Selected):null,document.Graph.IkChains,PreviewView,new((float)actor.X,(float)actor.Y));
+        overlay.Sync(actor.Services.Motions.Skeleton(actor),highlightedBone,document.Graph.IkChains,PreviewView,new((float)actor.X,(float)actor.Y));
     }
 
-    private (double X,double Y) LocalTarget(string node,double worldX,double worldY)
+    private MotionPose LocalPose(string name)=>name is "root" or "__root__"?Clip.RootPose(frame.Value):Clip.Sample(frame.Value).GetValueOrDefault(name);
+
+    private (double X,double Y) LocalTarget(string node,double worldX,double worldY,bool chain)
     {
         if(PreviewActor is not {} actor)return (worldX,worldY);
         var player=actor.Instance;var nodes=actor.Services.Motions.Skeleton(actor);string parentName=node;
         if(node=="root")return MotionRigCoordinates.ToLocal(worldX,worldY,actor.X,actor.Y,0,player.Scope.ReadOr("Direction",1).Number);
-        if(document.Graph.IkChains?.FirstOrDefault(chain=>chain.Enabled&&chain.End==node) is { } chain)parentName=chain.Root;
+        if(chain&&document.Graph.IkChains?.FirstOrDefault(item=>item.Enabled&&item.End==node) is { } link)parentName=link.Root;
         if(!nodes.Any(item=>item.Name==parentName))return (worldX,worldY);var selected=nodes.Single(item=>item.Name==parentName);int parentId=selected.Parent;
         if(parentId==actor.Id)return MotionRigCoordinates.ToLocal(worldX,worldY,actor.X,actor.Y,actor.Read("image_angle"),player.Scope.ReadOr("Direction",1).Number);
         if(!nodes.Any(item=>item.Instance==parentId))return (worldX,worldY);var parent=nodes.Single(item=>item.Instance==parentId);

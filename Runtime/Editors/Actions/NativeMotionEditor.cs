@@ -85,7 +85,7 @@ public partial class NativeMotionEditor : Window
         var descriptor=MotionSkeletonDescriptor.FromActor(active.World,active.Instance,document.Graph.Skeleton);
         bool missing=document.Graph.Clips.Any(clip=>descriptor.Nodes.Any(node=>clip.Tracks.All(track=>track.Bone!=node.Name)||clip.Tracks.First(track=>track.Bone==node.Name).Keys.Count==0));
         if(missing||document.Graph.IkChains is null)document.Edit(graph=>{MotionRigTemplates.EnsureReferencePose(graph,descriptor);if(graph.IkChains is null){if(MotionSkeleton.IsLegacy(graph.Skeleton))graph.IkChains=[];else MotionIkPresets.Ensure(graph);}});
-        int selected=bone.Selected;bone.Clear();bone.AddItem("root");foreach(var node in nodes)bone.AddItem(node.Name);bone.Select(Math.Clamp(selected,0,bone.ItemCount-1));
+        highlightedBone=null;int selected=bone.Selected;bone.Clear();bone.AddItem("root");foreach(var node in nodes)bone.AddItem(node.Name);syncingBone=true;bone.Select(Math.Clamp(selected,0,bone.ItemCount-1));syncingBone=false;
         boneList.Clear();foreach(var node in nodes)boneList.AddItem(node.Name);
         RefreshIkList();status.Text="预览骨架已加载："+nodes.Count+" 个节点。";
     }
@@ -107,8 +107,18 @@ public partial class NativeMotionEditor : Window
     private void UnbindSelectedIk()=>Guard(()=>{string end=bone.GetItemText((int)bone.Selected);Change(g=>{if(g.IkChains is not null)g.IkChains.RemoveAll(chain=>chain.Root==end||chain.Mid==end||chain.End==end);});status.Text="已解除所选节点的 IK。";});
     private void SelectBone(string name)
     {
-        for(int i=0;i<bone.ItemCount;i++)if(bone.GetItemText(i)==name){bone.Select(i);ReadKey();return;}
+        highlightedBone=name;
+        for(int i=0;i<bone.ItemCount;i++)if(bone.GetItemText(i)==name){syncingBone=true;bone.Select(i);syncingBone=false;break;}
+        if(boneList is not null)for(int i=0;i<boneList.ItemCount;i++)if(boneList.GetItemText(i)==name){syncingBone=true;boneList.Select(i);syncingBone=false;break;}
+        ReadKey();SyncOverlay();
     }
+    private void ClearBoneSelection()
+    {
+        highlightedBone=null;
+        if(boneList is not null){syncingBone=true;boneList.DeselectAll();syncingBone=false;}
+        SyncOverlay();
+    }
+    private bool IsIkEnd(string name)=>document.Graph.IkChains?.Any(chain=>chain.Enabled&&chain.End==name)==true;
     private void RefreshGraph()
     {
         graphView.ClearConnections();foreach(var node in graphView.GetChildren().OfType<GraphNode>()){graphView.RemoveChild(node);node.QueueFree();}

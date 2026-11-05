@@ -50,6 +50,12 @@ public static class MotionGraphTests
         Check(composeResult.Success&&Math.Abs(endPoint.X-4)<.01&&Math.Abs(endPoint.Y-2)<.01,"IK writeback composes to the dragged target");
         Check(Math.Abs(Math.Sqrt(composed["HAND1_ABOVE"].X*composed["HAND1_ABOVE"].X+composed["HAND1_ABOVE"].Y*composed["HAND1_ABOVE"].Y)-3)<.001&&Math.Abs(Math.Sqrt(composed["HAND1_BELOW"].X*composed["HAND1_BELOW"].X+composed["HAND1_BELOW"].Y*composed["HAND1_BELOW"].Y)-3)<.001,"IK writeback keeps both segment lengths");
         composeDoc.Undo();Check(composeDoc.Graph.Clips[0].Sample(0)["BODY_TOP"].Angle==15&&composeDoc.Graph.Clips[0].Sample(0)["HAND1_BELOW"].X==3,"IK writeback is a single undo step");
+        var fkGraph=new MotionGraph{Id="ik.fk",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_TOP",Keys=[new(){Frame=0,Angle=15}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=3,Y=0}]},new(){Bone="HAND1_BELOW",Keys=[new(){Frame=0,X=3,Y=0}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND1_BELOW"}]};
+        var fkDoc=new MotionGraphDocument(fkGraph);var fkDrag=fkDoc.Drag("idle","HAND1_BELOW",0,0,5,null,true);var fkPose=fkDoc.Graph.Clips[0].Sample(0);
+        Check(fkDrag.Success&&fkPose["BODY_TOP"].Angle==15&&Math.Abs(Math.Sqrt(fkPose["HAND1_BELOW"].X*fkPose["HAND1_BELOW"].X+fkPose["HAND1_BELOW"].Y*fkPose["HAND1_BELOW"].Y)-3)<.001&&Math.Abs(fkPose["HAND1_BELOW"].Angle+90)<.001,"temporary FK bypasses the IK chain and keeps the segment length");
+        fkDoc.Translate("idle","HAND1_BELOW",0,7,-2);var translated=fkDoc.Graph.Clips[0].Sample(0)["HAND1_BELOW"];
+        Check(translated.X==7&&translated.Y==-2&&Math.Abs(translated.Angle-fkPose["HAND1_BELOW"].Angle)<.001,"local translate writes X/Y and keeps the angle");
+        fkDoc.Undo();Check(Math.Abs(fkDoc.Graph.Clips[0].Sample(0)["HAND1_BELOW"].X-fkPose["HAND1_BELOW"].X)<.001,"local translate is one undo operation");
         var spinGraph=new MotionGraph{Id="spin",Clips=[new(){Id="idle",Duration=10,Tracks=[new(){Bone="HEAD",Keys=[new(){Frame=0,X=3,Y=0}]}]}],States=[new(){Id="idle",Clip="idle"}]};
         var spinDoc=new MotionGraphDocument(spinGraph);var spinResult=spinDoc.Drag("idle","HEAD",0,0,5);
         var headPose=spinDoc.Graph.Clips[0].Sample(0)["HEAD"];var headPoint=Compose((0d,0d),0d,headPose.X,headPose.Y);

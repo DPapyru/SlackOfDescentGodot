@@ -2,7 +2,7 @@ using Godot;
 
 namespace SlackOfDescent;
 
-public partial class NativeMotionEditor
+public partial class NativeActionEditor
 {
     public async Task AuditAsync(string output)
     {
@@ -23,6 +23,22 @@ public partial class NativeMotionEditor
             using var image=GetTexture().GetImage();string file=Path.Combine(directory,name+".png");image.SavePng(file);GD.Print("MOTION_EDITOR_SHOT ",file);
             Hide();
         }
+        ShowMotionWorkspace();
+        void Layout()
+        {
+            Expect(workspaceTabs.TabCount==2,"one window switches between parameters and the motion graph");
+            Expect(actionWorkspace is not null&&motionWorkspace is not null,"both workspaces live in the same window");
+            Expect(catalog is ItemList&&targetChoice is OptionButton&&actionSurface is TextureRect&&parameterForm is VBoxContainer,"the parameter workspace keeps its controls");
+            Expect(projectBar is not null&&tabs is TabBar,"the motion workspace keeps its project tabs");
+            Expect(boneList is ItemList&&ikList is ItemList,"the left dock lists bones and IK chains");
+            Expect(surface is TextureRect&&overlay is not null,"the center stage keeps the motion surface");
+            Expect(inspector is TabContainer&&inspector.GetTabCount()==4,"the right dock keeps the four inspectors");
+            Expect(timelineSlider is HSlider&&keyList is ItemList&&frame is SpinBox,"the bottom dock keeps the timeline");
+            Expect(status is Label&&playState is Label&&previewState is Label,"the status bar reports both workspaces");
+        }
+        Layout();
+        Expect(motionWorkspace.Visible&&!actionWorkspace.Visible&&projectBar.Visible,"the motion workspace shows its chrome");
+        GD.Print("MOTION_EDITOR_LAYOUT_OK");
         await Ready();
         var skeleton=preview!.Bridge.Services.Motions.Skeleton(new(preview.World,preview.Player!));
         Expect(skeleton.Count==15,"preview exposes the 15 part skeleton");

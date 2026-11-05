@@ -7,7 +7,7 @@ var metadata = pe.GetMetadataReader();
 bool diagnostics = args[1] == "diagnostics";
 var types = metadata.TypeDefinitions.Select(handle => metadata.GetTypeDefinition(handle)).ToArray();
 var names = types.Select(type => metadata.GetString(type.Name)).ToHashSet();
-foreach (string required in new[] { "GmWorld", "GameHost", "NativeModManager", "ModContext", "ActorContext", "ContentRegistry", "NativeMapRuntime", "NativeCharacterPreview", "NativeActionEditor", "NativeMotionEditor", "MotionGraph", "MotionPlayer", "NativeMotionService" })
+foreach (string required in new[] { "GmWorld", "GameHost", "NativeModManager", "ModContext", "ActorContext", "ContentRegistry", "NativeMapRuntime", "NativeCharacterPreview", "NativeActionEditor", "MotionGraph", "MotionPlayer", "NativeMotionService" })
     if (!names.Contains(required)) throw new Exception("Missing compatible type: " + required);
 foreach (string name in new[] { "MotionProbe", "NativeModsAudit", "NativeModSdkAudit", "NativeMapAudit", "NativeCharacterAuditRunner", "NativeMotionAudit" })
     if (names.Contains(name) != diagnostics) throw new Exception("Unexpected diagnostic type: " + name);

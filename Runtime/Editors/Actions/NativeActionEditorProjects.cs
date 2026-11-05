@@ -2,7 +2,7 @@ using Godot;
 
 namespace SlackOfDescent;
 
-public partial class NativeMotionEditor
+public partial class NativeActionEditor
 {
     private void RefreshTabs()
     {

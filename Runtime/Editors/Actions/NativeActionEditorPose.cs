@@ -2,7 +2,7 @@ using Godot;
 
 namespace SlackOfDescent;
 
-public partial class NativeMotionEditor
+public partial class NativeActionEditor
 {
     private enum DragMode { Root, Fk, Ik, Local }
     private const int PortWidth=640,PortHeight=480;

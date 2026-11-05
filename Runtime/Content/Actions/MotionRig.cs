@@ -152,13 +152,10 @@ public static class MotionIkPresets
             ["right_foot"] = ("BODY_BOTTOM", "FOOT2_ABOVE", "FOOT2_BELOW")
         };
 
-    public static void Ensure(MotionGraph graph)
-    {
-        graph.IkChains ??= new();
-        if (graph.IkChains.Count > 0) return;
-        foreach (var preset in Limbs.Values)
-            graph.IkChains.Add(new() { Root = preset.Root, Mid = preset.Mid, End = preset.End });
-    }
+    public static IReadOnlyList<MotionIkChain> For(MotionGraph graph) =>
+        graph.IkChains is not null ? graph.IkChains : MotionSkeleton.IsLegacy(graph.Skeleton) ? [] : Limbs.Values.Select(preset => new MotionIkChain { Root = preset.Root, Mid = preset.Mid, End = preset.End }).ToArray();
+
+    public static void Materialize(MotionGraph graph) => graph.IkChains ??= For(graph).ToList();
 }
 
 public static class MotionRigTemplates
@@ -203,7 +200,7 @@ public static class MotionPoseEditor
         var clip = graph.Clips.SingleOrDefault(item => item.Id == clipId) ?? throw new InvalidDataException("Motion clip is missing: " + clipId);
         if (!double.IsFinite(frame) || !double.IsFinite(targetX) || !double.IsFinite(targetY)) return MotionIkResult.Invalid("拖动坐标必须是有限数值。");
         if (bone.Length == 0) return MotionIkResult.Invalid("请选择骨骼节点。");
-        var chain = graph.IkChains?.FirstOrDefault(item => item.Enabled && item.End == bone);
+        var chain = MotionIkPresets.For(graph).FirstOrDefault(item => item.Enabled && item.End == bone);
         if (chain is not null && !forceFk)
         {
             var sample = clip.Sample(frame);
@@ -245,7 +242,7 @@ public static class MotionPoseEditor
     public static bool? Bend(MotionGraph graph, string clipId, string bone, double frame)
     {
         var clip = graph.Clips.SingleOrDefault(item => item.Id == clipId);
-        var chain = graph.IkChains?.FirstOrDefault(item => item.Enabled && item.End == bone);
+        var chain = MotionIkPresets.For(graph).FirstOrDefault(item => item.Enabled && item.End == bone);
         if (clip is null || chain is null) return null;
         var sample = clip.Sample(frame);
         var root = sample.GetValueOrDefault(chain.Root);

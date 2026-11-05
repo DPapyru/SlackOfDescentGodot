@@ -82,9 +82,6 @@ public partial class NativeMotionEditor : Window
     {
         if(PreviewActor is not {} active)return;
         var nodes=active.Services.Motions.Skeleton(active);
-        var descriptor=MotionSkeletonDescriptor.FromActor(active.World,active.Instance,document.Graph.Skeleton);
-        bool missing=document.Graph.Clips.Any(clip=>descriptor.Nodes.Any(node=>clip.Tracks.All(track=>track.Bone!=node.Name)||clip.Tracks.First(track=>track.Bone==node.Name).Keys.Count==0));
-        if(missing||document.Graph.IkChains is null)document.Edit(graph=>{MotionRigTemplates.EnsureReferencePose(graph,descriptor);if(graph.IkChains is null){if(MotionSkeleton.IsLegacy(graph.Skeleton))graph.IkChains=[];else MotionIkPresets.Ensure(graph);}});
         highlightedBone=null;int selected=bone.Selected;bone.Clear();bone.AddItem("root");foreach(var node in nodes)bone.AddItem(node.Name);syncingBone=true;bone.Select(Math.Clamp(selected,0,bone.ItemCount-1));syncingBone=false;
         boneList.Clear();foreach(var node in nodes)boneList.AddItem(node.Name);
         RefreshIkList();status.Text="预览骨架已加载："+nodes.Count+" 个节点。";
@@ -92,7 +89,7 @@ public partial class NativeMotionEditor : Window
     private void RefreshIkList()
     {
         ikList.Clear();
-        foreach(var chain in document.Graph.IkChains??[])ikList.AddItem(chain.Root+" → "+chain.Mid+" → "+chain.End);
+        foreach(var chain in IkChains)ikList.AddItem(chain.Root+" → "+chain.Mid+" → "+chain.End);
     }
     private void BindSelectedIk()
     {
@@ -101,10 +98,10 @@ public partial class NativeMotionEditor : Window
             var active=PreviewActor;if(active is null)throw new InvalidOperationException("请先加载预览骨架。");
             string end=bone.GetItemText((int)bone.Selected);if(end=="root")throw new InvalidOperationException("根节点不能作为 IK 末端。");
             var nodes=active.Services.Motions.Skeleton(active);if(!nodes.Any(node=>node.Name==end))throw new InvalidOperationException("所选节点不在预览骨架中。");var current=nodes.Single(node=>node.Name==end);if(!nodes.Any(node=>node.Instance==current.Parent))throw new InvalidOperationException("所选节点缺少父节点。");var mid=nodes.Single(node=>node.Instance==current.Parent);if(!nodes.Any(node=>node.Instance==mid.Parent))throw new InvalidOperationException("所选节点没有连续的两骨父链。");var root=nodes.Single(node=>node.Instance==mid.Parent);
-            Change(g=>{g.IkChains ??= new();g.IkChains.RemoveAll(chain=>chain.End==end);g.IkChains.Add(new(){Root=root.Name,Mid=mid.Name,End=end});});status.Text="已绑定 IK："+root.Name+" → "+mid.Name+" → "+end;
+            Change(g=>{MotionIkPresets.Materialize(g);g.IkChains!.RemoveAll(chain=>chain.End==end);g.IkChains.Add(new(){Root=root.Name,Mid=mid.Name,End=end});});status.Text="已绑定 IK："+root.Name+" → "+mid.Name+" → "+end;
         });
     }
-    private void UnbindSelectedIk()=>Guard(()=>{string end=bone.GetItemText((int)bone.Selected);Change(g=>{if(g.IkChains is not null)g.IkChains.RemoveAll(chain=>chain.Root==end||chain.Mid==end||chain.End==end);});status.Text="已解除所选节点的 IK。";});
+    private void UnbindSelectedIk()=>Guard(()=>{string end=bone.GetItemText((int)bone.Selected);Change(g=>{MotionIkPresets.Materialize(g);g.IkChains!.RemoveAll(chain=>chain.Root==end||chain.Mid==end||chain.End==end);});status.Text="已解除所选节点的 IK。";});
     private void SelectBone(string name)
     {
         highlightedBone=name;
@@ -118,7 +115,14 @@ public partial class NativeMotionEditor : Window
         if(boneList is not null){syncingBone=true;boneList.DeselectAll();syncingBone=false;}
         SyncOverlay();
     }
-    private bool IsIkEnd(string name)=>document.Graph.IkChains?.Any(chain=>chain.Enabled&&chain.End==name)==true;
+    private IReadOnlyList<MotionIkChain> IkChains=>MotionIkPresets.For(document.Graph);
+    private bool IsIkEnd(string name)=>IkChains.Any(chain=>chain.Enabled&&chain.End==name);
+    private void GenerateReferencePose()=>Guard(()=>{
+        if(PreviewActor is not {} actor)throw new InvalidOperationException("请先加载预览骨架。");
+        var descriptor=MotionSkeletonDescriptor.FromActor(actor.World,actor.Instance,document.Graph.Skeleton);
+        Change(graph=>MotionRigTemplates.EnsureReferencePose(graph,descriptor));
+        status.Text="已生成参考姿态；一次拖动即可撤销。";
+    });
     private void RefreshGraph()
     {
         graphView.ClearConnections();foreach(var node in graphView.GetChildren().OfType<GraphNode>()){graphView.RemoveChild(node);node.QueueFree();}
@@ -160,7 +164,7 @@ public partial class NativeMotionEditor : Window
             if(target.Kind==MotionTargetKind.Entity){targetPreview=CreateLegacyPreview(target.Id);actor=new(preview.World,targetPreview);}
             else {await preview.ApplyAsync(CharacterDefinition(target));targetPreview=null;actor=new(preview.World,preview.Player!);}
             PopulateSkeleton();preview.Bridge.Services.Motions.Play(actor,document.Graph);
-            canvas.Paint=c=>preview.Graphics.Render(c);preview.FrameOn((int)actor.X,(int)actor.Y-40,320,240,640,480);preview.Graphics.Build();canvas.QueueRedraw();SyncOverlay();status.Text="预览已加载。";
+            canvas.Paint=c=>preview.Graphics.Render(c);FitView();status.Text="预览已加载。";
         }
         catch(Exception e){status.Text=e.GetBaseException().Message;}
         finally{busy=false;}
@@ -194,7 +198,7 @@ public partial class NativeMotionEditor : Window
             foreach(var key in new[]{Key.Left,Key.Right,Key.Space})activePreview.Input.Key(activePreview.World,(int)key switch{(int)Key.Left=>37,(int)Key.Right=>39,_=>32},Input.IsKeyPressed(key));
             await activePreview.AdvanceAsync(new(Input.IsKeyPressed(Key.Left),Input.IsKeyPressed(Key.Right),Input.IsKeyPressed(Key.Space),false));
             var state=active.Services.Motions.State(active);playState.Text=$"{state?.State}  frame={state?.Frame:F1}  x={active.X:F2} y={active.Y:F2} suspended={state?.Suspended}";
-            activePreview.FrameOn((int)active.X,(int)active.Y-40,320,240,640,480);canvas.QueueRedraw();SyncOverlay();
+            canvas.QueueRedraw();SyncOverlay();
         }
         catch(Exception e){playing.ButtonPressed=false;status.Text=e.GetBaseException().Message;}
         finally{busy=false;}

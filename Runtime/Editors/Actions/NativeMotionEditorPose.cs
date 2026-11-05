@@ -5,7 +5,12 @@ namespace SlackOfDescent;
 public partial class NativeMotionEditor
 {
     private enum DragMode { Root, Fk, Ik, Local }
-    private MotionView PreviewView=>PreviewActor is {} actor?new((int)actor.X,(int)actor.Y-40,320,240,640,480):new(0,0,320,240,640,480);
+    private const int PortWidth=640,PortHeight=480;
+    private double viewCenterX,viewCenterY,viewWidth=320;
+    private MotionView PreviewView=>new(viewCenterX-viewWidth/2,viewCenterY-viewWidth*.375,viewWidth,viewWidth*.75,PortWidth,PortHeight);
+    private bool panning;
+    private Vector2 panOrigin;
+    private double panCenterX,panCenterY;
     private DragMode dragMode;
     private Vector2 dragOrigin,dragSurface;
     private double dragStartAngle,dragStartPointer;
@@ -15,25 +20,40 @@ public partial class NativeMotionEditor
     private void SurfaceInput(InputEvent input)
     {
         if(input is InputEventKey{Pressed:true,Keycode:Key.Escape}){CancelDrag();return;}
-        if(input is InputEventMouseButton button&&button.ButtonIndex==MouseButton.Left)
+        if(input is InputEventMouseButton button)
         {
-            if(button.Pressed)
+            if(button.ButtonIndex==MouseButton.Left)
             {
-                draggedBone=PickBoneAt(button.Position);
-                if(draggedBone is null){ClearBoneSelection();return;}
-                SelectBone(draggedBone);
-                dragging=true;(dragX,dragY)=CanvasPosition(button.Position);
-                dragOrigin=dragSurface=button.Position;
-                BeginDrag(button);
+                if(button.Pressed)
+                {
+                    draggedBone=PickBoneAt(button.Position);
+                    if(draggedBone is null){ClearBoneSelection();BeginPan(button.Position);return;}
+                    SelectBone(draggedBone);
+                    dragging=true;(dragX,dragY)=CanvasPosition(button.Position);
+                    dragOrigin=dragSurface=button.Position;
+                    BeginDrag(button);
+                    return;
+                }
+                if(dragging&&draggedBone is {} name)
+                {
+                    dragging=false;
+                    if(dragSurface.DistanceTo(dragOrigin)<3){status.Text="已选中骨骼；未拖动，未写入关键帧。";return;}
+                    CommitDrag(name);
+                }
+                else if(panning)panning=false;
                 return;
             }
-            if(!dragging||draggedBone is not {} name)return;
-            dragging=false;
-            if(dragSurface.DistanceTo(dragOrigin)<3){status.Text="已选中骨骼；未拖动，未写入关键帧。";return;}
-            CommitDrag(name);return;
+            if(button.ButtonIndex==MouseButton.Middle){if(button.Pressed)BeginPan(button.Position);else panning=false;return;}
+            if(button.ButtonIndex==MouseButton.WheelUp&&button.Pressed){ZoomView(button.Position,1/1.12);return;}
+            if(button.ButtonIndex==MouseButton.WheelDown&&button.Pressed){ZoomView(button.Position,1.12);return;}
+            if(button.ButtonIndex==MouseButton.Right&&button.Pressed&&dragging){CancelDrag();return;}
+            return;
         }
-        if(input is InputEventMouseButton{ButtonIndex:MouseButton.Right,Pressed:true}&&dragging){CancelDrag();return;}
-        if(dragging&&input is InputEventMouseMotion motion){(dragX,dragY)=CanvasPosition(motion.Position);dragSurface=motion.Position;x.Value=dragX;y.Value=dragY;}
+        if(input is InputEventMouseMotion motion)
+        {
+            if(dragging){(dragX,dragY)=CanvasPosition(motion.Position);dragSurface=motion.Position;x.Value=dragX;y.Value=dragY;}
+            else if(panning)UpdatePan(motion.Position);
+        }
     }
 
     public override void _UnhandledKeyInput(InputEvent @event){if(@event is InputEventKey{Pressed:true,Keycode:Key.Escape})CancelDrag();}
@@ -84,6 +104,48 @@ public partial class NativeMotionEditor
         return LocalTarget(name,dragX,dragY,dragMode==DragMode.Ik);
     }
 
+    internal void FitView()
+    {
+        if(PreviewActor is not {} actor)return;
+        double left=actor.X,top=actor.Y,right=actor.X,bottom=actor.Y;
+        foreach(var node in actor.Services.Motions.Skeleton(actor))
+        {
+            var part=actor.World.Instances.FirstOrDefault(item=>item.Id==node.Instance);
+            if(part is null||part.Destroyed||!part.Active)continue;
+            var bounds=actor.World.Bounds(part);
+            if(bounds.Empty)continue;
+            left=Math.Min(left,bounds.Left);top=Math.Min(top,bounds.Top);right=Math.Max(right,bounds.Right);bottom=Math.Max(bottom,bounds.Bottom);
+        }
+        double width=Math.Max(32,(right-left)*1.4),height=Math.Max(24,(bottom-top)*1.4);
+        viewWidth=Math.Clamp(Math.Max(width,height*4/3),32,4096);
+        viewCenterX=(left+right)/2;viewCenterY=(top+bottom)/2;
+        ApplyView();
+    }
+    private void ApplyView()
+    {
+        if(preview is null)return;
+        preview.FrameOn((int)viewCenterX,(int)viewCenterY,Math.Max(1,(int)viewWidth),Math.Max(1,(int)(viewWidth*.75)),PortWidth,PortHeight);
+        canvas.QueueRedraw();SyncOverlay();
+    }
+    private void ZoomView(Vector2 position,double factor)
+    {
+        if(surface.Size.X<=0||surface.Size.Y<=0)return;
+        var (worldX,worldY)=CanvasPosition(position);
+        double before=viewWidth,next=Math.Clamp(before*factor,32,4096);
+        if(next==before)return;
+        double u=(worldX-(viewCenterX-before/2))/before,v=(worldY-(viewCenterY-before*.375))/(before*.75);
+        viewWidth=next;viewCenterX=worldX-(u-.5)*next;viewCenterY=worldY-(v-.5)*next*.75;
+        ApplyView();
+    }
+    private void BeginPan(Vector2 position){panning=true;panOrigin=position;panCenterX=viewCenterX;panCenterY=viewCenterY;}
+    private void UpdatePan(Vector2 position)
+    {
+        double worldPerPixel=MotionViewport.WorldPerPixel(surface.Size.X,surface.Size.Y,PreviewView);
+        viewCenterX=panCenterX-(position.X-panOrigin.X)*worldPerPixel;
+        viewCenterY=panCenterY-(position.Y-panOrigin.Y)*worldPerPixel;
+        ApplyView();
+    }
+
     private void CancelDrag()
     {
         if(!dragging)return;
@@ -123,7 +185,7 @@ public partial class NativeMotionEditor
     private void SyncOverlay()
     {
         if(overlay is null||PreviewActor is not {} actor)return;
-        overlay.Sync(actor.Services.Motions.Skeleton(actor),highlightedBone,document.Graph.IkChains,PreviewView,new((float)actor.X,(float)actor.Y));
+        overlay.Sync(actor.Services.Motions.Skeleton(actor),highlightedBone,IkChains,PreviewView,new((float)actor.X,(float)actor.Y));
     }
 
     private MotionPose LocalPose(string name)=>name is "root" or "__root__"?Clip.RootPose(frame.Value):Clip.Sample(frame.Value).GetValueOrDefault(name);
@@ -133,7 +195,7 @@ public partial class NativeMotionEditor
         if(PreviewActor is not {} actor)return (worldX,worldY);
         var player=actor.Instance;var nodes=actor.Services.Motions.Skeleton(actor);string parentName=node;
         if(node=="root")return MotionRigCoordinates.ToLocal(worldX,worldY,actor.X,actor.Y,0,player.Scope.ReadOr("Direction",1).Number);
-        if(chain&&document.Graph.IkChains?.FirstOrDefault(item=>item.Enabled&&item.End==node) is { } link)parentName=link.Root;
+        if(chain&&IkChains.FirstOrDefault(item=>item.Enabled&&item.End==node) is { } link)parentName=link.Root;
         if(!nodes.Any(item=>item.Name==parentName))return (worldX,worldY);var selected=nodes.Single(item=>item.Name==parentName);int parentId=selected.Parent;
         if(parentId==actor.Id)return MotionRigCoordinates.ToLocal(worldX,worldY,actor.X,actor.Y,actor.Read("image_angle"),player.Scope.ReadOr("Direction",1).Number);
         if(!nodes.Any(item=>item.Instance==parentId))return (worldX,worldY);var parent=nodes.Single(item=>item.Instance==parentId);

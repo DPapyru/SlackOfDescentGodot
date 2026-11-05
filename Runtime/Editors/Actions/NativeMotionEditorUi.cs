@@ -45,6 +45,8 @@ public partial class NativeMotionEditor
             case "showBones":if(overlay is not null)overlay.ShowBones=!overlay.ShowBones;break;
             case "showNames":if(overlay is not null)overlay.ShowNames=!overlay.ShowNames;break;
             case "reloadPreview":InitializePreview();break;
+            case "fitView":FitView();break;
+            case "referencePose":GenerateReferencePose();break;
             case "applyGame":ApplyToGame();break;
             case "help":ShowHelp();break;
         }
@@ -68,7 +70,7 @@ public partial class NativeMotionEditor
         var bar=Row(root);bar.Name="MenuBar";
         AddMenu(bar,"文件",menu=>{MenuItem(menu,"新建项目…","new");MenuItem(menu,"打开…","open");MenuItem(menu,"保存","save");MenuItem(menu,"另存为…","saveAs");MenuItem(menu,"保存到 Mod 项目…","saveProject");menu.AddSeparator();MenuItem(menu,"将动作图保存到角色","bindCharacter");menu.AddSeparator();MenuItem(menu,"关闭项目","close");MenuItem(menu,"退出","quit");});
         AddMenu(bar,"编辑",menu=>{MenuItem(menu,"撤销","undo");MenuItem(menu,"重做","redo");});
-        AddMenu(bar,"视图",menu=>{MenuItem(menu,"显示骨架","showBones",overlay?.ShowBones??true);MenuItem(menu,"显示骨骼名","showNames",overlay?.ShowNames??false);menu.AddSeparator();MenuItem(menu,"重载预览","reloadPreview");MenuItem(menu,"应用到游戏角色","applyGame");});
+        AddMenu(bar,"视图",menu=>{MenuItem(menu,"显示骨架","showBones",overlay?.ShowBones??true);MenuItem(menu,"显示骨骼名","showNames",overlay?.ShowNames??false);menu.AddSeparator();MenuItem(menu,"适配画布","fitView");MenuItem(menu,"生成参考姿态","referencePose");menu.AddSeparator();MenuItem(menu,"重载预览","reloadPreview");MenuItem(menu,"应用到游戏角色","applyGame");});
         AddMenu(bar,"帮助",menu=>MenuItem(menu,"状态机说明…","help"));
         var brand=new Label{Text="骨架动作与状态图",HorizontalAlignment=HorizontalAlignment.Right,SizeFlagsHorizontal=Control.SizeFlags.ExpandFill};bar.AddChild(brand);
     }
@@ -85,7 +87,7 @@ public partial class NativeMotionEditor
     private void BuildToolbar(VBoxContainer root)
     {
         var bar=Row(root);bar.Name="Toolbar";
-        Button(bar,"重载预览",InitializePreview);playing=new CheckButton{Text="播放"};bar.AddChild(playing);Button(bar,"单帧",Step);
+        Button(bar,"重载预览",InitializePreview);Button(bar,"取景",FitView);playing=new CheckButton{Text="播放"};bar.AddChild(playing);Button(bar,"单帧",Step);
         Button(bar,"应用到游戏角色",ApplyToGame);
         playState=new Label{Name="PlayState",AutowrapMode=TextServer.AutowrapMode.WordSmart,SizeFlagsHorizontal=Control.SizeFlags.ExpandFill};bar.AddChild(playState);
     }

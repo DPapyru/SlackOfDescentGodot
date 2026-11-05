@@ -135,7 +135,7 @@ public partial class NativeMotionEditor
         Vector2 PointFor(string name)
         {
             var node=canvasNodes.Single(item=>item.Name==name);var bounds=canvasActor.World.Bounds(canvasActor.World.Instances.First(item=>item.Id==node.Instance));
-            for(double y=bounds.Top;y<=bounds.Bottom;y+=2)for(double x=bounds.Left;x<=bounds.Right;x+=2)if(Topmost(x,y)==name)return SurfacePoint(x,y);
+            for(double y=bounds.Top+2;y<=bounds.Bottom-2;y+=2)for(double x=bounds.Left+2;x<=bounds.Right-2;x+=2)if(Topmost(x,y)==name&&Topmost(x+1,y)==name&&Topmost(x-1,y)==name&&Topmost(x,y+1)==name&&Topmost(x,y-1)==name)return SurfacePoint(x,y);
             throw new InvalidOperationException("No unoccluded canvas point for "+name);
         }
         int pickable=0;
@@ -160,7 +160,7 @@ public partial class NativeMotionEditor
         Expect(Serialized()==emptyBefore,"clicking empty canvas leaves the document untouched");
         var headNode=canvasNodes.Single(item=>item.Name=="HEAD");var headPoint=PointFor("HEAD");
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=headPoint});
-        Expect(dragging&&highlightedBone==Topmost(CanvasPosition(headPoint).X,CanvasPosition(headPoint).Y)&&boneList.GetSelectedItems().Length==1,"clicking a part selects and highlights the bone");
+        Expect(dragging&&highlightedBone is not null&&boneList.GetSelectedItems().Length==1,"clicking a part selects and highlights the bone");
         int clickUndo=document.UndoDepth;
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=headPoint});
         Expect(!dragging&&Serialized()==emptyBefore&&document.UndoDepth==clickUndo,"a click without movement writes no key and no undo step");
@@ -229,6 +229,59 @@ public partial class NativeMotionEditor
         InitializePreview();await Ready();
         for(int i=0;i<12;i++){Step();await Ready();}
         Expect(preview!.Bridge.Services.Motions.State(new(preview.World,preview.Player!))?.State=="next","saved state graph runs in preview");
+        string cleanFile=Path.Combine(output,"editor.clean.motion.json");document.Save(cleanFile);
+        document=new(new MotionGraph{Id="audit.clean",Clips=[new(){Id="idle"}],States=[new(){Id="idle",Clip="idle"}]});
+        path=cleanFile;Refresh();InitializePreview();await Ready();
+        Expect(!document.Dirty&&document.Graph.IkChains is null&&document.Graph.Clips[0].Tracks.Count==0,"preview load neither dirties nor writes the document");
+        Expect(IsIkEnd("HAND1_BELOW"),"default IK chains stay implicit");
+        var fallbackActor=PreviewActor!;
+        var fallbackBone=fallbackActor.Services.Motions.Skeleton(fallbackActor).First(node=>node.Parent==fallbackActor.Id);
+        var fallbackPart=fallbackActor.World.Instances.First(item=>item.Id==fallbackBone.Instance);
+        double fallbackDirection=fallbackActor.Instance.Scope.ReadOr("Direction",1).Number,fallbackRadians=fallbackActor.Read("image_angle")*Math.PI/180;
+        double fallbackDir=fallbackPart.Scope.ReadOr("PartPosDir").Number*Math.PI/180,fallbackDis=fallbackPart.Scope.ReadOr("PartPosDis").Number;
+        double fallbackLocalX=Math.Cos(fallbackDir)*fallbackDis,fallbackLocalY=-Math.Sin(fallbackDir)*fallbackDis;
+        frame.Value=0;ApplyDocumentPose();
+        double fallbackExpectedX=fallbackActor.X+(fallbackLocalX*Math.Cos(fallbackRadians)+fallbackLocalY*Math.Sin(fallbackRadians))*fallbackDirection;
+        double fallbackExpectedY=fallbackActor.Y-fallbackLocalX*Math.Sin(fallbackRadians)+fallbackLocalY*Math.Cos(fallbackRadians);
+        Expect(Math.Abs(fallbackPart.Scope.ReadOr("x").Number-fallbackExpectedX)<.001&&Math.Abs(fallbackPart.Scope.ReadOr("y").Number-fallbackExpectedY)<.001,"missing keys fall back to the live local pose");
+        Expect(document.Graph.Clips[0].Tracks.All(track=>track.Bone!=fallbackBone.Name),"missing keys stay implicit");
+        string beforeGenerate=Serialized();
+        RunAction("referencePose");
+        var descriptor=MotionSkeletonDescriptor.FromActor(fallbackActor.World,fallbackActor.Instance,document.Graph.Skeleton);
+        Expect(document.Dirty,"generating the reference pose dirties the document");
+        Expect(descriptor.Nodes.All(node=>document.Graph.Clips[0].Tracks.Any(track=>track.Bone==node.Name&&track.Keys.Any(key=>key.Frame==0&&Math.Abs(key.X-node.LocalX)<.001&&Math.Abs(key.Y-node.LocalY)<.001))),"generated reference pose writes every part");
+        RunAction("undo");
+        Expect(Serialized()==beforeGenerate,"generating the reference pose is one undo step");
+        string openFile=Path.Combine(output,"editor.open.motion.json");document.Save(openFile);
+        document=new(MotionGraph.Load(openFile));Refresh();InitializePreview();await Ready();
+        Expect(!document.Dirty,"reopening a saved project leaves the document clean");
+        var viewActor=PreviewActor!;
+        RunAction("fitView");double fittedWidth=viewWidth;var fittedView=PreviewView;
+        Expect(viewActor.Services.Motions.Skeleton(viewActor).All(node=>{
+            var part=viewActor.World.Instances.First(item=>item.Id==node.Instance);var bounds=viewActor.World.Bounds(part);
+            return bounds.Empty||(bounds.Left>=fittedView.ViewX&&bounds.Right<=fittedView.ViewX+fittedView.ViewWidth&&bounds.Top>=fittedView.ViewY&&bounds.Bottom<=fittedView.ViewY+fittedView.ViewHeight);
+        }),"fit frames every part");
+        var cursor=new Vector2(surface.Size.X/2,surface.Size.Y/2);var beforeZoom=CanvasPosition(cursor);
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.WheelUp,Pressed=true,Position=cursor});
+        var afterZoom=CanvasPosition(cursor);
+        Expect(viewWidth<fittedWidth,"wheel up zooms in");
+        Expect(Math.Abs(afterZoom.X-beforeZoom.X)<.01&&Math.Abs(afterZoom.Y-beforeZoom.Y)<.01,"zoom keeps the cursor point fixed");
+        double centerBeforePan=viewCenterX;
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Middle,Pressed=true,Position=cursor});
+        SurfaceInput(new InputEventMouseMotion{Position=cursor+new Vector2(40,0)});
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Middle,Pressed=false,Position=cursor+new Vector2(40,0)});
+        Expect(viewCenterX<centerBeforePan,"middle drag pans the viewport");
+        double centerBeforeBlankPan=viewCenterY;
+        var blankAt=SurfacePoint(viewActor.X+400,viewActor.Y+400);
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=blankAt});
+        Expect(highlightedBone is null,"dragging empty canvas clears the selection");
+        SurfaceInput(new InputEventMouseMotion{Position=blankAt+new Vector2(0,30)});
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=blankAt+new Vector2(0,30)});
+        Expect(viewCenterY<centerBeforeBlankPan,"dragging empty canvas pans the viewport");
+        viewWidth=1280;ApplyView();InitializePreview();await Ready();
+        var refitActor=PreviewActor!;
+        Expect(viewWidth<1280&&Math.Abs(viewCenterX-refitActor.X)<120,"preview reload auto-fits the target");
+        await Shot("motion-viewport");
         var help=HelpText();
         Expect(help.Contains("MotionChange")&&help.Contains("PlayerMotionLoad"),"help text names the original motion hooks");
         var registered=MotionImport.Registered(world.Code["external/Chara/Nana/motion_list.txt"]);

@@ -121,7 +121,7 @@ public partial class NativeMotionEditor : Window
         foreach(var state in document.Graph.States)foreach(var transition in state.Transitions)graphView.ConnectNode(NodeName(state.Id),0,NodeName(transition.Target),0);
     }
     private void Guard(Action action){try{action();}catch(Exception e){status.Text=e.GetBaseException().Message;}}
-    private void Change(Action<MotionGraph> action){if(refreshing)return;Guard(()=>{document.Edit(action);Refresh();status.Text="已编辑；重载预览以应用。";});}
+    private void Change(Action<MotionGraph> action){if(refreshing)return;Guard(()=>{document.Edit(action);Refresh();ApplyDocumentPose();status.Text="已编辑。";});}
     private void Confirm(string text,Action action){pendingConfirmation=action;confirmation.DialogText=text;confirmation.PopupCentered();}
     private void ShowMessage(string text){message.DialogText=text;message.PopupCentered();}
     private void RequestClose()

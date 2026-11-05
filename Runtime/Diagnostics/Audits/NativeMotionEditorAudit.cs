@@ -13,6 +13,16 @@ public partial class NativeMotionEditor
             while(busy){if(System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalSeconds>90)throw new TimeoutException("Motion preview initialization");await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);}
             Expect(preview?.Player is not null,"independent preview is ready: "+status.Text);
         }
+        async Task Shot(string name)
+        {
+            string? directory=System.Environment.GetEnvironmentVariable("SLACK_MOTION_SHOTS");
+            if(string.IsNullOrEmpty(directory)||DisplayServer.GetName()=="headless")return;
+            Directory.CreateDirectory(directory);PopupCentered();
+            for(int i=0;i<4;i++)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
+            await ToSignal(RenderingServer.Singleton,RenderingServer.SignalName.FramePostDraw);
+            using var image=GetTexture().GetImage();string file=Path.Combine(directory,name+".png");image.SavePng(file);GD.Print("MOTION_EDITOR_SHOT ",file);
+            Hide();
+        }
         await Ready();
         var skeleton=preview!.Bridge.Services.Motions.Skeleton(new(preview.World,preview.Player!));
         foreach(var node in skeleton)
@@ -83,6 +93,28 @@ public partial class NativeMotionEditor
         SwitchProject(projectIndex,false);RemoveProject(projects.Count-1,false);
         Expect(projects.Count==projectIndex+1&&activeProject==projectIndex,"project tabs return to the first document");
         InitializePreview();await Ready();
+        var previewBefore=preview!;var previewWorld=previewBefore.World;
+        document=new(new MotionGraph{Id="audit.follow",Clips=[new(){Id="idle",Duration=20,Root=[new(){Frame=0,X=5,Y=-3}],Tracks=[new(){Bone="HEAD",Keys=[new(){Frame=0,X=2,Y=-4,Angle=10}]}]}],States=[new(){Id="idle",Clip="idle"}]});
+        Refresh();var followActor=new ActorContext(preview.World,preview.Player!);followActor.Write("Direction",-1);
+        frame.Value=0;long buildsBefore=preview.Graphics.Builds;
+        Change(g=>g.Clips[0].Tracks[0].Keys[0].Angle=35);
+        Expect(ReferenceEquals(preview,previewBefore)&&ReferenceEquals(preview.World,previewWorld),"editing reuses the preview world");
+        Expect(preview.Graphics.Builds>buildsBefore,"editing redraws the canvas");
+        var followClip=document.Graph.Clips[0];var followPose=followClip.Sample(frame.Value)["HEAD"];var followRoot=followClip.RootPose(frame.Value);
+        double followX=followActor.X+followRoot.X*-1,followY=followActor.Y+followRoot.Y,followRadians=followActor.Read("image_angle")*Math.PI/180;
+        double followExpectedX=followX+(followPose.X*Math.Cos(followRadians)+followPose.Y*Math.Sin(followRadians))*-1,followExpectedY=followY-followPose.X*Math.Sin(followRadians)+followPose.Y*Math.Cos(followRadians);
+        Expect(Math.Abs(followActor.Part("HEAD")!.X-followExpectedX)<.001&&Math.Abs(followActor.Part("HEAD")!.Y-followExpectedY)<.001,"edited pose matches the canvas with root offset and mirror");
+        RunAction("undo");
+        Expect(document.Graph.Clips[0].Tracks[0].Keys[0].Angle==10,"undo restores the edited key");
+        followPose=document.Graph.Clips[0].Sample(frame.Value)["HEAD"];
+        followExpectedX=followX+(followPose.X*Math.Cos(followRadians)+followPose.Y*Math.Sin(followRadians))*-1;followExpectedY=followY-followPose.X*Math.Sin(followRadians)+followPose.Y*Math.Cos(followRadians);
+        Expect(Math.Abs(followActor.Part("HEAD")!.X-followExpectedX)<.001&&Math.Abs(followActor.Part("HEAD")!.Y-followExpectedY)<.001,"undo immediately updates the canvas pose");
+        RunAction("redo");
+        followPose=document.Graph.Clips[0].Sample(frame.Value)["HEAD"];
+        followExpectedX=followX+(followPose.X*Math.Cos(followRadians)+followPose.Y*Math.Sin(followRadians))*-1;followExpectedY=followY-followPose.X*Math.Sin(followRadians)+followPose.Y*Math.Cos(followRadians);
+        Expect(Math.Abs(followActor.Part("HEAD")!.X-followExpectedX)<.001&&Math.Abs(followActor.Part("HEAD")!.Y-followExpectedY)<.001,"redo immediately updates the canvas pose");
+        Expect(ReferenceEquals(preview,previewBefore),"undo and redo do not rebuild the preview");
+        await Shot("motion-follow");
         document=new(MotionImport.FromAst(world.Code["external/Chara/Motion/PlayerNana/Stand0_Damage.txt"],"audit.editor","Nana"));Refresh();
         SelectBone("HEAD");frame.Value=2;x.Value=4;y.Value=-16;angle.Value=17;sx.Value=1.25;sy.Value=.8;picture.Value=1;WriteKey();
         Expect(Clip.Tracks.Single(t=>t.Bone=="HEAD").Keys.Any(k=>k.Frame==2&&k.Angle==17&&k.Picture==1),"timeline writes a real bone key");

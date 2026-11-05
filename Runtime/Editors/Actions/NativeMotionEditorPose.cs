@@ -12,7 +12,7 @@ public partial class NativeMotionEditor
         if(input is InputEventMouseButton button&&button.ButtonIndex==MouseButton.Left)
         {
             if(button.Pressed){draggedBone=PickBone(button.Position);dragging=draggedBone is not null;if(dragging){(dragX,dragY)=CanvasPosition(button.Position);SelectBone(draggedBone!);}}
-            else if(dragging&&draggedBone is {} name){dragging=false;var local=LocalTarget(name,dragX,dragY);var result=document.Drag(Clip.Id,name,frame.Value,local.X,local.Y);status.Text=result.Success?(result.Clamped?result.Reason:"节点已更新；一次拖动生成一个撤销记录。"):result.Reason;Refresh();}
+            else if(dragging&&draggedBone is {} name){dragging=false;var local=LocalTarget(name,dragX,dragY);var result=document.Drag(Clip.Id,name,frame.Value,local.X,local.Y);status.Text=result.Success?(result.Clamped?result.Reason:"节点已更新；一次拖动生成一个撤销记录。"):result.Reason;Refresh();ApplyDocumentPose();}
             return;
         }
         if(input is InputEventMouseButton{ButtonIndex:MouseButton.Right,Pressed:true}&&dragging){dragging=false;draggedBone=null;status.Text="已取消拖动，文档未修改。";return;}
@@ -30,6 +30,17 @@ public partial class NativeMotionEditor
     }
 
     private (double X,double Y) CanvasPosition(Vector2 position)=>MotionViewport.ToWorld(position.X,position.Y,surface.Size.X,surface.Size.Y,PreviewView);
+
+    private void ApplyDocumentPose()
+    {
+        if(preview is null||PreviewActor is not {} actor)return;
+        try
+        {
+            preview.Bridge.Services.Motions.Preview(actor,document.Graph,Clip.Id,frame.Value);
+            preview.Graphics.Build();canvas.QueueRedraw();SyncOverlay();
+        }
+        catch(InvalidDataException error){status.Text=error.Message;}
+    }
 
     private void SyncOverlay()
     {

@@ -40,8 +40,8 @@ public partial class NativeMotionEditor
             case "bindCharacter":BindSavedCharacter();break;
             case "close":CloseProject(activeProject);break;
             case "quit":RequestClose();break;
-            case "undo":Guard(()=>{document.Undo();Refresh();});break;
-            case "redo":Guard(()=>{document.Redo();Refresh();});break;
+            case "undo":Guard(()=>{document.Undo();Refresh();ApplyDocumentPose();});break;
+            case "redo":Guard(()=>{document.Redo();Refresh();ApplyDocumentPose();});break;
             case "showBones":if(overlay is not null)overlay.ShowBones=!overlay.ShowBones;break;
             case "showNames":if(overlay is not null)overlay.ShowNames=!overlay.ShowNames;break;
             case "reloadPreview":InitializePreview();break;

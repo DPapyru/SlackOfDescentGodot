@@ -109,6 +109,41 @@ public sealed class NativeMotionService : IDisposable
         if(sessions.TryGetValue(actor.Id,out var existing)&&(existing.Runtime||ReferenceEquals(existing.Asset,graph)))return;
         Replace(actor,graph,services.Registry.ScopeFor("motion",id,actor.Id),false);
     }
+    internal void Preview(ActorContext actor,MotionGraph graph,string clipId,double frame)
+    {
+        CheckWorld(actor);
+        var clip=graph.Clips.SingleOrDefault(item=>item.Id==clipId)??throw new InvalidDataException("Motion clip is missing: "+clipId);
+        ApplyPose(actor,Resolve(actor,graph),clip.Sample(frame),clip.RootPose(frame));
+    }
+    private static void ApplyPose(ActorContext actor,Dictionary<string,GmInstance> bones,IReadOnlyDictionary<string,MotionPose> pose,MotionPose root)
+    {
+        double direction=actor.Instance.Scope.ReadOr("Direction",1).Number;
+        var done=new HashSet<int>();var visiting=new HashSet<int>();
+        void Apply(string name)
+        {
+            var bone=bones[name];if(done.Contains(bone.Id))return;
+            if(!visiting.Add(bone.Id))throw new InvalidDataException("Cyclic skeleton parents.");
+            int parentId=bone.Scope.ReadOr("parent",actor.Id).Int;
+            string? parentName=bones.FirstOrDefault(p=>p.Value.Id==parentId).Key;
+            if(parentName is not null)Apply(parentName);
+            double parentX=parentName is null?actor.X+root.X*direction:bones[parentName].Scope.ReadOr("x").Number;
+            double parentY=parentName is null?actor.Y+root.Y:bones[parentName].Scope.ReadOr("y").Number;
+            double parentAngle=parentName is null?actor.Read("image_angle"):bones[parentName].Scope.ReadOr("image_angle").Number;
+            bool tracked=pose.TryGetValue(name,out var p);
+            if(!tracked)
+            {
+                double localAngle=bone.Scope.ReadOr("PartPosDir").Number*Math.PI/180,localDistance=bone.Scope.ReadOr("PartPosDis").Number;
+                p=new(Math.Cos(localAngle)*localDistance,-Math.Sin(localAngle)*localDistance,bone.Scope.ReadOr("Angle").Number,bone.Scope.ReadOr("ScaleX",1).Number,bone.Scope.ReadOr("ScaleY",1).Number,bone.Scope.ReadOr("PartPicture").Int);
+            }
+            double radians=parentAngle*Math.PI/180;
+            actor.World.Write(bone,"x",parentX+(p.X*Math.Cos(radians)+p.Y*Math.Sin(radians))*direction);
+            actor.World.Write(bone,"y",parentY-p.X*Math.Sin(radians)+p.Y*Math.Cos(radians));
+            bone.Scope.Write("Direction",direction);bone.Scope.Write("image_angle",p.Angle+parentAngle);
+            if(tracked){bone.Scope.Write("Angle",p.Angle);bone.Scope.Write("ScaleX",p.ScaleX);bone.Scope.Write("ScaleY",p.ScaleY);bone.Scope.Write("PartPicture",p.Picture);bone.Scope.Write("image_index",p.Picture);}
+            visiting.Remove(bone.Id);done.Add(bone.Id);
+        }
+        foreach(string name in bones.Keys)Apply(name);
+    }
     private void Refresh()
     {
         foreach(var pair in configured.Values.ToArray())
@@ -220,35 +255,7 @@ public sealed class NativeMotionService : IDisposable
             owner.gravities[Actor.Id]=Actor.Read("gravity");Actor.Write("gravity",0);
             if(vx!=0)Actor.Write("Direction",Math.Sign(vx));
         }
-        public void Submit()
-        {
-            var pose=Player.Pose;var root=Player.Root;double direction=Actor.Instance.Scope.ReadOr("Direction",1).Number;
-            var done=new HashSet<int>();var visiting=new HashSet<int>();
-            void Apply(string name)
-            {
-                var bone=bones[name];if(done.Contains(bone.Id))return;
-                if(!visiting.Add(bone.Id))throw new InvalidDataException("Cyclic skeleton parents.");
-                int parentId=bone.Scope.ReadOr("parent",Actor.Id).Int;
-                string? parentName=bones.FirstOrDefault(p=>p.Value.Id==parentId).Key;
-                if(parentName is not null)Apply(parentName);
-                double parentX=parentName is null?Actor.X+root.X*direction:bones[parentName].Scope.ReadOr("x").Number;
-                double parentY=parentName is null?Actor.Y+root.Y:bones[parentName].Scope.ReadOr("y").Number;
-                double parentAngle=parentName is null?Actor.Read("image_angle"):bones[parentName].Scope.ReadOr("image_angle").Number;
-                bool tracked=pose.TryGetValue(name,out var p);
-                if(!tracked)
-                {
-                    double localAngle=bone.Scope.ReadOr("PartPosDir").Number*Math.PI/180,localDistance=bone.Scope.ReadOr("PartPosDis").Number;
-                    p=new(Math.Cos(localAngle)*localDistance,-Math.Sin(localAngle)*localDistance,bone.Scope.ReadOr("Angle").Number,bone.Scope.ReadOr("ScaleX",1).Number,bone.Scope.ReadOr("ScaleY",1).Number,bone.Scope.ReadOr("PartPicture").Int);
-                }
-                double radians=parentAngle*Math.PI/180;
-                Actor.World.Write(bone,"x",parentX+(p.X*Math.Cos(radians)+p.Y*Math.Sin(radians))*direction);
-                Actor.World.Write(bone,"y",parentY-p.X*Math.Sin(radians)+p.Y*Math.Cos(radians));
-                bone.Scope.Write("Direction",direction);bone.Scope.Write("image_angle",p.Angle+parentAngle);
-                if(tracked){bone.Scope.Write("Angle",p.Angle);bone.Scope.Write("ScaleX",p.ScaleX);bone.Scope.Write("ScaleY",p.ScaleY);bone.Scope.Write("PartPicture",p.Picture);bone.Scope.Write("image_index",p.Picture);}
-                visiting.Remove(bone.Id);done.Add(bone.Id);
-            }
-            foreach(string name in bones.Keys)Apply(name);
-        }
+        public void Submit()=>ApplyPose(Actor,bones,Player.Pose,Player.Root);
         public void Event(MotionEvent item,long cycle)
         {
             if(Hits.Count>0&&Hits.First().Item1!=cycle)Hits.Clear();

@@ -187,7 +187,7 @@ public partial class NativeMotionEditor
         Button(header,"新增片段",()=>Change(g=>g.Clips.Add(new(){Id=clipId.Text})));
         duration=Number(header,"长度（60Hz）",1,100000,60);loop=new CheckButton{Text="循环",ButtonPressed=true};header.AddChild(loop);
         Button(header,"更新片段",()=>Change(_=>{Clip.Duration=duration.Value;Clip.Loop=loop.ButtonPressed;}));
-        frame=Number(header,"动作帧",0,100000);frame.ValueChanged+=_=>ReadKey();
+        frame=Number(header,"动作帧",0,100000);frame.ValueChanged+=_=>{ReadKey();if(!refreshing)ApplyDocumentPose();};
         Button(header,"读取运行帧",()=>{if(PreviewActor is {} actor&&actor.Services.Motions.State(actor) is {} state)frame.Value=state.Frame;});
         Button(header,"预览当前帧",()=>Guard(()=>{if(PreviewActor is not {} actor)return;playing.ButtonPressed=false;actor.Services.Motions.Seek(actor,frame.Value);preview!.Graphics.Build();canvas.QueueRedraw();}));
         timelineSlider=Slider(dock,60,value=>frame.Value=value);

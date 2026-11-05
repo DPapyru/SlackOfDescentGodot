@@ -37,6 +37,7 @@ public partial class NativeMotionEditor : Window
     private double playbackSpeed=1;
     private string? lastState,lastTransition;
     private double lastFrame;
+    private bool sessionStale;
     private readonly List<string> lastEvents=new();
     private bool rightHeld;
     private double lastRightTap;
@@ -59,20 +60,24 @@ public partial class NativeMotionEditor : Window
     private string SelectedStateId=>stateChoice.Selected<0?document.Graph.States[0].Id:stateChoice.GetItemText((int)stateChoice.Selected);
     private MotionTransition? SelectedTransition=>stateChoice.Selected<0||SelectedIndex(transitionList)<0?null:document.Graph.States[(int)stateChoice.Selected].Transitions[SelectedIndex(transitionList)];
     private ActorContext? PreviewActor=>preview is null?null:targetPreview is {Destroyed:false} target?new(preview.World,target):preview.Player is { } player?new(preview.World,player):null;
+    private string? SelectedBone=>bone is null||bone.Selected<0?null:bone.GetItemText((int)bone.Selected);
     private List<MotionKey> Keys()
     {
-        if(rootTrack.ButtonPressed||bone.GetItemText((int)bone.Selected)=="root")return Clip.Root;
-        string name=bone.GetItemText((int)bone.Selected);var track=Clip.Tracks.SingleOrDefault(t=>t.Bone==name);
+        string name=SelectedBone??"root";
+        if(rootTrack.ButtonPressed||name=="root")return Clip.Root;
+        var track=Clip.Tracks.SingleOrDefault(t=>t.Bone==name);
         if(track is null){track=new(){Bone=name};Clip.Tracks.Add(track);}return track.Keys;
     }
     private void ReadKey()
     {
         if(refreshing||x is null)return;
-        var key=rootTrack.ButtonPressed||bone.GetItemText((int)bone.Selected)=="root"?new MotionTrack{Keys=Clip.Root}.Sample(frame.Value):Clip.Tracks.SingleOrDefault(t=>t.Bone==bone.GetItemText((int)bone.Selected))?.Sample(frame.Value)??new(0,0,0,1,1);
+        string? selected=SelectedBone;
+        if(!rootTrack.ButtonPressed&&selected is null){x.Value=0;y.Value=0;angle.Value=0;sx.Value=1;sy.Value=1;picture.Value=0;if(keyList is not null)keyList.Clear();return;}
+        var key=rootTrack.ButtonPressed||selected=="root"?new MotionTrack{Keys=Clip.Root}.Sample(frame.Value):Clip.Tracks.SingleOrDefault(t=>t.Bone==selected)?.Sample(frame.Value)??new(0,0,0,1,1);
         x.Value=key.X;y.Value=key.Y;angle.Value=key.Angle;sx.Value=key.ScaleX;sy.Value=key.ScaleY;picture.Value=key.Picture;
-        if(timelineSlider is not null){timelineSlider.SetValueNoSignal(frame.Value);keyList.Clear();var keys=rootTrack.ButtonPressed||bone.GetItemText((int)bone.Selected)=="root"?Clip.Root:Clip.Tracks.SingleOrDefault(t=>t.Bone==bone.GetItemText((int)bone.Selected))?.Keys??new();foreach(var k in keys){keyList.AddItem($"{k.Frame:F2}  ({k.X:F1}, {k.Y:F1})  {k.Angle:F1}°  picture={k.Picture}");keyList.SetItemMetadata(keyList.ItemCount-1,k.Frame);}}
+        if(timelineSlider is not null){timelineSlider.SetValueNoSignal(frame.Value);keyList.Clear();var keys=rootTrack.ButtonPressed||selected=="root"?Clip.Root:Clip.Tracks.SingleOrDefault(t=>t.Bone==selected)?.Keys??new();foreach(var k in keys){keyList.AddItem($"{k.Frame:F2}  ({k.X:F1}, {k.Y:F1})  {k.Angle:F1}°  picture={k.Picture}");keyList.SetItemMetadata(keyList.ItemCount-1,k.Frame);}}
     }
-    private void WriteKey()=>Change(_=>{var keys=Keys();keys.RemoveAll(k=>k.Frame==frame.Value);keys.Add(new(){Frame=frame.Value,X=x.Value,Y=y.Value,Angle=angle.Value,ScaleX=sx.Value,ScaleY=sy.Value,Picture=(int)picture.Value});keys.Sort((a,b)=>a.Frame.CompareTo(b.Frame));});
+    private void WriteKey(){if(!rootTrack.ButtonPressed&&SelectedBone is null){status.Text="请先选择骨骼节点。";return;}Change(_=>{var keys=Keys();keys.RemoveAll(k=>k.Frame==frame.Value);keys.Add(new(){Frame=frame.Value,X=x.Value,Y=y.Value,Angle=angle.Value,ScaleX=sx.Value,ScaleY=sy.Value,Picture=(int)picture.Value});keys.Sort((a,b)=>a.Frame.CompareTo(b.Frame));});}
     private void RefreshTimeline(){timelineSlider.MaxValue=Clip.Duration;duration.Value=Clip.Duration;loop.ButtonPressed=Clip.Loop;eventsText.Text=JsonSerializer.Serialize(Clip.Events,NativeContentStore.Json);ReadKey();}
     private void Refresh()
     {
@@ -119,7 +124,9 @@ public partial class NativeMotionEditor : Window
     private void ClearBoneSelection()
     {
         highlightedBone=null;
-        if(boneList is not null){syncingBone=true;boneList.DeselectAll();syncingBone=false;}
+        syncingBone=true;bone.Selected=-1;if(boneList is not null)boneList.DeselectAll();syncingBone=false;
+        x.Value=0;y.Value=0;angle.Value=0;sx.Value=1;sy.Value=1;picture.Value=0;
+        if(keyList is not null)keyList.Clear();
         SyncOverlay();
     }
     private IReadOnlyList<MotionIkChain> IkChains=>MotionIkPresets.For(document.Graph);
@@ -164,14 +171,14 @@ public partial class NativeMotionEditor : Window
         if(busy)return;busy=true;playing.ButtonPressed=false;
         try
         {
-             preview?.Dispose();targetPreview=null;preview=new(viewport,world,registry,new(store),packages);await preview.InitializeAsync();
-             if(closing)return;
+            preview?.Dispose();targetPreview=null;preview=new(viewport,world,registry,new(store),packages);await preview.InitializeAsync();
+            if(closing)return;
             var target=Project.Target;
             ActorContext actor;
             if(target.Kind==MotionTargetKind.Entity){targetPreview=CreateLegacyPreview(target.Id);actor=new(preview.World,targetPreview);}
             else {await preview.ApplyAsync(CharacterDefinition(target));targetPreview=null;actor=new(preview.World,preview.Player!);}
-             PopulateSkeleton();preview.Bridge.Services.Motions.Play(actor,document.Graph);
-             canvas.Paint=c=>preview.Graphics.Render(c);FitView();status.Text="预览已加载。";
+            PopulateSkeleton();preview.Bridge.Services.Motions.Play(actor,document.Graph);
+            canvas.Paint=c=>preview.Graphics.Render(c);FitView();status.Text="预览已加载。";
         }
         catch(Exception e){status.Text=e.GetBaseException().Message;}
         finally{busy=false;}
@@ -206,13 +213,14 @@ public partial class NativeMotionEditor : Window
         var activePreview=preview;if(busy||activePreview is null||PreviewActor is not {} active)return;busy=true;
         try
         {
+            if(sessionStale){sessionStale=false;RestartPlayback();}
+            lastEvents.Clear();
             for(int i=0;i<steps;i++)
             {
                 await activePreview.AdvanceAsync(PreviewInput());
                 var state=active.Services.Motions.State(active);
                 if(state is null)continue;
                 if(lastState is not null&&lastState!=state.State)lastTransition=lastState+" → "+state.State;
-                lastEvents.Clear();
                 var clip=document.Graph.Clips.FirstOrDefault(item=>item.Id==document.Graph.States.FirstOrDefault(s=>s.Id==state.State)?.Clip);
                 if(clip is not null)foreach(var item in clip.Events.Where(e=>!e.Contact&&e.Start>lastFrame&&e.Start<=state.Frame))lastEvents.Add(item.Value.Length>0?item.Value:item.Id);
                 lastState=state.State;lastFrame=state.Frame;
@@ -251,7 +259,7 @@ public partial class NativeMotionEditor : Window
             if(preview is null||PreviewActor is not {} actor)return;
             preview.Bridge.Services.Motions.Play(actor,document.Graph);
             preview.Bridge.Services.Motions.Seek(actor,frame.Value);
-            lastState=document.Graph.Entry;lastFrame=frame.Value;lastTransition=null;lastEvents.Clear();elapsed=0;
+            lastState=document.Graph.Entry;lastFrame=frame.Value;lastTransition=null;lastEvents.Clear();elapsed=0;sessionStale=false;
             UpdatePlaybackOverlay();
         });
     }

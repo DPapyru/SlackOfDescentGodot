@@ -177,6 +177,7 @@ public partial class NativeMotionEditor
         try
         {
             preview.Bridge.Services.Motions.Preview(actor,document.Graph,Clip.Id,frame.Value);
+            if(playing is not null&&!playing.ButtonPressed)sessionStale=true;
             preview.Graphics.Build();canvas.QueueRedraw();SyncOverlay();
         }
         catch(InvalidDataException error){status.Text=error.Message;}

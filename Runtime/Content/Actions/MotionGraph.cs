@@ -68,7 +68,7 @@ public sealed class MotionClip
     public List<MotionKey> Root { get; set; } = new();
     public List<MotionPhase> Phases { get; set; } = new();
     public List<MotionEvent> Events { get; set; } = new();
-    public Dictionary<string,MotionPose> Sample(double frame)=>Tracks.ToDictionary(t=>t.Bone,t=>t.Sample(frame),StringComparer.Ordinal);
+    public Dictionary<string,MotionPose> Sample(double frame)=>Tracks.Where(t=>t.Keys.Count>0).ToDictionary(t=>t.Bone,t=>t.Sample(frame),StringComparer.Ordinal);
     public MotionPose RootPose(double frame)=>new MotionTrack{Keys=Root}.Sample(frame);
 }
 public sealed class MotionCondition

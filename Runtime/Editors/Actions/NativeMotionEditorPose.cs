@@ -7,6 +7,7 @@ public partial class NativeMotionEditor
     private enum DragMode { Root, Fk, Ik, Local }
     private MotionView PreviewView=>PreviewActor is {} actor?new((int)actor.X,(int)actor.Y-40,320,240,640,480):new(0,0,320,240,640,480);
     private DragMode dragMode;
+    private Vector2 dragOrigin,dragSurface;
     private double dragStartAngle,dragStartPointer;
     private bool dragBend,syncingBone;
     private string? highlightedBone;
@@ -22,14 +23,17 @@ public partial class NativeMotionEditor
                 if(draggedBone is null){ClearBoneSelection();return;}
                 SelectBone(draggedBone);
                 dragging=true;(dragX,dragY)=CanvasPosition(button.Position);
+                dragOrigin=dragSurface=button.Position;
                 BeginDrag(button);
                 return;
             }
             if(!dragging||draggedBone is not {} name)return;
-            dragging=false;CommitDrag(name);return;
+            dragging=false;
+            if(dragSurface.DistanceTo(dragOrigin)<3){status.Text="已选中骨骼；未拖动，未写入关键帧。";return;}
+            CommitDrag(name);return;
         }
         if(input is InputEventMouseButton{ButtonIndex:MouseButton.Right,Pressed:true}&&dragging){CancelDrag();return;}
-        if(dragging&&input is InputEventMouseMotion motion){(dragX,dragY)=CanvasPosition(motion.Position);x.Value=dragX;y.Value=dragY;}
+        if(dragging&&input is InputEventMouseMotion motion){(dragX,dragY)=CanvasPosition(motion.Position);dragSurface=motion.Position;x.Value=dragX;y.Value=dragY;}
     }
 
     public override void _UnhandledKeyInput(InputEvent @event){if(@event is InputEventKey{Pressed:true,Keycode:Key.Escape})CancelDrag();}

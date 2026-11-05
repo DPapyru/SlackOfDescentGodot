@@ -40,5 +40,6 @@ public sealed class MotionGraphDocument(MotionGraph graph)
         catch{Restore(before);throw;}
     }
     public void Save(string path){Graph.Save(path);Dirty=false;}
+    internal int UndoDepth=>undo.Count;
     internal void RestoreDirty(bool value)=>Dirty=value;
 }

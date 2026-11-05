@@ -161,9 +161,14 @@ public partial class NativeMotionEditor
         var headNode=canvasNodes.Single(item=>item.Name=="HEAD");var headPoint=PointFor("HEAD");
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=headPoint});
         Expect(dragging&&highlightedBone==Topmost(CanvasPosition(headPoint).X,CanvasPosition(headPoint).Y)&&boneList.GetSelectedItems().Length==1,"clicking a part selects and highlights the bone");
+        int clickUndo=document.UndoDepth;
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=headPoint});
+        Expect(!dragging&&Serialized()==emptyBefore&&document.UndoDepth==clickUndo,"a click without movement writes no key and no undo step");
+        Expect(highlightedBone is not null,"a click without movement keeps the selection");
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=headPoint});
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Right,Pressed=true,Position=headPoint});
         Expect(!dragging&&Serialized()==emptyBefore,"right click cancels the drag without editing");
-        var fkBefore=Clip.Sample(frame.Value)["HEAD"];
+        var fkBefore=Clip.Sample(frame.Value)["HEAD"];int fkUndo=document.UndoDepth;
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=headPoint});
         Expect(dragging&&Math.Abs(Clip.Sample(frame.Value)["HEAD"].Angle-fkBefore.Angle)<.001,"pressing an FK bone does not jump");
         var fkTarget=SurfacePoint(CanvasPosition(headPoint).X+24,CanvasPosition(headPoint).Y-8);
@@ -172,6 +177,7 @@ public partial class NativeMotionEditor
         var fkPose=Clip.Sample(frame.Value)["HEAD"];double fkLength=Math.Sqrt(fkBefore.X*fkBefore.X+fkBefore.Y*fkBefore.Y);
         Expect(Math.Abs(Math.Sqrt(fkPose.X*fkPose.X+fkPose.Y*fkPose.Y)-fkLength)<.001,"FK drag keeps the bone length");
         Expect(Clip.Tracks.Single(item=>item.Bone=="HEAD").Keys.Any(key=>key.Frame==frame.Value),"FK drag writes the current frame key");
+        Expect(document.UndoDepth==fkUndo+1,"FK drag adds exactly one undo step");
         RunAction("undo");Expect(Math.Abs(Clip.Sample(frame.Value)["HEAD"].Angle-fkBefore.Angle)<.001,"FK drag is one undo step");RunAction("redo");
         var shiftBefore=Clip.Sample(frame.Value)["HEAD"];
         var shiftStart=PointFor("HEAD");

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>12</LangVersion>
+    <GameAssemblyDirectory Condition="'$(GameAssemblyDirectory)' == ''">$(MSBuildThisFileDirectory)../../../Tools/ModCompiler/References</GameAssemblyDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="SlackOfDescent">
+      <HintPath>$(GameAssemblyDirectory)/SlackOfDescent.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="GodotSharp">
+      <HintPath>$(GameAssemblyDirectory)/GodotSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

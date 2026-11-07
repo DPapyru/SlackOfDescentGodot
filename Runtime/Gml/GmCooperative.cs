@@ -9,7 +9,6 @@ public sealed partial class GmEvaluator
     private readonly HashSet<(int Object, int Kind, int Sub)> checkingEvents = new();
     private readonly Dictionary<(int Object, int Kind, int Sub), bool> waitingEvents = new();
 
-    // Calls that always run on the cooperating path; instance_create is decided per target event.
     private static readonly HashSet<string> WaitingCalls =
         new(StringComparer.Ordinal)
         {
@@ -79,7 +78,6 @@ public sealed partial class GmEvaluator
         }
     }
 
-    // Object argument of a dispatch call; null when it is only known at runtime.
     private int? ObjectId(JsonElement node)
     {
         if (Tag(node) == "id")
@@ -90,7 +88,6 @@ public sealed partial class GmEvaluator
         return world.Objects.ContainsKey(literal) ? literal : null;
     }
 
-    // instance_create only needs the cooperating path when the created object's Create event can wait.
     private bool CreatedEventCanWait(JsonElement call)
     {
         var arguments = call[2];
@@ -99,7 +96,6 @@ public sealed partial class GmEvaluator
             || EventCanWait(created, 0, 0);
     }
 
-    // Whether an object's event may reach a call that suspends, following inheritance and added actions.
     private bool EventCanWait(int obj, int kind, int sub)
     {
         var key = (obj, kind, sub);

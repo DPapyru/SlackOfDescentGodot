@@ -9,8 +9,6 @@ namespace SlackOfDescent;
 public sealed partial class GmWorld
 {
     private readonly Dictionary<int,List<GmValue>> lists=new();
-    // Text files are read lazily: the item/motion data files are large, and materializing every line
-    // (plus a full CR-stripped copy) up front dominated the room-load allocation.
     private sealed class TextFileCursor
     {
         private readonly string? text;
@@ -71,8 +69,6 @@ public sealed partial class GmWorld
     private int handle=1;
     private readonly Dictionary<string,string> dynamicCode=new(StringComparer.Ordinal);
 
-    // sources.json holds every packed GML source; materializing the whole map (and copying all of its
-    // strings) on the first read dominated the room-load allocation, so entries are resolved on demand.
     private JsonDocument? sourceDocument;
     private readonly Dictionary<string,string?> sourceEntries=new(StringComparer.OrdinalIgnoreCase);
 
@@ -178,9 +174,6 @@ public sealed partial class GmWorld
         return fileCode[path]=code;
     }
 
-    // Compile-time call-site resolution: a static name binds straight to the platform or math
-    // implementation, so the hot path skips the generic dispatch chain (call stats, Scripts lookup,
-    // name comparisons). Returns null when the call must keep the generic path.
     internal static bool CallSiteSpecialization =
         System.Environment.GetEnvironmentVariable("SLACK_CALL_SITE") != "0";
 
@@ -278,8 +271,6 @@ public sealed partial class GmWorld
     {
         Calls[name]=Calls.GetValueOrDefault(name)+1;
         if(name=="draw_sprite_blur")return DrawSpriteBlur(a,c);
-        // Draw commands are served by the rendering platform; skipping the asset/particle/room lookup
-        // chain keeps the per-command dispatch to one delegate call.
         if(name.Length>5&&name.StartsWith("draw_",StringComparison.Ordinal)&&Platform is not null)
         {
             var drawn=Platform(name,a,c);

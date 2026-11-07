@@ -1,4 +1,12 @@
 {
-  "assertions": 0,
-  "warnings": []
+  "warnings": [
+    {
+      "code": "CS8600",
+      "where": "Runtime/Host/Rendering/GmGraphics.cs:1042:68"
+    },
+    {
+      "code": "CS8602",
+      "where": "Runtime/Gml/GmValue.cs:421:13"
+    }
+  ]
 }

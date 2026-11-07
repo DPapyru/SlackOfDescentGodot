@@ -60,8 +60,6 @@ public static class WaitingPathTests
         Equal(self.Scope.Read("store",2),12,"waiting path writes array elements");
         Equal(target.Scope.ReadOr("hp"),12,"waiting path writes through dereferenced targets");
 
-        // Draw dispatch is the shared per-entity build cost: its contexts, action plans, argument buffers
-        // and script-call scopes must all be reused instead of allocated per instance.
         world.Platform=(name,args,c)=>name.StartsWith("draw_",StringComparison.Ordinal)?new GmValue(0):null;
         var drawing=world.Create(world.Constants["objQuicksand"].Int,2320,1440,run:false);
         for(int index=0;index<50;index++)world.Event(drawing,8,0);
@@ -69,8 +67,6 @@ public static class WaitingPathTests
         for(int index=0;index<1000;index++)world.Event(drawing,8,0);
         long perDispatch=(GC.GetAllocatedBytesForCurrentThread()-dispatchBytes)/1000;
         Check(perDispatch<=160,"draw dispatch reuses contexts and arguments: "+perDispatch+" bytes");
-        // Array-heavy Draw bodies (moss surfaces) still probe the engine scope per indexed read; that
-        // probe must not build a composite key string.
         long PerDispatch(string objectName)
         {
             var probe=world.Create(world.Constants[objectName].Int,2320,1440);
@@ -86,7 +82,6 @@ public static class WaitingPathTests
         for(int index=0;index<1000;index++)world.Event(plainInstance,8,0);
         Check((GC.GetAllocatedBytesForCurrentThread()-idleBytes)/1000==0,"event dispatch without actions does not allocate");
 
-        // Rented event contexts must not leak locals into the next dispatch.
         int pooledObject=world.Constants["objBlock"].Int;
         world.Call("object_event_add",[pooledObject,7,10,"var pooled_local;pooled_local=7;leak=0;"],context);
         world.Call("object_event_add",[pooledObject,7,11,"leak=0;if(pooled_local==7)leak=1;"],context);

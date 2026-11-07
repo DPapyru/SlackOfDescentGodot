@@ -152,13 +152,10 @@ public static class MotionIkPresets
             ["right_foot"] = ("BODY_BOTTOM", "FOOT2_ABOVE", "FOOT2_BELOW")
         };
 
-    public static void Ensure(MotionGraph graph)
-    {
-        graph.IkChains ??= new();
-        if (graph.IkChains.Count > 0) return;
-        foreach (var preset in Limbs.Values)
-            graph.IkChains.Add(new() { Root = preset.Root, Mid = preset.Mid, End = preset.End });
-    }
+    public static IReadOnlyList<MotionIkChain> For(MotionGraph graph) =>
+        graph.IkChains is not null ? graph.IkChains : MotionSkeleton.IsLegacy(graph.Skeleton) ? [] : Limbs.Values.Select(preset => new MotionIkChain { Root = preset.Root, Mid = preset.Mid, End = preset.End }).ToArray();
+
+    public static void Materialize(MotionGraph graph) => graph.IkChains ??= For(graph).ToList();
 }
 
 public static class MotionRigTemplates
@@ -187,33 +184,46 @@ public static class MotionRigCoordinates
         double radians = parentAngle * Math.PI / 180, dx = (worldX - parentX) * Math.Sign(direction), dy = worldY - parentY;
         return (dx * Math.Cos(radians) - dy * Math.Sin(radians), dx * Math.Sin(radians) + dy * Math.Cos(radians));
     }
+
+    public static (double X, double Y) Rotate(double x, double y, double angle)
+    {
+        if (!double.IsFinite(x) || !double.IsFinite(y) || !double.IsFinite(angle)) throw new InvalidDataException("旋转需要有限数值。");
+        double radians = angle * Math.PI / 180;
+        return (x * Math.Cos(radians) + y * Math.Sin(radians), -x * Math.Sin(radians) + y * Math.Cos(radians));
+    }
 }
 
 public static class MotionPoseEditor
 {
-    public static MotionIkResult Drag(MotionGraph graph, string clipId, string bone, double frame, double targetX, double targetY, bool? bendPositive = null)
+    public static MotionIkResult Drag(MotionGraph graph, string clipId, string bone, double frame, double targetX, double targetY, bool? bendPositive = null, bool forceFk = false)
     {
         var clip = graph.Clips.SingleOrDefault(item => item.Id == clipId) ?? throw new InvalidDataException("Motion clip is missing: " + clipId);
         if (!double.IsFinite(frame) || !double.IsFinite(targetX) || !double.IsFinite(targetY)) return MotionIkResult.Invalid("拖动坐标必须是有限数值。");
         if (bone.Length == 0) return MotionIkResult.Invalid("请选择骨骼节点。");
-        var chain = graph.IkChains?.FirstOrDefault(item => item.Enabled && item.End == bone);
-        if (chain is not null)
+        var chain = MotionIkPresets.For(graph).FirstOrDefault(item => item.Enabled && item.End == bone);
+        if (chain is not null && !forceFk)
         {
-            var root = clip.Sample(frame).GetValueOrDefault(chain.Root);
-            var mid = clip.Sample(frame).GetValueOrDefault(chain.Mid);
-            var end = clip.Sample(frame).GetValueOrDefault(chain.End);
-            double midX = root.X + mid.X, midY = root.Y + mid.Y;
-            double endX = midX + end.X, endY = midY + end.Y;
-            bool bend = bendPositive ?? ((midX - root.X) * (endY - midY) - (midY - root.Y) * (endX - midX) >= 0);
+            var sample = clip.Sample(frame);
+            var root = sample.GetValueOrDefault(chain.Root);
+            var mid = sample.GetValueOrDefault(chain.Mid);
+            var end = sample.GetValueOrDefault(chain.End);
+            var midOffset = MotionRigCoordinates.Rotate(mid.X, mid.Y, root.Angle);
+            double midX = root.X + midOffset.X, midY = root.Y + midOffset.Y;
+            var endOffset = MotionRigCoordinates.Rotate(end.X, end.Y, root.Angle + mid.Angle);
+            double endX = midX + endOffset.X, endY = midY + endOffset.Y;
+            bool bend = bendPositive ?? Bend(graph, clipId, bone, frame) ?? true;
             var result = MotionIk.Solve(root.X, root.Y, midX, midY, endX, endY, targetX, targetY, bend);
             if (!result.Success) return result;
-            double firstLength = Math.Sqrt(mid.X * mid.X + mid.Y * mid.Y), rootRadians = result.RootAngle * Math.PI / 180;
+            double firstLength = Math.Sqrt(mid.X * mid.X + mid.Y * mid.Y), secondLength = Math.Sqrt(end.X * end.X + end.Y * end.Y);
+            double rootRadians = result.RootAngle * Math.PI / 180, midRadians = result.MidAngle * Math.PI / 180;
             double solvedMidX = root.X + Math.Cos(rootRadians) * firstLength, solvedMidY = root.Y + Math.Sin(rootRadians) * firstLength;
-            SetKey(clip, chain.Root, frame, new MotionPose(root.X, root.Y, result.RootAngle, root.ScaleX, root.ScaleY, root.Picture));
-            double localMid = Normalize(result.MidAngle - result.RootAngle);
-            double solvedTargetX = result.Clamped ? result.TargetX : targetX, solvedTargetY = result.Clamped ? result.TargetY : targetY;
-            SetKey(clip, chain.Mid, frame, new MotionPose(solvedMidX - root.X, solvedMidY - root.Y, localMid, mid.ScaleX, mid.ScaleY, mid.Picture));
-            SetKey(clip, chain.End, frame, new MotionPose(solvedTargetX - solvedMidX, solvedTargetY - solvedMidY, end.Angle, end.ScaleX, end.ScaleY, end.Picture));
+            double solvedEndX = solvedMidX + Math.Cos(midRadians) * secondLength, solvedEndY = solvedMidY + Math.Sin(midRadians) * secondLength;
+            double localMidAngle = Normalize(result.MidAngle - result.RootAngle);
+            var localMid = MotionRigCoordinates.Rotate(solvedMidX - root.X, solvedMidY - root.Y, -result.RootAngle);
+            var localEnd = MotionRigCoordinates.Rotate(solvedEndX - solvedMidX, solvedEndY - solvedMidY, -(result.RootAngle + localMidAngle));
+            SetKey(clip, chain.Root, frame, new MotionPose(root.X, root.Y, Normalize(result.RootAngle), root.ScaleX, root.ScaleY, root.Picture));
+            SetKey(clip, chain.Mid, frame, new MotionPose(localMid.X, localMid.Y, localMidAngle, mid.ScaleX, mid.ScaleY, mid.Picture));
+            SetKey(clip, chain.End, frame, new MotionPose(localEnd.X, localEnd.Y, end.Angle, end.ScaleX, end.ScaleY, end.Picture));
             return result;
         }
         var current = clip.Sample(frame).GetValueOrDefault(bone);
@@ -227,6 +237,31 @@ public static class MotionPoseEditor
         double angle = Math.Atan2(-targetY, targetX) * 180 / Math.PI;
         SetKey(clip, bone, frame, new MotionPose(Math.Cos(angle * Math.PI / 180) * length, -Math.Sin(angle * Math.PI / 180) * length, angle, current.ScaleX, current.ScaleY, current.Picture));
         return new(true, false, angle, angle, angle, length, "");
+    }
+
+    public static bool? Bend(MotionGraph graph, string clipId, string bone, double frame)
+    {
+        var clip = graph.Clips.SingleOrDefault(item => item.Id == clipId);
+        var chain = MotionIkPresets.For(graph).FirstOrDefault(item => item.Enabled && item.End == bone);
+        if (clip is null || chain is null) return null;
+        var sample = clip.Sample(frame);
+        var root = sample.GetValueOrDefault(chain.Root);
+        var mid = sample.GetValueOrDefault(chain.Mid);
+        var end = sample.GetValueOrDefault(chain.End);
+        var midOffset = MotionRigCoordinates.Rotate(mid.X, mid.Y, root.Angle);
+        double midX = root.X + midOffset.X, midY = root.Y + midOffset.Y;
+        var endOffset = MotionRigCoordinates.Rotate(end.X, end.Y, root.Angle + mid.Angle);
+        double endX = midX + endOffset.X, endY = midY + endOffset.Y;
+        return (midX - root.X) * (endY - midY) - (midY - root.Y) * (endX - midX) >= 0;
+    }
+
+    public static void Translate(MotionGraph graph, string clipId, string bone, double frame, double x, double y)
+    {
+        var clip = graph.Clips.SingleOrDefault(item => item.Id == clipId) ?? throw new InvalidDataException("Motion clip is missing: " + clipId);
+        if (!double.IsFinite(frame) || !double.IsFinite(x) || !double.IsFinite(y)) throw new InvalidDataException("拖动坐标必须是有限数值。");
+        if (bone.Length == 0) throw new InvalidDataException("请选择骨骼节点。");
+        var current = clip.Sample(frame).GetValueOrDefault(bone);
+        SetKey(clip, bone is "root" or "__root__" ? null : bone, frame, new MotionPose(x, y, current.Angle, current.ScaleX, current.ScaleY, current.Picture));
     }
 
     private static void SetRootKey(MotionClip clip, double frame, MotionPose pose)

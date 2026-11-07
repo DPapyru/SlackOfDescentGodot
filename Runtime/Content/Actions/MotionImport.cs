@@ -2,8 +2,37 @@ using System.Text.Json;
 
 namespace SlackOfDescent;
 
+public readonly record struct MotionRegistered(string Name,string Resource);
+
 public static class MotionImport
 {
+    public static IReadOnlyList<MotionRegistered> Registered(JsonElement ast)
+    {
+        var seen=new HashSet<string>(StringComparer.Ordinal);
+        var list=new List<MotionRegistered>();
+        Walk(ast);
+        return list;
+
+        void Walk(JsonElement node)
+        {
+            if(node.ValueKind!=JsonValueKind.Array||node.GetArrayLength()<2)return;
+            switch(node[0].GetString())
+            {
+                case "group":
+                    if(node[1].ValueKind==JsonValueKind.Array)foreach(var child in node[1].EnumerateArray())Walk(child);
+                    break;
+                case "call":
+                    if(node[1].GetString()!="PlayerMotionLoad"||node[2].ValueKind!=JsonValueKind.Array||node[2].GetArrayLength()<3)return;
+                    string name=Text(node[2][1]),resource=Text(node[2][2]);
+                    if(name.Length==0||resource.Length==0||!seen.Add(name))return;
+                    list.Add(new(name,resource));
+                    break;
+            }
+        }
+
+        static string Text(JsonElement argument)=>argument.ValueKind==JsonValueKind.Array&&argument.GetArrayLength()>=2&&argument[0].GetString()=="str"?argument[1].GetString()??"":"";
+    }
+
     public static MotionGraph FromAst(JsonElement ast,string id,string skeleton,double sourceHz=30)
     {
         if(!double.IsFinite(sourceHz)||sourceHz<=0)throw new InvalidDataException("Invalid source clock.");

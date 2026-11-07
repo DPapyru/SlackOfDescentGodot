@@ -5,8 +5,6 @@ namespace SlackOfDescent;
 
 public sealed partial class GmWorld
 {
-    // room_set_* never rewrites the room document (thousands of instances per room, ~1.6MB to parse and
-    // serialize): the edited values are kept as small overrides and applied when the room is loaded.
     private sealed class RoomOverrides
     {
         public int? Width;

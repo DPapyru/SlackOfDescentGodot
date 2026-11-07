@@ -1,8 +1,6 @@
 using System.Text.Json;
 using SlackOfDescent;
 
-// Pins the StepAsync per-instance skips: a motion pass that would write identical values, a
-// one-frame animation without an Animation End event, and repeated xprevious/yprevious writes.
 public static class StepSkipTests
 {
     public static int Run(GmWorld shared)

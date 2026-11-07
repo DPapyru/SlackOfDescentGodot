@@ -67,7 +67,6 @@ public static class DrawCullTests
         return count;
     }
 
-    // Mirrors GmGraphics.Textured's four-corner test.
     private static bool OutsideCorners(
         float x,
         float y,

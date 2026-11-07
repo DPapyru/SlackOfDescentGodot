@@ -12,7 +12,6 @@ public static class GmCallSiteTests
         var world = new GmWorld(source.Root, source.SourceRoot);
         world.Evaluator.ResetBudget();
 
-        // Math sites must answer exactly like the generic fixed-argument path.
         var self = new GmInstance { Id = 999997, Object = -1 };
         world.Instances.Add(self);
         var context = new GmContext(self);
@@ -46,12 +45,10 @@ public static class GmCallSiteTests
             "make_color_rgb matches the generic path"
         );
 
-        // A script shadow keeps the generic path, as does a name that is not a known call.
         Check(world.CallSite("not_a_builtin", 1) is null, "unknown names keep the generic path");
         string shadowed = world.Scripts.Keys.First();
         Check(world.CallSite(shadowed, 0) is null, "script names keep the generic path");
 
-        // The compiled call site must produce the same value as the unoptimized build.
         string key = world.Compile("site_probe = min(3, 8) + abs(-2)");
         world.Evaluator.Run(key, context);
         Check(self.Scope.Read("site_probe").Number == 5, "compiled specialized call site computes min + abs");

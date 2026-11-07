@@ -60,8 +60,6 @@ public sealed partial class GmEvaluator
             foreach(var instance in targets)world.Write(instance,name,value,indices);
         }
     }
-    // One argument buffer per call site and nesting depth, so a call never allocates its argument array
-    // twice and a recursive call still gets its own values.
     private sealed class CallArguments
     {
         private GmValue[]?[]buffers=new GmValue[4][];
@@ -78,8 +76,6 @@ public sealed partial class GmEvaluator
         }
         public void Return()=>depth--;
     }
-    // One compiled cache per variable layout: the slot fast path is only valid for the layout it was
-    // compiled against, so the plain cache and each slot layout own their own trees.
     private sealed class CompileContext
     {
         public readonly Dictionary<string,int>? Layout;
@@ -102,7 +98,6 @@ public sealed partial class GmEvaluator
         if(table.TryGetValue(node,out var result))return result;
         return table[node]=CompileReference(node);
     }
-    // Counters for GmSlotLayoutTests: prove the array slot path actually runs instead of falling back.
     internal static long SlotArrayReads;
     internal static long SlotArrayWrites;
     private readonly List<Func<GmContext,GmValue>> compiled=new();

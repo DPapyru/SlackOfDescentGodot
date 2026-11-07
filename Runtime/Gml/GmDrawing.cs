@@ -7,7 +7,6 @@ public sealed partial class GmWorld
     {
         if(CharacterSpriteBlur?.Invoke(args,context)==true)return 0;
         double x=args[2].Number,y=args[3].Number,angle=args[6].Number,alpha=args[8].Number;
-        // One argument buffer for every blurred slice: motion blur otherwise allocates an array per slice.
         var slice=new GmValue[9];
         slice[0]=args[0];slice[1]=args[1];slice[4]=args[4];slice[5]=args[5];slice[7]=args[7];
         void Draw(double px,double py,double rotation,double opacity)

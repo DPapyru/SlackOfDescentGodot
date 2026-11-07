@@ -1,6 +1,5 @@
 namespace SlackOfDescent;
 
-// Conservative screen-space rejection; callers keep the exact per-command test as the backstop.
 internal static class GmDrawCull
 {
     public static float CornerRadius(float originX, float originY, float width, float height)

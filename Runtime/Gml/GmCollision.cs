@@ -69,7 +69,6 @@ public sealed partial class GmWorld
     {
         instance.Scope.Changed=name=>
         {
-            // A sprite or speed change must re-validate the animation pass instead of staying skipped.
             if(name is "sprite_index" or "mask_index" or "image_speed")instance.AnimationSettled=false;
             if(name is "hspeed" or "vspeed" or "speed" or "direction" or "friction" or "gravity" or "gravity_direction")instance.MotionTouched=true;
             else if(name is "xprevious" or "yprevious")instance.PreviousKnown=false;

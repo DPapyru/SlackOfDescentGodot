@@ -24,10 +24,6 @@ public partial class NativeActionEditor
             Hide();
         }
         async Task Wait(int milliseconds){long start=System.Diagnostics.Stopwatch.GetTimestamp();while(System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds<milliseconds)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);}
-        IEnumerable<Node> Descendants(Node node)
-        {
-            foreach(var child in node.GetChildren()){yield return child;foreach(var item in Descendants(child))yield return item;}
-        }
         IEnumerable<string> MenuLabels(string label)
         {
             var button=Descendants(this).OfType<MenuButton>().FirstOrDefault(item=>item.Text==label);

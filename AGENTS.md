@@ -8,3 +8,12 @@
 - **Agent Permissions:** Implementation agents MUST NOT modify documentation files directly. They may only propose documentation changes. Only designated documentation subagents (or the main agent acting as the doc writer) can write to docs.
 - **Main Agent Role:** When sub-agents are authorized and deployed by the user, the main agent must only report/supervise and refrain from doing the work itself, unless explicitly instructed otherwise by the user.
 - **Execution Pace:** Execute only one step per turn. Proceed step-by-step rather than completing everything at once, unless explicitly authorized by the user.
+
+## Issues & Pull Requests
+
+- **Issue First:** Any non-trivial change starts as an issue. Work discovered mid-flight gets a follow-up issue in the same PR, not a silent scope creep.
+- **One Branch Per Issue:** Name the branch `<type>/<issue-number>-<slug>` (e.g. `feat/12-mud-tentacle`). Never commit directly to `ai`.
+- **PR Target:** Every pull request targets the `ai` branch. First line of the body is `Closes #N`, followed by what changed, how it was verified, and anything deliberately left out.
+- **PR Scope:** A PR contains only the issue's work. Unrelated fixes branch off separately.
+- **Planning Lives In Issues:** Plans, progress notes, and acceptance criteria go into issue comments or the PR body — never into commits or temporary markdown.
+- **Agents Do Not Merge:** Agents may commit, push feature branches, open PRs, and respond to review. They never merge, never force-push `ai`, and never close someone else's PR. Self-review by the author is a description, not an approval.

@@ -25,6 +25,7 @@ public partial class NativeActionEditor : Window
     private readonly List<string> lastEvents = new();
     private NativeCharacterPreview? preview;
     private GmInstance? targetPreview;
+    private MotionProjectTarget? appliedTarget;
     private string? legacyPreviewResource;
     private ConfirmationDialog confirmation = null!;
     private AcceptDialog message = null!;
@@ -149,7 +150,7 @@ public partial class NativeActionEditor : Window
         }
         document = new(graph); Project.Target = target; path = file; Refresh(); InitializePreview(); status.Text = file;
     }
-    private async void InitializePreview()
+    private async void InitializePreview(bool force = false)
     {
         if (busy) return; busy = true; playing.ButtonPressed = false;
         try
@@ -164,7 +165,8 @@ public partial class NativeActionEditor : Window
             var target = Project.Target;
             ActorContext actor;
             if (target.Kind == MotionTargetKind.Entity) { targetPreview = LegacyPreview(target.Id); actor = new(preview.World, targetPreview); }
-            else { ReleaseLegacyPreview(); await preview.ApplyAsync(CharacterDefinition(target)); actor = new(preview.World, preview.Player!); }
+            else if (!force && appliedTarget == target && preview.Player is not null) { ReleaseLegacyPreview(); actor = new(preview.World, preview.Player); }
+            else { ReleaseLegacyPreview(); await preview.ApplyAsync(CharacterDefinition(target)); appliedTarget = target; actor = new(preview.World, preview.Player!); }
             PopulateSkeleton(); preview.Bridge.Services.Motions.Play(actor, document.Graph);
             canvas.QueueRedraw(); FitView(); status.Text = "预览已加载。";
         }
@@ -292,6 +294,6 @@ public partial class NativeActionEditor : Window
     });
     public override void _ExitTree()
     {
-        closing = true; preview?.Dispose(); preview = null; targetPreview = null;
+        closing = true; preview?.Dispose(); preview = null; targetPreview = null; appliedTarget = null;
     }
 }

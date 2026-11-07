@@ -34,6 +34,8 @@ public partial class NativeActionEditor
         for(int frame=0;frame<2;frame++)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
         samples.Add(Sample(-1,0,await IdleCpuAsync()));
         var baseline=samples[0];var loaded=samples[^2];var collected=samples[^1];
+        if(loaded.Total!=baseline.Total||loaded.Viewports!=baseline.Viewports)
+            throw new InvalidOperationException("Motion editor import accumulates: instances="+loaded.Total+" baseline="+baseline.Total+" viewports="+loaded.Viewports+" baseline="+baseline.Viewports+" failed="+failed);
         double perImport=(loaded.Total-baseline.Total)/(double)imports,heapPerImport=(loaded.ManagedBytes-baseline.ManagedBytes)/(double)imports;
         var table=new System.Text.StringBuilder("IMPORT_PERF_TABLE\n idx total live dead viewports tempdirs nodes resources heapKB gc0 gc1 gc2 importMs idleCpuMs\n");
         foreach(var sample in samples)

@@ -8,7 +8,7 @@ public partial class NativeActionEditor
     {
         if(tabs is null)return;
         refreshingTabs=true;tabs.ClearTabs();
-        foreach(var project in projects)tabs.AddTab((project.Dirty?"* ":"")+project.Document.Graph.Id);
+        foreach(var project in projects)tabs.AddTab((project.Dirty?"* ":"")+TargetChoiceLabel(project.Target));
         tabs.CurrentTab=activeProject;refreshingTabs=false;
     }
     private string TargetLabel()=>Project.Target.Kind switch
@@ -89,6 +89,8 @@ public partial class NativeActionEditor
     {
         if(!MotionExport.ValidId(id))throw new InvalidDataException("动作图标识只能包含字母、数字、点、下划线、连字符。");
         if(projects.Any(project=>project.Document.Graph.Id==id))throw new InvalidDataException("项目标识已存在："+id);
+        int existing=projects.FindIndex(project=>project.Target==target);
+        if(existing>=0){SwitchProject(existing,initializePreview);return;}
         var graph=new MotionGraph{Id=id,Skeleton=target.Skeleton(CharacterPreset(target)),Clips=[new()],States=[new(){Movement=new(){InputSpeed=4,Gravity=.6,JumpSpeed=10}}]};
         CaptureProjectState();projects.Add(new MotionProject(target,new(graph)));activeProject=projects.Count-1;
         ActivateProject();if(initializePreview)InitializePreview();
@@ -125,6 +127,17 @@ public partial class NativeActionEditor
             var row=Row(body);row.AddChild(new Label{Text="项目"});var choice=new OptionButton{SizeFlagsHorizontal=Control.SizeFlags.ExpandFill};row.AddChild(choice);
             foreach(var project in available)choice.AddItem(project.Manifest.Name+" ["+project.Manifest.Id+"]");
             dialog.Confirmed+=()=>{try{ExportToProject(available[Math.Max(0,choice.Selected)].Directory);}catch(Exception error){ShowMessage(error.GetBaseException().Message);}finally{dialog.QueueFree();}};
+            dialog.Canceled+=dialog.QueueFree;dialog.PopupCentered();
+        });
+    }
+    private void SaveToDialog()
+    {
+        Guard(() =>
+        {
+            var dialog=new ConfirmationDialog{Title="保存到…",OkButtonText="保存",CancelButtonText="取消",Size=new(460,150)};AddChild(dialog);
+            var body=Column(dialog);
+            var row=Row(body);row.AddChild(new Label{Text="目标"});var choice=new OptionButton{SizeFlagsHorizontal=Control.SizeFlags.ExpandFill};row.AddChild(choice);choice.AddItem("Mod 项目");choice.AddItem("角色文件");
+            dialog.Confirmed+=()=>{if(choice.Selected==1)BindSavedCharacter();else ExportToProjectDialog();dialog.QueueFree();};
             dialog.Canceled+=dialog.QueueFree;dialog.PopupCentered();
         });
     }

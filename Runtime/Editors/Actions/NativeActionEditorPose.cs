@@ -87,7 +87,7 @@ public partial class NativeActionEditor
         var local=LocalTarget(name,dragX,dragY,false);
         double localX=local.X-barOrigin.X,localY=local.Y-barOrigin.Y;
         barTarget=dragMode==DragMode.BarX?(barStart.X+localX,barStart.Y):(barStart.X,barStart.Y+localY);
-        overlay?.SetBarOffset(dragMode==DragMode.BarX?new((float)(localX/24),0):new(0,(float)(localY/24)));
+        overlay?.SetBarOffset(dragMode==DragMode.BarX?new((float)(localX/NativeMotionOverlay.BarHalf),0):new(0,(float)(localY/NativeMotionOverlay.BarHalf)));
     }
 
     public override void _UnhandledKeyInput(InputEvent @event)
@@ -172,16 +172,17 @@ public partial class NativeActionEditor
     private void ApplyView()
     {
         if(preview is null)return;
-        preview.FrameOn((int)viewCenterX,(int)viewCenterY,Math.Max(1,(int)viewWidth),Math.Max(1,(int)(viewWidth*.75)),PortWidth,PortHeight);
+        preview.FrameOn(viewCenterX,viewCenterY,Math.Max(1,viewWidth),Math.Max(1,viewWidth*.75),PortWidth,PortHeight);
         canvas.QueueRedraw();SyncOverlay();
     }
     private void ZoomView(Vector2 position,double factor)
     {
         if(surface.Size.X<=0||surface.Size.Y<=0)return;
         var (worldX,worldY)=CanvasPosition(position);
-        double before=viewWidth,next=Math.Clamp(before*factor,32,4096);
+        var view=PreviewView;
+        double before=view.ViewWidth,next=Math.Clamp(before*factor,32,4096);
         if(next==before)return;
-        double u=(worldX-(viewCenterX-before/2))/before,v=(worldY-(viewCenterY-before*.375))/(before*.75);
+        double u=(worldX-view.ViewX)/view.ViewWidth,v=(worldY-view.ViewY)/view.ViewHeight;
         viewWidth=next;viewCenterX=worldX-(u-.5)*next;viewCenterY=worldY-(v-.5)*next*.75;
         ApplyView();
     }

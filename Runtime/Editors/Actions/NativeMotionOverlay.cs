@@ -4,7 +4,8 @@ namespace SlackOfDescent;
 
 public partial class NativeMotionOverlay : Control
 {
-    private const float RingRadius = 72f, BallRadius = 9f, BallHit = 14f, BarGap = 24f, BarHalf = 72f, BarThickness = 8f, BarHit = 10f, JointRadius = 5f, SelectedRadius = 8f, HandleRadius = 9f;
+    private const float RingRadius = 72f, BallRadius = 9f, BallHit = 14f, BarGap = 24f, BarThickness = 8f, BarHit = 10f, JointRadius = 5f, SelectedRadius = 8f, HandleRadius = 9f;
+    internal const float BarHalf = 72f;
     private static readonly Color RingColor = new(0.25f, 1f, 0.35f, 0.35f), BallColor = new(1f, 1f, 1f, 0.7f), BarColor = new(0.6f, 1f, 0.7f, 0.8f), KnobColor = new(1f, 1f, 1f, 0.9f);
     private NativeBone[] nodes = [];
     private MotionIkChain[] chains = [];
@@ -23,27 +24,9 @@ public partial class NativeMotionOverlay : Control
     private static readonly Color RootColor = new(0.3f, 0.9f, 1f, 0.9f);
     internal MotionView View => view;
     internal float RingPixelRadius => RingRadius;
-    internal bool RingVisible => showBones && selected is not null && nodes.Any(node => node.Name == selected);
-    internal double? BallAngle
-    {
-        get
-        {
-            if (selected is null) return null;
-            var node = nodes.FirstOrDefault(item => item.Name == selected);
-            return node is null ? null : ringAngle ?? node.Angle;
-        }
-    }
-    internal Vector2? BallPoint
-    {
-        get
-        {
-            if (selected is null) return null;
-            var node = nodes.FirstOrDefault(item => item.Name == selected);
-            return node is null ? null : Surface(node.X, node.Y) + Direction(ringAngle ?? node.Angle) * RingRadius;
-        }
-    }
-    internal Vector2? XBarPoint => BarCenter(0);
-    internal Vector2? YBarPoint => BarCenter(1);
+    internal bool RingVisible => showBones && SelectedNode() is not null;
+    internal double? BallAngle => SelectedNode() is { } node ? ringAngle ?? node.Angle : null;
+    internal Vector2? BallPoint => SelectedNode() is { } node ? Surface(node.X, node.Y) + Direction(ringAngle ?? node.Angle) * RingRadius : null;
     internal IReadOnlyList<Vector2> BarPoints => new[] { BarCenter(0) ?? Vector2.Zero, BarCenter(1) ?? Vector2.Zero };
     internal int ChainFocusIndex => selected is null ? -1 : Array.FindIndex(chains, chain => chain.Root == selected || chain.Mid == selected || chain.End == selected);
     internal string[] FocusChainBones => ChainFocusIndex is var focus && focus >= 0 ? [chains[focus].Root, chains[focus].Mid, chains[focus].End] : [];
@@ -82,12 +65,23 @@ public partial class NativeMotionOverlay : Control
     public override void _Draw()
     {
         if (Size.X <= 0 || Size.Y <= 0) return;
-        if (legend.Length > 0) DrawString(ThemeDB.FallbackFont, new Vector2(8, Size.Y - 8), legend, HorizontalAlignment.Left, -1, 12, new Color(1f, 1f, 1f, .9f));
-        if (playback.Length > 0) DrawString(ThemeDB.FallbackFont, new Vector2(8, 16), playback, HorizontalAlignment.Left, -1, 12, new Color(1f, 1f, 1f, .9f));
+        DrawLabels();
         if (!showBones || nodes.Length == 0) return;
         var byInstance = nodes.GroupBy(node => node.Instance).ToDictionary(group => group.Key, group => group.First());
         var root = Surface(actor.X, actor.Y);
         int focus = Array.FindIndex(chains, chain => chain.Root == selected || chain.Mid == selected || chain.End == selected);
+        DrawBoneLines(byInstance, root, focus);
+        DrawJoints(focus);
+        DrawRootCross(root);
+        DrawRingAndBars();
+    }
+    private void DrawLabels()
+    {
+        if (legend.Length > 0) DrawString(ThemeDB.FallbackFont, new Vector2(8, Size.Y - 8), legend, HorizontalAlignment.Left, -1, 12, new Color(1f, 1f, 1f, .9f));
+        if (playback.Length > 0) DrawString(ThemeDB.FallbackFont, new Vector2(8, 16), playback, HorizontalAlignment.Left, -1, 12, new Color(1f, 1f, 1f, .9f));
+    }
+    private void DrawBoneLines(Dictionary<int, NativeBone> byInstance, Vector2 root, int focus)
+    {
         foreach (var node in nodes)
         {
             var color = BoneColor; float width = 1.5f;
@@ -96,6 +90,9 @@ public partial class NativeMotionOverlay : Control
             if (byInstance.TryGetValue(node.Parent, out var parent)) DrawLine(Surface(parent.X, parent.Y), Surface(node.X, node.Y), color, width, true);
             else DrawLine(root, Surface(node.X, node.Y), RootColor, 1f, true);
         }
+    }
+    private void DrawJoints(int focus)
+    {
         foreach (var node in nodes)
         {
             bool highlight = node.Name == selected;
@@ -107,8 +104,14 @@ public partial class NativeMotionOverlay : Control
             if (chainBone && chains[focus].End == node.Name) DrawCircle(point, HandleRadius, ChainColor(focus));
             if (showNames) DrawString(ThemeDB.FallbackFont, point + new Vector2(6, -6), node.Name, HorizontalAlignment.Left, -1, 10, Colors.White);
         }
+    }
+    private void DrawRootCross(Vector2 root)
+    {
         DrawLine(root - new Vector2(6, 0), root + new Vector2(6, 0), RootColor, 2);
         DrawLine(root - new Vector2(0, 6), root + new Vector2(0, 6), RootColor, 2);
+    }
+    private void DrawRingAndBars()
+    {
         if (SelectedNode() is not { } focusNode) return;
         var ring = Surface(focusNode.X, focusNode.Y);
         DrawArc(ring, RingRadius, 0, Mathf.Tau, 64, RingColor, 3, true);

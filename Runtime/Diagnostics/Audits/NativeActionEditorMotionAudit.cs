@@ -266,6 +266,8 @@ public partial class NativeActionEditor
         var xBar=overlay.BarPoints[0];
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=xBar});
         Expect(dragging&&dragMode==DragMode.BarX,"pressing the X bar starts a local X drag");
+        Expect(Math.Abs(Clip.Sample(0)["HEAD"].X-barBefore.X)<.001&&Math.Abs(Clip.Sample(0)["HEAD"].Y-barBefore.Y)<.001,"pressing the X bar writes nothing before release");
+        Expect(document.UndoDepth==barUndo,"pressing the X bar adds no undo step");
         SurfaceInput(new InputEventMouseMotion{Position=xBar+new Vector2(24,0)});
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=xBar+new Vector2(24,0)});
         var barAfter=Clip.Sample(0)["HEAD"];
@@ -277,11 +279,52 @@ public partial class NativeActionEditor
         var yBar=overlay.BarPoints[1];
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=yBar});
         Expect(dragging&&dragMode==DragMode.BarY,"pressing the Y bar starts a local Y drag");
+        Expect(Math.Abs(Clip.Sample(0)["HEAD"].X-yBefore.X)<.001&&Math.Abs(Clip.Sample(0)["HEAD"].Y-yBefore.Y)<.001,"pressing the Y bar writes nothing before release");
+        Expect(document.UndoDepth==yUndo,"pressing the Y bar adds no undo step");
         SurfaceInput(new InputEventMouseMotion{Position=yBar+new Vector2(0,-24)});
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=yBar+new Vector2(0,-24)});
         var yAfter=Clip.Sample(0)["HEAD"];
         Expect(yAfter.Y<yBefore.Y-.01,"dragging the Y bar up moves the bone up");
         Expect(document.UndoDepth==yUndo+1,"the Y bar drag is one undo step");
+        foreach(bool shifted in new[]{false,true})
+            for(int i=0;i<8;i++)
+            {
+                SelectBone("HEAD");
+                var arrowNode=ringActor.Services.Motions.Skeleton(ringActor).Single(node=>node.Name=="HEAD");
+                double arrowRadians=(90-i*45)*Math.PI/180;
+                var arrowPoint=SurfacePoint(arrowNode.X,arrowNode.Y)+new Vector2((float)(Math.Cos(arrowRadians)*76),(float)(-Math.Sin(arrowRadians)*76));
+                var arrowPose=Clip.Sample(0)["HEAD"];int arrowUndo=document.UndoDepth;
+                SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,ShiftPressed=shifted,Position=arrowPoint});
+                var pressedNode=ringActor.Services.Motions.Skeleton(ringActor).Single(node=>node.Name=="HEAD");
+                Expect(Math.Abs(Clip.Sample(0)["HEAD"].X-arrowPose.X)<.001&&Math.Abs(Clip.Sample(0)["HEAD"].Y-arrowPose.Y)<.001,"pressing the old arrow positions writes no local X/Y");
+                Expect(document.UndoDepth==arrowUndo,"pressing the old arrow positions adds no undo step");
+                Expect(Math.Abs(pressedNode.X-arrowNode.X)<.001&&Math.Abs(pressedNode.Y-arrowNode.Y)<.001,"pressing the old arrow positions moves no bone");
+                SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,ShiftPressed=shifted,Position=arrowPoint});
+            }
+        SelectBone("HEAD");
+        string parentName=parentNode?.Name??"BODY_TOP";
+        document.Edit(g=>{var track=g.Clips[0].Tracks.FirstOrDefault(item=>item.Bone==parentName);if(track is null){track=new(){Bone=parentName};g.Clips[0].Tracks.Add(track);}track.Keys.RemoveAll(key=>key.Frame==0);track.Keys.Add(new(){Frame=0,Angle=30});});
+        Refresh();ApplyDocumentPose();SelectBone("HEAD");
+        var rotatedBefore=Clip.Sample(0)["HEAD"];int rotatedUndo=document.UndoDepth;
+        var rotatedBar=overlay.BarPoints[0];
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=rotatedBar});
+        SurfaceInput(new InputEventMouseMotion{Position=rotatedBar+new Vector2(24,0)});
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=rotatedBar+new Vector2(24,0)});
+        var rotatedAfter=Clip.Sample(0)["HEAD"];
+        Expect(Math.Abs(rotatedAfter.X-rotatedBefore.X)>.01,"the X bar under a rotated parent changes local X");
+        Expect(Math.Abs(rotatedAfter.Y-rotatedBefore.Y)<.01,"the X bar under a rotated parent leaves local Y alone");
+        Expect(document.UndoDepth==rotatedUndo+1,"the rotated parent X drag is one undo step");
+        ringActor.Write("Direction",-1);ApplyDocumentPose();SelectBone("HEAD");
+        var mirrorBefore=Clip.Sample(0)["HEAD"];int mirrorUndo=document.UndoDepth;
+        var mirrorBar=overlay.BarPoints[0];
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=mirrorBar});
+        SurfaceInput(new InputEventMouseMotion{Position=mirrorBar+new Vector2(24,0)});
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=mirrorBar+new Vector2(24,0)});
+        var mirrorAfter=Clip.Sample(0)["HEAD"];
+        Expect(Math.Abs(mirrorAfter.X-mirrorBefore.X)>.01,"the mirrored X bar still changes local X");
+        Expect(Math.Abs(mirrorAfter.Y-mirrorBefore.Y)<.01,"the mirrored X bar leaves local Y alone");
+        Expect(document.UndoDepth==mirrorUndo+1,"the mirrored X drag is one undo step");
+        ringActor.Write("Direction",1);ApplyDocumentPose();SelectBone("HEAD");
         SelectBone("HAND1_ABOVE");
         Expect(overlay.ChainFocusIndex>=0,"selecting an IK chain bone focuses the chain");
         var chainBones=overlay.FocusChainBones;
@@ -644,11 +687,8 @@ public partial class NativeActionEditor
         Expect(help.Contains("MotionChange")&&help.Contains("PlayerMotionLoad"),"help text names the original motion hooks");
         var registered=MotionImport.Registered(world.Code["external/Chara/Nana/motion_list.txt"]);
         Expect(registered.Count>0&&help.Contains(registered[0].Name+" → "+registered[0].Resource),"help lists registered original motions");
-        if(world.Instances.Any(i=>!i.Destroyed&&world.IsObject(i.Object,world.Constants["objPlayerDoll"].Int)))
-        {
-            ApplyToGame();var player=world.Instances.First(i=>!i.Destroyed&&world.IsObject(i.Object,world.Constants["objPlayerDoll"].Int));
-            Expect(world.NativeServices!.Motions.State(new(world,player)) is not null,"edited graph applies to the game actor");
-        }
+        ApplyToGame();var player=world.Instances.First(i=>!i.Destroyed&&world.IsObject(i.Object,world.Constants["objPlayerDoll"].Int));
+        Expect(world.NativeServices!.Motions.State(new(world,player)) is not null,"edited graph applies to the game actor");
         GD.Print("MOTION_EDITOR_AUDIT_OK import=PASS edit=PASS undo=PASS save=PASS reload=PASS preview=PASS game=PASS studio=PASS immediate=PASS state=PASS events=PASS ring=PASS");
     }
 }

@@ -31,60 +31,63 @@ public partial class NativeActionEditor
     private void SurfaceInput(InputEvent input)
     {
         if(input is InputEventKey{Pressed:true,Keycode:Key.Escape}){CancelDrag();return;}
-        if(input is InputEventMouseButton button)
+        if(input is InputEventMouseButton button){SurfaceButton(button);return;}
+        if(input is InputEventMouseMotion motion)SurfaceMotion(motion);
+    }
+
+    private void SurfaceButton(InputEventMouseButton button)
+    {
+        if(button.ButtonIndex==MouseButton.Left)
         {
-            if(button.ButtonIndex==MouseButton.Left)
+            if(button.Pressed){SurfacePress(button);return;}
+            if(dragging&&draggedBone is {} name)
             {
-                if(button.Pressed)
-                {
-                    if(overlay?.RingHit(button.Position) is {} hit)
-                    {
-                        if(hit=="ball"&&highlightedBone is {} ball){draggedBone=ball;dragging=true;dragMode=DragMode.Ball;dragOrigin=dragSurface=button.Position;(dragX,dragY)=CanvasPosition(button.Position);return;}
-                        if(hit is "bar:x" or "bar:y"&&highlightedBone is {} bar)
-                        {
-                            draggedBone=bar;dragging=true;dragMode=hit=="bar:x"?DragMode.BarX:DragMode.BarY;dragOrigin=dragSurface=button.Position;(dragX,dragY)=CanvasPosition(button.Position);
-                            barOrigin=LocalTarget(bar,dragX,dragY,false);barStart=LocalPose(bar);barTarget=barOrigin;return;
-                        }
-                    }
-                    draggedBone=PickBoneAt(button.Position);
-                    if(draggedBone is null){ClearBoneSelection();BeginPan(button.Position);return;}
-                    SelectBone(draggedBone);
-                    dragging=true;(dragX,dragY)=CanvasPosition(button.Position);
-                    dragOrigin=dragSurface=button.Position;
-                    BeginDrag(button);
-                    return;
-                }
-                if(dragging&&draggedBone is {} name)
-                {
-                    dragging=false;
-                    if(dragSurface.DistanceTo(dragOrigin)<3){overlay?.SetRingAngle(null);status.Text="已选中骨骼；未拖动，未写入关键帧。";return;}
-                    CommitDrag(name);
-                }
-                else if(panning)panning=false;
-                return;
+                dragging=false;
+                if(dragSurface.DistanceTo(dragOrigin)<3){overlay?.SetRingAngle(null);status.Text="已选中骨骼；未拖动，未写入关键帧。";return;}
+                CommitDrag(name);
             }
-            if(button.ButtonIndex==MouseButton.Middle){if(button.Pressed)BeginPan(button.Position);else panning=false;return;}
-            if(button.ButtonIndex==MouseButton.WheelUp&&button.Pressed){ZoomView(button.Position,1/1.12);return;}
-            if(button.ButtonIndex==MouseButton.WheelDown&&button.Pressed){ZoomView(button.Position,1.12);return;}
-            if(button.ButtonIndex==MouseButton.Right&&button.Pressed&&dragging){CancelDrag();return;}
+            else if(panning)panning=false;
             return;
         }
-        if(input is InputEventMouseMotion motion)
+        if(button.ButtonIndex==MouseButton.Middle){if(button.Pressed)BeginPan(button.Position);else panning=false;return;}
+        if(button.ButtonIndex==MouseButton.WheelUp&&button.Pressed){ZoomView(button.Position,1/1.12);return;}
+        if(button.ButtonIndex==MouseButton.WheelDown&&button.Pressed){ZoomView(button.Position,1.12);return;}
+        if(button.ButtonIndex==MouseButton.Right&&button.Pressed&&dragging)CancelDrag();
+    }
+
+    private void SurfacePress(InputEventMouseButton button)
+    {
+        if(overlay?.RingHit(button.Position) is {} hit)
         {
-            if(dragging)
+            if(hit=="ball"&&highlightedBone is {} ball){draggedBone=ball;dragging=true;dragMode=DragMode.Ball;dragOrigin=dragSurface=button.Position;(dragX,dragY)=CanvasPosition(button.Position);return;}
+            if(hit is "bar:x" or "bar:y"&&highlightedBone is {} bar)
             {
-                (dragX,dragY)=CanvasPosition(motion.Position);dragSurface=motion.Position;
-                if(dragMode==DragMode.Ball){var local=LocalTarget(draggedBone!,dragX,dragY,false);overlay?.SetRingAngle(Math.Atan2(-local.Y,local.X)*180/Math.PI);}
-                else if(dragMode is DragMode.BarX or DragMode.BarY)
-                {
-                    var local=LocalTarget(draggedBone!,dragX,dragY,false);
-                    double localX=local.X-barOrigin.X,localY=local.Y-barOrigin.Y;
-                    barTarget=(barStart.X+localX,barStart.Y+localY);
-                    overlay?.SetBarOffset(dragMode==DragMode.BarX?new((float)(localX/24),0):new(0,(float)(localY/24)));
-                }
+                draggedBone=bar;dragging=true;dragMode=hit=="bar:x"?DragMode.BarX:DragMode.BarY;dragOrigin=dragSurface=button.Position;(dragX,dragY)=CanvasPosition(button.Position);
+                barOrigin=LocalTarget(bar,dragX,dragY,false);barStart=LocalPose(bar);barTarget=barOrigin;return;
             }
-            else if(panning)UpdatePan(motion.Position);
         }
+        draggedBone=PickBoneAt(button.Position);
+        if(draggedBone is null){ClearBoneSelection();BeginPan(button.Position);return;}
+        SelectBone(draggedBone);
+        dragging=true;(dragX,dragY)=CanvasPosition(button.Position);
+        dragOrigin=dragSurface=button.Position;
+        BeginDrag(button);
+    }
+
+    private void SurfaceMotion(InputEventMouseMotion motion)
+    {
+        if(!dragging){if(panning)UpdatePan(motion.Position);return;}
+        (dragX,dragY)=CanvasPosition(motion.Position);dragSurface=motion.Position;
+        if(dragMode==DragMode.Ball){var local=LocalTarget(draggedBone!,dragX,dragY,false);overlay?.SetRingAngle(Math.Atan2(-local.Y,local.X)*180/Math.PI);}
+        else if(dragMode is DragMode.BarX or DragMode.BarY)BarDrag(draggedBone!);
+    }
+
+    private void BarDrag(string name)
+    {
+        var local=LocalTarget(name,dragX,dragY,false);
+        double localX=local.X-barOrigin.X,localY=local.Y-barOrigin.Y;
+        barTarget=dragMode==DragMode.BarX?(barStart.X+localX,barStart.Y):(barStart.X,barStart.Y+localY);
+        overlay?.SetBarOffset(dragMode==DragMode.BarX?new((float)(localX/24),0):new(0,(float)(localY/24)));
     }
 
     public override void _UnhandledKeyInput(InputEvent @event)

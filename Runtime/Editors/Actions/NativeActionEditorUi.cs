@@ -53,7 +53,7 @@ public partial class NativeActionEditor
             case "redo": Guard(() => { document.Redo(); Refresh(); ApplyDocumentPose(); }); break;
             case "showBones": if (overlay is not null) overlay.ShowBones = !overlay.ShowBones; break;
             case "showNames": if (overlay is not null) overlay.ShowNames = !overlay.ShowNames; break;
-            case "reloadPreview": InitializePreview(); break;
+            case "reloadPreview": InitializePreview(true); break;
             case "fitView": FitView(); break;
             case "referencePose": GenerateReferencePose(); break;
             case "applyGame": ApplyToGame(); break;

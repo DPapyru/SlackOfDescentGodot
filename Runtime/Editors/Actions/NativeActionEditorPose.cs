@@ -65,7 +65,8 @@ public partial class NativeActionEditor
         }
     }
 
-    public override void _UnhandledKeyInput(InputEvent @event){if(@event is InputEventKey{Pressed:true} key){if(key.Keycode==Key.Escape)CancelDrag();else if(key.Keycode==Key.F&&GetViewport().GuiGetFocusOwner() is not (LineEdit or TextEdit))FitView();}}
+    public override void _UnhandledKeyInput(InputEvent @event){if(@event is InputEventKey{Pressed:true} key){if(key.Keycode==Key.Escape)CancelDrag();else if(key.Keycode==Key.F&&!TypingInField())FitView();}}
+    private bool TypingInField()=>GetViewport()?.GuiGetFocusOwner() switch { LineEdit or TextEdit => true, SpinBox box => box.GetLineEdit().HasFocus(), _ => false };
 
     private void BeginDrag(InputEventMouseButton button)
     {

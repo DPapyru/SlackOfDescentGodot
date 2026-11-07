@@ -183,12 +183,18 @@ public partial class NativeActionEditor
         Expect(ParamVisible("jump"),"the graph parameter view derives parameters used by events");
         stateChoice.Select(0);RefreshStateInspector();transitionList.Select(0);ReadTransition();conditionList.Select(0);ReadCondition();RemoveCondition();
         Expect(!ParamVisible("boost")&&document.Graph.Parameters.ContainsKey("boost"),"the parameter view is a read-only derivation");
-        conditionKind.Select(0);AddCondition();conditionList.Select(0);ReadCondition();
-        conditionParameter.Text="speed";conditionParameter.EmitSignal(LineEdit.SignalName.TextChanged,"speed");
-        Expect(document.Graph.Parameters.ContainsKey("speed"),"typing a new condition parameter adds its default value");
         conditionKind.Select((int)MotionConditionKind.Parameter);conditionKind.EmitSignal(OptionButton.SignalName.ItemSelected,(long)MotionConditionKind.Parameter);
-        Expect(document.Graph.States[0].Transitions[0].Conditions[0].Kind==MotionConditionKind.Parameter,"the new parameter condition is usable");
-        Expect(ParamVisible("speed"),"the derived parameter view shows the new condition parameter");
+        conditionParameter.Text="charge";conditionParameter.EmitSignal(LineEdit.SignalName.TextChanged,"charge");
+        int parameterCount=document.Graph.Parameters.Count;
+        AddCondition();
+        var charge=document.Graph.States[0].Transitions[0].Conditions[0];
+        Expect(document.Graph.States[0].Transitions[0].Conditions.Count==1&&charge.Kind==MotionConditionKind.Parameter&&charge.Parameter=="charge","a parameter condition can be added directly");
+        Expect(document.Graph.Parameters.Count==parameterCount+1&&document.Graph.Parameters.ContainsKey("charge")&&!document.Graph.Parameters.ContainsKey("c")&&!document.Graph.Parameters.ContainsKey("charge2"),"adding a parameter condition adds exactly one default parameter");
+        Expect(ParamVisible("charge"),"the derived parameter view shows the added parameter");
+        conditionList.Select(0);ReadCondition();
+        foreach(string typed in new[]{"c","ch","cha","char","charg","charge2"}){conditionParameter.Text=typed;conditionParameter.EmitSignal(LineEdit.SignalName.TextChanged,typed);}
+        Expect(document.Graph.Parameters.ContainsKey("charge2")&&!document.Graph.Parameters.ContainsKey("c")&&!document.Graph.Parameters.ContainsKey("charg")&&!document.Graph.Parameters.ContainsKey("charge"),"typing a parameter name prunes the intermediate default parameters");
+        Expect(ParamVisible("charge2")&&!ParamVisible("charge"),"the derived view follows the retyped parameter name");
         inspector.CurrentTab=3;
         await Shot("motion-parameters");
         string legacyJson="{\"FormatVersion\":1,\"Id\":\"audit.legacy\",\"Skeleton\":\"Nana\",\"Entry\":\"idle\",\"Clips\":[{\"Id\":\"idle\",\"Duration\":60,\"Loop\":true,\"Tracks\":[],\"Root\":[],\"Events\":[]}],\"States\":[{\"Id\":\"idle\",\"Clip\":\"idle\",\"Movement\":{},\"Transitions\":[{\"Target\":\"idle\",\"Priority\":0,\"Conditions\":[{\"Kind\":\"Parameter\",\"Comparison\":\"Equal\",\"Key\":0,\"Value\":1,\"Parameter\":\"p\"}]}]}],\"Parameters\":{\"p\":2.5}}";
@@ -299,6 +305,11 @@ public partial class NativeActionEditor
         bool targetRejected=false;
         try{ChangeTarget(new(MotionTargetKind.PlayerPreset,"Ryoko"));}catch(InvalidDataException){targetRejected=true;}
         Expect(targetRejected&&projects.Count==projectIndex+2&&tabs.TabCount==tabCount&&status.Text.Contains("标签"),"switching to a role that already has a tab is rejected");
+        string ryokoFile=Path.Combine(output,"ryoko.motion.json");
+        new MotionGraph{Id="audit.ryoko",Skeleton="Ryoko",Clips=[new(){Id="idle"}],States=[new(){Id="idle",Clip="idle"}]}.Save(ryokoFile);
+        bool openRejected=false;
+        try{OpenMotionFile(ryokoFile);}catch(InvalidDataException){openRejected=true;}
+        Expect(openRejected&&tabs.TabCount==tabCount&&status.Text.Contains("标签"),"opening a motion file for a taken role is rejected");
         SwitchProject(projectIndex+1);
         await Ready();
         Expect(ReferenceEquals(preview,studio)&&ReferenceEquals(preview.World,studioWorld),"switching projects keeps the single preview world");
@@ -537,9 +548,13 @@ public partial class NativeActionEditor
             var part=viewActor.World.Instances.First(item=>item.Id==node.Instance);var bounds=viewActor.World.Bounds(part);
             return bounds.Empty||(bounds.Left>=fittedView.ViewX&&bounds.Right<=fittedView.ViewX+fittedView.ViewWidth&&bounds.Top>=fittedView.ViewY&&bounds.Bottom<=fittedView.ViewY+fittedView.ViewHeight);
         }),"fit frames every part");
+        var focusedSpin=frame.GetLineEdit();focusedSpin.GrabFocus();
         viewWidth=4096;viewCenterX=0;ApplyView();
         _UnhandledKeyInput(new InputEventKey{Keycode=Key.F,Pressed=true});
-        Expect(viewWidth<4096&&Math.Abs(viewCenterX-viewActor.X)<120,"the F key refits the viewport");
+        Expect(Math.Abs(viewWidth-4096)<.001,"the F key does not refit while a spin box is focused");
+        focusedSpin.ReleaseFocus();
+        _UnhandledKeyInput(new InputEventKey{Keycode=Key.F,Pressed=true});
+        Expect(viewWidth<4096&&Math.Abs(viewCenterX-viewActor.X)<120,"the F key refits the viewport when no field is focused");
         var cursor=new Vector2(surface.Size.X/2,surface.Size.Y/2);var beforeZoom=CanvasPosition(cursor);
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.WheelUp,Pressed=true,Position=cursor});
         var afterZoom=CanvasPosition(cursor);

@@ -11,6 +11,7 @@ public partial class NativeActionEditor
     private SpinBox transitionPriority = null!, conditionKey = null!, conditionValue = null!, velocityX = null!, velocityY = null!, gravity = null!, maxFall = null!, inputSpeed = null!, jumpSpeed = null!, displaceX = null!, displaceY = null!;
     private CheckButton velocityXOn = null!, velocityYOn = null!, inputSpeedOn = null!, jumpSpeedOn = null!;
     private bool syncingGraph;
+    private readonly HashSet<string> autoParameters = new(StringComparer.Ordinal);
     private void BuildStatePage(TabContainer tabs)
     {
         var page = Page(tabs, "状态");
@@ -116,8 +117,22 @@ public partial class NativeActionEditor
         {
             var condition = graph.States[stateIndex].Transitions[transitionIndex].Conditions[index];
             condition.Parameter = text;
-            if (text.Length > 0 && !graph.Parameters.ContainsKey(text)) graph.Parameters[text] = 0;
+            EnsureParameter(graph, text);
+            PruneParameters(graph);
         }, "cond:" + SelectedStateId + ":" + transitionIndex + ":" + index + ":parameter");
+    }
+    private void EnsureParameter(MotionGraph graph, string name)
+    {
+        if (name.Length == 0 || graph.Parameters.ContainsKey(name)) return;
+        graph.Parameters[name] = 0; autoParameters.Add(name);
+    }
+    private void PruneParameters(MotionGraph graph)
+    {
+        if (autoParameters.Count == 0) return;
+        var referenced = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var state in graph.States) foreach (var transition in state.Transitions) foreach (var condition in transition.Conditions) if (condition.Parameter.Length > 0) referenced.Add(condition.Parameter);
+        foreach (var clip in graph.Clips) foreach (var item in clip.Events) if (item.Value.Length > 0) referenced.Add(item.Value);
+        foreach (string name in autoParameters.Where(candidate => !referenced.Contains(candidate)).ToArray()) { graph.Parameters.Remove(name); autoParameters.Remove(name); }
     }
     private void ChangeState(Action<MotionState> change,string? coalesce=null)
     {
@@ -144,7 +159,19 @@ public partial class NativeActionEditor
     private void RemoveSelectedState() => Change(graph => MotionGraphEdits.RemoveState(graph, SelectedStateId));
     private void AddTransition() => ChangeState(state => { if (transitionTarget.Selected >= 0) state.Transitions.Add(new() { Target = transitionTarget.GetItemText((int)transitionTarget.Selected), Priority = (int)transitionPriority.Value }); });
     private void RemoveTransition() => ChangeState(state => { int index = SelectedIndex(transitionList); if (index >= 0) state.Transitions.RemoveAt(index); });
-    private void AddCondition() => ChangeTransition(transition => transition.Conditions.Add(new() { Kind = (MotionConditionKind)conditionKind.Selected, Comparison = (MotionComparison)conditionComparison.Selected, Key = (int)conditionKey.Value, Value = conditionValue.Value, Parameter = conditionParameter.Text }));
+    private void AddCondition()
+    {
+        if (refreshing || stateChoice.Selected < 0 || SelectedIndex(transitionList) < 0) return;
+        int stateIndex = (int)stateChoice.Selected, transitionIndex = SelectedIndex(transitionList);
+        Change(graph =>
+        {
+            var state = graph.States[stateIndex];
+            if (transitionIndex >= state.Transitions.Count) return;
+            var condition = new MotionCondition { Kind = (MotionConditionKind)conditionKind.Selected, Comparison = (MotionComparison)conditionComparison.Selected, Key = (int)conditionKey.Value, Value = conditionValue.Value, Parameter = conditionParameter.Text };
+            if (condition.Kind == MotionConditionKind.Parameter) EnsureParameter(graph, condition.Parameter);
+            state.Transitions[transitionIndex].Conditions.Add(condition);
+        });
+    }
     private void RemoveCondition() => ChangeTransition(transition => { int index = SelectedIndex(conditionList); if (index >= 0) transition.Conditions.RemoveAt(index); });
     private void RefreshStateInspector()
     {

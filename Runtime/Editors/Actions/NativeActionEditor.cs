@@ -136,7 +136,18 @@ public partial class NativeActionEditor : Window
     {
         var dialog = new FileDialog { FileMode = save ? FileDialog.FileModeEnum.SaveFile : FileDialog.FileModeEnum.OpenFile, Access = FileDialog.AccessEnum.Filesystem, UseNativeDialog = true }; dialog.AddFilter("*.motion.json", "Motion graph"); AddChild(dialog);
         dialog.CurrentDir = Path.Combine(store.Root, "Actions"); Directory.CreateDirectory(dialog.CurrentDir); dialog.CurrentFile = document.Graph.Id + ".motion.json";
-        dialog.FileSelected += file => Guard(() => { if (save) { document.Save(file); } else { document = new(MotionGraph.Load(file)); Project.Target = MotionSkeleton.IsLegacy(document.Graph.Skeleton) ? new(MotionTargetKind.Entity, document.Graph.Skeleton[7..]) : new(MotionTargetKind.PlayerPreset, document.Graph.Skeleton); } path = file; Refresh(); InitializePreview(); status.Text = file; dialog.QueueFree(); }); dialog.Canceled += () => dialog.QueueFree(); dialog.PopupCenteredRatio(.8f);
+        dialog.FileSelected += file => Guard(() => { if (save) { document.Save(file); path = file; Refresh(); InitializePreview(); status.Text = file; } else OpenMotionFile(file); dialog.QueueFree(); }); dialog.Canceled += () => dialog.QueueFree(); dialog.PopupCenteredRatio(.8f);
+    }
+    internal void OpenMotionFile(string file)
+    {
+        var graph = MotionGraph.Load(file);
+        var target = MotionSkeleton.IsLegacy(graph.Skeleton) ? new MotionProjectTarget(MotionTargetKind.Entity, graph.Skeleton[7..]) : new MotionProjectTarget(MotionTargetKind.PlayerPreset, graph.Skeleton);
+        if (projects.Where((project, index) => index != activeProject && project.Target == target).Any())
+        {
+            status.Text = "已有项目使用该角色标签：" + TargetChoiceLabel(target);
+            throw new InvalidDataException(status.Text);
+        }
+        document = new(graph); Project.Target = target; path = file; Refresh(); InitializePreview(); status.Text = file;
     }
     private async void InitializePreview()
     {

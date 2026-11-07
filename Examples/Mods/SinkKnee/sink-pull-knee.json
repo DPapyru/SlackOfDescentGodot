@@ -3,9 +3,8 @@
   "base": "PlayerCommon/StandFem1_Sinking",
   "duration": 40,
   "frames": [
-    { "t": 0,  "bones": { "KNEE": { "x": 0, "y": 0,   "angle": 0 } } },
-    { "t": 12, "bones": { "KNEE": { "x": 0, "y": -6,  "angle": 12 } } },
-    { "t": 24, "bones": { "KNEE": { "x": 0, "y": -12, "angle": 20 }, "HAND_ABOVE": { "x": 0, "y": -6, "angle": 25 } } },
-    { "t": 39, "bones": { "KNEE": { "x": 0, "y": 0,   "angle": 0 },  "HAND_ABOVE": { "x": 0, "y": -8, "angle": 35 } } }
+    { "t": 0,  "bones": { "FOOT1_ABOVE": { "x": 6, "y": 10, "angle": -7 }, "HAND1_ABOVE": { "x": 7, "y": -13, "angle": 19 } } },
+    { "t": 20, "bones": { "FOOT1_ABOVE": { "x": 6, "y": 7,  "angle": -2 }, "HAND1_ABOVE": { "x": 7, "y": -10, "angle": 24 } } },
+    { "t": 40, "bones": { "FOOT1_ABOVE": { "x": 6, "y": 4,  "angle": 3  }, "HAND1_ABOVE": { "x": 7, "y": -7,  "angle": 29 } } }
   ]
 }

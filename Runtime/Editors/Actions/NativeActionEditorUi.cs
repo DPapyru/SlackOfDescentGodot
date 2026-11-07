@@ -9,7 +9,8 @@ public partial class NativeActionEditor
     private Label targetLabel = null!, playState = null!;
     private Label status = null!;
     private OptionButton original = null!, speedChoice = null!;
-    private ItemList boneList = null!, ikList = null!;
+    private ItemList stateList = null!, boneList = null!, ikList = null!;
+    private bool syncingStateList;
     private CheckButton playing = null!;
     private TextureRect surface = null!;
     private SubViewport viewport = null!;
@@ -73,7 +74,6 @@ public partial class NativeActionEditor
         var root = new VBoxContainer(); margin.AddChild(root);
         BuildMenus(root);
         BuildCharacterBar(root);
-        BuildToolbar(root);
         BuildWorkspace(root);
         BuildTimeline(root);
         status = new Label { Name = "动作状态", AutoTranslateMode = AutoTranslateModeEnum.Disabled, AutowrapMode = TextServer.AutowrapMode.WordSmart, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new(0, 22) }; root.AddChild(status);
@@ -94,17 +94,9 @@ public partial class NativeActionEditor
         var bar = Row(root); bar.Name = "MenuBar";
         AddMenu(bar, "文件", menu => { MenuItem(menu, "新建项目…", "new"); MenuItem(menu, "打开…", "open"); MenuItem(menu, "保存", "save"); MenuItem(menu, "另存为…", "saveAs"); MenuItem(menu, "保存到…", "saveTo"); menu.AddSeparator(); MenuItem(menu, "关闭项目", "close"); MenuItem(menu, "退出", "quit"); });
         AddMenu(bar, "编辑", menu => { MenuItem(menu, "撤销", "undo"); MenuItem(menu, "重做", "redo"); });
-        AddMenu(bar, "视图", menu => { MenuItem(menu, "显示骨架", "showBones", overlay?.ShowBones ?? true); MenuItem(menu, "显示骨骼名", "showNames", overlay?.ShowNames ?? false); menu.AddSeparator(); MenuItem(menu, "生成参考姿态", "referencePose"); menu.AddSeparator(); MenuItem(menu, "应用到游戏角色", "applyGame"); });
+        AddMenu(bar, "视图", menu => { MenuItem(menu, "显示骨架", "showBones", overlay?.ShowBones ?? true); MenuItem(menu, "显示骨骼名", "showNames", overlay?.ShowNames ?? false); menu.AddSeparator(); MenuItem(menu, "重载预览", "reloadPreview"); MenuItem(menu, "生成参考姿态", "referencePose"); menu.AddSeparator(); MenuItem(menu, "应用到游戏角色", "applyGame"); });
         AddMenu(bar, "帮助", menu => MenuItem(menu, "状态机说明…", "help"));
         var brand = new Label { Text = "骨架动作与状态图", HorizontalAlignment = HorizontalAlignment.Right, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; bar.AddChild(brand);
-    }
-    private void BuildToolbar(Node parent)
-    {
-        var bar = Row(parent); bar.Name = "Toolbar";
-        Button(bar, "重载预览", InitializePreview); Button(bar, "取景", FitView); playing = new CheckButton { Text = "播放" }; bar.AddChild(playing); playing.Toggled += on => { if (on) RestartPlayback(); else UpdatePlaybackOverlay(); }; Button(bar, "单帧", Step);
-        speedChoice = new OptionButton(); foreach (string speed in new[] { "0.5x", "1x", "2x" }) speedChoice.AddItem(speed); speedChoice.Select(1); bar.AddChild(speedChoice);
-        speedChoice.ItemSelected += index => playbackSpeed = index switch { 0 => .5, 2 => 2, _ => 1 };
-        playState = new Label { Name = "PlayState", AutowrapMode = TextServer.AutowrapMode.WordSmart, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; bar.AddChild(playState);
     }
     private void BuildWorkspace(Node parent)
     {
@@ -122,6 +114,9 @@ public partial class NativeActionEditor
     {
         var dock = new VBoxContainer { CustomMinimumSize = new(250, 0) }; parent.AddChild(dock);
         var pages = new TabContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill }; dock.AddChild(pages);
+        var states = Page(pages, "状态");
+        stateList = List(states, 160); stateList.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+        stateList.ItemSelected += index => { if (!syncingStateList) { stateChoice.Select((int)index); RefreshStateInspector(); } };
         var bones = Page(pages, "骨架节点");
         boneList = List(bones, 160); boneList.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
         boneList.ItemSelected += index => { if (!syncingBone) SelectBone(boneList.GetItemText((int)index)); };

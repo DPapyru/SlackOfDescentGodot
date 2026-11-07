@@ -9,12 +9,13 @@ public sealed class MotionGraphDocument(MotionGraph graph)
     private readonly Stack<byte[]> undo=new();
     private readonly Stack<byte[]> redo=new();
     private string? coalesceKey;
+    private long coalesceStamp;
     private byte[] Snapshot()=>JsonSerializer.SerializeToUtf8Bytes(Graph,NativeContentStore.Json);
     private void Restore(byte[] data)=>Graph=JsonSerializer.Deserialize<MotionGraph>(data,NativeContentStore.Json)!;
     public void Edit(Action<MotionGraph> change,string? coalesce=null)
     {
         var before=Snapshot();
-        try{change(Graph);Graph.Validate();if(coalesce is null||coalesce!=coalesceKey)undo.Push(before);coalesceKey=coalesce;redo.Clear();Dirty=true;}catch{Restore(before);throw;}
+        try{change(Graph);Graph.Validate();long now=Environment.TickCount64;if(coalesce is null||coalesce!=coalesceKey||now-coalesceStamp>=500)undo.Push(before);coalesceKey=coalesce;coalesceStamp=now;redo.Clear();Dirty=true;}catch{Restore(before);throw;}
     }
     public bool Undo(){coalesceKey=null;if(!undo.TryPop(out var data))return false;redo.Push(Snapshot());Restore(data);Dirty=true;return true;}
     public bool Redo(){coalesceKey=null;if(!redo.TryPop(out var data))return false;undo.Push(Snapshot());Restore(data);Dirty=true;return true;}
@@ -40,7 +41,7 @@ public sealed class MotionGraphDocument(MotionGraph graph)
         }
         catch{Restore(before);throw;}
     }
-    public void Save(string path){Graph.Save(path);Dirty=false;}
+    public void Save(string path){Graph.Save(path);Dirty=false;coalesceKey=null;}
     internal int UndoDepth=>undo.Count;
     internal void RestoreDirty(bool value)=>Dirty=value;
 }

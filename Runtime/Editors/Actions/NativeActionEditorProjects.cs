@@ -112,6 +112,7 @@ public partial class NativeActionEditor
     internal void ChangeTarget(MotionProjectTarget target)
     {
         if(document.Graph.Clips.Any(clip=>clip.Tracks.Count>0||clip.Root.Count>0))throw new InvalidDataException("当前项目已有轨道，请新建项目或清空轨道后再切换目标。");
+        if(projects.Where((project,index)=>index!=activeProject&&project.Target==target).Any()){status.Text="已有项目使用该角色标签："+TargetChoiceLabel(target);throw new InvalidDataException(status.Text);}
         Project.Target=target;
         Change(graph=>graph.Skeleton=target.Skeleton(CharacterPreset(target)));
         InitializePreview();

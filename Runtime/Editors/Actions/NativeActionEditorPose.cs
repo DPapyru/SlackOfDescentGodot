@@ -65,7 +65,7 @@ public partial class NativeActionEditor
         }
     }
 
-    public override void _UnhandledKeyInput(InputEvent @event){if(@event is InputEventKey{Pressed:true,Keycode:Key.Escape})CancelDrag();}
+    public override void _UnhandledKeyInput(InputEvent @event){if(@event is InputEventKey{Pressed:true} key){if(key.Keycode==Key.Escape)CancelDrag();else if(key.Keycode==Key.F&&GetViewport().GuiGetFocusOwner() is not (LineEdit or TextEdit))FitView();}}
 
     private void BeginDrag(InputEventMouseButton button)
     {

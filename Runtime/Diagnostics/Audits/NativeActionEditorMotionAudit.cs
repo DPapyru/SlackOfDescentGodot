@@ -23,6 +23,7 @@ public partial class NativeActionEditor
             using var image=GetTexture().GetImage();string file=Path.Combine(directory,name+".png");image.SavePng(file);GD.Print("MOTION_EDITOR_SHOT ",file);
             Hide();
         }
+        async Task Wait(int milliseconds){long start=System.Diagnostics.Stopwatch.GetTimestamp();while(System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds<milliseconds)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);}
         IEnumerable<Node> Descendants(Node node)
         {
             foreach(var child in node.GetChildren()){yield return child;foreach(var item in Descendants(child))yield return item;}
@@ -48,6 +49,13 @@ public partial class NativeActionEditor
             Expect(inspector is TabContainer&&inspector.GetTabCount()==4,"the right dock keeps four inspectors");
             Expect(inspector.GetTabTitle(0).Contains("轨道")&&inspector.GetTabTitle(1).Contains("状态")&&inspector.GetTabTitle(2).Contains("状态机")&&inspector.GetTabTitle(3).Contains("事件"),"the inspector pages are 轨道/状态/状态机/事件");
             Expect(timelineSlider is HSlider&&keyList is ItemList&&frame is SpinBox,"the bottom dock keeps the timeline");
+            var transport=Descendants(this).FirstOrDefault(node=>node.Name=="TimelineDock");
+            Expect(transport is not null&&Descendants(transport).OfType<CheckButton>().Any(button=>button.Text is "▶" or "⏸"),"the transport dock owns the play toggle");
+            Expect(transport is not null&&Descendants(transport).OfType<Button>().Any(button=>button.Text=="单帧"),"the transport dock owns single step");
+            Expect(transport is not null&&Descendants(transport).OfType<OptionButton>().Any(button=>button.ItemCount==3&&Enumerable.Range(0,3).Select(index=>button.GetItemText(index)).SequenceEqual(new[]{"0.5x","1x","2x"})),"the transport dock owns the speed chooser");
+            Expect(stateList is ItemList&&stateList.GetParent()?.GetParent() is TabContainer dockPages&&dockPages.GetTabTitle(0)=="状态","the left dock starts with the state list");
+            Expect(MenuLabels("视图").Contains("重载预览"),"the view menu keeps the reload preview fallback");
+            Expect(!ButtonText("取景")&&!ButtonText("读取运行帧")&&!ButtonText("预览当前帧"),"the removed toolbar entries are gone");
             Expect(status is Label&&playState is Label&&targetLabel.Text.Length>0,"the status bar reports playback and the target");
             string[] legacy=["动作列表","动作参数","动作预览","动作参数工作区","动作图工作区","工作区"];
             Expect(!Descendants(this).Any(node=>legacy.Contains(node.Name.ToString())),"the old action workspace nodes are gone");
@@ -62,6 +70,9 @@ public partial class NativeActionEditor
         var statePage=inspector.GetTabControl(1);
         Expect(!Descendants(statePage).OfType<ScrollContainer>().Any(),"the state page has no scroll container");
         Expect(statePage.GetCombinedMinimumSize().Y<=inspector.Size.Y,"the state page fits the inspector without scrolling");
+        inspector.CurrentTab=1;
+        await Shot("motion-state-page");
+        inspector.CurrentTab=0;
         var studio=preview!;var studioWorld=studio.World;
         var skeleton=studio.Bridge.Services.Motions.Skeleton(new(studio.World,studio.Player!));
         Expect(skeleton.Count==15,"preview exposes the 15 part skeleton");
@@ -73,6 +84,7 @@ public partial class NativeActionEditor
         document.Undo();Expect(Clip.Tracks.Single(t=>t.Bone=="BODY_TOP").Keys.Single().Angle==0,"IK drag undo restores the chain root");
         Expect(graphView.GetChildren().OfType<GraphNode>().Count()==1,"entry state has a graph node");
         await Shot("motion-studio");
+        await Shot("motion-transport");
         Project.ClipIndex=0;
         document=new(new MotionGraph{Id="audit.live",Clips=[new(){Id="idle",Duration=20}],States=[new(){Id="idle",Clip="idle"}]});
         Refresh();SelectBone("HEAD");frame.Value=3;
@@ -83,6 +95,12 @@ public partial class NativeActionEditor
         x.Value=7;x.Value=9;
         Expect(document.UndoDepth==liveUndo+1,"changing one control three times keeps a single undo step");
         Expect(Math.Abs(Clip.Sample(3)["HEAD"].X-9)<.001,"the control keeps writing the latest value");
+        await Wait(600);
+        x.Value=11;
+        Expect(document.UndoDepth==liveUndo+2,"edits more than 500ms apart start a new undo step");
+        path=Path.Combine(output,"editor.coalesce.motion.json");Save();
+        x.Value=13;
+        Expect(document.UndoDepth==liveUndo+3,"saving resets the coalescing window");
         double liveAngle=Clip.Sample(3)["HEAD"].Angle;
         angle.Value=30;
         Expect(Math.Abs(Clip.Sample(3)["HEAD"].Angle-30)<.001,"editing the angle writes the key immediately");
@@ -104,8 +122,12 @@ public partial class NativeActionEditor
         Expect(graphView.GetChildren().OfType<GraphNode>().Count()==1,"the entry state has a graph node");
         machineStateId.Text="walk";AddMachineState();
         Expect(document.Graph.States.Count==2&&graphView.GetChildren().OfType<GraphNode>().Count()==2,"adding a state updates the document and the graph");
+        Expect(stateList.ItemCount==2&&stateList.GetItemText(1)=="walk","the left dock lists every state");
+        stateList.Select(0);stateList.EmitSignal(ItemList.SignalName.ItemSelected,(long)0);
+        Expect(stateChoice.Selected==0,"clicking the left state list selects the state");
         stateChoice.Select(1);RefreshStateInspector();
         Expect(graphView.GetChildren().OfType<GraphNode>().Any(node=>node.Name==NodeName("walk")&&node.Selected),"selecting a state selects its graph node");
+        Expect(stateList.GetSelectedItems().Length==1&&stateList.GetSelectedItems()[0]==1,"selecting a state highlights the left list");
         stateChoice.Select(0);RefreshStateInspector();
         var walkNode=graphView.GetChildren().OfType<GraphNode>().First(node=>node.Name==NodeName("walk"));
         graphView.SetSelected(walkNode);graphView.EmitSignal(GraphEdit.SignalName.NodeSelected,walkNode);
@@ -128,8 +150,10 @@ public partial class NativeActionEditor
         stateRename.Text="walk2";RenameSelectedState();
         Expect(document.Graph.States[1].Id=="walk2"&&graphView.GetConnectionList().Count==1,"renaming a state rebuilds its graph edge");
         Expect(graphView.GetChildren().OfType<GraphNode>().All(node=>node.Name!=NodeName("walk")),"the renamed state node is rebuilt");
+        Expect(stateList.GetItemText(1)=="walk2","the left state list shows the renamed state");
         RemoveSelectedState();
         Expect(document.Graph.States.Count==1&&graphView.GetChildren().OfType<GraphNode>().Count()==1&&graphView.GetConnectionList().Count==0,"removing a state drops its nodes and connections");
+        Expect(stateList.ItemCount==1,"removing a state updates the left list");
         inspector.CurrentTab=2;
         await Shot("motion-state-machine");
         Project.ClipIndex=0;
@@ -159,6 +183,14 @@ public partial class NativeActionEditor
         Expect(ParamVisible("jump"),"the graph parameter view derives parameters used by events");
         stateChoice.Select(0);RefreshStateInspector();transitionList.Select(0);ReadTransition();conditionList.Select(0);ReadCondition();RemoveCondition();
         Expect(!ParamVisible("boost")&&document.Graph.Parameters.ContainsKey("boost"),"the parameter view is a read-only derivation");
+        conditionKind.Select(0);AddCondition();conditionList.Select(0);ReadCondition();
+        conditionParameter.Text="speed";conditionParameter.EmitSignal(LineEdit.SignalName.TextChanged,"speed");
+        Expect(document.Graph.Parameters.ContainsKey("speed"),"typing a new condition parameter adds its default value");
+        conditionKind.Select((int)MotionConditionKind.Parameter);conditionKind.EmitSignal(OptionButton.SignalName.ItemSelected,(long)MotionConditionKind.Parameter);
+        Expect(document.Graph.States[0].Transitions[0].Conditions[0].Kind==MotionConditionKind.Parameter,"the new parameter condition is usable");
+        Expect(ParamVisible("speed"),"the derived parameter view shows the new condition parameter");
+        inspector.CurrentTab=3;
+        await Shot("motion-parameters");
         string legacyJson="{\"FormatVersion\":1,\"Id\":\"audit.legacy\",\"Skeleton\":\"Nana\",\"Entry\":\"idle\",\"Clips\":[{\"Id\":\"idle\",\"Duration\":60,\"Loop\":true,\"Tracks\":[],\"Root\":[],\"Events\":[]}],\"States\":[{\"Id\":\"idle\",\"Clip\":\"idle\",\"Movement\":{},\"Transitions\":[{\"Target\":\"idle\",\"Priority\":0,\"Conditions\":[{\"Kind\":\"Parameter\",\"Comparison\":\"Equal\",\"Key\":0,\"Value\":1,\"Parameter\":\"p\"}]}]}],\"Parameters\":{\"p\":2.5}}";
         string legacyPath=Path.Combine(output,"legacy.motion.json");File.WriteAllText(legacyPath,legacyJson);
         var legacy=MotionGraph.Load(legacyPath);
@@ -237,10 +269,14 @@ public partial class NativeActionEditor
         await Shot("motion-ring");
         SelectBone("HEAD");
         Expect(overlay.RingVisible,"selecting a bone shows the ring again");
+        rootTrack.ButtonPressed=true;
+        int rootUndo=document.UndoDepth;
         var blank=SurfacePoint(ringActor.X+400,ringActor.Y+400);
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=blank});
         Expect(!overlay.RingVisible&&highlightedBone is null,"clicking empty canvas hides the ring");
+        Expect(Clip.Root.Count==0&&document.UndoDepth==rootUndo,"clearing the selection never writes a root key");
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=blank});
+        rootTrack.ButtonPressed=false;
         SelectBone("HEAD");
         Expect(overlay.ChainFocusIndex<0,"a non-chain bone clears the chain highlight");
         Change(g=>{g.States.Add(new(){Id="next",Clip=g.Clips[0].Id});g.Clips.Add(new(){Id="next",Duration=20});});
@@ -257,6 +293,12 @@ public partial class NativeActionEditor
         int tabCount=tabs.TabCount;
         NewProject(new(MotionTargetKind.PlayerPreset,"Nana"),"audit.duplicate",false);
         Expect(projects.Count==projectIndex+2&&tabs.TabCount==tabCount&&activeProject==0,"a duplicate target switches to its existing tab");
+        Project.ClipIndex=0;
+        document=new(new MotionGraph{Id="audit.target",Clips=[new(){Id="idle"}],States=[new(){Id="idle",Clip="idle"}]});
+        Change(g=>g.Clips[0].Duration=30);
+        bool targetRejected=false;
+        try{ChangeTarget(new(MotionTargetKind.PlayerPreset,"Ryoko"));}catch(InvalidDataException){targetRejected=true;}
+        Expect(targetRejected&&projects.Count==projectIndex+2&&tabs.TabCount==tabCount&&status.Text.Contains("标签"),"switching to a role that already has a tab is rejected");
         SwitchProject(projectIndex+1);
         await Ready();
         Expect(ReferenceEquals(preview,studio)&&ReferenceEquals(preview.World,studioWorld),"switching projects keeps the single preview world");
@@ -495,6 +537,9 @@ public partial class NativeActionEditor
             var part=viewActor.World.Instances.First(item=>item.Id==node.Instance);var bounds=viewActor.World.Bounds(part);
             return bounds.Empty||(bounds.Left>=fittedView.ViewX&&bounds.Right<=fittedView.ViewX+fittedView.ViewWidth&&bounds.Top>=fittedView.ViewY&&bounds.Bottom<=fittedView.ViewY+fittedView.ViewHeight);
         }),"fit frames every part");
+        viewWidth=4096;viewCenterX=0;ApplyView();
+        _UnhandledKeyInput(new InputEventKey{Keycode=Key.F,Pressed=true});
+        Expect(viewWidth<4096&&Math.Abs(viewCenterX-viewActor.X)<120,"the F key refits the viewport");
         var cursor=new Vector2(surface.Size.X/2,surface.Size.Y/2);var beforeZoom=CanvasPosition(cursor);
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.WheelUp,Pressed=true,Position=cursor});
         var afterZoom=CanvasPosition(cursor);

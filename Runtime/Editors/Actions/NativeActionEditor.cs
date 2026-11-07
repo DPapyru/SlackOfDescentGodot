@@ -94,7 +94,9 @@ public partial class NativeActionEditor : Window
     {
         highlightedBone = null;
         syncingBone = true; bone.Selected = -1; if (boneList is not null) boneList.DeselectAll(); syncingBone = false;
-        x.Value = 0; y.Value = 0; angle.Value = 0; sx.Value = 1; sy.Value = 1; picture.Value = 0;
+        readingKey = true;
+        try { x.Value = 0; y.Value = 0; angle.Value = 0; sx.Value = 1; sy.Value = 1; picture.Value = 0; }
+        finally { readingKey = false; }
         if (keyList is not null) keyList.Clear();
         SyncOverlay();
     }

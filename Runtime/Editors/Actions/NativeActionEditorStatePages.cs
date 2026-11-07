@@ -48,7 +48,7 @@ public partial class NativeActionEditor
         conditionParameter = new LineEdit { PlaceholderText = "参数名", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new(60, 0) }; numbers.AddChild(conditionParameter);
         conditionKey.ValueChanged += value => { if (!refreshing) EditCondition(condition => condition.Key = (int)value,"key"); };
         conditionValue.ValueChanged += value => { if (!refreshing) EditCondition(condition => condition.Value = value,"value"); };
-        conditionParameter.TextChanged += text => { if (!refreshing) EditCondition(condition => condition.Parameter = text,"parameter"); };
+        conditionParameter.TextChanged += text => { if (!refreshing) EditConditionParameter(text); };
         var conditionButtons = Row(sidebar); Button(conditionButtons, "添加条件", AddCondition); Button(conditionButtons, "删除条件", RemoveCondition);
         graphView.NodeSelected += node => { if (refreshing || syncingGraph) return; int index = document.Graph.States.FindIndex(state => NodeName(state.Id) == node.Name.ToString()); if (index < 0) return; stateChoice.Select(index); RefreshStateInspector(); };
         graphView.ConnectionRequest += (from, fromPort, to, toPort) => ConnectStates(from, to);
@@ -107,6 +107,18 @@ public partial class NativeActionEditor
         syncingGraph = true;
         try { graphView.SetSelected(node); } finally { syncingGraph = false; }
     }
+    private void EditConditionParameter(string text)
+    {
+        int index = SelectedIndex(conditionList);
+        if (SelectedTransition is not { } transition || index < 0 || index >= transition.Conditions.Count) return;
+        int stateIndex = (int)stateChoice.Selected, transitionIndex = SelectedIndex(transitionList);
+        Change(graph =>
+        {
+            var condition = graph.States[stateIndex].Transitions[transitionIndex].Conditions[index];
+            condition.Parameter = text;
+            if (text.Length > 0 && !graph.Parameters.ContainsKey(text)) graph.Parameters[text] = 0;
+        }, "cond:" + SelectedStateId + ":" + transitionIndex + ":" + index + ":parameter");
+    }
     private void ChangeState(Action<MotionState> change,string? coalesce=null)
     {
         if (refreshing || stateChoice.Selected < 0) return;
@@ -137,8 +149,19 @@ public partial class NativeActionEditor
     private void RefreshStateInspector()
     {
         bool previous = refreshing; refreshing = true;
-        try { RefreshStateInspectorCore(); } finally { refreshing = previous; }
+        try { RefreshStateInspectorCore(); RefreshStateList(); } finally { refreshing = previous; }
         if (previous) Callable.From(RefreshGraphSelection).CallDeferred(); else SyncGraphSelection();
+    }
+    private void RefreshStateList()
+    {
+        if (stateList is null) return;
+        syncingStateList = true;
+        try
+        {
+            stateList.Clear(); foreach (var state in document.Graph.States) stateList.AddItem(state.Id);
+            if (stateChoice.Selected >= 0 && stateChoice.Selected < stateList.ItemCount) stateList.Select((int)stateChoice.Selected); else stateList.DeselectAll();
+        }
+        finally { syncingStateList = false; }
     }
     private void RefreshStateInspectorCore()
     {

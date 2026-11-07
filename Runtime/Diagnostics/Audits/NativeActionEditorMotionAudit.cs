@@ -23,24 +23,58 @@ public partial class NativeActionEditor
             using var image=GetTexture().GetImage();string file=Path.Combine(directory,name+".png");image.SavePng(file);GD.Print("MOTION_EDITOR_SHOT ",file);
             Hide();
         }
-        ShowMotionWorkspace();
+        async Task Wait(int milliseconds){long start=System.Diagnostics.Stopwatch.GetTimestamp();while(System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds<milliseconds)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);}
+        IEnumerable<Node> Descendants(Node node)
+        {
+            foreach(var child in node.GetChildren()){yield return child;foreach(var item in Descendants(child))yield return item;}
+        }
+        IEnumerable<string> MenuLabels(string label)
+        {
+            var button=Descendants(this).OfType<MenuButton>().FirstOrDefault(item=>item.Text==label);
+            if(button is null)return [];
+            var popup=button.GetPopup();popup.EmitSignal(PopupMenu.SignalName.AboutToPopup);
+            var labels=new List<string>();for(int i=0;i<popup.ItemCount;i++)labels.Add(popup.GetItemText(i));return labels;
+        }
+        int Count<T>()=>Descendants(this).Count(node=>node is T);
+        bool ButtonText(string text)=>Descendants(this).OfType<Button>().Any(button=>button.Text==text);
+        bool ParamVisible(string name)=>Enumerable.Range(0,parameterView.ItemCount).Any(index=>parameterView.GetItemText(index)==name);
+        Vector2 SurfacePoint(double x,double y){var (surfaceX,surfaceY)=MotionViewport.ToSurface(x,y,surface.Size.X,surface.Size.Y,PreviewView);return new((float)surfaceX,(float)surfaceY);}
         void Layout()
         {
-            Expect(workspaceTabs.TabCount==2,"one window switches between parameters and the motion graph");
-            Expect(actionWorkspace is not null&&motionWorkspace is not null,"both workspaces live in the same window");
-            Expect(catalog is ItemList&&targetChoice is OptionButton&&actionSurface is TextureRect&&parameterForm is VBoxContainer,"the parameter workspace keeps its controls");
-            Expect(projectBar is not null&&tabs is TabBar,"the motion workspace keeps its project tabs");
+            Expect(tabs is TabBar&&tabs.TabCount==projects.Count,"the character bar lists one tab per project");
+            Expect(tabs.TabCount>0&&tabs.CurrentTab==activeProject,"the active tab is the active project");
             Expect(boneList is ItemList&&ikList is ItemList,"the left dock lists bones and IK chains");
-            Expect(surface is TextureRect&&overlay is not null,"the center stage keeps the motion surface");
-            Expect(inspector is TabContainer&&inspector.GetTabCount()==4,"the right dock keeps the four inspectors");
+            Expect(surface is TextureRect&&overlay is not null,"the center stage keeps the single motion surface");
+            Expect(Count<TextureRect>()==1&&overlay.GetParent()==surface&&Descendants(this).OfType<SubViewport>().Count(node=>node.GetParent()==this)==1&&Descendants(this).OfType<GmCanvas>().Count(node=>node.GetParent()==viewport)==1,"the studio owns one surface, overlay, viewport and canvas");
+            Expect(inspector is TabContainer&&inspector.GetTabCount()==4,"the right dock keeps four inspectors");
+            Expect(inspector.GetTabTitle(0).Contains("轨道")&&inspector.GetTabTitle(1).Contains("状态")&&inspector.GetTabTitle(2).Contains("状态机")&&inspector.GetTabTitle(3).Contains("事件"),"the inspector pages are 轨道/状态/状态机/事件");
             Expect(timelineSlider is HSlider&&keyList is ItemList&&frame is SpinBox,"the bottom dock keeps the timeline");
-            Expect(status is Label&&playState is Label&&previewState is Label,"the status bar reports both workspaces");
+            var transport=Descendants(this).FirstOrDefault(node=>node.Name=="TimelineDock");
+            Expect(transport is not null&&Descendants(transport).OfType<CheckButton>().Any(button=>button.Text is "▶" or "⏸"),"the transport dock owns the play toggle");
+            Expect(transport is not null&&Descendants(transport).OfType<Button>().Any(button=>button.Text=="单帧"),"the transport dock owns single step");
+            Expect(transport is not null&&Descendants(transport).OfType<OptionButton>().Any(button=>button.ItemCount==3&&Enumerable.Range(0,3).Select(index=>button.GetItemText(index)).SequenceEqual(new[]{"0.5x","1x","2x"})),"the transport dock owns the speed chooser");
+            Expect(stateList is ItemList&&stateList.GetParent()?.GetParent() is TabContainer dockPages&&dockPages.GetTabTitle(0)=="状态","the left dock starts with the state list");
+            Expect(MenuLabels("视图").Contains("重载预览"),"the view menu keeps the reload preview fallback");
+            Expect(!ButtonText("取景")&&!ButtonText("读取运行帧")&&!ButtonText("预览当前帧"),"the removed toolbar entries are gone");
+            Expect(status is Label&&playState is Label&&targetLabel.Text.Length>0,"the status bar reports playback and the target");
+            string[] legacy=["动作列表","动作参数","动作预览","动作参数工作区","动作图工作区","工作区"];
+            Expect(!Descendants(this).Any(node=>legacy.Contains(node.Name.ToString())),"the old action workspace nodes are gone");
+            var legacyMethods=new[]{"ImportAction","ExportAction","CheckCompile","SelectAction"};
+            Expect(legacyMethods.All(name=>GetType().GetMethod(name,System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.Public|System.Reflection.BindingFlags.NonPublic) is null),"the .action.json editor entry points are gone");
         }
         Layout();
-        Expect(motionWorkspace.Visible&&!actionWorkspace.Visible&&projectBar.Visible,"the motion workspace shows its chrome");
         GD.Print("MOTION_EDITOR_LAYOUT_OK");
         await Ready();
-        var skeleton=preview!.Bridge.Services.Motions.Skeleton(new(preview.World,preview.Player!));
+        PopupCentered();
+        for(int i=0;i<3;i++)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
+        var statePage=inspector.GetTabControl(1);
+        Expect(!Descendants(statePage).OfType<ScrollContainer>().Any(),"the state page has no scroll container");
+        Expect(statePage.GetCombinedMinimumSize().Y<=inspector.Size.Y,"the state page fits the inspector without scrolling");
+        inspector.CurrentTab=1;
+        await Shot("motion-state-page");
+        inspector.CurrentTab=0;
+        var studio=preview!;var studioWorld=studio.World;
+        var skeleton=studio.Bridge.Services.Motions.Skeleton(new(studio.World,studio.Player!));
         Expect(skeleton.Count==15,"preview exposes the 15 part skeleton");
         document=new(new MotionGraph{Id="audit.ik",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_TOP",Keys=[new(){Frame=0}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=3}]},new(){Bone="HAND1_BELOW",Keys=[new(){Frame=0,X=3}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND1_BELOW"}]});
         Refresh();
@@ -49,9 +83,236 @@ public partial class NativeActionEditor
         Expect(Clip.Tracks.Single(t=>t.Bone=="BODY_TOP").Keys.Single().Angle!=0,"IK drag writes the chain root angle");
         document.Undo();Expect(Clip.Tracks.Single(t=>t.Bone=="BODY_TOP").Keys.Single().Angle==0,"IK drag undo restores the chain root");
         Expect(graphView.GetChildren().OfType<GraphNode>().Count()==1,"entry state has a graph node");
+        await Shot("motion-studio");
+        await Shot("motion-transport");
+        Project.ClipIndex=0;
+        document=new(new MotionGraph{Id="audit.live",Clips=[new(){Id="idle",Duration=20}],States=[new(){Id="idle",Clip="idle"}]});
+        Refresh();SelectBone("HEAD");frame.Value=3;
+        int liveUndo=document.UndoDepth;
+        x.Value=5;
+        Expect(Clip.Tracks.Any(track=>track.Bone=="HEAD"&&track.Keys.Any(key=>key.Frame==3&&Math.Abs(key.X-5)<.001)),"editing X writes the current frame key without a button");
+        Expect(document.UndoDepth==liveUndo+1,"the first immediate write adds one undo step");
+        x.Value=7;x.Value=9;
+        Expect(document.UndoDepth==liveUndo+1,"changing one control three times keeps a single undo step");
+        Expect(Math.Abs(Clip.Sample(3)["HEAD"].X-9)<.001,"the control keeps writing the latest value");
+        await Wait(600);
+        x.Value=11;
+        Expect(document.UndoDepth==liveUndo+2,"edits more than 500ms apart start a new undo step");
+        path=Path.Combine(output,"editor.coalesce.motion.json");Save();
+        x.Value=13;
+        Expect(document.UndoDepth==liveUndo+3,"saving resets the coalescing window");
+        double liveAngle=Clip.Sample(3)["HEAD"].Angle;
+        angle.Value=30;
+        Expect(Math.Abs(Clip.Sample(3)["HEAD"].Angle-30)<.001,"editing the angle writes the key immediately");
+        RunAction("undo");Expect(Math.Abs(Clip.Sample(3)["HEAD"].Angle-liveAngle)<.001,"undo covers immediate writes");
+        RunAction("redo");Expect(Math.Abs(Clip.Sample(3)["HEAD"].Angle-30)<.001,"redo covers immediate writes");
+        duration.Value=25;Expect(Clip.Duration==25,"the clip duration is written immediately");
+        loop.ButtonPressed=false;Expect(!Clip.Loop,"the clip loop flag is written immediately");
+        Expect(!ButtonText("写入关键帧")&&!ButtonText("更新片段")&&!ButtonText("写入参数")&&!ButtonText("写入事件"),"the submit buttons are gone");
+        var fileMenu=MenuLabels("文件").ToList();
+        Expect(fileMenu.Count(label=>label=="保存到…")==1,"the file menu has a single 保存到… entry");
+        Expect(!fileMenu.Contains("保存到 Mod 项目")&&!fileMenu.Contains("将动作图保存到角色"),"the two old save entries are gone");
+        int applyCount=Descendants(this).OfType<Button>().Count(button=>button.Text=="应用到游戏角色");
+        foreach(var menu in Descendants(this).OfType<MenuButton>()){var popup=menu.GetPopup();popup.EmitSignal(PopupMenu.SignalName.AboutToPopup);for(int i=0;i<popup.ItemCount;i++)if(popup.GetItemText(i)=="应用到游戏角色")applyCount++;}
+        Expect(applyCount==1,"applying to the game is offered exactly once");
+        Project.ClipIndex=0;
+        document=new(new MotionGraph{Id="audit.machine",Clips=[new(){Id="idle"}],States=[new(){Id="idle",Clip="idle"}]});
+        Refresh();
+        Expect(Descendants(inspector.GetTabControl(2)).OfType<GraphEdit>().Any(),"the state machine page owns a graph");
+        Expect(graphView.GetChildren().OfType<GraphNode>().Count()==1,"the entry state has a graph node");
+        machineStateId.Text="walk";AddMachineState();
+        Expect(document.Graph.States.Count==2&&graphView.GetChildren().OfType<GraphNode>().Count()==2,"adding a state updates the document and the graph");
+        Expect(stateList.ItemCount==2&&stateList.GetItemText(1)=="walk","the left dock lists every state");
+        stateList.Select(0);stateList.EmitSignal(ItemList.SignalName.ItemSelected,(long)0);
+        Expect(stateChoice.Selected==0,"clicking the left state list selects the state");
+        stateChoice.Select(1);RefreshStateInspector();
+        Expect(graphView.GetChildren().OfType<GraphNode>().Any(node=>node.Name==NodeName("walk")&&node.Selected),"selecting a state selects its graph node");
+        Expect(stateList.GetSelectedItems().Length==1&&stateList.GetSelectedItems()[0]==1,"selecting a state highlights the left list");
+        stateChoice.Select(0);RefreshStateInspector();
+        var walkNode=graphView.GetChildren().OfType<GraphNode>().First(node=>node.Name==NodeName("walk"));
+        graphView.SetSelected(walkNode);graphView.EmitSignal(GraphEdit.SignalName.NodeSelected,walkNode);
+        Expect(stateChoice.Selected==1,"selecting a graph node selects the state list");
+        transitionTarget.Select(0);transitionPriority.Value=3;AddTransition();
+        Expect(document.Graph.States[1].Transitions.Count==1&&graphView.GetConnectionList().Count==1,"adding a transition writes the document and the graph");
+        transitionList.Select(0);ReadTransition();int priorityUndo=document.UndoDepth;transitionPriority.Value=5;
+        Expect(document.Graph.States[1].Transitions[0].Priority==5,"editing the priority writes the transition");
+        transitionPriority.Value=6;transitionPriority.Value=7;
+        Expect(document.UndoDepth==priorityUndo+1&&document.Graph.States[1].Transitions[0].Priority==7,"consecutive priority edits keep a single undo step");
+        conditionKind.Select(0);AddCondition();
+        Expect(document.Graph.States[1].Transitions[0].Conditions.Count==1&&conditionList.ItemCount==1,"adding a condition writes the transition");
+        conditionList.Select(0);ReadCondition();conditionValue.Value=7;
+        Expect(Math.Abs(document.Graph.States[1].Transitions[0].Conditions[0].Value-7)<.001,"editing a condition writes the transition");
+        RemoveCondition();
+        Expect(document.Graph.States[1].Transitions[0].Conditions.Count==0,"removing a condition writes the transition");
+        transitionList.Select(0);ReadTransition();RemoveTransition();
+        Expect(document.Graph.States[1].Transitions.Count==0&&graphView.GetConnectionList().Count==0,"removing a transition drops the graph edge");
+        stateChoice.Select(1);RefreshStateInspector();transitionTarget.Select(0);AddTransition();
+        stateRename.Text="walk2";RenameSelectedState();
+        Expect(document.Graph.States[1].Id=="walk2"&&graphView.GetConnectionList().Count==1,"renaming a state rebuilds its graph edge");
+        Expect(graphView.GetChildren().OfType<GraphNode>().All(node=>node.Name!=NodeName("walk")),"the renamed state node is rebuilt");
+        Expect(stateList.GetItemText(1)=="walk2","the left state list shows the renamed state");
+        RemoveSelectedState();
+        Expect(document.Graph.States.Count==1&&graphView.GetChildren().OfType<GraphNode>().Count()==1&&graphView.GetConnectionList().Count==0,"removing a state drops its nodes and connections");
+        Expect(stateList.ItemCount==1,"removing a state updates the left list");
+        inspector.CurrentTab=2;
+        await Shot("motion-state-machine");
+        Project.ClipIndex=0;
+        document=new(new MotionGraph{Id="audit.events",Clips=[new(){Id="idle"}],States=[new(){Id="idle",Clip="idle"}],Parameters=new(StringComparer.Ordinal){{"jump",1}}});
+        Refresh();
+        Expect(Descendants(inspector.GetTabControl(3)).OfType<Tree>().Any(tree=>tree.Columns==5),"the events page is a five column table");
+        int eventRows=eventTable.GetRoot()?.GetChildCount()??0;int eventCount=Clip.Events.Count;
+        AddEvent();
+        Expect(Clip.Events.Count==eventCount+1&&(eventTable.GetRoot()?.GetChildCount()??0)==eventRows+1,"adding an event adds a row and a document entry");
+        string eventId=Clip.Events[^1].Id;
+        EditEventCell(eventId,0,"12");
+        Expect(Math.Abs(Clip.Events.Single(item=>item.Id==eventId).Start-12)<.001,"editing the start frame cell writes the event");
+        int valueUndo=document.UndoDepth;EditEventCell(eventId,3,"jump");
+        Expect(Clip.Events.Single(item=>item.Id==eventId).Value=="jump","editing the value cell writes the event");
+        EditEventCell(eventId,3,"jump2");EditEventCell(eventId,3,"jump3");
+        Expect(document.UndoDepth==valueUndo+1&&Clip.Events.Single(item=>item.Id==eventId).Value=="jump3","consecutive cell edits keep a single undo step");
+        eventKind.Select((int)MotionEventKind.Damage);eventKind.EmitSignal(OptionButton.SignalName.ItemSelected,(long)MotionEventKind.Damage);
+        Expect(Clip.Events.Single(item=>item.Id==eventId).Kind==MotionEventKind.Damage,"the type dropdown writes the selected event");
+        eventContact.ButtonPressed=true;
+        Expect(Clip.Events.Single(item=>item.Id==eventId).Contact,"the contact toggle writes the selected event");
+        RemoveEvent();
+        Expect(Clip.Events.Count==eventCount&&(eventTable.GetRoot()?.GetChildCount()??0)==eventRows,"removing the event removes its row");
+        Change(g=>{g.Parameters["boost"]=2.5;g.States[0].Transitions.Add(new(){Target="idle",Conditions=[new(){Kind=MotionConditionKind.Parameter,Comparison=MotionComparison.Greater,Value=1,Parameter="boost"}]});});
+        Refresh();
+        Expect(ParamVisible("boost"),"the graph parameter view derives condition parameters");
+        AddEvent();string jumpId=Clip.Events[^1].Id;EditEventCell(jumpId,3,"jump");
+        Expect(ParamVisible("jump"),"the graph parameter view derives parameters used by events");
+        stateChoice.Select(0);RefreshStateInspector();transitionList.Select(0);ReadTransition();conditionList.Select(0);ReadCondition();RemoveCondition();
+        Expect(!ParamVisible("boost")&&document.Graph.Parameters.ContainsKey("boost"),"the parameter view is a read-only derivation");
+        conditionKind.Select((int)MotionConditionKind.Parameter);conditionKind.EmitSignal(OptionButton.SignalName.ItemSelected,(long)MotionConditionKind.Parameter);
+        conditionParameter.Text="charge";conditionParameter.EmitSignal(LineEdit.SignalName.TextChanged,"charge");
+        int parameterCount=document.Graph.Parameters.Count;
+        AddCondition();
+        var charge=document.Graph.States[0].Transitions[0].Conditions[0];
+        Expect(document.Graph.States[0].Transitions[0].Conditions.Count==1&&charge.Kind==MotionConditionKind.Parameter&&charge.Parameter=="charge","a parameter condition can be added directly");
+        Expect(document.Graph.Parameters.Count==parameterCount+1&&document.Graph.Parameters.ContainsKey("charge")&&!document.Graph.Parameters.ContainsKey("c")&&!document.Graph.Parameters.ContainsKey("charge2"),"adding a parameter condition adds exactly one default parameter");
+        Expect(ParamVisible("charge"),"the derived parameter view shows the added parameter");
+        conditionList.Select(0);ReadCondition();
+        foreach(string typed in new[]{"c","ch","cha","char","charg","charge2"}){conditionParameter.Text=typed;conditionParameter.EmitSignal(LineEdit.SignalName.TextChanged,typed);}
+        Expect(document.Graph.Parameters.ContainsKey("charge2")&&!document.Graph.Parameters.ContainsKey("c")&&!document.Graph.Parameters.ContainsKey("charg")&&!document.Graph.Parameters.ContainsKey("charge"),"typing a parameter name prunes the intermediate default parameters");
+        Expect(ParamVisible("charge2")&&!ParamVisible("charge"),"the derived view follows the retyped parameter name");
+        inspector.CurrentTab=3;
+        await Shot("motion-parameters");
+        string legacyJson="{\"FormatVersion\":1,\"Id\":\"audit.legacy\",\"Skeleton\":\"Nana\",\"Entry\":\"idle\",\"Clips\":[{\"Id\":\"idle\",\"Duration\":60,\"Loop\":true,\"Tracks\":[],\"Root\":[],\"Events\":[]}],\"States\":[{\"Id\":\"idle\",\"Clip\":\"idle\",\"Movement\":{},\"Transitions\":[{\"Target\":\"idle\",\"Priority\":0,\"Conditions\":[{\"Kind\":\"Parameter\",\"Comparison\":\"Equal\",\"Key\":0,\"Value\":1,\"Parameter\":\"p\"}]}]}],\"Parameters\":{\"p\":2.5}}";
+        string legacyPath=Path.Combine(output,"legacy.motion.json");File.WriteAllText(legacyPath,legacyJson);
+        var legacy=MotionGraph.Load(legacyPath);
+        Expect(legacy.Parameters.Count==1&&Math.Abs(legacy.Parameters["p"]-2.5)<.001&&legacy.States[0].Transitions[0].Conditions[0].Parameter=="p","the old JSON keeps its parameters");
+        string roundTripPath=Path.Combine(output,"legacy.roundtrip.motion.json");legacy.Save(roundTripPath);
+        var roundTrip=MotionGraph.Load(roundTripPath);
+        Expect(roundTrip.Parameters.Count==1&&Math.Abs(roundTrip.Parameters["p"]-2.5)<.001&&roundTrip.States[0].Transitions[0].Conditions[0].Kind==MotionConditionKind.Parameter,"the old JSON round-trips losslessly");
+        document=new(MotionGraph.Load(legacyPath));Refresh();
+        Expect(document.Graph.Parameters.ContainsKey("p"),"loading a legacy graph into the editor keeps its parameters");
+        inspector.CurrentTab=3;
+        await Shot("motion-events");
+        Project.ClipIndex=0;
+        document=new(new MotionGraph{Id="audit.ring",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_BOTTOM",Keys=[new(){Frame=0,X=0,Y=0,Angle=0}]},new(){Bone="BODY_TOP",Keys=[new(){Frame=0,X=0,Y=0,Angle=0}]},new(){Bone="HEAD",Keys=[new(){Frame=0,X=4,Y=-16,Angle=0}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=10,Y=0,Angle=0}]},new(){Bone="HAND1_BELOW",Keys=[new(){Frame=0,X=10,Y=0,Angle=0}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND1_BELOW"}]});
+        Refresh();frame.Value=0;
+        var ringActor=PreviewActor!;ringActor.Write("Direction",1);ringActor.Write("image_angle",0);
+        ApplyDocumentPose();
+        void ZeroAncestors()
+        {
+            var nodes=ringActor.Services.Motions.Skeleton(ringActor);
+            var headNode=nodes.FirstOrDefault(node=>node.Name=="HEAD");var chain=new List<string>();
+            for(var node=headNode;node is not null;){var parentNode=nodes.FirstOrDefault(item=>item.Instance==node.Parent);if(parentNode is null)break;chain.Add(parentNode.Name);node=parentNode;}
+            if(chain.Count==0)return;
+            document.Edit(g=>{foreach(string name in chain){var track=g.Clips[0].Tracks.FirstOrDefault(item=>item.Bone==name);if(track is null){track=new(){Bone=name};g.Clips[0].Tracks.Add(track);}track.Keys.RemoveAll(key=>key.Frame==0);track.Keys.Add(new(){Frame=0,X=0,Y=0,Angle=0});}});
+            Refresh();ApplyDocumentPose();
+        }
+        ZeroAncestors();
+        SelectBone("HEAD");
+        var ringNodes=ringActor.Services.Motions.Skeleton(ringActor);
+        var headNode=ringNodes.Single(node=>node.Name=="HEAD");
+        Expect(overlay!.RingVisible,"selecting a bone shows the ring");
+        Expect(Math.Abs(overlay.RingPixelRadius-54)<.001,"the ring keeps a fixed 54 pixel radius");
+        Expect(Math.Abs((overlay.BallAngle??double.NaN)-headNode.Angle)<.001,"the ball angle equals the selected bone world angle");
+        var arrows=overlay.ArrowPoints;
+        Expect(arrows.Count==8,"the ring shows eight step arrows");
+        for(int i=0;i<8;i++)Expect(overlay.RingHit(arrows[i])=="arrow:"+i,"arrow "+i+" is hittable");
+        int ballUndo=document.UndoDepth;
+        var ball=overlay.BallPoint;Expect(ball is not null,"the ring shows a ball");
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=ball!.Value});
+        Expect(dragging&&dragMode==DragMode.Ball,"pressing the ball starts an absolute angle drag");
+        var parentNode=ringNodes.FirstOrDefault(node=>node.Instance==headNode.Parent);
+        double parentX=parentNode?.X??ringActor.X,parentY=parentNode?.Y??ringActor.Y,desired=120,radius=120,desiredRadians=desired*Math.PI/180;
+        var ballTarget=SurfacePoint(parentX+Math.Cos(desiredRadians)*radius,parentY-Math.Sin(desiredRadians)*radius);
+        SurfaceInput(new InputEventMouseMotion{Position=ballTarget});
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=ballTarget});
+        Expect(Math.Abs(Clip.Sample(0)["HEAD"].Angle-desired)<.1,"dragging the ball writes the absolute angle");
+        Expect(document.UndoDepth==ballUndo+1,"the ball drag is one undo step");
+        Expect(Math.Abs(ringActor.Services.Motions.Skeleton(ringActor).Single(node=>node.Name=="HEAD").Angle-desired)<.1,"the bone world angle follows the dragged absolute angle");
+        SelectBone("HEAD");
+        var arrowNodes=ringActor.Services.Motions.Skeleton(ringActor);
+        double arrowStartY=arrowNodes.Single(node=>node.Name=="HEAD").Y;int arrowUndo=document.UndoDepth;
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=overlay.ArrowPoints[0]});
+        Expect(Math.Abs(ringActor.Services.Motions.Skeleton(ringActor).Single(node=>node.Name=="HEAD").Y-(arrowStartY-1))<.001,"the top arrow steps the bone one world unit up");
+        Expect(document.UndoDepth==arrowUndo+1,"an arrow step is one undo step");
+        SelectBone("HEAD");
+        double shiftStartY=ringActor.Services.Motions.Skeleton(ringActor).Single(node=>node.Name=="HEAD").Y;
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,ShiftPressed=true,Position=overlay.ArrowPoints[0]});
+        Expect(Math.Abs(ringActor.Services.Motions.Skeleton(ringActor).Single(node=>node.Name=="HEAD").Y-(shiftStartY-10))<.001,"shift steps the arrow ten world units");
+        SelectBone("HEAD");
+        var localBefore=Clip.Sample(0)["HEAD"];
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=overlay.ArrowPoints[2]});
+        var localAfter=Clip.Sample(0)["HEAD"];
+        Expect(Math.Abs(localAfter.X-(localBefore.X+1))<.05&&Math.Abs(localAfter.Y-localBefore.Y)<.05,"the right arrow steps local X");
+        SelectBone("HEAD");
+        var verticalBefore=Clip.Sample(0)["HEAD"];
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=overlay.ArrowPoints[4]});
+        var verticalAfter=Clip.Sample(0)["HEAD"];
+        Expect(Math.Abs(verticalAfter.Y-(verticalBefore.Y+1))<.05&&Math.Abs(verticalAfter.X-verticalBefore.X)<.05,"the down arrow steps local Y");
+        SelectBone("HAND1_ABOVE");
+        Expect(overlay.ChainFocusIndex>=0,"selecting an IK chain bone focuses the chain");
+        var chainBones=overlay.FocusChainBones;
+        Expect(chainBones.Length==3&&chainBones.Contains("BODY_TOP")&&chainBones.Contains("HAND1_ABOVE")&&chainBones.Contains("HAND1_BELOW"),"the overlay highlights all three chain bones");
+        Expect(overlay.EndHandleVisible,"the chain end has a handle");
+        var ikRows=ikList.GetSelectedItems();
+        Expect(ikRows.Length==1&&ikList.GetItemText(ikRows[0]).Contains("HAND1_BELOW"),"the left dock selects the chain");
+        inspector.CurrentTab=0;
+        await Shot("motion-ring");
+        SelectBone("HEAD");
+        Expect(overlay.RingVisible,"selecting a bone shows the ring again");
+        rootTrack.ButtonPressed=true;
+        int rootUndo=document.UndoDepth;
+        var blank=SurfacePoint(ringActor.X+400,ringActor.Y+400);
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=blank});
+        Expect(!overlay.RingVisible&&highlightedBone is null,"clicking empty canvas hides the ring");
+        Expect(Clip.Root.Count==0&&document.UndoDepth==rootUndo,"clearing the selection never writes a root key");
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=blank});
+        rootTrack.ButtonPressed=false;
+        SelectBone("HEAD");
+        Expect(overlay.ChainFocusIndex<0,"a non-chain bone clears the chain highlight");
+        Change(g=>{g.States.Add(new(){Id="next",Clip=g.Clips[0].Id});g.Clips.Add(new(){Id="next",Duration=20});});
+        stateChoice.Select(1);RefreshStateInspector();
+        Expect(ReferenceEquals(preview,studio)&&ReferenceEquals(preview.World,studioWorld),"switching states keeps the single preview world");
+        clipChoice.Select(1);RefreshTimeline();
+        Expect(ReferenceEquals(preview,studio)&&ReferenceEquals(preview.World,studioWorld),"switching clips keeps the single preview world");
+        document.Undo();
+        Expect(ReferenceEquals(preview,studio)&&ReferenceEquals(preview.World,studioWorld),"undo keeps the single preview world");
         int projectIndex=activeProject;
         NewProject(new(MotionTargetKind.PlayerPreset,"Ryoko"),"audit.project",false);
         Expect(projects.Count==projectIndex+2&&document.Graph.Skeleton=="Ryoko"&&Project.Target.Kind==MotionTargetKind.PlayerPreset,"new project targets the preset skeleton");
+        Expect(tabs.TabCount==projects.Count,"the character bar lists one tab per project");
+        int tabCount=tabs.TabCount;
+        NewProject(new(MotionTargetKind.PlayerPreset,"Nana"),"audit.duplicate",false);
+        Expect(projects.Count==projectIndex+2&&tabs.TabCount==tabCount&&activeProject==0,"a duplicate target switches to its existing tab");
+        Project.ClipIndex=0;
+        document=new(new MotionGraph{Id="audit.target",Clips=[new(){Id="idle"}],States=[new(){Id="idle",Clip="idle"}]});
+        Change(g=>g.Clips[0].Duration=30);
+        bool targetRejected=false;
+        try{ChangeTarget(new(MotionTargetKind.PlayerPreset,"Ryoko"));}catch(InvalidDataException){targetRejected=true;}
+        Expect(targetRejected&&projects.Count==projectIndex+2&&tabs.TabCount==tabCount&&status.Text.Contains("标签"),"switching to a role that already has a tab is rejected");
+        string ryokoFile=Path.Combine(output,"ryoko.motion.json");
+        new MotionGraph{Id="audit.ryoko",Skeleton="Ryoko",Clips=[new(){Id="idle"}],States=[new(){Id="idle",Clip="idle"}]}.Save(ryokoFile);
+        bool openRejected=false;
+        try{OpenMotionFile(ryokoFile);}catch(InvalidDataException){openRejected=true;}
+        Expect(openRejected&&tabs.TabCount==tabCount&&status.Text.Contains("标签"),"opening a motion file for a taken role is rejected");
+        SwitchProject(projectIndex+1);
+        await Ready();
+        Expect(ReferenceEquals(preview,studio)&&ReferenceEquals(preview.World,studioWorld),"switching projects keeps the single preview world");
         Change(g=>g.Clips[0].Tracks.Add(new(){Bone="HEAD",Keys=[new(){Frame=0}]}));
         Expect(Project.Dirty,"editing a project marks it dirty");
         CloseProject(projects.Count-1);
@@ -60,7 +321,7 @@ public partial class NativeActionEditor
         SwitchProject(projectIndex,false);
         Expect(activeProject==projectIndex&&document.Graph.Id!="audit.project","switching tabs rebinds the document");
         RemoveProject(projects.Count-1,false);
-        Expect(projects.Count==projectIndex+1,"closing the extra project keeps the active one");
+        Expect(projects.Count==projectIndex+1&&activeProject==projectIndex,"closing the extra project keeps the active one");
         NewProject(new(MotionTargetKind.Entity,"objEnemyDoll"),"audit.entity",false);
         Expect(document.Graph.Skeleton=="legacy:objEnemyDoll"&&targetLabel.Text.Contains("临时骨架"),"entity project uses a labelled legacy skeleton");
         Change(g=>{g.States.Add(new(){Id="next",Clip=g.Clips[0].Id});g.States[0].Transitions.Add(new(){Target="next"});});
@@ -127,9 +388,9 @@ public partial class NativeActionEditor
         Expect(ReferenceEquals(preview,previewBefore),"undo and redo do not rebuild the preview");
         await Shot("motion-follow");
         document=new(MotionImport.FromAst(world.Code["external/Chara/Motion/PlayerNana/Stand0_Damage.txt"],"audit.editor","Nana"));Refresh();
-        SelectBone("HEAD");frame.Value=2;x.Value=4;y.Value=-16;angle.Value=17;sx.Value=1.25;sy.Value=.8;picture.Value=1;WriteKey();
-        Expect(Clip.Tracks.Single(t=>t.Bone=="HEAD").Keys.Any(k=>k.Frame==2&&k.Angle==17&&k.Picture==1),"timeline writes a real bone key");
-        document.Undo();Expect(!Clip.Tracks.Single(t=>t.Bone=="HEAD").Keys.Any(k=>k.Frame==2),"undo removes timeline key");document.Redo();
+        SelectBone("HEAD");frame.Value=2;angle.Value=17;
+        Expect(Clip.Tracks.Single(t=>t.Bone=="HEAD").Keys.Any(k=>k.Frame==2&&k.Angle==17),"the timeline controls write a real bone key");
+        document.Undo();Expect(!Clip.Tracks.Single(t=>t.Bone=="HEAD").Keys.Any(k=>k.Frame==2),"undo removes the timeline key");document.Redo();
         document.Edit(g=>g.IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND1_BELOW"}]);
         Refresh();var canvasActor=PreviewActor!;canvasActor.Write("Direction",1);ApplyDocumentPose();
         var canvasNodes=canvasActor.Services.Motions.Skeleton(canvasActor);
@@ -147,7 +408,6 @@ public partial class NativeActionEditor
             }
             return best;
         }
-        Vector2 SurfacePoint(double x,double y){var (sx,sy)=MotionViewport.ToSurface(x,y,surface.Size.X,surface.Size.Y,PreviewView);return new((float)sx,(float)sy);}
         Vector2 PointFor(string name)
         {
             var node=canvasNodes.Single(item=>item.Name==name);var bounds=canvasActor.World.Bounds(canvasActor.World.Instances.First(item=>item.Id==node.Instance));
@@ -174,9 +434,8 @@ public partial class NativeActionEditor
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=blankPoint});
         Expect(!dragging&&highlightedBone is null&&boneList.GetSelectedItems().Length==0&&bone.Selected<0,"clicking empty canvas clears the selection");
         Expect(Serialized()==emptyBefore,"clicking empty canvas leaves the document untouched");
-        var blankWrite=Serialized();WriteKey();
-        Expect(Serialized()==blankWrite,"writing a key without a selected bone does nothing");
-        var headNode=canvasNodes.Single(item=>item.Name=="HEAD");var headPoint=PointFor("HEAD");
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=blankPoint});
+        var headPoint=PointFor("HEAD");
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=headPoint});
         Expect(dragging&&highlightedBone is not null&&boneList.GetSelectedItems().Length==1,"clicking a part selects and highlights the bone");
         int clickUndo=document.UndoDepth;
@@ -201,13 +460,12 @@ public partial class NativeActionEditor
         var shiftStart=PointFor("HEAD");
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,ShiftPressed=true,Position=shiftStart});
         var shiftTarget=SurfacePoint(CanvasPosition(shiftStart).X-12,CanvasPosition(shiftStart).Y+10);
-        var (shiftWorldX,shiftWorldY)=CanvasPosition(shiftTarget);var shiftExpected=LocalTarget("HEAD",shiftWorldX,shiftWorldY,false);
         SurfaceInput(new InputEventMouseMotion{Position=shiftTarget});
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,ShiftPressed=true,Position=shiftTarget});
         var shiftPose=Clip.Sample(frame.Value)["HEAD"];
-        Expect(Math.Abs(shiftPose.X-shiftExpected.X)<.001&&Math.Abs(shiftPose.Y-shiftExpected.Y)<.001,"shift drag writes local X/Y");
-        Expect(Math.Abs(shiftPose.Angle-shiftBefore.Angle)<.001,"shift drag keeps the angle");
-        RunAction("undo");Expect(Math.Abs(Clip.Sample(frame.Value)["HEAD"].X-fkPose.X)<.001,"shift drag is one undo step");RunAction("redo");
+        Expect(Math.Abs(Math.Sqrt(shiftPose.X*shiftPose.X+shiftPose.Y*shiftPose.Y)-fkLength)<.001,"Shift drag keeps the FK bone length");
+        Expect(Math.Abs(shiftPose.Angle-shiftBefore.Angle)>.001,"Shift drag rotates instead of translating");
+        RunAction("undo");Expect(Math.Abs(Clip.Sample(frame.Value)["HEAD"].Angle-shiftBefore.Angle)<.001,"Shift drag is one undo step");RunAction("redo");
         var chainBefore=Clip.Sample(frame.Value);
         double midLength=Math.Sqrt(chainBefore["HAND1_ABOVE"].X*chainBefore["HAND1_ABOVE"].X+chainBefore["HAND1_ABOVE"].Y*chainBefore["HAND1_ABOVE"].Y);
         double endLength=Math.Sqrt(chainBefore["HAND1_BELOW"].X*chainBefore["HAND1_BELOW"].X+chainBefore["HAND1_BELOW"].Y*chainBefore["HAND1_BELOW"].Y);
@@ -247,7 +505,7 @@ public partial class NativeActionEditor
         InitializePreview();await Ready();
         for(int i=0;i<12;i++){Step();await Ready();}
         Expect(preview!.Bridge.Services.Motions.State(new(preview.World,preview.Player!))?.State=="next","saved state graph runs in preview");
-string cleanFile=Path.Combine(output,"editor.clean.motion.json");document.Save(cleanFile);
+        string cleanFile=Path.Combine(output,"editor.clean.motion.json");document.Save(cleanFile);
         document=new(new MotionGraph{Id="audit.clean",Clips=[new(){Id="idle"}],States=[new(){Id="idle",Clip="idle"}]});
         path=cleanFile;Refresh();InitializePreview();await Ready();
         Expect(!document.Dirty&&document.Graph.IkChains is null&&document.Graph.Clips[0].Tracks.Count==0,"preview load neither dirties nor writes the document");
@@ -290,6 +548,13 @@ string cleanFile=Path.Combine(output,"editor.clean.motion.json");document.Save(c
             var part=viewActor.World.Instances.First(item=>item.Id==node.Instance);var bounds=viewActor.World.Bounds(part);
             return bounds.Empty||(bounds.Left>=fittedView.ViewX&&bounds.Right<=fittedView.ViewX+fittedView.ViewWidth&&bounds.Top>=fittedView.ViewY&&bounds.Bottom<=fittedView.ViewY+fittedView.ViewHeight);
         }),"fit frames every part");
+        var focusedSpin=frame.GetLineEdit();focusedSpin.GrabFocus();
+        viewWidth=4096;viewCenterX=0;ApplyView();
+        _UnhandledKeyInput(new InputEventKey{Keycode=Key.F,Pressed=true});
+        Expect(Math.Abs(viewWidth-4096)<.001,"the F key does not refit while a spin box is focused");
+        focusedSpin.ReleaseFocus();
+        _UnhandledKeyInput(new InputEventKey{Keycode=Key.F,Pressed=true});
+        Expect(viewWidth<4096&&Math.Abs(viewCenterX-viewActor.X)<120,"the F key refits the viewport when no field is focused");
         var cursor=new Vector2(surface.Size.X/2,surface.Size.Y/2);var beforeZoom=CanvasPosition(cursor);
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.WheelUp,Pressed=true,Position=cursor});
         var afterZoom=CanvasPosition(cursor);
@@ -362,6 +627,6 @@ string cleanFile=Path.Combine(output,"editor.clean.motion.json");document.Save(c
         Expect(registered.Count>0&&help.Contains(registered[0].Name+" → "+registered[0].Resource),"help lists registered original motions");
         ApplyToGame();var player=world.Instances.First(i=>!i.Destroyed&&world.IsObject(i.Object,world.Constants["objPlayerDoll"].Int));
         Expect(world.NativeServices!.Motions.State(new(world,player)) is not null,"edited graph applies to the game actor");
-        GD.Print("MOTION_EDITOR_AUDIT_OK import=PASS edit=PASS undo=PASS save=PASS reload=PASS preview=PASS game=PASS");
+        GD.Print("MOTION_EDITOR_AUDIT_OK import=PASS edit=PASS undo=PASS save=PASS reload=PASS preview=PASS game=PASS studio=PASS immediate=PASS state=PASS events=PASS ring=PASS");
     }
 }

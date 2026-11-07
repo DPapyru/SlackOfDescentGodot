@@ -222,6 +222,7 @@ public partial class NativeActionEditor : Window
                 if (clip is not null) foreach (var item in clip.Events.Where(e => !e.Contact && e.Start > lastFrame && e.Start <= state.Frame)) lastEvents.Add(item.Value.Length > 0 ? item.Value : item.Id);
                 lastState = state.State; lastFrame = state.Frame;
                 playState.Text = $"{state.State}  frame={state.Frame:F1}  x={active.X:F2} y={active.Y:F2} suspended={state.Suspended}";
+                timelineSlider.SetValueNoSignal(state.Frame);
             }
             canvas.QueueRedraw(); SyncOverlay();
         }

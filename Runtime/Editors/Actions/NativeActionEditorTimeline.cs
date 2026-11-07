@@ -55,7 +55,7 @@ public partial class NativeActionEditor
         var ik = Row(page); Button(ik, "绑定所选末端", BindSelectedIk); Button(ik, "解除所选 IK", UnbindSelectedIk);
         page.AddChild(new Label { Text = "位移与缩放线性插值；旋转取最短角度；贴图帧阶梯切换。根偏移只改变姿态，不移动实体。", AutowrapMode = TextServer.AutowrapMode.WordSmart });
     }
-    private void BuildTimeline(VBoxContainer root)
+    private void BuildTimeline(Node root)
     {
         var dock = new VBoxContainer { Name = "TimelineDock", CustomMinimumSize = new(0, 150) }; root.AddChild(dock);
         var header = Row(dock);

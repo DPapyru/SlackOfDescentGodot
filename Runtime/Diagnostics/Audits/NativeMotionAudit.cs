@@ -94,7 +94,9 @@ public partial class NativeMotionAudit : Node
             {
                 await game.InitializeAsync();
                 var editor=new NativeActionEditor(game.World,game.Registry,store,[]){Visible=false};AddChild(editor);
-                await editor.AuditAsync(temp);RemoveChild(editor);editor.QueueFree();
+                await editor.AuditAsync(temp);
+                if(System.Environment.GetEnvironmentVariable("SLACK_MOTION_IMPORT_PERF") is{Length:>0} importPerf)await editor.ImportForensicsAsync(importPerf);
+                RemoveChild(editor);editor.QueueFree();
                 string package=Path.Combine(temp,"motion-package");Directory.CreateDirectory(package);
                 var packaged=new MotionGraph{Id="audit.package.motion",Clips=[new()],States=[new()]};packaged.Save(Path.Combine(package,"player.motion.json"));
                 NativeContentStore.Save(Path.Combine(package,"mod.json"),new NativeModManifest{FormatVersion=2,Id="audit.motion.package",Name="Motion package",Version="1.0.0",Content=new(){Motions={{packaged.Id,"player.motion.json"}}}});

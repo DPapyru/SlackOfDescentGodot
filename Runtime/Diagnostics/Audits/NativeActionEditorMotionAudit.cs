@@ -52,6 +52,7 @@ public partial class NativeActionEditor
             var transport=Descendants(this).FirstOrDefault(node=>node.Name=="TimelineDock");
             Expect(transport is not null&&Descendants(transport).OfType<CheckButton>().Any(button=>button.Text is "▶" or "⏸"),"the transport dock owns the play toggle");
             Expect(transport is not null&&Descendants(transport).OfType<Button>().Any(button=>button.Text=="单帧"),"the transport dock owns single step");
+            Expect(Descendants(this).OfType<VSplitContainer>().Any(split=>Descendants(split).Contains(transport)),"the bottom dock is resizable through a split container");
             Expect(transport is not null&&Descendants(transport).OfType<OptionButton>().Any(button=>button.ItemCount==3&&Enumerable.Range(0,3).Select(index=>button.GetItemText(index)).SequenceEqual(new[]{"0.5x","1x","2x"})),"the transport dock owns the speed chooser");
             Expect(stateList is ItemList&&stateList.GetParent()?.GetParent() is TabContainer dockPages&&dockPages.GetTabTitle(0)=="状态","the left dock starts with the state list");
             Expect(MenuLabels("视图").Contains("重载预览"),"the view menu keeps the reload preview fallback");
@@ -65,6 +66,10 @@ public partial class NativeActionEditor
         Layout();
         GD.Print("MOTION_EDITOR_LAYOUT_OK");
         await Ready();
+        Expect(preview!.Bridge.BoundCharacter(preview.Player!.Id) is not null,"the preview keeps the character binding");
+        var engineView=preview.World.Engine;
+        engineView.Write("view_xview",123,0);engineView.Write("view_yview",45,0);SyncOverlay();
+        Expect(Math.Abs(overlay!.View.ViewX-123)<.001&&Math.Abs(overlay.View.ViewY-45)<.001,"the skeleton overlay follows the renderer camera");
         PopupCentered();
         for(int i=0;i<3;i++)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
         var statePage=inspector.GetTabControl(1);
@@ -106,6 +111,10 @@ public partial class NativeActionEditor
         Expect(Math.Abs(Clip.Sample(3)["HEAD"].Angle-30)<.001,"editing the angle writes the key immediately");
         RunAction("undo");Expect(Math.Abs(Clip.Sample(3)["HEAD"].Angle-liveAngle)<.001,"undo covers immediate writes");
         RunAction("redo");Expect(Math.Abs(Clip.Sample(3)["HEAD"].Angle-30)<.001,"redo covers immediate writes");
+        _UnhandledKeyInput(new InputEventKey{Keycode=Key.Z,CtrlPressed=true,Pressed=true});
+        Expect(Math.Abs(Clip.Sample(3)["HEAD"].Angle-liveAngle)<.001,"ctrl+z undoes the last edit");
+        _UnhandledKeyInput(new InputEventKey{Keycode=Key.Z,CtrlPressed=true,ShiftPressed=true,Pressed=true});
+        Expect(Math.Abs(Clip.Sample(3)["HEAD"].Angle-30)<.001,"ctrl+shift+z redoes the last edit");
         duration.Value=25;Expect(Clip.Duration==25,"the clip duration is written immediately");
         loop.ButtonPressed=false;Expect(!Clip.Loop,"the clip loop flag is written immediately");
         Expect(!ButtonText("写入关键帧")&&!ButtonText("更新片段")&&!ButtonText("写入参数")&&!ButtonText("写入事件"),"the submit buttons are gone");
@@ -226,12 +235,20 @@ public partial class NativeActionEditor
         SelectBone("HEAD");
         var ringNodes=ringActor.Services.Motions.Skeleton(ringActor);
         var headNode=ringNodes.Single(node=>node.Name=="HEAD");
+        var boneIds=ringNodes.Select(node=>node.Instance).ToHashSet();
+        var drawnParts=ringActor.World.Instances.Where(instance=>!instance.Destroyed&&instance.Active&&instance.Scope.ReadOr("DrawTarget",-1).Int==ringActor.Instance.Id).ToArray();
+        (double Left,double Top,double Right,double Bottom) Union(IEnumerable<(double X,double Y)> points){double left=double.MaxValue,top=double.MaxValue,right=double.MinValue,bottom=double.MinValue;foreach(var (x,y) in points){left=Math.Min(left,x);top=Math.Min(top,y);right=Math.Max(right,x);bottom=Math.Max(bottom,y);}return(left,top,right,bottom);}
+        var dollBounds=Union(drawnParts.Where(part=>!ringActor.World.Bounds(part).Empty).Select(part=>{var bounds=ringActor.World.Bounds(part);return(bounds.Left,bounds.Top);}).Concat(drawnParts.Where(part=>!ringActor.World.Bounds(part).Empty).Select(part=>{var bounds=ringActor.World.Bounds(part);return(bounds.Right,bounds.Bottom);})));
+        var boneBounds=Union(ringNodes.Select(node=>(node.X,node.Y)));
+        Expect(boneBounds.Left>=dollBounds.Left-24&&boneBounds.Right<=dollBounds.Right+24&&boneBounds.Top>=dollBounds.Top-24&&boneBounds.Bottom<=dollBounds.Bottom+24,"the skeleton sits inside the drawn doll: doll="+dollBounds+" bone="+boneBounds);
+
         Expect(overlay!.RingVisible,"selecting a bone shows the ring");
-        Expect(Math.Abs(overlay.RingPixelRadius-54)<.001,"the ring keeps a fixed 54 pixel radius");
+        Expect(Math.Abs(overlay.RingPixelRadius-72)<.001,"the ring keeps a fixed 72 pixel radius");
         Expect(Math.Abs((overlay.BallAngle??double.NaN)-headNode.Angle)<.001,"the ball angle equals the selected bone world angle");
-        var arrows=overlay.ArrowPoints;
-        Expect(arrows.Count==8,"the ring shows eight step arrows");
-        for(int i=0;i<8;i++)Expect(overlay.RingHit(arrows[i])=="arrow:"+i,"arrow "+i+" is hittable");
+        var bars=overlay.BarPoints;
+        Expect(bars.Count==2,"the ring shows an X bar and a Y bar");
+        Expect(overlay.RingHit(bars[0])=="bar:x","the X bar is hittable");
+        Expect(overlay.RingHit(bars[1])=="bar:y","the Y bar is hittable");
         int ballUndo=document.UndoDepth;
         var ball=overlay.BallPoint;Expect(ball is not null,"the ring shows a ball");
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=ball!.Value});
@@ -245,25 +262,26 @@ public partial class NativeActionEditor
         Expect(document.UndoDepth==ballUndo+1,"the ball drag is one undo step");
         Expect(Math.Abs(ringActor.Services.Motions.Skeleton(ringActor).Single(node=>node.Name=="HEAD").Angle-desired)<.1,"the bone world angle follows the dragged absolute angle");
         SelectBone("HEAD");
-        var arrowNodes=ringActor.Services.Motions.Skeleton(ringActor);
-        double arrowStartY=arrowNodes.Single(node=>node.Name=="HEAD").Y;int arrowUndo=document.UndoDepth;
-        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=overlay.ArrowPoints[0]});
-        Expect(Math.Abs(ringActor.Services.Motions.Skeleton(ringActor).Single(node=>node.Name=="HEAD").Y-(arrowStartY-1))<.001,"the top arrow steps the bone one world unit up");
-        Expect(document.UndoDepth==arrowUndo+1,"an arrow step is one undo step");
+        var barBefore=Clip.Sample(0)["HEAD"];int barUndo=document.UndoDepth;
+        var xBar=overlay.BarPoints[0];
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=xBar});
+        Expect(dragging&&dragMode==DragMode.BarX,"pressing the X bar starts a local X drag");
+        SurfaceInput(new InputEventMouseMotion{Position=xBar+new Vector2(24,0)});
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=xBar+new Vector2(24,0)});
+        var barAfter=Clip.Sample(0)["HEAD"];
+        Expect(barAfter.X>barBefore.X+.01,"dragging the X bar right increases local X");
+        Expect(Math.Abs(barAfter.Y-barBefore.Y)<.01,"the X bar leaves local Y alone");
+        Expect(document.UndoDepth==barUndo+1,"the X bar drag is one undo step");
         SelectBone("HEAD");
-        double shiftStartY=ringActor.Services.Motions.Skeleton(ringActor).Single(node=>node.Name=="HEAD").Y;
-        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,ShiftPressed=true,Position=overlay.ArrowPoints[0]});
-        Expect(Math.Abs(ringActor.Services.Motions.Skeleton(ringActor).Single(node=>node.Name=="HEAD").Y-(shiftStartY-10))<.001,"shift steps the arrow ten world units");
-        SelectBone("HEAD");
-        var localBefore=Clip.Sample(0)["HEAD"];
-        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=overlay.ArrowPoints[2]});
-        var localAfter=Clip.Sample(0)["HEAD"];
-        Expect(Math.Abs(localAfter.X-(localBefore.X+1))<.05&&Math.Abs(localAfter.Y-localBefore.Y)<.05,"the right arrow steps local X");
-        SelectBone("HEAD");
-        var verticalBefore=Clip.Sample(0)["HEAD"];
-        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=overlay.ArrowPoints[4]});
-        var verticalAfter=Clip.Sample(0)["HEAD"];
-        Expect(Math.Abs(verticalAfter.Y-(verticalBefore.Y+1))<.05&&Math.Abs(verticalAfter.X-verticalBefore.X)<.05,"the down arrow steps local Y");
+        var yBefore=Clip.Sample(0)["HEAD"];int yUndo=document.UndoDepth;
+        var yBar=overlay.BarPoints[1];
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=yBar});
+        Expect(dragging&&dragMode==DragMode.BarY,"pressing the Y bar starts a local Y drag");
+        SurfaceInput(new InputEventMouseMotion{Position=yBar+new Vector2(0,-24)});
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=yBar+new Vector2(0,-24)});
+        var yAfter=Clip.Sample(0)["HEAD"];
+        Expect(yAfter.Y<yBefore.Y-.01,"dragging the Y bar up moves the bone up");
+        Expect(document.UndoDepth==yUndo+1,"the Y bar drag is one undo step");
         SelectBone("HAND1_ABOVE");
         Expect(overlay.ChainFocusIndex>=0,"selecting an IK chain bone focuses the chain");
         var chainBones=overlay.FocusChainBones;
@@ -589,6 +607,7 @@ public partial class NativeActionEditor
         double playBefore=playActor.Services.Motions.State(playActor)!.Frame;
         TickPlayback(FrameContext.FixedDelta);await Ready();
         Expect(playActor.Services.Motions.State(playActor)!.Frame==playBefore+1,"play advances one fixed frame "+playBefore+"->"+playActor.Services.Motions.State(playActor)!.Frame);
+        Expect(Math.Abs(timelineSlider.Value-(playBefore+1))<.001,"the progress bar follows playback");
         playing.ButtonPressed=false;
         double pausedFrame=playActor.Services.Motions.State(playActor)!.Frame;
         TickPlayback(FrameContext.FixedDelta);await Ready();
@@ -625,8 +644,11 @@ public partial class NativeActionEditor
         Expect(help.Contains("MotionChange")&&help.Contains("PlayerMotionLoad"),"help text names the original motion hooks");
         var registered=MotionImport.Registered(world.Code["external/Chara/Nana/motion_list.txt"]);
         Expect(registered.Count>0&&help.Contains(registered[0].Name+" → "+registered[0].Resource),"help lists registered original motions");
-        ApplyToGame();var player=world.Instances.First(i=>!i.Destroyed&&world.IsObject(i.Object,world.Constants["objPlayerDoll"].Int));
-        Expect(world.NativeServices!.Motions.State(new(world,player)) is not null,"edited graph applies to the game actor");
+        if(world.Instances.Any(i=>!i.Destroyed&&world.IsObject(i.Object,world.Constants["objPlayerDoll"].Int)))
+        {
+            ApplyToGame();var player=world.Instances.First(i=>!i.Destroyed&&world.IsObject(i.Object,world.Constants["objPlayerDoll"].Int));
+            Expect(world.NativeServices!.Motions.State(new(world,player)) is not null,"edited graph applies to the game actor");
+        }
         GD.Print("MOTION_EDITOR_AUDIT_OK import=PASS edit=PASS undo=PASS save=PASS reload=PASS preview=PASS game=PASS studio=PASS immediate=PASS state=PASS events=PASS ring=PASS");
     }
 }

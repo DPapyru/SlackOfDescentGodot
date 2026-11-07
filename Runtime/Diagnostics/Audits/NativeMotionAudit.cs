@@ -14,6 +14,15 @@ public partial class NativeMotionAudit : Node
         {
             string root=ProjectSettings.GlobalizePath("res://GameData");var live=new GmWorld(root,Path.Combine(root,"assets"),Path.Combine(temp,"live"));var store=new NativeContentStore(Path.Combine(temp,"content"));var registry=new ContentRegistry();
             NativeLocalization.Initialize(root,live.UserRoot);
+            bool editorOnly=System.Environment.GetEnvironmentVariable("SLACK_MOTION_EDITOR_ONLY") is{Length:>0};
+            if(editorOnly)
+            {
+                var only=new NativeActionEditor(live,registry,store,[]){Visible=false};AddChild(only);
+                await only.AuditAsync(temp);
+                if(System.Environment.GetEnvironmentVariable("SLACK_MOTION_IMPORT_PERF") is{Length:>0} importPerf)await only.ImportForensicsAsync(importPerf);
+                RemoveChild(only);only.QueueFree();
+                GD.Print("MOTION_AUDIT_OK checks=",checks);GetTree().Quit();return;
+            }
             foreach(string preset in new[]{"Nana","Ryoko","Yuki"})
             {
                 using var preview=new NativeCharacterPreview(this,live,registry,new(store));await preview.InitializeAsync();

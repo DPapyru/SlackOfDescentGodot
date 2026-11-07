@@ -74,8 +74,9 @@ public partial class NativeActionEditor
         var root = new VBoxContainer(); margin.AddChild(root);
         BuildMenus(root);
         BuildCharacterBar(root);
-        BuildWorkspace(root);
-        BuildTimeline(root);
+        var body = new VSplitContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill }; root.AddChild(body);
+        BuildWorkspace(body);
+        BuildTimeline(body);
         status = new Label { Name = "动作状态", AutoTranslateMode = AutoTranslateModeEnum.Disabled, AutowrapMode = TextServer.AutowrapMode.WordSmart, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new(0, 22) }; root.AddChild(status);
         Refresh(); InitializePreview();
     }

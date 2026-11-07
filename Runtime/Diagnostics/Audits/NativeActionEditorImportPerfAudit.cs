@@ -21,11 +21,13 @@ public partial class NativeActionEditor
         {
             if(original.ItemCount==0)throw new InvalidOperationException("No original motion is available.");
             original.Select((i-1)%original.ItemCount);
+            string expected=original.GetItemText((int)original.Selected).Replace('/','.');
+            var previous=document;
             long began=Stopwatch.GetTimestamp();
             ImportOriginal();
             while(busy)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
             for(int frame=0;frame<2;frame++)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
-            if(!status.Text.StartsWith("已导入",StringComparison.Ordinal))failed++;
+            if(ReferenceEquals(document,previous)||document.Graph.Id!=expected)failed++;
             samples.Add(Sample(i,Stopwatch.GetElapsedTime(began).TotalMilliseconds,0));
         }
         GC.Collect();GC.WaitForPendingFinalizers();GC.Collect();
@@ -43,7 +45,8 @@ public partial class NativeActionEditor
         GD.Print(table.ToString().TrimEnd('\n'));
         GD.Print("IMPORT_PERF_VERDICT imports=",imports," failed=",failed," instancesPerImport=",perImport.ToString("F2")," heapKBPerImport=",(heapPerImport/1024).ToString("F1"),
             " instancesAfterGc=",collected.Total," retainedAfterGc=",(collected.Total-baseline.Total)," heapKBAfterGc=",(collected.ManagedBytes/1024),
-            " idleCpuMsBefore=",baseline.IdleCpuMs.ToString("F0")," idleCpuMsAfter=",loaded.IdleCpuMs.ToString("F0"));
+            " idleCpuMsBefore=",baseline.IdleCpuMs.ToString("F0")," idleCpuMsAfter=",collected.IdleCpuMs.ToString("F0"));
+        if(failed>0)throw new InvalidOperationException("Motion import did not apply: "+failed+"/"+imports);
         GD.Print("IMPORT_PERF_OK");
     }
 

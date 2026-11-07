@@ -24,7 +24,7 @@ public static class MotionPatchParserTests
             Check(patch.Frames[i].Bones["FOOT1_ABOVE"] == knee[i], "knee pose " + i);
             Check(patch.Frames[i].Bones["HAND1_ABOVE"] == hand[i], "hand pose " + i);
         }
-        Check(knee[0].Y > knee[1].Y && knee[1].Y > knee[2].Y, "knee sinks across frames");
+        Check(patch.Frames[0].Bones["FOOT1_ABOVE"].Y > patch.Frames[1].Bones["FOOT1_ABOVE"].Y && patch.Frames[1].Bones["FOOT1_ABOVE"].Y > patch.Frames[2].Bones["FOOT1_ABOVE"].Y, "knee sinks across frames");
         return checks;
     }
 }

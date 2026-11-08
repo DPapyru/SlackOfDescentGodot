@@ -1,0 +1,66 @@
+{
+  "title": "动作 mod：包骨架与动作解析器失败测试（TDD 红）",
+  "body": "## 目标\n\n建 mod 包骨架，并为「动作文件解析器」写失败测试。\n\n## 规模硬上限\n\n- cs 文件 2~3 个，最多 4 个，只放三件事：解析动作 / 插入动作 / 入口注册。不加别的。\n- 动作数据文件 1 个（json 或 csv，定一种就够）。\n\n## 范围\n\n- 包：`mod.json`（formatVersion 2）+ csproj + 入口类型，能被 `NativeMods` 加载。\n- 载体已否决 MotionGraph：泥潭中 `Session.Forced()` 命中，整张图 Suspended。改用派生 `CharacterDefinition`（BasePreset = Nana）+ `ICharacterAction` 或 step 钩子。\n- 写**会失败**的测试：给一个最小动作文件，断言解析出帧数、每帧骨骼姿态、总时长。\n\n## 不做\n\n- 不实现插入、不写 qsink、不扣耐力、不做表情。\n- 不写文档、不加抽象。\n\n## 验收\n\n- `dotnet build` 通过。\n- 测试为红，失败原因就是解析器还不存在。\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-06T06:44:57Z",
+  "updatedAt": "2026-11-08T10:13:32Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": [
+      {
+        "editedAt": "2026-11-06T06:48:26Z",
+        "diff": "## 目标\n\n建 mod 包骨架，并为「动作文件解析器」写失败测试。\n\n## 规模硬上限\n\n- cs 文件 2~3 个，最多 4 个，只放三件事：解析动作 / 插入动作 / 入口注册。不加别的。\n- 动作数据文件 1 个（json 或 csv，定一种就够）。\n\n## 范围\n\n- 包：`mod.json`（formatVersion 2）+ csproj + 入口类型，能被 `NativeMods` 加载。\n- 载体已否决 MotionGraph：泥潭中 `Session.Forced()` 命中，整张图 Suspended。改用派生 `CharacterDefinition`（BasePreset = Nana）+ `ICharacterAction` 或 step 钩子。\n- 写**会失败**的测试：给一个最小动作文件，断言解析出帧数、每帧骨骼姿态、总时长。\n\n## 不做\n\n- 不实现插入、不写 qsink、不扣耐力、不做表情。\n- 不写文档、不加抽象。\n\n## 验收\n\n- `dotnet build` 通过。\n- 测试为红，失败原因就是解析器还不存在。\n",
+        "editor": {
+          "login": "DPapyru"
+        }
+      },
+      {
+        "editedAt": "2026-11-06T06:44:57Z",
+        "diff": "## 目标\n\n为「动作 mod」立最小骨架，并用一个失败测试把要做的行为钉死。\n\n## 范围\n\n- 建 mod 包：`mod.json`（formatVersion 2）+ 一个 csproj + 入口类型，落在 `Examples/Mods/` 还是新目录由实现者定，但必须是可被 NativeMods 加载的完整包。\n- 定义最小数据通路：mod 每帧向动作系统喂一个 sink 深度参数，动作图用已有的 `MotionConditionKind.Parameter` 消费它。\n- 写一个**会失败**的测试：断言角色 sink 深度越过膝盖阈值时，状态机允许进入一个追加动作（未实现，测试必红）。\n\n## 不做\n\n- 不实现动画表现、不接耐力扣除、不改 MotionGraph schema、不加通用 IK。\n- 不写文档。\n\n## 验收\n\n- `dotnet build` 通过。\n- 新测试存在且为红，失败原因就是「追加动作不存在」。\n",
+        "editor": {
+          "login": "DPapyru"
+        }
+      }
+    ]
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABjhvHqQ",
+        "body": "## 实现约束：动作数据不要从零画\n\n原版 Nana 的 sink 骨骼动画已经存在。动作数据的做法是从原版 QUICKSAND 系列帧里抽骨架当底，只改膝盖与手臂关节，拼出「抓膝盖 → 拔腿 → 举双手 → 踩下」。\n\n- 不新造整套骨骼姿态。\n- 解析器的输入格式要能表达「从哪套原版帧起、哪些骨骼被覆盖」。\n- 动作数据文件仍然只允许 1 个。",
+        "createdAt": "2026-11-06T06:57:35Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABjh0nbg",
+        "body": "## 实现计划\n\n### 文件（硬上限：3 个 cs + 1 个数据文件）\n\n| 文件 | 职责 |\n| --- | --- |\n| `MotionPatchParser.cs` | 读动作数据文件，产出帧序列。纯数据，不碰 Godot 节点。 |\n| `SinkKneeAction.cs` | `ICharacterAction`。每 tick 读 `touchingQS` 与 sink 深度，越过膝盖阈值后按帧写骨骼，播完恢复原值。 |\n| `<Mod>Entry.cs` | 注册 mod、派生 Nana 角色、登记上面那个 action。 |\n| `sink-pull-knee.json` | 唯一的动作数据文件。 |\n\n### 数据格式\n\n```json\n{\n  \"id\": \"mod.sink.pull-knee\",\n  \"base\": \"PlayerCommon/StandFem1_Sinking\",\n  \"duration\": 40,\n  \"frames\": [\n    { \"t\": 0,  \"bones\": { \"KNEE\": { \"x\": 0, \"y\": 0, \"angle\": 0 } } },\n    { \"t\": 20, \"bones\": { \"KNEE\": { \"x\": 0, \"y\": -6, \"angle\": 12 } } }\n  ]\n}\n```\n\n- `base` 指向原版帧，未在 `frames` 里出现的骨骼沿用原版姿态。这就是「不重画」的落点。\n- `frames` 只写被改的骨骼。\n\n### 插入流程\n\n1. `touchingQS != 0` 且 `y + 59 - qsobj.y` 越过阈值 → 进入动作。\n2. 每 tick 从 `base` 取原版姿态，叠加当前帧的骨骼覆盖，写回 part。\n3. 播完把 part 恢复原值，交还原版 sink。\n4. 中途命中 BINDED / DMG / 离开泥潭 → 立即中止并恢复，绝不残留半截覆盖。\n\n### 本计划不做\n\n- 不写 `qsink`、不扣耐力、不做表情（留给后续票）。\n- 不动 `y` / `vspeed`，不碰 MotionNum 分支。\n- 不做多动作调度器、不加配置项。\n\n### 测试\n\n`MotionPatchParser` 是唯一可单测的部分：给一份最小动作文件，断言帧数、首帧、时长、base 解析。插入逻辑靠实机验证，不硬凑单测。",
+        "createdAt": "2026-11-06T07:03:32Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

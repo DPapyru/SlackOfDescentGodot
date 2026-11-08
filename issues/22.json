@@ -1,0 +1,28 @@
+{
+  "title": "动作编辑器检查器拆分：状态页与状态机页",
+  "body": "## Parent\n\n#3\n\n## What to build\n\n右坞拆成 轨道、状态、状态机、事件。「状态」页只保留状态身份（标识、片段引用、新增/重命名/删除）与运动参数，一屏放下不滚动；新建「状态机」页，以节点图为主，点选节点或连线后在侧栏编辑转换与条件。\n\n## Acceptance criteria\n\n- [ ] 状态页一屏放下，无需滚动\n- [ ] 状态机页可增删状态、连线，编辑优先级与条件\n- [ ] 节点图与状态列表双向同步\n- [ ] 断言与截图\n\n## Blocked by\n\n- #19\n",
+  "state": "CLOSED",
+  "createdAt": "2026-11-07T00:38:30Z",
+  "updatedAt": "2026-11-07T05:29:01Z",
+  "closedAt": "2026-11-07T05:29:01Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "enhancement"
+      },
+      {
+        "name": "ready-for-agent"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

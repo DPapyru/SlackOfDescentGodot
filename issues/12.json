@@ -1,0 +1,43 @@
+{
+  "title": "动作 mod：实现解析器并插入动作（TDD 绿）",
+  "body": "## 目标\n\n让 #11 的测试变绿，并接上最小插入路径。\n\n## 规模硬上限\n\n同 #11：cs 文件 2~3 个，最多 4 个；动作数据文件 1 个。\n\n## 范围\n\n- 实现解析器，纯数据，不依赖 Godot 运行时。\n- 插入：注册 Nana 派生角色，step 钩子读 `touchingQS` 与 sink 深度，越过膝盖阈值后逐帧写骨骼姿态，播完恢复原值。\n- 触发阈值复用原版 `y + 59 - qsobj.y` 那套深度公式，阈值做成参数。\n\n## 不做\n\n- 本票不写 qsink、不扣耐力、不做表情。\n- 不碰 `y` / `vspeed`，不动 MotionNum 分支。\n- 不做多动作调度器。\n\n## 验收\n\n- #11 的测试转绿，`dotnet build` 通过，现有 Tests 不回归。\n- 实机：进泥潭后原版 sink 不被打断，姿态播完能干净恢复。\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-06T06:45:00Z",
+  "updatedAt": "2026-11-08T10:13:35Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": [
+      {
+        "editedAt": "2026-11-06T06:48:28Z",
+        "diff": "## 目标\n\n让 #11 的测试变绿，并接上最小插入路径。\n\n## 规模硬上限\n\n同 #11：cs 文件 2~3 个，最多 4 个；动作数据文件 1 个。\n\n## 范围\n\n- 实现解析器，纯数据，不依赖 Godot 运行时。\n- 插入：注册 Nana 派生角色，step 钩子读 `touchingQS` 与 sink 深度，越过膝盖阈值后逐帧写骨骼姿态，播完恢复原值。\n- 触发阈值复用原版 `y + 59 - qsobj.y` 那套深度公式，阈值做成参数。\n\n## 不做\n\n- 本票不写 qsink、不扣耐力、不做表情。\n- 不碰 `y` / `vspeed`，不动 MotionNum 分支。\n- 不做多动作调度器。\n\n## 验收\n\n- #11 的测试转绿，`dotnet build` 通过，现有 Tests 不回归。\n- 实机：进泥潭后原版 sink 不被打断，姿态播完能干净恢复。\n",
+        "editor": {
+          "login": "DPapyru"
+        }
+      },
+      {
+        "editedAt": "2026-11-06T06:45:00Z",
+        "diff": "## 目标\n\n让 #1 的失败测试变绿，只做够让它绿的量。\n\n## 范围\n\n- 用现成 `MotionGraph` / `MotionPlayer` / `NativeMotionService` 搭一条最短路径：膝盖深度阈值 → 参数满足 → 进入追加动作 → 播完回到原版 QUICKSAND 动作。\n- 追加动作先用占位帧（不改美术），只保证流程通。\n- 生成一个最小 `MotionGraph` 资源挂进 mod 的 `content.motions`。\n\n## 不做\n\n- 不做动作美术、不算耐力、不碰原版动作替换。\n- 不加任何人没要求的抽象或配置项。\n\n## 验收\n\n- #1 的测试转绿。\n- `dotnet build` 通过，现有 Tests 不回归。\n- 改动面尽量小，能复用的一律复用。\n",
+        "editor": {
+          "login": "DPapyru"
+        }
+      }
+    ]
+  },
+  "comments": {
+    "nodes": []
+  }
+}

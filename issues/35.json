@@ -1,0 +1,48 @@
+{
+  "title": "流程 v2：门禁、规则与归档",
+  "body": "## AI回复\n\n流程 v2 的代码化落地：main/ai 分工、PR 门禁、AI 标记与不可变规则、issue 归档。\n\n## 目标\n\n- PR 到 `ai`/`main` 自动编译并跑 Architecture 检查；PR body 前 3 行需含 `Closes #N`（release PR 豁免）。\n- 增加 PR/issue 模板、CODEOWNERS；`verify.mjs` 放行 `.github/**`。\n- AGENTS/README 写入新规则：main/ai、评论不可变、DECISION/SPEC/ACK/VETO、`## AI回复` 标记、Wiki、归档。\n- 增加 issue 归档脚本与 nightly workflow，快照到 `issue-archive`。\n\n## 验收\n\n- 测试 PR 缺 `Closes` 变红；补上变绿。\n- `node Tools/verify.mjs` 通过。\n- 手动触发归档生成快照；重复触发不产生空提交。",
+  "state": "CLOSED",
+  "createdAt": "2026-11-08T10:05:49Z",
+  "updatedAt": "2026-11-08T12:36:32Z",
+  "closedAt": "2026-11-08T12:36:32Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": []
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": [
+      {
+        "editedAt": "2026-11-08T10:06:13Z",
+        "diff": "## AI回复\n\n流程 v2 的代码化落地：main/ai 分工、PR 门禁、AI 标记与不可变规则、issue 归档。\n\n## 目标\n\n- PR 到 `ai`/`main` 自动编译并跑 Architecture 检查；PR body 前 3 行需含 `Closes #N`（release PR 豁免）。\n- 增加 PR/issue 模板、CODEOWNERS；`verify.mjs` 放行 `.github/**`。\n- AGENTS/README 写入新规则：main/ai、评论不可变、DECISION/SPEC/ACK/VETO、`## AI回复` 标记、Wiki、归档。\n- 增加 issue 归档脚本与 nightly workflow，快照到 `issue-archive`。\n\n## 验收\n\n- 测试 PR 缺 `Closes` 变红；补上变绿。\n- `node Tools/verify.mjs` 通过。\n- 手动触发归档生成快照；重复触发不产生空提交。",
+        "editor": {
+          "login": "DPapyru"
+        }
+      },
+      {
+        "editedAt": "2026-11-08T10:05:49Z",
+        "diff": "## AI回复\\n\\n流程 v2 的代码化落地：main/ai 分工、PR 门禁、AI 标记与不可变规则、issue 归档。\\n\\n## 目标\\n\\n- PR 到 / 自动编译并跑 Architecture 检查；PR body 前 3 行需含 （release PR 豁免）。\\n- 增加 PR/issue 模板、CODEOWNERS； 放行 。\\n- AGENTS/README 写入新规则：main/ai、评论不可变、DECISION/SPEC/ACK/VETO、 标记、Wiki、归档。\\n- 增加 issue 归档脚本与 nightly workflow，快照到 。\\n\\n## 验收\\n\\n- 测试 PR 缺  变红；补上变绿。\\n- {\"backgrounds\":53,\"codeUnits\":98098,\"external\":1997,\"fonts\":7,\"objects\":371,\"parseErrors\":0,\"rooms\":110,\"scripts\":358,\"sounds\":201,\"sprites\":341,\"variableActions\":296,\"branchContent\":\"PASS\"} 通过。\\n- 手动触发归档生成快照；重复触发不产生空提交。",
+        "editor": {
+          "login": "DPapyru"
+        }
+      }
+    ]
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABkKMFCg",
+        "body": "## AI回复\n\n流程 v2 已落地：\n\n- #36（AGENTS/README 规则）与 #38（CI、模板、归档、global.json）已合并进 `ai`。\n- `main` 已建立并设为默认分支。\n- 决策索引见 #37（pinned）。\n- 后续 #34 大优化轮按新流程执行：feature PR -> `ai`，release PR `ai -> main`。",
+        "createdAt": "2026-11-08T12:36:30Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

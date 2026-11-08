@@ -1,0 +1,28 @@
+{
+  "title": "Stage4-4在(3168,672)的实体触发捕获玩家效果偶出现无限旋转",
+  "body": "## bug复现\n\n1. 角色Nana(或许其他角色也有,当前只测试了这个)\n2. 来到(3168,672)所在的实体位置\n3. 跳入这个实体\n4. 挣扎\n5. 挣扎成功,角色应该垂直上升一会,随后重新被实体捕获\n6. 偶见bug: 卡在实体上方约150px以内的位置,角色无限旋转\n7. 脱离状态: 使用回车重置角色状态/Home强制移动角色解除问题\n\n## bug猜测\n\n*实体卡入图块内引起的问题*\n\n- 在Stage4-Boss，X位置在2400附近有被卡入地板,从而角色无法进行正常移动\n- 在Playground，(8176,992)对应实体可能被图块遮挡,从而无法触发正常行为",
+  "state": "OPEN",
+  "createdAt": "2026-11-02T10:58:27Z",
+  "updatedAt": "2026-11-02T10:58:27Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "bug"
+      },
+      {
+        "name": "enhancement"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "title": "docs: 协作规则对齐现状（AGENTS.md 补 Issues/PR 规则、README 去掉 ai-clean）",
+  "body": "## 背景\n\n`ai` 分支的协作规则仍停留在旧工作流：`README.md` 声明「当前工作分支为 `ai-clean`，不 push，不建 PR」，而实际协作已改为 issue + 分支 + PR（PR #16 即从 `dsh-109e8b2e-20a9` 合入）。新规则只存在于已废弃的本地分支 `ai-clean` 的提交 `1efd69c`（`AGENTS.md` +9 行），`ai` 上没有。\n\n## 改动\n\n1. `AGENTS.md`：补充 `Issues & Pull Requests` 一节（Issue First、一分支一 issue、PR 目标 `ai`、PR 范围、计划写在 issue、代理不合并）。\n2. `README.md`：把 `ai-clean` 的旧表述改为当前工作分支 `ai`；「不 push，不建 PR」改为「不改 `human` / `feature/*`，PR 只提向 `ai`」。\n3. 文档落地后归档本地 `ai-clean` 分支（内容已全部进入 `ai`，仅 `1efd69c` 为文档差异）。\n\n## 验收\n\n- `node Tools/verify.mjs` 通过（仅白名单内两个 Markdown 变更）。\n- 除 `AGENTS.md`、`README.md` 外无其他文件改动。\n",
+  "state": "CLOSED",
+  "createdAt": "2026-11-07T00:15:11Z",
+  "updatedAt": "2026-11-07T00:19:56Z",
+  "closedAt": "2026-11-07T00:19:56Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": []
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": [
+      {
+        "editedAt": "2026-11-07T00:15:34Z",
+        "diff": "## 背景\n\n`ai` 分支的协作规则仍停留在旧工作流：`README.md` 声明「当前工作分支为 `ai-clean`，不 push，不建 PR」，而实际协作已改为 issue + 分支 + PR（PR #16 即从 `dsh-109e8b2e-20a9` 合入）。新规则只存在于已废弃的本地分支 `ai-clean` 的提交 `1efd69c`（`AGENTS.md` +9 行），`ai` 上没有。\n\n## 改动\n\n1. `AGENTS.md`：补充 `Issues & Pull Requests` 一节（Issue First、一分支一 issue、PR 目标 `ai`、PR 范围、计划写在 issue、代理不合并）。\n2. `README.md`：把 `ai-clean` 的旧表述改为当前工作分支 `ai`；「不 push，不建 PR」改为「不改 `human` / `feature/*`，PR 只提向 `ai`」。\n3. 文档落地后归档本地 `ai-clean` 分支（内容已全部进入 `ai`，仅 `1efd69c` 为文档差异）。\n\n## 验收\n\n- `node Tools/verify.mjs` 通过（仅白名单内两个 Markdown 变更）。\n- 除 `AGENTS.md`、`README.md` 外无其他文件改动。\n",
+        "editor": {
+          "login": "DPapyru"
+        }
+      },
+      {
+        "editedAt": "2026-11-07T00:15:11Z",
+        "diff": "## 背景\\n\\n 分支的协作规则仍停留在旧工作流： 声明「当前工作分支为 ，不 push，不建 PR」，而实际协作已改为 issue + 分支 + PR（PR #16 即从  合入）。新规则只存在于已废弃的本地分支  的提交 （ +9 行）， 上没有。\\n\\n## 改动\\n\\n1. ：补充  一节（Issue First、一分支一 issue、PR 目标 、PR 范围、计划写在 issue、代理不合并）。\\n2. ：把  的旧表述改为当前工作分支 ；「不 push，不建 PR」改为「不改  / ，PR 只提向 」。\\n3. 文档落地后归档本地  分支（内容已全部进入 ，仅  为文档差异）。\\n\\n## 验收\\n\\n- {\"backgrounds\":53,\"codeUnits\":98098,\"external\":1997,\"fonts\":7,\"objects\":371,\"parseErrors\":0,\"rooms\":110,\"scripts\":358,\"sounds\":201,\"sprites\":341,\"variableActions\":296,\"branchContent\":\"PASS\"} 通过（仅白名单内两个 Markdown 变更）。\\n- 除 、 外无其他文件改动。",
+        "editor": {
+          "login": "DPapyru"
+        }
+      }
+    ]
+  },
+  "comments": {
+    "nodes": []
+  }
+}

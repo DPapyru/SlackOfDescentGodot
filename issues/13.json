@@ -1,0 +1,25 @@
+{
+  "title": "动作 mod：与原版 QUICKSAND 行为对齐验收",
+  "body": "## 目标\n\n验收追加动作与原版 QUICKSAND 行为的对齐程度。\n\n> 被 #1 #2 阻塞。\n\n## 验收标准\n\n- 触发点：sink 到膝盖深度才触发，不早不晚。\n- 动作序列：双手抓面朝方向的膝盖 → 向上拔腿 → 举双手 → 重新踩下。\n- 效果：踩下后 sink 深度增加，耐力值减少。\n- 表情：复用恐慌表情。\n- 结束后能自然回到原版 QUICKSAND 系列动作，不卡状态。\n- 逐项对照 #5 的描述打勾或打叉，有偏差的写清偏在哪。\n\n## 不做\n\n- 不在本票内改美术或调数值，只出对照结论。\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-06T06:45:01Z",
+  "updatedAt": "2026-11-08T10:13:37Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

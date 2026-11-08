@@ -1,0 +1,65 @@
+{
+  "title": "动作标记器操作优化",
+  "body": "#3 的衍生修改\n\n## 操作优化\n\n<img width=\"1918\" height=\"1002\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/ebf9e74d-55d4-48a6-91de-a215dea16990\" />\n\n如图,这是目前操作编辑器的情况\n\n### 骨骼对齐\n\n<img width=\"842\" height=\"808\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/34c5f6eb-e32b-49c9-83b2-6b3eb20cd979\" />\n这个图像首先没有做到，骨骼和玩家肢体对齐\n\n### 移动优化\n\n旋转保持为空心圆旋转，放大空心圆的面积\n箭头改为 空心圆间距一定距离，有 X 轴拖动条 和 Y轴拖动条，代替箭头\n\n### 选择节点优化\n\n**放大关节节点**\n\n### 下边操作栏优化\n\n- 下边操作栏可以改变视窗大小\n- 播放动画的时候，下面进度条跟着变化\n\n### 按键优化\n\n支持Ctrl+Z与Shift+Ctrl+Z，实现快捷键撤销与重做\n\n### bug\n\n- 当前如果尝试拖拽旋转,会出现一次大幅度肢体位移,猜测是拖拽触发了箭头的位移代码,后续修改也非常难调整",
+  "state": "CLOSED",
+  "createdAt": "2026-11-07T05:51:22Z",
+  "updatedAt": "2026-11-08T03:40:44Z",
+  "closedAt": "2026-11-08T03:40:44Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "bug"
+      },
+      {
+        "name": "enhancement"
+      },
+      {
+        "name": "question"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABj5Z1Uw",
+        "body": "## 处理结果（PR #31）\n\n逐条对照 #28：\n\n| 条目 | 状态 | 说明 |\n| --- | --- | --- |\n| bug：拖拽旋转时一次大幅度肢体位移 | ✅ 已修 | 根因是旋转环外圈 8 个步进箭头：按下落在箭头 10px 内就立刻 `Translate` 1 个局部单位，对短骨骼等于一次大跳。箭头已整体删除（换成拖动条），按下不再触发位移。 |\n| 移动优化：放大空心圆 + 箭头改 X/Y 拖动条 | ✅ 已做 | 环半径 54→72px，球命中半径 10→14px；X/Y 两根拖动条：按住拖动按指针增量改局部 X 或 Y，松手写一条撤销。 |\n| 选择节点优化：放大关节节点 | ✅ 已做 | 普通关节 3→5px、选中 5→8px、IK 末端手柄 6→9px。 |\n| 下边操作栏可改变视窗大小 | ✅ 已做 | 底部栏改由 `VSplitContainer` 承载，拖分隔条即可改变画布高度。 |\n| 播放时进度条跟随 | ✅ 已做 | 播放推进时同步 `timelineSlider`（不触发回写）。 |\n| Ctrl+Z / Shift+Ctrl+Z | ✅ 已做 | 输入框内不拦截，避免抢文本框的撤销。 |\n| **骨骼与玩家肢体对齐** | ⚠️ **未改，需要复现** | 见下。 |\n\n### 真实环境验证（6GB 预算内）\n\n本机是 X11 + llvmpipe（软件渲染），按要求只给 Godot 6GB：\n\n```\nSLACK_MOTION_EDITOR_ONLY=1 /usr/bin/time -v <godot> --display-driver x11 --audio-driver Dummy \\\n  --path <repo> res://Tools/NativeMotionAudit.tscn\nMOTION_EDITOR_AUDIT_OK import=PASS edit=PASS undo=PASS save=PASS reload=PASS preview=PASS game=PASS studio=PASS immediate=PASS state=PASS events=PASS ring=PASS\nMaximum resident set size (kbytes): 5164500        # ≈ 4.9GB ≤ 6GB\n```\n\n无头全量也全绿：`MOTION_AUDIT_OK checks=59` + `IMPORT_PERF_OK`。\n\n### 需要你确认：骨骼对齐\n\n本机截图路径会掉 GL 上下文（`ctxErrorOccurred || !glx_context`），无法稳定取图比对，所以这条我**没有盲改**。请给一个可复现状态：\n\n1. 目标角色（Nana/Ryoko/Yuki 或某个角色文件）+ 哪个动作 + 第几帧；\n2. 是「刚导入原版动作之后」就偏，还是一直偏；\n3. 偏差方向是否**恰好等于时间轴里「姿态根偏移」的 X/Y**（若是，说明肢体没跟着根偏移走，问题在渲染而不是骨骼点）。\n\n代码现状：叠加层画的是 `Motions.Skeleton(actor)` 的骨骼实例坐标，肢体也由同一批实例的位置绘制，两者理论上是同一个坐标；所以你看到的整体偏移更可能来自取景/相机或根偏移，而不是骨骼点本身。\n\n### 顺带发现（另开 issue）\n\n真实显示下**全量** motion 审计峰值 8.7GB：每个 `NativeCharacterPreview` 都会重新解析一遍 `GameData/code.json`，审计里同时存在 3 个 `GmWorld`。这与本次 UI 改动无关，但会让「6GB 预算」下的全量验证跑不动。\n",
+        "createdAt": "2026-11-07T07:33:59Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABj5mIQA",
+        "body": "## 骨骼对齐：定位到了「两套部件」，需要你选一个方向\n\n我把这条做成可测量的：无头审计里对比「骨骼点」和「实际被绘制的角色部件」。\n\n### 实测数据（无头，稳定复现）\n\n```\n骨骼 15 个（objCommon_*，来自 actor.Scope 的 BODY_TOP/HEAD/HAND*/FOOT* 变量）\n  HEAD   id=194741  (100, 432)\n  BODY_TOP id=194742 (96, 448)\n  HAND1_ABOVE id=194744 (106, 448)   …其余 12 个同样在 (96,448) 附近\n\n被绘制的角色部件 9 个（objNana_*，DrawTarget=角色，parent=-1）\n  objNana_Head  id=194965 (96, 448)\n  objNana_Body  id=194961 (96, 448)\n  objNana_Gun / BulletNum / Foot_Above / Foot_Below / Hand_Above / Hand_Below / objRyoko_Tail 全部 (96, 448)\n```\n\n结论：**骨骼点和可见肢体不是同一批实例**。叠加层画的是 `objCommon_*` 骨骼；而 `objNana_*` 外观部件是另一批实例，静止时都堆在角色原点 (96,448)。\n\n- 静止状态下两者包围盒是包含关系（角色 (80,414)-(112,454)，骨骼 (96,432)-(106,448)），所以**看起来不偏**；我已把这条固化成断言 `the skeleton sits inside the drawn doll`。\n- 一旦外观部件被摆到别处（播放 / 受击 / 倒地 / 换姿态），骨骼叠加层不会跟着走 → 就是你截图里「骨骼浮在别处、肢体躺着」的样子。\n\n### 需要你定方向（两条我都能做，改动都在渲染/姿态层，约 10-20 行）\n\n- **A：让动作图姿态同时驱动外观部件**（`objNana_*` 的 x/y 跟着对应骨骼走）→ 肢体真正跟着骨骼动，编辑器所见即实机。推荐。\n- **B：叠加层改为跟随外观部件**→ 只改画法，不动世界状态；但外观部件当前全在原点，骨骼会缩成一点，需要先有 A 的前提。\n\n回 `A` 或 `B` 我就接着做；如果你更想先看实机截图确认，请在**真实显卡**上开一次编辑器（本机 llvmpipe 的截图路径会掉 GL 上下文，我拿不到图）。\n\n（本条不阻塞 #28 其余 6 项的合入：PR #31 已含拖动条/放大环/放大关节/可调高度/进度条跟随/Ctrl+Z。）\n",
+        "createdAt": "2026-11-07T07:55:46Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABj5yn8Q",
+        "body": "## 骨骼对齐：找到并修了「相机不一致」（PR #31 已更新，`bac951b`）\n\n上一轮我说的「两套部件」是**表象**；继续查下去，真正会随播放/导入出现整体偏移的是**相机来源不一致**：\n\n- 渲染器用的是世界引擎里的相机：`GmGraphics.Build` 读 `view_xview/view_yview/view_wview/view_hview`。\n- 叠加层原来用的是编辑器自己那份 `viewCenterX/viewCenterY/viewWidth`（`FitView` 时写进引擎的那一份）。\n- 只要世界步进过（播放、单帧、拖动后重播），游戏自己的相机对象会把 `view_xview/view_yview` 改掉，渲染画面跟着走，**叠加层还停在旧取景** → 骨骼与肢体整体错开。你截图里 `frame=26`（播放过）且骨骼偏到一边，符合这个特征。\n\n### 修复（编辑器侧，6 行）\n\n`NativeActionEditorPose.PreviewView` 改为优先读渲染器实际相机，引擎没有开 view 时才回退到编辑器自己的取景：\n\n```csharp\nvar engine=preview?.World.Engine;\nif(engine is not null&&engine.ReadOr(\"view_enabled\").Truth)\n    return new(engine.Read(\"view_xview\",[0]).Number,engine.Read(\"view_yview\",[0]).Number,\n               engine.Read(\"view_wview\",[0]).Number,engine.Read(\"view_hview\",[0]).Number,PortWidth,PortHeight);\n```\n\n这样骨骼、旋转环、拖动条、关节、拾取全部和渲染画面共用一个相机；缩放/平移仍通过 `FrameOn` 写引擎相机，语义不变。\n\n### 新增回归断言（无头可跑）\n\n1. `the skeleton overlay follows the renderer camera`：把引擎相机改成 (123,45)，`SyncOverlay` 后叠加层的 view 必须跟着变。\n2. `the skeleton sits inside the drawn doll`：骨骼包围盒必须落在可见角色包围盒内。\n3. `the preview keeps the character binding`：预览必须始终持有角色绑定（否则外观会退回原版精灵）。\n\n全绿：`MOTION_AUDIT_OK checks=59` + `MOTION_EDITOR_AUDIT_OK` + `IMPORT_PERF_OK`；真实显示（X11，6GB 预算）峰值 4.9GB。\n\n### 还需要你确认一件事\n\n本机是 llvmpipe，截图路径会掉 GL 上下文，我没法给你实机对比图。请在真实显卡上开一次编辑器、**播放几帧后暂停**，看骨骼是否还跟着肢体；若仍偏，请把那一刻的 `view_xview/view_yview` 与状态栏 `x/y` 一起截图，我据此再定位（下一步怀疑点是外观 PNG 的锚点偏移 `part.AnchorX/OffsetX`）。\n",
+        "createdAt": "2026-11-07T08:15:48Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

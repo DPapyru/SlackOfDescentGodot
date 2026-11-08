@@ -1,0 +1,36 @@
+{
+  "title": "动作编辑器界面优化",
+  "body": "### 🎯 目标\n\n按 Issue #3 的最终确认方案（Q2=A），动作编辑器采用“单画布单世界”架构：左侧状态列表、中间唯一画布、右侧检查器、底部时间轴。本 issue 聚焦其中“画布直接操作部件与骨骼”这一子任务，目标是让用户在画布上点击部件即选中对应骨骼、拖动骨骼实时变形，并由画布驱动左栏与右侧检查器的双向高亮与数据同步。\n\n在此之前，画布上只能看到骨骼线，选骨骼必须去左栏找名字，拖动只能改数值框。本 issue 要消除这个割裂，把预览画布变成可编辑画布。\n\n\n### 📍 位置\n\n- **页面/模块**：动作编辑器（NativeActionEditor）\n- **涉及区域**：中间画布（Center Viewport / Canvas Stage）、底部时间轴（Timeline Track Area）、右侧动作选择面板（Right Sidebar）\n- **关键组件**：SVG 骨骼渲染层、关键帧轨道、动作下拉选择器\n\n\n### 🔄 变更内容\n\n**1. 画布：SVG 骨骼系统替代矩形模拟**\n\n当前画布用 `mock-character` 圆形或简单矩形占位，无法点选具体骨骼。改为 SVG 渲染完整的火柴人骨骼链（HEAD / BODY_TOP / BODY_BOTTOM / ARM_L_ELBOW / ARM_L_HAND / ARM_R_ELBOW / ARM_R_HAND / LEG_L_KNEE / LEG_L_FOOT / LEG_R_KNEE / LEG_R_FOOT），每个关节渲染为可点击的 `<circle>`，骨骼连线渲染为 `<line>`。\n\n**2. 动作选择器与时间轴解耦**\n\n右侧面板只负责选择当前编辑的动作（idle / run / dash / attack）。切换动作时，底部时间轴的轨道内容随之刷新，画布也同步加载该动作下当前帧的骨骼姿态。这与 Issue #3 中“一个标签 = 一个角色，一个动作 = 一个关键帧轨道组”的语义一致。\n\n**3. 时间轴按骨骼节点分行**\n\n底部轨道左侧显示骨骼节点名列表（BODY、HEAD、ARM_LEFT、ARM_RIGHT…），右侧内容区按时间刻度展示白色菱形关键帧。选中某个关键帧时，画布上对应骨骼节点应同步高亮（蓝色 `#007acc`）。\n\n**4. 双向选中联动（本 issue 的核心交互）**\n\n- **画布 → 左栏**：点击画布上的关节 circle，左栏代码块中对应骨骼的 `{ rot, x, y }` 块高亮。\n- **画布 → 时间轴**：被选中的骨骼在底部轨道头部同步高亮。\n- **画布 → 右侧**：右侧面板可预留属性区，显示当前选中骨骼的坐标值（即使初期只读）。\n\n\n### 🖼️ 视觉参考\n\n[action-edit.html](https://github.com/user-attachments/files/34540402/action-edit.html)\n\n*说明：该 HTML 文件作为纯前端 UI 演示，包含完整的 CSS 样式、SVG 火柴人骨骼节点、底部时间轴及右侧动作选择器，可作为 UI 验收和布局参考的基准。*\n\n\n### 🚫 约束与禁止项\n\n- **不要修改** Issue #3 中已锁定的“单画布单世界”架构：一个 SubViewport + 一个 NativeCharacterPreview，动作参数不另建预览。\n- **不要新增**“动作参数”工作区或任何工作区标签页，这些已在阶段 0 中删除。\n- **不要修改** 右侧检查器的标签页划分（轨道 / 状态 / 状态机 / 事件），本 issue 只动画布、动作选择器和时间轴轨道区域。\n- **不要实现** 拖拽变形逻辑本身；本 issue 只交付 UI 骨架与选中联动。真正的拖动实时变形、IK 解算、松手写键属于“画布直接操作部件与骨骼”子 issue 的核心逻辑。\n\n\n### ✅ 验收标准\n\n- [ ] 画布渲染完整的火柴人 SVG 骨骼链，包含 11 个可见关节节点和 9 条骨骼连线。\n- [ ] 点击画布上任一关节 `circle`，该关节的 `class` 变为 `joint selected`，视觉上呈蓝色高亮。\n- [ ] 点击关节时，底部时间轴中对应骨骼的轨道头部同步高亮；左栏代码块中对应骨骼的 `{ rot, x, y }` 块背景高亮。\n- [ ] 右侧动作下拉框切换选项时，底部时间轴轨道内容随之切换（初始可用静态 mock 数据模拟不同动作的关键帧分布差异）。\n- [ ] 时间轴中选中某个关键帧菱形，画布上对应骨骼连线与关节同步高亮。\n- [ ] 画布背景为网格样式（`background-image: linear-gradient` 双层），与 Issue #3 中“画布自适应取景”的视觉基调一致。\n- [ ] 现有 `MOTION_EDITOR_LAYOUT_OK` 与 `MOTION_EDITOR_AUDIT_OK` 审计断言不被破坏。\n\n\n### 🧪 验证方式\n\n- **自动化**：运行 `motion-audit headless`，确认 `MOTION_EDITOR_LAYOUT_OK` 仍通过；运行 `NativeActionEditorAudit`，确认 `ACTION_EDITOR_AUDIT_OK checks=41` 不被破坏。\n- **手动检查**：在浏览器中打开附件 HTML 文件，逐项勾选上述验收标准。确认 SVG 在 800×800 viewBox 下自适应居中，关节 hover 有视觉反馈，选中高亮不丢失。\n\n\n### 🔗 与 Issue #3 的关联\n\n本 issue 是 Issue #3 “把预览画布变成可编辑画布”的子任务，对应改造方向中的“画面里点哪个部件就选中对应骨骼，左栏与画面双向高亮”。它不依赖“预览跟手”或“打开不脏”子 issue，可独立先行；后续的拖拽变形与 IK 解算子 issue 将在此 UI 骨架上叠加上层逻辑。",
+  "state": "OPEN",
+  "createdAt": "2026-11-08T08:54:52Z",
+  "updatedAt": "2026-11-08T10:13:24Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "enhancement"
+      },
+      {
+        "name": "question"
+      },
+      {
+        "name": "round"
+      },
+      {
+        "name": "area:editor"
+      }
+    ]
+  },
+  "milestone": {
+    "title": "动作编辑器大优化"
+  },
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

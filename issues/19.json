@@ -1,0 +1,28 @@
+{
+  "title": "动作编辑器骨架：单画布单世界",
+  "body": "## Parent\n\n#3\n\n## What to build\n\n打开动作编辑器只有一个工作室：顶部是角色标签（一个标签 = 一个角色），左侧状态列表，中间唯一预览画布，右坞检查器，底部传输条。动作参数工作区连同它自己的预览世界一起移除，编辑器内不再出现 SDK 动作的导入/导出入口。同一时刻只存在一个预览世界。\n\n## Acceptance criteria\n\n- [ ] 编辑器内只有一个画布与一个预览世界；切换状态、切换片段不重建世界\n- [ ] 工作区标签与动作参数工作区消失，SDK 动作相关入口不在编辑器内\n- [ ] 一个标签 = 一个角色；新建/关闭标签行为与目标切换保持可用\n- [ ] 现有布局与预览一致性断言同步更新并通过\n\n## Blocked by\n\n- None (can start immediately)\n",
+  "state": "CLOSED",
+  "createdAt": "2026-11-07T00:38:07Z",
+  "updatedAt": "2026-11-07T05:29:00Z",
+  "closedAt": "2026-11-07T05:29:00Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "enhancement"
+      },
+      {
+        "name": "ready-for-agent"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

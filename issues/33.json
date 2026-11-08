@@ -1,0 +1,53 @@
+{
+  "title": "圈复杂度治理：拆分 5 处核心分发热点与帧循环",
+  "body": "## 背景\n\n只读圈复杂度评审（基线 `ai` @ d9dee62，165 个文件 / 28,789 行 / 1,350 个方法）显示：复杂度整体可控（平均 6.4），但高度集中在少数\"按名字分发\"的巨型 `switch` 与帧循环长方法。CCN 为启发式统计（if / else-if / for / foreach / while / case / catch / && / || / ??，基准 1；未计三元与 `?.`）。\n\n- 方法总数 1,350：CCN≥10 有 207 个（15.3%），≥15 有 128 个（9.5%），≥30 有 37 个（2.7%）。\n- 剔除默认不参与编译的 `Runtime/Diagnostics` 后：1,168 个方法，93 个 ≥15（8.0%），平均 5.8。\n- 模块平均 CCN：Gml 8.6、Host 6.4、Content 7.2、Mods 5.6、Editors 4.4、Gameplay 4.1、Sdk 2.4。\n\n## What to build\n\n按顺序拆成子 issue + 独立 PR（每个 PR 只做一项，避免一次改动过大）：\n\n- [ ] **1. `GmBuiltins.CallCore`（CCN 218 / 242 行）**：`Runtime/Gml/GmBuiltins.cs:271`。约 200 个内建函数名集中在一个方法（前置 if 链 + 巨型 switch + 5 层 fallback）。按域拆 partial（数学/字符串/实例/房间/文件/DS/绘图），名称分发改静态表；fallback 改为有序 handler 列表。\n- [ ] **2. `GmGraphics.Dispatch`（CCN 110 / 663 行，文件 3,194 行）**：`Runtime/Host/Rendering/GmGraphics.cs:2530`。命令名 switch；先做 `name → handler` 表，再按纹理/命令/捕获/合成拆文件。\n- [ ] **3. `GmWorld.StepAsync`（CCN 65 / 258 行）**：`Runtime/Gml/GmWorld.cs:1424`。按已有 `Performance.End(\"step\"/\"begin_*\")` 分段拆成快照、alarm、输入、step 事件、物理、碰撞、end-step 方法，顺序在一处显式调用。\n- [ ] **4. `GmGraphics.Build`（CCN 56 / 250 行）**：`Runtime/Host/Rendering/GmGraphics.cs:968`。抽相机、背景、实例规划/剔除、粒子、合成；规划与发射分离，保持零分配。\n- [ ] **5. `GameHost._Process`（CCN 41 / 242 行）**：`Runtime/Host/Godot/GameHost.cs:726`。抽 `DecideFrame()`（Skip/Pause/Step）消除 3 处重复早返回，再拆 `Sync*` 阶段。\n\n## 前置\n\n- 上述路径没有直接单测（`Tests/` 仅间接覆盖 GML 语义）。每项先补\"调用名 → 返回值/绘制命令\"金样快照，再迁移，用快照证明等价。\n- 均为热路径：拆分前后用 `SLACK_PROFILE=1` 与现有 `Performance` 计数对比，不得新增每帧分配。\n\n## 验收\n\n- [ ] 目标方法拆分后每段 CCN < 15，功能等价由金样覆盖\n- [ ] `dotnet build`、`dotnet run --project Tests/RuntimeTests.csproj`、`node Tools/verify.mjs`、`node Tools/gate.mjs` 全部通过\n- [ ] 每项独立 PR，首行 `Closes #<子 issue>`，PR 目标 `ai`\n- [ ] 不新增注释、不改文档、不做无关重构\n\n## 不计入\n\n- `Runtime/Diagnostics/*`：默认 `Compile Remove`，仅 `IncludeDiagnostics=true` 时编译，属开发期工具。\n- `Runtime/Sdk`、`Runtime/Gameplay`：平均 CCN 2.4 / 4.1，无优化必要。\n- 单一语句压缩成行、零注释是仓库既有风格，不借本票调整。\n\nRefs #32\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-07T09:15:00Z",
+  "updatedAt": "2026-11-08T10:13:27Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "enhancement"
+      },
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:perf"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": [
+      {
+        "editedAt": "2026-11-07T09:15:22Z",
+        "diff": "## 背景\n\n只读圈复杂度评审（基线 `ai` @ d9dee62，165 个文件 / 28,789 行 / 1,350 个方法）显示：复杂度整体可控（平均 6.4），但高度集中在少数\"按名字分发\"的巨型 `switch` 与帧循环长方法。CCN 为启发式统计（if / else-if / for / foreach / while / case / catch / && / || / ??，基准 1；未计三元与 `?.`）。\n\n- 方法总数 1,350：CCN≥10 有 207 个（15.3%），≥15 有 128 个（9.5%），≥30 有 37 个（2.7%）。\n- 剔除默认不参与编译的 `Runtime/Diagnostics` 后：1,168 个方法，93 个 ≥15（8.0%），平均 5.8。\n- 模块平均 CCN：Gml 8.6、Host 6.4、Content 7.2、Mods 5.6、Editors 4.4、Gameplay 4.1、Sdk 2.4。\n\n## What to build\n\n按顺序拆成子 issue + 独立 PR（每个 PR 只做一项，避免一次改动过大）：\n\n- [ ] **1. `GmBuiltins.CallCore`（CCN 218 / 242 行）**：`Runtime/Gml/GmBuiltins.cs:271`。约 200 个内建函数名集中在一个方法（前置 if 链 + 巨型 switch + 5 层 fallback）。按域拆 partial（数学/字符串/实例/房间/文件/DS/绘图），名称分发改静态表；fallback 改为有序 handler 列表。\n- [ ] **2. `GmGraphics.Dispatch`（CCN 110 / 663 行，文件 3,194 行）**：`Runtime/Host/Rendering/GmGraphics.cs:2530`。命令名 switch；先做 `name → handler` 表，再按纹理/命令/捕获/合成拆文件。\n- [ ] **3. `GmWorld.StepAsync`（CCN 65 / 258 行）**：`Runtime/Gml/GmWorld.cs:1424`。按已有 `Performance.End(\"step\"/\"begin_*\")` 分段拆成快照、alarm、输入、step 事件、物理、碰撞、end-step 方法，顺序在一处显式调用。\n- [ ] **4. `GmGraphics.Build`（CCN 56 / 250 行）**：`Runtime/Host/Rendering/GmGraphics.cs:968`。抽相机、背景、实例规划/剔除、粒子、合成；规划与发射分离，保持零分配。\n- [ ] **5. `GameHost._Process`（CCN 41 / 242 行）**：`Runtime/Host/Godot/GameHost.cs:726`。抽 `DecideFrame()`（Skip/Pause/Step）消除 3 处重复早返回，再拆 `Sync*` 阶段。\n\n## 前置\n\n- 上述路径没有直接单测（`Tests/` 仅间接覆盖 GML 语义）。每项先补\"调用名 → 返回值/绘制命令\"金样快照，再迁移，用快照证明等价。\n- 均为热路径：拆分前后用 `SLACK_PROFILE=1` 与现有 `Performance` 计数对比，不得新增每帧分配。\n\n## 验收\n\n- [ ] 目标方法拆分后每段 CCN < 15，功能等价由金样覆盖\n- [ ] `dotnet build`、`dotnet run --project Tests/RuntimeTests.csproj`、`node Tools/verify.mjs`、`node Tools/gate.mjs` 全部通过\n- [ ] 每项独立 PR，首行 `Closes #<子 issue>`，PR 目标 `ai`\n- [ ] 不新增注释、不改文档、不做无关重构\n\n## 不计入\n\n- `Runtime/Diagnostics/*`：默认 `Compile Remove`，仅 `IncludeDiagnostics=true` 时编译，属开发期工具。\n- `Runtime/Sdk`、`Runtime/Gameplay`：平均 CCN 2.4 / 4.1，无优化必要。\n- 单一语句压缩成行、零注释是仓库既有风格，不借本票调整。\n\nRefs #32\n",
+        "editor": {
+          "login": "DPapyru"
+        }
+      },
+      {
+        "editedAt": "2026-11-07T09:15:20Z",
+        "diff": "## 背景\n\n只读圈复杂度评审（基线 `ai` @ d9dee62，165 个文件 / 28,789 行 / 1,350 个方法）显示：复杂度整体可控（平均 6.4），但高度集中在少数\"按名字分发\"的巨型 `switch` 与帧循环长方法。CCN 为启发式统计（if / else-if / for / foreach / while / case / catch / && / || / ??，基准 1；未计三元与 `?.`）。\n\n- 方法总数 1,350：CCN≥10 有 207 个（15.3%），≥15 有 128 个（9.5%），≥30 有 37 个（2.7%）。\n- 剔除默认不参与编译的 `Runtime/Diagnostics` 后：1,168 个方法，93 个 ≥15（8.0%），平均 5.8。\n- 模块平均 CCN：Gml 8.6、Host 6.4、Content 7.2、Mods 5.6、Editors 4.4、Gameplay 4.1、Sdk 2.4。\n\n## What to build\n\n按顺序拆成子 issue + 独立 PR（每个 PR 只做一项，避免一次改动过大）：\n\n- [x] **1. `GmBuiltins.CallCore`（CCN 218 / 242 行）**：`Runtime/Gml/GmBuiltins.cs:271`。约 200 个内建函数名集中在一个方法（前置 if 链 + 巨型 switch + 5 层 fallback）。按域拆 partial（数学/字符串/实例/房间/文件/DS/绘图），名称分发改静态表；fallback 改为有序 handler 列表。\n- [ ] **2. `GmGraphics.Dispatch`（CCN 110 / 663 行，文件 3,194 行）**：`Runtime/Host/Rendering/GmGraphics.cs:2530`。命令名 switch；先做 `name → handler` 表，再按纹理/命令/捕获/合成拆文件。\n- [ ] **3. `GmWorld.StepAsync`（CCN 65 / 258 行）**：`Runtime/Gml/GmWorld.cs:1424`。按已有 `Performance.End(\"step\"/\"begin_*\")` 分段拆成快照、alarm、输入、step 事件、物理、碰撞、end-step 方法，顺序在一处显式调用。\n- [ ] **4. `GmGraphics.Build`（CCN 56 / 250 行）**：`Runtime/Host/Rendering/GmGraphics.cs:968`。抽相机、背景、实例规划/剔除、粒子、合成；规划与发射分离，保持零分配。\n- [ ] **5. `GameHost._Process`（CCN 41 / 242 行）**：`Runtime/Host/Godot/GameHost.cs:726`。抽 `DecideFrame()`（Skip/Pause/Step）消除 3 处重复早返回，再拆 `Sync*` 阶段。\n\n## 前置\n\n- 上述路径没有直接单测（`Tests/` 仅间接覆盖 GML 语义）。每项先补\"调用名 → 返回值/绘制命令\"金样快照，再迁移，用快照证明等价。\n- 均为热路径：拆分前后用 `SLACK_PROFILE=1` 与现有 `Performance` 计数对比，不得新增每帧分配。\n\n## 验收\n\n- [ ] 目标方法拆分后每段 CCN < 15，功能等价由金样覆盖\n- [ ] `dotnet build`、`dotnet run --project Tests/RuntimeTests.csproj`、`node Tools/verify.mjs`、`node Tools/gate.mjs` 全部通过\n- [ ] 每项独立 PR，首行 `Closes #<子 issue>`，PR 目标 `ai`\n- [ ] 不新增注释、不改文档、不做无关重构\n\n## 不计入\n\n- `Runtime/Diagnostics/*`：默认 `Compile Remove`，仅 `IncludeDiagnostics=true` 时编译，属开发期工具。\n- `Runtime/Sdk`、`Runtime/Gameplay`：平均 CCN 2.4 / 4.1，无优化必要。\n- 单一语句压缩成行、零注释是仓库既有风格，不借本票调整。\n\nRefs #32\n",
+        "editor": {
+          "login": "DPapyru"
+        }
+      },
+      {
+        "editedAt": "2026-11-07T09:15:00Z",
+        "diff": "## 背景\n\n只读圈复杂度评审（基线 `ai` @ d9dee62，165 个文件 / 28,789 行 / 1,350 个方法）显示：复杂度整体可控（平均 6.4），但高度集中在少数\"按名字分发\"的巨型 `switch` 与帧循环长方法。CCN 为启发式统计（if / else-if / for / foreach / while / case / catch / && / || / ??，基准 1；未计三元与 `?.`）。\n\n- 方法总数 1,350：CCN≥10 有 207 个（15.3%），≥15 有 128 个（9.5%），≥30 有 37 个（2.7%）。\n- 剔除默认不参与编译的 `Runtime/Diagnostics` 后：1,168 个方法，93 个 ≥15（8.0%），平均 5.8。\n- 模块平均 CCN：Gml 8.6、Host 6.4、Content 7.2、Mods 5.6、Editors 4.4、Gameplay 4.1、Sdk 2.4。\n\n## What to build\n\n按顺序拆成子 issue + 独立 PR（每个 PR 只做一项，避免一次改动过大）：\n\n- [ ] **1. `GmBuiltins.CallCore`（CCN 218 / 242 行）**：`Runtime/Gml/GmBuiltins.cs:271`。约 200 个内建函数名集中在一个方法（前置 if 链 + 巨型 switch + 5 层 fallback）。按域拆 partial（数学/字符串/实例/房间/文件/DS/绘图），名称分发改静态表；fallback 改为有序 handler 列表。\n- [ ] **2. `GmGraphics.Dispatch`（CCN 110 / 663 行，文件 3,194 行）**：`Runtime/Host/Rendering/GmGraphics.cs:2530`。命令名 switch；先做 `name → handler` 表，再按纹理/命令/捕获/合成拆文件。\n- [ ] **3. `GmWorld.StepAsync`（CCN 65 / 258 行）**：`Runtime/Gml/GmWorld.cs:1424`。按已有 `Performance.End(\"step\"/\"begin_*\")` 分段拆成快照、alarm、输入、step 事件、物理、碰撞、end-step 方法，顺序在一处显式调用。\n- [ ] **4. `GmGraphics.Build`（CCN 56 / 250 行）**：`Runtime/Host/Rendering/GmGraphics.cs:968`。抽相机、背景、实例规划/剔除、粒子、合成；规划与发射分离，保持零分配。\n- [ ] **5. `GameHost._Process`（CCN 41 / 242 行）**：`Runtime/Host/Godot/GameHost.cs:726`。抽 `DecideFrame()`（Skip/Pause/Step）消除 3 处重复早返回，再拆 `Sync*` 阶段。\n\n## 前置\n\n- 上述路径没有直接单测（`Tests/` 仅间接覆盖 GML 语义）。每项先补\"调用名 → 返回值/绘制命令\"金样快照，再迁移，用快照证明等价。\n- 均为热路径：拆分前后用 `SLACK_PROFILE=1` 与现有 `Performance` 计数对比，不得新增每帧分配。\n\n## 验收\n\n- [ ] 目标方法拆分后每段 CCN < 15，功能等价由金样覆盖\n- [ ] `dotnet build`、`dotnet run --project Tests/RuntimeTests.csproj`、`node Tools/verify.mjs`、`node Tools/gate.mjs` 全部通过\n- [ ] 每项独立 PR，首行 `Closes #<子 issue>`，PR 目标 `ai`\n- [ ] 不新增注释、不改文档、不做无关重构\n\n## 不计入\n\n- `Runtime/Diagnostics/*`：默认 `Compile Remove`，仅 `IncludeDiagnostics=true` 时编译，属开发期工具。\n- `Runtime/Sdk`、`Runtime/Gameplay`：平均 CCN 2.4 / 4.1，无优化必要。\n- 单一语句压缩成行、零注释是仓库既有风格，不借本票调整。\n\nRefs #32\n",
+        "editor": {
+          "login": "DPapyru"
+        }
+      }
+    ]
+  },
+  "comments": {
+    "nodes": []
+  }
+}

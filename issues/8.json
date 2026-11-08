@@ -1,0 +1,51 @@
+{
+  "title": "动作编辑器预览：画布直接操作部件与骨骼",
+  "body": "## Parent\n\n#3\n\n## What to build\n\n画布直接操作。点中骨骼对应的部件即选中该骨骼（15 根骨架骨骼；按部件当前帧的可见矩形命中，重叠取绘制顺序最上层，点空白不选中），左栏列表与画布高亮双向同步。拖动按混合模式：\n- 链末端（手/脚，现有 IK 链）：默认 IK，拖到哪跟到哪；按住 Alt 临时切 FK。\n- 其它骨骼（躯干/头/中段）：FK，骨骼指向鼠标（按下时记录起始角，避免跳变）。\n- Shift+拖动：在父坐标系改局部位置偏移。\n松手才写当前帧关键帧并生成一条撤销（一次拖动 = 一条）；Esc/右键取消且不改文档。\n\n## Acceptance criteria\n\n- [ ] 点部件选中对应骨骼，左栏同步选中；点空白取消选中；重叠取最上层\n- [ ] FK 拖动骨骼指向鼠标、无起始跳变；Shift+拖动改局部 X/Y\n- [ ] IK 链末端拖动保长，目标不可达时夹到可达范围；Alt 切 FK\n- [ ] 松手写当前帧关键帧；一次拖动一条撤销；Esc/右键取消不写文档\n- [ ] 审计断言 + 截图（拖动前后姿态对比）\n\n## Blocked by\n\n- 动作编辑器预览：编辑即时跟手（不重建预览世界）\n",
+  "state": "CLOSED",
+  "createdAt": "2026-11-05T00:08:13Z",
+  "updatedAt": "2026-11-07T05:30:49Z",
+  "closedAt": "2026-11-07T05:30:49Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "enhancement"
+      },
+      {
+        "name": "ready-for-agent"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABjDXQAQ",
+        "body": "实现完成，verifier 已独立验收 PASS。\n\n- commit：a23aa0c feat(editors): 画布直接操作骨骼与 IK\n- 命中：按部件当前帧可见矩形（World.Bounds）检测，重叠按绘制顺序取最上层，空白点击取消选中；左栏/下拉与画布双向高亮。\n- 拖动：IK 链末端默认 IK（保长、不可达夹取、按下记录 bend 方向）；Alt 临时 FK；其它骨骼 FK 按鼠标方向旋转（按下记录起始角，无跳变）；Shift 直接写局部 X/Y；松手写当前帧关键帧并生成一条撤销；Esc/右键取消不改文档。\n- 门禁：dotnet build 0 error、RuntimeTests 61564 assertions、verify PASS、gate PASS、IncludeDiagnostics PASS、motion-audit MOTION_EDITOR_AUDIT_OK checks=59。\n- 已知小项：单击部件后无位移松手会写当前帧键（已排修复，随 T5 提交）；root 画布不可选符合 Q3（仅 15 骨骼），根偏移仍可在左栏编辑。\n- 截图：本机无可用显示（GLX 不可用），headless 无图；审计已留 SLACK_MOTION_SHOTS 钩子。\n",
+        "createdAt": "2026-11-05T01:43:19Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABj4UrZg",
+        "body": "大部分随 #27 落地：点部件选中骨骼并与左栏同步、Alt 临时切 FK、IK 链末端拖动保长、松手写当前帧且一次拖动一条撤销。\\n\\n原票里的「Shift+拖动改局部位置」已按 #24 的方案替换为八向步进箭头（PR 明确移除 Shift 位移），按新方案关闭。",
+        "createdAt": "2026-11-07T05:30:48Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

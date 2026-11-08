@@ -1,0 +1,40 @@
+{
+  "title": "动作编辑器性能取证：导入前后对比",
+  "body": "## Parent\n\n#3\n\n## What to build\n\n把「选原版动作 → 导入到当前项目 → CPU 与常驻内存不回落」变成可重复的测量：打开项目、重复导入 N 次，记录世界/视口/纹理/临时目录数量与托管堆，输出前后对比与增长曲线，并区分「真泄漏」与「GC 未归还」。结论给出最多两处修复候选项与对应断言位置。本票只取证，不改行为。\n\n## Acceptance criteria\n\n- [ ] 可一键重复执行，重复导入 5 次以上\n- [ ] 输出世界/视口/纹理/临时目录/托管堆的前后对比\n- [ ] 明确判定是泄漏还是延迟回收，并指向具体对象\n- [ ] 给出修复候选项与回归断言建议\n\n## Blocked by\n\n- None (can start immediately)\n",
+  "state": "CLOSED",
+  "createdAt": "2026-11-07T00:38:08Z",
+  "updatedAt": "2026-11-07T11:50:46Z",
+  "closedAt": "2026-11-07T11:50:46Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "enhancement"
+      },
+      {
+        "name": "ready-for-agent"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABj41HIg",
+        "body": "## ✅ 取证完成（#20）\n\n一键执行：`node Tools/motion-audit.mjs --headless`（新增 `ImportForensicsAsync`，重复导入 8 次；PR #29）\n\n### 采样口径\n\n每次导入后采样：预览世界实例总数/存活/已销毁、编辑器内 SubViewport 数、`Performance` 节点/资源数、`slack-character-preview-*` 临时目录数、`GC.GetTotalMemory`、GC 0/1/2 次数、单次导入耗时；末尾 `GC.Collect()`×2 后再采一次；另在固定 120 帧空闲窗口测 `TotalProcessorTime`。\n\n### 修复前基线（8 次导入）\n\n| # | Instances | 存活 | 已销毁 | SubViewport | Godot 节点 | 资源 | 单次导入 |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n| 0 | 1509 | 1509 | 0 | 496 | 2569 | 3 | — |\n| 1 | 1518 | 1509 | 9 | 565 | 2702 | 3 | 2595ms |\n| 4 | 1545 | 1509 | 36 | 772 | 3116 | 3 | 7743ms |\n| 8 | 1581 | 1509 | 72 | 1048 | 3668 | 3 | 7641ms |\n| 强制 GC 后 | 1581 | 1509 | 72 | 1048 | 3668 | 3 | — |\n\n- 线性增长：**+9 实例 / +69 SubViewport / +138 Godot 节点（每个 SubViewport 带 1 个 GmCanvas）每次导入**；临时目录恒定 2、资源数恒定 3。\n- 托管堆：`GC.GetTotalMemory` 读数在 14.0–15.5GB 间抖动（绝对值不可靠，只看趋势），**强制 GC 后 14.03GB ≤ 基线 14.56GB**。\n- 空闲 CPU（120 帧窗口）：基线 70ms，导入 8 次后 20ms，噪声内 → 未播放时空闲帧不是主要开销；但每次导入本身 2.6–7.7s。\n\n### 判定：**真泄漏（Godot 侧），不是 GC 未归还**\n\n强制回收后死实例与 SubViewport 全部保留（被强引用），托管堆反而回落。具体对象与位置：\n\n1. `NativeActionEditor.InitializePreview` 每次都 `preview.ApplyAsync(CharacterDefinition(target))` → `NativeCharacterRuntime.BindAsync` 重跑 `LoadCharacter`。\n2. `LoadCharacter` 的部件装载走 GML `createMaskSprite`（`GameData/code.json` 的 `scripts/createMaskSprite`、`objects/objPlayerParts/0/0/5`），每次 `surface_create(201×201)`，**surface 只在显式 `surface_free` 时释放** → 每次导入 69 个 201×201 RGBA surface（约 11MB）+ 69 个 SubViewport 节点。\n3. 旧部件 `instance_destroy` 只置 `Destroyed=true`，`GmWorld.RemoveDestroyed` 只在 `StepAsync` 末尾执行，而导入路径不步进世界 → 死实例一直留在 `Instances`。\n\n### 修复候选（两处）\n\n- **A（已采纳，见 #25 / PR #30）**：导入不改变外观/骨架，`InitializePreview` 在目标未变时跳过 `ApplyAsync`，只重播动作图。实测 8 次导入后 Instances 1509、SubViewport 289、节点 2150 全部恒定，单次导入 2.6s → 30ms。断言位置：`NativeActionEditorImportPerfAudit.ImportForensicsAsync`（实例数/SubViewport 数与基线不一致即失败）。\n- **B（未做，建议另开 issue）**：让 surface 跟随创建者生命周期——`surface_create` 记录 `GmContext.Self` 作为 owner，实例销毁/被压缩时释放其 surface（原版 GM 按房间生命周期释放，当前实现只在显式 `surface_free` 释放，任何重跑 `LoadCharacter` 的路径都会漏）。断言位置同上（SubViewport 数）。\n\n### 未覆盖\n\n- 未测真实窗口（graphical）下的 GPU 显存占用；headless 下 `RenderVideoMemUsed` 恒 0，故以 SubViewport/节点数间接反映。\n- 未覆盖实体目标切换路径（`ReleaseLegacyPreview` 同样只置 Destroyed）。\n",
+        "createdAt": "2026-11-07T06:27:58Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

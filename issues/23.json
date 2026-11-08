@@ -1,0 +1,28 @@
+{
+  "title": "动作编辑器事件表格与图参数派生视图",
+  "body": "## Parent\n\n#3\n\n## What to build\n\n事件从裸 JSON 文本框改为表格：按行增删，编辑帧区间、类型与值；图参数改为从事件与条件里用到的参数名自动派生的只读视图，删除「写入参数」「写入事件」。旧数据必须无损加载。\n\n## Acceptance criteria\n\n- [ ] 事件以表格编辑，增删改即时生效\n- [ ] 图参数只读派生，与事件、条件保持一致\n- [ ] 旧 JSON 数据无损加载\n- [ ] 断言与截图\n\n## Blocked by\n\n- #19\n",
+  "state": "CLOSED",
+  "createdAt": "2026-11-07T00:38:31Z",
+  "updatedAt": "2026-11-07T05:29:01Z",
+  "closedAt": "2026-11-07T05:29:01Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "enhancement"
+      },
+      {
+        "name": "ready-for-agent"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "title": "更多怪物/mud类型",
+  "body": "## Mud触手\n\n### 实体数据\n\n- 不同于垂直长条objQuicksand,采用正方形\n- 在中心位置有隐藏在quicksand内触手\n\n### 与角色交互\n\n- 角色正常进入此实体碰撞箱,按照objQuicksand的机制下沉\n- 角色意图远离实体中心位置,触手活动\n- 触手抓住玩家,向下拖拽\n- 对于sink膝盖、sink腰、sink胸、sink头有不同动作\n- 被抓住时允许使用QTE判定挣扎\n- QTE挣扎成功,下沉\n- QTE挣扎失败,触手进入下一拖拽阶段",
+  "state": "OPEN",
+  "createdAt": "2026-11-02T11:28:34Z",
+  "updatedAt": "2026-11-08T10:13:43Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

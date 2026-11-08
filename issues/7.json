@@ -1,0 +1,66 @@
+{
+  "title": "动作编辑器预览：编辑即时跟手（不重建预览世界）",
+  "body": "## Parent\n\n#3\n\n## What to build\n\n编辑动作时画布即时跟手：文档的任一编辑（时间轴写键、骨骼拖动、数值修改、撤销/重做）都按时间轴当前片段、当前帧重新采样姿态，应用到预览部件并重绘，不再要求点「重载预览」，也不重建独立预览世界。只有切换项目、切换目标或换骨架时才重建预览世界。播放中不应用编辑（拖动自动暂停，见画布操作票）。\n\n## Acceptance criteria\n\n- [ ] 修改任一骨骼关键帧后画布立即显示新姿态，状态栏不再提示「重载预览以应用」\n- [ ] 撤销/重做同样即时反映到画布\n- [ ] 编辑期间不重建预览世界（无 Dispose/重建 SubViewport 的闪白）\n- [ ] 切换项目/目标后预览世界按既有流程重建，打开中的项目不被改动\n- [ ] 审计断言：文档当前帧采样姿态与画布部件姿态一致（含根偏移与镜像方向）\n- [ ] 截图贴到本 issue：编辑前后画布对比\n\n## Blocked by\n\n- None (can start immediately)\n",
+  "state": "CLOSED",
+  "createdAt": "2026-11-05T00:08:10Z",
+  "updatedAt": "2026-11-07T05:31:04Z",
+  "closedAt": "2026-11-07T05:30:46Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "enhancement"
+      },
+      {
+        "name": "ready-for-agent"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABjDXHAQ",
+        "body": "实现完成，verifier 已独立验收 PASS。\n\n- commit：3fc6540 feat(editors): 文档编辑后预览立刻跟手\n- 改动：NativeMotionService 抽出 ApplyPose 并新增 Preview(actor, graph, clipId, frame)；编辑器在写键/数值/状态/轨道、撤销/重做、拖动松手后按当前片段+当前帧重采样并应用到现有预览部件，重绘且不重建预览世界；仅换项目/换目标/换骨架/打开文件/重载预览才重建。\n- 验收：审计断言（编辑复用预览世界、立即重绘、文档姿态=画布姿态含根偏移与 Direction=-1 镜像、undo/redo 即时且不重建）；门禁 dotnet build 0 error、RuntimeTests 61564 assertions、verify PASS、gate PASS、motion-audit MOTION_EDITOR_AUDIT_OK checks=59。\n- 截图：本机无可用显示（GLX 不可用），headless 下无图；审计已留 SLACK_MOTION_SHOTS 钩子，图形环境会输出 motion-follow.png。\n",
+        "createdAt": "2026-11-05T01:43:09Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABj4Up1g",
+        "body": "随 #27（squash 提交 c252d2e）落地。\n\n编辑即时写入文档并重绘，预览世界单实例复用，切项目/切目标才重建，不再要求「重载预览」。审计 NativeActionEditorMotionAudit 覆盖预览跟随、撤销即时反映与单世界复用。\n",
+        "createdAt": "2026-11-07T05:30:45Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": [
+            {
+              "editedAt": "2026-11-07T05:31:04Z",
+              "diff": "随 #27（squash 提交 c252d2e）落地。\n\n编辑即时写入文档并重绘，预览世界单实例复用，切项目/切目标才重建，不再要求「重载预览」。审计 NativeActionEditorMotionAudit 覆盖预览跟随、撤销即时反映与单世界复用。\n",
+              "editor": {
+                "login": "DPapyru"
+              }
+            },
+            {
+              "editedAt": "2026-11-07T05:30:45Z",
+              "diff": "随 #27（squash 提交 c252d2e）落地。\\n\\n编辑即时写入文档并重绘，预览世界单实例复用，切项目/切目标才重建，不再要求「重载预览」。审计  覆盖预览跟随、撤销即时反映与单世界复用。",
+              "editor": {
+                "login": "DPapyru"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

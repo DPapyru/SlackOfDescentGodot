@@ -1,0 +1,28 @@
+{
+  "title": "GmWorld 重复解析 code.json：多世界场景常驻内存 8.7GB，超出 6GB 验证预算",
+  "body": "## 现象\n\n真实显示（X11 + llvmpipe）下跑全量动作审计 `res://Tools/NativeMotionAudit.tscn`，Godot 峰值常驻内存 **8.7GB**（`Maximum resident set size: 9110396 KB`）；只跑编辑器审计（`SLACK_MOTION_EDITOR_ONLY=1`）仍需 **4.9GB**。当前验证预算只有 6GB，全量验证跑不动。\n\n## 原因（已定位）\n\n`GmWorld` 构造函数每次都重新 `File.ReadAllText` + `JsonSerializer.Deserialize` 一份 `GameData/code.json`（98k 条 AST）与 `manifest.json`：\n\n- `Runtime/Gml/GmWorld.cs:197-203`。\n- 审计/编辑器里同时存在多个世界：`live`、`NativeCharacterPreview.World`（编辑器预览）、`NativeCharacterPreview.World`（游戏预览）；每个 `NativeCharacterPreview` 构造时都 `new GmWorld(source.Root, source.SourceRoot, TemporaryDirectory)`（`Runtime/Gameplay/Characters/NativeCharacterPreview.cs:24`）。\n- 结果：3 个世界 ≈ 3 份 code.json 解析 + 软件渲染（llvmpipe）下的纹理常驻。\n\n## 可行方向（择一）\n\n1. **共享只读解析结果**：以 root 路径为键缓存 `JsonDocument`，各世界各自持有可变字典但元素指向同一文档（注意 `Code` 会被 `GmGameplayFixes`、`GmRooms`、`NativeMapInstallation`、标题菜单等写入，所以不能直接共享字典本身）。\n2. 预览世界懒加载：只在真正需要时解析 `Code`。\n\n## 验收\n\n- 全量动作审计在 6GB 预算内跑完（`/usr/bin/time -v` 的 `Maximum resident set size` ≤ 6GB）。\n- 现有 `MOTION_AUDIT_OK` / `MOTION_EDITOR_AUDIT_OK` 断言不变。\n\nRefs #3 #20 #25 #28\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-07T07:34:03Z",
+  "updatedAt": "2026-11-08T10:13:29Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "enhancement"
+      },
+      {
+        "name": "area:gml"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

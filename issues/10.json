@@ -1,0 +1,66 @@
+{
+  "title": "动作编辑器预览：输入与播放反馈",
+  "body": "## Parent\n\n#3\n\n## What to build\n\n预览输入与播放反馈：\n- 播放输入读游戏按键设置（controllMode 槽位：左/右/跳/冲刺），画布角落显示键位图例。\n- 播放/暂停/单帧/倍速；编辑后从当前帧继续播放；卡顿时不丢步。\n- 画布叠加运行反馈：状态名、当前帧、活动转换、触发事件。\n\n## Acceptance criteria\n\n- [ ] 改键位后图例与操作同步；左/右/跳/冲刺都能在预览触发\n- [ ] 播放/暂停/单帧/倍速可用；编辑后从当前帧继续\n- [ ] 连续播放不丢步（固定步进累计）\n- [ ] 状态名/帧/活动转换/触发事件叠加与运行一致\n- [ ] 审计断言 + 截图\n\n## Blocked by\n\n- 动作编辑器预览：编辑即时跟手（不重建预览世界）\n",
+  "state": "CLOSED",
+  "createdAt": "2026-11-05T00:08:18Z",
+  "updatedAt": "2026-11-07T05:31:07Z",
+  "closedAt": "2026-11-07T05:30:55Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "enhancement"
+      },
+      {
+        "name": "ready-for-agent"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABjFXaXg",
+        "body": "实现完成，verifier 终验 PASS（F3/F5 修复后复验）。\n\n- commit：ca5a9d2 feat(editors): 输入图例与播放反馈；修复 3a61f5c（F3 暂停编辑同步、F5 事件累积）。\n- 输入：读游戏按键设置（controllMode 槽位：左 0/右 1/跳 5，冲刺双击右），画布左下角键位图例同步。\n- 播放：0.5x/1x/2x 倍速、播放/暂停/单帧、卡顿追帧不丢步、编辑后从当前帧续播。\n- 叠加：状态名、当前帧/时长、最近转换、批量步进事件。\n- 门禁：build / RuntimeTests 61564 / verify / gate / IncludeDiagnostics / motion-audit headless（checks=59）全 PASS。\n- 截图：同前，GLX 不可用；钩子输出 motion-playback.png。\n- 非阻塞遗留：删除关键帧无选中时回退 root 会删根键，建议后续与写入一样做无选中空操作。\n",
+        "createdAt": "2026-11-05T04:07:23Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABj4UvXQ",
+        "body": "已落地：controllMode 键位图例（含槽位偏移，审计断言在 NativeActionEditorMotionAudit.cs 第 314–321 行一段），播放/暂停/单帧/倍速移入底部传输条，画布叠加状态名/帧/转换/事件。\n",
+        "createdAt": "2026-11-07T05:30:54Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": [
+            {
+              "editedAt": "2026-11-07T05:31:07Z",
+              "diff": "已落地：controllMode 键位图例（含槽位偏移，审计断言在 NativeActionEditorMotionAudit.cs 第 314–321 行一段），播放/暂停/单帧/倍速移入底部传输条，画布叠加状态名/帧/转换/事件。\n",
+              "editor": {
+                "login": "DPapyru"
+              }
+            },
+            {
+              "editedAt": "2026-11-07T05:30:54Z",
+              "diff": "已落地：controllMode 键位图例（含槽位偏移，审计断言在  #314–321 一段），播放/暂停/单帧/倍速移入底部传输条，画布叠加状态名/帧/转换/事件。",
+              "editor": {
+                "login": "DPapyru"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "title": "决策索引",
+  "body": "## AI回复\n\n决策索引。每条决策只在此登记，正文与理由见链接 issue。\n\n| 日期 | 决策 | 链接 | 状态 |\n| :-: | :-: | :-: | :-: |\n| 2026-11-08 | 分支模型：main 稳定、ai 集成，feature PR -> ai，release PR ai -> main | #35 | 已定 |\n| 2026-11-08 | 评论不可变、issue body 仅维护者编辑、title 改动需 TITLE EDIT | #35 | 已定 |\n| 2026-11-08 | AI 标记 ## AI回复；DECISION/SPEC/ACK/VETO 协议 | #35 | 已定 |\n| 2026-11-08 | issue 每晚快照到 issue-archive；issue 永不删除 | #35 | 已定 |\n| 2026-11-08 | 文档迁移到 GitHub Wiki，仓库只留 README/AGENTS | #35 | 已定 |\n| 2026-11-08 | 动作编辑器大优化轮 | #34 | 进行中 |\n| 2026-11-08 | 圈复杂度治理 5 项 | #33 | 待办 |\n| 2026-11-08 | sink mud 动作链 #11-#14 | #11 | 待办 |",
+  "state": "OPEN",
+  "createdAt": "2026-11-08T10:13:11Z",
+  "updatedAt": "2026-11-08T10:13:11Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": []
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

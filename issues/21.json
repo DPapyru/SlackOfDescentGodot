@@ -1,0 +1,28 @@
+{
+  "title": "动作编辑器即时写入与入口精简",
+  "body": "## Parent\n\n#3\n\n## What to build\n\n所有检查器与传输条上的控件一改就写进文档并立刻反映到画布，不再需要按提交按钮；删除草稿层按钮与重复入口：重载预览、取景、播放、单帧、撤销/重做各只留一处，高频留在画布工具条、低频进菜单；菜单里两个保存入口合并为一个。\n\n## Acceptance criteria\n\n- [ ] 数值、下拉、勾选改动后画布立即反映，无需按任何提交按钮\n- [ ] 连续拖动同一控件只生成一条撤销；画布拖动松手一条\n- [ ] 提交类按钮与重复入口删除\n- [ ] 「保存到 Mod 项目」与「保存到角色」合并为单一入口\n- [ ] 撤销/重做覆盖全部即时写入\n\n## Blocked by\n\n- #19\n",
+  "state": "CLOSED",
+  "createdAt": "2026-11-07T00:38:29Z",
+  "updatedAt": "2026-11-07T05:29:00Z",
+  "closedAt": "2026-11-07T05:29:00Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "enhancement"
+      },
+      {
+        "name": "ready-for-agent"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

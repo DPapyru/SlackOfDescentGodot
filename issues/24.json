@@ -1,0 +1,28 @@
+{
+  "title": "动作编辑器画布手势：旋转环、步进箭头、IK 高亮",
+  "body": "## Parent\n\n#3\n\n## What to build\n\n选中节点后出现固定像素半径的绿色半透明空心环、环上七成透明度白球与八向步进箭头。拖白球按绝对角度改骨骼旋转，松手写当前帧关键帧；点箭头按局部 X/Y 步进（1 单位，Shift 为 10 单位）。点 IK 链任一骨骼时高亮该链三根骨骼与连线并标出末端手柄，左栏 IK 行同步。保留拖部件本体的 FK 粗调，移除 Shift 加拖动的位移。\n\n## Acceptance criteria\n\n- [ ] 环、白球、箭头随选中节点出现，取消选中后消失\n- [ ] 白球拖动等于绝对角度，无跳变，松手一条撤销\n- [ ] 箭头步进写入局部 X/Y，方向与画布一致\n- [ ] IK 链高亮三根骨骼、连线与末端手柄，左栏同步\n- [ ] 断言与截图\n\n## Blocked by\n\n- #19\n",
+  "state": "CLOSED",
+  "createdAt": "2026-11-07T00:38:33Z",
+  "updatedAt": "2026-11-07T05:29:01Z",
+  "closedAt": "2026-11-07T05:29:01Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "enhancement"
+      },
+      {
+        "name": "ready-for-agent"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

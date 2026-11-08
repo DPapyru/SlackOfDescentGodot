@@ -1,0 +1,40 @@
+{
+  "title": "更多sink mud动作",
+  "body": "## 动作: 抓住膝盖拔腿\n\n| 触发场景 | 动作 | 表情 |\n| :-: | :-: | :-: |\n| 当角色sink位置到膝盖 | 角色双手抓住角色面朝方向的膝盖,向上拔腿,然后举起双手,重新踩下,增加sink深度,减少耐力值 | 复用恐慌表情 |",
+  "state": "OPEN",
+  "createdAt": "2026-11-02T11:22:17Z",
+  "updatedAt": "2026-11-08T10:13:41Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "mod"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABjhltjQ",
+        "body": "## grilling 第一轮发现的载体否决\n\n原版泥潭中 `NativeMotionService` 的 `Session.Forced()` 在 `touchingQS != 0` 时命中，MotionGraph 整张图 Suspended、不 tick（Runtime/Host/Adapters/NativeMotionService.cs:178/196/228）。编辑器帮助也已写明不扩展原版 MotionNum。\n\n结论：#11 / #12 里「用现成 MotionGraph 搭最小通路」这个前提不成立。\n\n可行的载体：派生 CharacterDefinition（BasePreset = Nana，经原版菜单启用）+ `ICharacterAction` 或 step 钩子，逐帧写骨骼姿态；数值写回 qsink，不碰 y/vspeed。\n\n待主人确认后再修 #11 / #12 的正文。",
+        "createdAt": "2026-11-06T06:47:07Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

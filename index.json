@@ -1,0 +1,205 @@
+[
+  {
+    "number": 1,
+    "title": "音效重复播放问题",
+    "state": "OPEN",
+    "updatedAt": "2026-11-02T10:44:22Z",
+    "file": "issues/1.json"
+  },
+  {
+    "number": 2,
+    "title": "Linux/Windows一键导出脚本",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-08T09:02:59Z",
+    "file": "issues/2.json"
+  },
+  {
+    "number": 3,
+    "title": "动作编辑器更好的优化",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-08T09:03:09Z",
+    "file": "issues/3.json"
+  },
+  {
+    "number": 4,
+    "title": "Stage4-4在(3168,672)的实体触发捕获玩家效果偶出现无限旋转",
+    "state": "OPEN",
+    "updatedAt": "2026-11-02T10:58:27Z",
+    "file": "issues/4.json"
+  },
+  {
+    "number": 5,
+    "title": "更多sink mud动作",
+    "state": "OPEN",
+    "updatedAt": "2026-11-08T10:13:41Z",
+    "file": "issues/5.json"
+  },
+  {
+    "number": 6,
+    "title": "更多怪物/mud类型",
+    "state": "OPEN",
+    "updatedAt": "2026-11-08T10:13:43Z",
+    "file": "issues/6.json"
+  },
+  {
+    "number": 7,
+    "title": "动作编辑器预览：编辑即时跟手（不重建预览世界）",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-07T05:31:04Z",
+    "file": "issues/7.json"
+  },
+  {
+    "number": 8,
+    "title": "动作编辑器预览：画布直接操作部件与骨骼",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-07T05:30:49Z",
+    "file": "issues/8.json"
+  },
+  {
+    "number": 9,
+    "title": "动作编辑器预览：打开不脏 + 取景/缩放/平移",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-07T05:31:05Z",
+    "file": "issues/9.json"
+  },
+  {
+    "number": 10,
+    "title": "动作编辑器预览：输入与播放反馈",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-07T05:31:07Z",
+    "file": "issues/10.json"
+  },
+  {
+    "number": 11,
+    "title": "动作 mod：包骨架与动作解析器失败测试（TDD 红）",
+    "state": "OPEN",
+    "updatedAt": "2026-11-08T10:13:32Z",
+    "file": "issues/11.json"
+  },
+  {
+    "number": 12,
+    "title": "动作 mod：实现解析器并插入动作（TDD 绿）",
+    "state": "OPEN",
+    "updatedAt": "2026-11-08T10:13:35Z",
+    "file": "issues/12.json"
+  },
+  {
+    "number": 13,
+    "title": "动作 mod：与原版 QUICKSAND 行为对齐验收",
+    "state": "OPEN",
+    "updatedAt": "2026-11-08T10:13:37Z",
+    "file": "issues/13.json"
+  },
+  {
+    "number": 14,
+    "title": "动作 mod：截图硬验收（每轮 5 张）",
+    "state": "OPEN",
+    "updatedAt": "2026-11-08T10:13:39Z",
+    "file": "issues/14.json"
+  },
+  {
+    "number": 17,
+    "title": "docs: 协作规则对齐现状（AGENTS.md 补 Issues/PR 规则、README 去掉 ai-clean）",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-07T00:19:56Z",
+    "file": "issues/17.json"
+  },
+  {
+    "number": 19,
+    "title": "动作编辑器骨架：单画布单世界",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-07T05:29:00Z",
+    "file": "issues/19.json"
+  },
+  {
+    "number": 20,
+    "title": "动作编辑器性能取证：导入前后对比",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-07T11:50:46Z",
+    "file": "issues/20.json"
+  },
+  {
+    "number": 21,
+    "title": "动作编辑器即时写入与入口精简",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-07T05:29:00Z",
+    "file": "issues/21.json"
+  },
+  {
+    "number": 22,
+    "title": "动作编辑器检查器拆分：状态页与状态机页",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-07T05:29:01Z",
+    "file": "issues/22.json"
+  },
+  {
+    "number": 23,
+    "title": "动作编辑器事件表格与图参数派生视图",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-07T05:29:01Z",
+    "file": "issues/23.json"
+  },
+  {
+    "number": 24,
+    "title": "动作编辑器画布手势：旋转环、步进箭头、IK 高亮",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-07T05:29:01Z",
+    "file": "issues/24.json"
+  },
+  {
+    "number": 25,
+    "title": "动作编辑器性能修复：导入不再累积",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-07T08:58:22Z",
+    "file": "issues/25.json"
+  },
+  {
+    "number": 26,
+    "title": "动作编辑器重构集成与 PR",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-07T05:29:00Z",
+    "file": "issues/26.json"
+  },
+  {
+    "number": 28,
+    "title": "动作标记器操作优化",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-08T03:40:44Z",
+    "file": "issues/28.json"
+  },
+  {
+    "number": 32,
+    "title": "GmWorld 重复解析 code.json：多世界场景常驻内存 8.7GB，超出 6GB 验证预算",
+    "state": "OPEN",
+    "updatedAt": "2026-11-08T10:13:29Z",
+    "file": "issues/32.json"
+  },
+  {
+    "number": 33,
+    "title": "圈复杂度治理：拆分 5 处核心分发热点与帧循环",
+    "state": "OPEN",
+    "updatedAt": "2026-11-08T10:13:27Z",
+    "file": "issues/33.json"
+  },
+  {
+    "number": 34,
+    "title": "动作编辑器界面优化",
+    "state": "OPEN",
+    "updatedAt": "2026-11-08T10:13:24Z",
+    "file": "issues/34.json"
+  },
+  {
+    "number": 35,
+    "title": "流程 v2：门禁、规则与归档",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-08T12:36:32Z",
+    "file": "issues/35.json"
+  },
+  {
+    "number": 37,
+    "title": "决策索引",
+    "state": "OPEN",
+    "updatedAt": "2026-11-08T10:13:11Z",
+    "file": "issues/37.json"
+  }
+]

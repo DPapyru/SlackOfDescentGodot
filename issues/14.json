@@ -1,0 +1,25 @@
+{
+  "title": "动作 mod：截图硬验收（每轮 5 张）",
+  "body": "## 目标\n\n用截图做硬验收，避免「说通了其实没通」。\n\n> 被 #1 #2 阻塞。\n\n## 要求\n\n- 每轮验收设一个 goal，godot 以提权方式完整启动（GLX 之前不可用，需先解决）。\n- 每轮固定截 **5 张**，这是硬边界，不多不少：进入前 / 触发瞬间 / 拔腿 / 举双手 / 踩下后。\n- 截图落盘并贴到本票，标明每张对应哪个阶段。\n\n## 验收\n\n- 5 张齐全且能看出动作差异。\n- 与 #3 的对照结论一致。\n\n## 不做\n\n- 不用截图去证明设计，只证明行为。\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-06T06:45:03Z",
+  "updatedAt": "2026-11-08T10:13:39Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

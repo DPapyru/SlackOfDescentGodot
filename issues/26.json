@@ -1,0 +1,62 @@
+{
+  "title": "动作编辑器重构集成与 PR",
+  "body": "## Parent\n\n#3\n\n## What to build\n\n把骨架与四条并行分支合成一条可交付的改动，跑通全部门禁（构建、运行时测试、verify、gate、motion-audit、动作编辑器审计），收集各票截图，开一条 PR 汇总，PR 描述里逐条对应本组子 issue。\n\n## Acceptance criteria\n\n- [ ] 全部门禁通过，无新增警告\n- [ ] 各子 issue 的断言与截图齐备\n- [ ] 一条 PR，描述逐条引用 #19–#24\n\n## Blocked by\n\n- #21\n- #22\n- #23\n- #24\n",
+  "state": "CLOSED",
+  "createdAt": "2026-11-07T00:38:42Z",
+  "updatedAt": "2026-11-07T05:29:00Z",
+  "closedAt": "2026-11-07T05:29:00Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "enhancement"
+      },
+      {
+        "name": "ready-for-agent"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABj1YyKg",
+        "body": "## 交接（新会话从这里开始）\n\n### 先读\n1. [#3 第 3 轮决策记录](https://github.com/DPapyru/SlackOfDescentGodot/issues/3#issuecomment-6699692107)：术语表、Q1–Q21 决策、目标布局、三阶段路径。设计树已闭合，**不要重新讨论方案**。\n2. 本组子 issue [#19](https://github.com/DPapyru/SlackOfDescentGodot/issues/19)–[#26](https://github.com/DPapyru/SlackOfDescentGodot/issues/26)，共 8 条，阻塞关系已用 GitHub dependency 建好。\n\n### 起手\n- 分支从 `origin/ai` 起（当前 `ai` 线已含 #7–#10 的实现，提交号与旧 issue 里写的不一致，以代码为准）。\n- 当前 worktree 零未提交改动，不要从本地 `ai-clean` 或旧分支起。\n- frontier：`#19`（骨架）与 `#20`（性能取证）可并行开始；`#19` 是硬前置，21–25 全堵在它后面。\n\n### 环境\n- 本机 GLX 报不可用，可能是权限问题：需要图形环境出截图时，先找维护者提权，不要自行绕过。\n- `gh issue view` 会因 Projects classic 弃用报错，统一走 `gh api repos/DPapyru/SlackOfDescentGodot/issues/N`。\n- 三张设计截图在 #3 的评论里（GitHub 附件 URL），不在新 worktree 里。\n\n### 门禁（一项都不能省）\n`dotnet build` → `dotnet run --project Tests/RuntimeTests.csproj` → `node Tools/verify.mjs` → `node Tools/gate.mjs` → `node Tools/motion-audit.mjs --headless` → `dotnet build -p:IncludeDiagnostics=true`。\n\n### 流程\n计划与进度只写 issue，不写文档、不进 commit message；一次只推进一步；实现类 agent 不直接改文档。\n",
+        "createdAt": "2026-11-07T00:41:46Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABj1ztaw",
+        "body": "## 执行计划（Team Lead 记录）\n\n按本票「骨架 + 四条并行分支」拆分，同一 worktree 内按文件域隔离并行推进：\n\n- #19 骨架（skeleton）：单工作室单预览世界，删除动作参数工作区与 SDK 动作入口，一标签一角色\n- #24 手势（gestures）：旋转环 / 八向步进箭头 / IK 高亮（NativeMotionOverlay + Pose）\n- #22 检查器拆分（state）与 #23 事件表格（events）：各自独占页面文件\n- #21 即时写入与入口精简（live）：时间轴、文档合并撤销、保存入口合并\n- 集成验收：NativeActionEditorMotionAudit 补齐 #19–#24 断言与截图，跑全部门禁后开 PR\n\n文件域互不重叠；构建走 agent-lock 串行。\n",
+        "createdAt": "2026-11-07T01:16:10Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABj3_nPw",
+        "body": "## ✅ 集成完成\n\nPR：#27 （`refactor/26-motion-editor-integration` → `ai`，首个提交后基于最新 `origin/ai` 变基）\n\n### 子票交付\n| 子票 | 落地 | 证据 |\n| --- | --- | --- |\n| #19 单画布单世界 | 删除动作参数工作区与工作区切换；编辑器只剩一个预览世界；移除 SDK 动作入口；一标签一角色 | `NativeActionEditorUi.cs`、`NativeActionEditorProjects.cs`；审计 layout/studio/world-reuse 断言 |\n| #21 即时写入与入口精简 | 控件一改即写；500ms 合并撤销；提交类按钮与重复入口删除；顶部工具条拆除，播放/单帧/倍速入底部传输条，重载预览进菜单，取景改 F；保存入口合并 | `NativeActionEditorTimeline.cs`、`MotionGraphDocument.cs`、`Ui.cs`、`Projects.cs`；审计 immediate/coalesce 断言 |\n| #22 检查器拆分 | 轨道/状态/状态机/事件；状态页一屏；状态机页节点图 + 侧栏转换/条件；左栏状态列表双向同步 | `NativeActionEditorStatePages.cs`；审计 state 断言 |\n| #23 事件表格与图参数 | 5 列表格行内编辑；图参数派生只读；新参数条件可用；旧 JSON 无损 | `NativeActionEditorEvents.cs`；审计 events 断言 |\n| #24 画布手势 | 54px 环 + 70% 白球 + 八向箭头；绝对角度、松手一条撤销；箭头 1/Shift 10；IK 三骨+连线+手柄高亮；移除 Shift 位移 | `NativeActionEditorPose.cs`、`NativeMotionOverlay.cs`；审计 ring 断言 |\n\n### 门禁\n- `dotnet build -c Debug`：0 error，无新增警告（gate known-pending 2 条既有）\n- `node Tools/gate.mjs`：GATE PASS steps=3\n- RuntimeTests：PASS 61564 assertions；`verify.mjs`：PASS\n- `dotnet build -p:IncludeDiagnostics=true`：0 error\n- `node Tools/motion-audit.mjs --headless`：MOTION_EDITOR_LAYOUT_OK + MOTION_EDITOR_AUDIT_OK（studio/immediate/state/events/ring）+ MOTION_AUDIT_OK checks=59\n- 图形模式同审计通过，产出 11 张截图（`.playtest/motion-shots/`，含 motion-state-page / motion-parameters / motion-transport / motion-ring）\n\n### 未包含\n- #20 / #25（导入前后性能取证与修复）为独立票，本 PR 不含。\n- 截图未入库（`.playtest` 忽略）；需要时可从本机路径上传到 issue。\n\nRefs #19 #21 #22 #23 #24 #26",
+        "createdAt": "2026-11-07T04:53:54Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

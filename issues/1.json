@@ -1,0 +1,40 @@
+{
+  "title": "音效重复播放问题",
+  "body": "# bug 复现\n1. 选择地图Playground\n2. 靠近坐标(9024,1600)对应的实体\n3. 触发实体捕获动画\n4. 角色音效重复播放\n\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-02T10:33:30Z",
+  "updatedAt": "2026-11-02T10:44:22Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "bug"
+      },
+      {
+        "name": "question"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABh-ZgJg",
+        "body": "# bug触发环境\nWindows 导出版\n\n# 当前未能复现成功\nLinux通过源代码运行godot,处于开发环境下",
+        "createdAt": "2026-11-02T10:35:10Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

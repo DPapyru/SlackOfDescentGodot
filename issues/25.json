@@ -1,0 +1,40 @@
+{
+  "title": "动作编辑器性能修复：导入不再累积",
+  "body": "## Parent\n\n#3\n\n## What to build\n\n依据取证结论做最小修复：反复导入原版动作后，预览世界、纹理与临时目录不再累积，常驻内存回到基线，空闲 CPU 不因导入升高。修复随带回归断言。\n\n## Acceptance criteria\n\n- [ ] 重复导入后常驻内存不增长\n- [ ] 空闲 CPU 不因导入升高\n- [ ] 回归断言覆盖该路径\n\n## Blocked by\n\n- #19\n- #20\n",
+  "state": "CLOSED",
+  "createdAt": "2026-11-07T00:38:41Z",
+  "updatedAt": "2026-11-07T08:58:22Z",
+  "closedAt": "2026-11-07T08:58:22Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "enhancement"
+      },
+      {
+        "name": "ready-for-agent"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABj41IPw",
+        "body": "## ✅ 修复完成（#25）\n\nPR #30（基于 #29 的取证入口，需先合 #29）。\n\n### 根因\n\n`ImportOriginal` → `InitializePreview` 每次导入都 `preview.ApplyAsync(...)` 重跑 `LoadCharacter`，而导入不改变角色外观与骨架：\n\n- GML `createMaskSprite` 每次装载 `surface_create(201×201)`，surface 只在显式 `surface_free` 时释放 → +69 SubViewport / +138 节点 / 约 11MB 每次。\n- `instance_destroy` 只置 `Destroyed=true`，压缩只在 `StepAsync` 末尾 → +9 死实例每次。\n\n### 改动（最小）\n\n`NativeActionEditor.InitializePreview` 增加「目标未变且预览角色已存在则跳过重绑」分支，只重播动作图；`视图 → 重载预览` 传 `force=true` 保持原有强制重绑语义。回归断言加在取证入口（`ImportForensicsAsync`）：重复导入后实例数与 SubViewport 数必须回到基线，否则抛 `Motion editor import accumulates`。\n\n### 实测（headless，8 次导入，`node Tools/motion-audit.mjs --headless`）\n\n| 指标 | 修复前 | 修复后 |\n| --- | --- | --- |\n| Instances | 1509 → 1581（+9/次） | 1509 恒定，已销毁 0 |\n| SubViewport | 496 → 1048（+69/次） | 289 恒定 |\n| Godot 节点 | 2569 → 3668（+138/次） | 2150 恒定 |\n| 单次导入 | 2.6–7.7s | 28–35ms |\n| 强制 GC 后托管堆 | 不高于基线 | 不高于基线 |\n| 空闲 CPU（120 帧） | 70ms → 20ms | 80ms → 20ms |\n\n`MOTION_AUDIT_OK checks=59` + `MOTION_EDITOR_AUDIT_OK` + `IMPORT_PERF_OK` 全绿。\n\n### 故意不做\n\n- 未修「surface 只在 `surface_free` 时释放」的底层行为（候选 B，建议另开 issue）：原版按房间生命周期释放，改它会动到所有用 surface 的对象。\n- 未处理实体目标切换时 `ReleaseLegacyPreview` 留下的死实例。\n",
+        "createdAt": "2026-11-07T06:27:59Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

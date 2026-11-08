@@ -1,0 +1,66 @@
+{
+  "title": "动作编辑器预览：打开不脏 + 取景/缩放/平移",
+  "body": "## Parent\n\n#3\n\n## What to build\n\n打开不脏与取景：\n- 打开项目/加载预览不再修改文档：参考姿态只做隐式显示（缺关键帧的骨骼回退到骨架实时局部姿态），dirty 标记只来自真实编辑。\n- 新增「生成参考姿态」菜单：显式把参考姿态写入当前片段并进 undo。\n- 取景按画布尺寸自适应；滚轮缩放、拖拽平移、一键适应（Fit）；切换项目/目标后自动取景到角色。\n\n## Acceptance criteria\n\n- [ ] 打开项目后 dirty=false（标签无 *），预览照常显示完整角色\n- [ ] 「生成参考姿态」写入后 dirty=true，一次撤销可恢复\n- [ ] 缺关键帧的部件按骨架实时局部姿态显示，不塌到父关节\n- [ ] 滚轮缩放、拖拽平移、Fit 生效；窗口缩放后取景自适应\n- [ ] 审计断言 + 截图\n\n## Blocked by\n\n- None (can start immediately)\n",
+  "state": "CLOSED",
+  "createdAt": "2026-11-05T00:08:16Z",
+  "updatedAt": "2026-11-07T05:31:05Z",
+  "closedAt": "2026-11-07T05:30:52Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "enhancement"
+      },
+      {
+        "name": "ready-for-agent"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABjFXYbQ",
+        "body": "实现完成，verifier 终验 PASS（F1 修复后复验）。\n\n- commit：443fe26 feat(editors): 打开不再写脏并支持取景\n- 打开不脏：预览加载不再 document.Edit；缺关键帧/空轨道回退骨架实时局部姿态；默认 IK 改隐式读取，显式绑定/解除时才写入文档。\n- 生成参考姿态：视图菜单显式写入当前片段，一条撤销可恢复。\n- 取景：相机（中心/宽度，4:3）、Fit、滚轮缩放（保持光标下世界点）、中键或空白左键拖拽平移、切目标自动取景。\n- 门禁：dotnet build 0 error、RuntimeTests 61564 assertions、verify PASS、gate PASS、IncludeDiagnostics 0 error、motion-audit MOTION_EDITOR_AUDIT_OK checks=59。\n- 截图：本机 GLX 不可用（headless 无图），审计留 SLACK_MOTION_SHOTS 钩子（motion-viewport.png），待图形环境补。\n",
+        "createdAt": "2026-11-05T04:07:21Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABj4UtkQ",
+        "body": "已落地：dirty 只来自真实编辑（审计有断言），「生成参考姿态」在「视图」菜单内且进 undo，取景改为 F 键、「适配画布」，滚轮缩放与拖拽平移均可用（NativeActionEditorPose.cs）。\n",
+        "createdAt": "2026-11-07T05:30:51Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": [
+            {
+              "editedAt": "2026-11-07T05:31:05Z",
+              "diff": "已落地：dirty 只来自真实编辑（审计有断言），「生成参考姿态」在「视图」菜单内且进 undo，取景改为 F 键、「适配画布」，滚轮缩放与拖拽平移均可用（NativeActionEditorPose.cs）。\n",
+              "editor": {
+                "login": "DPapyru"
+              }
+            },
+            {
+              "editedAt": "2026-11-07T05:30:51Z",
+              "diff": "已落地：dirty 只来自真实编辑（审计有断言），「生成参考姿态」在「视图」菜单内且进 undo，取景改为 F 键、「适配画布」，滚轮缩放与拖拽平移均可用（）。",
+              "editor": {
+                "login": "DPapyru"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

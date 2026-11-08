@@ -1,0 +1,25 @@
+{
+  "title": "Linux/Windows一键导出脚本",
+  "body": "如标题，需要一个一键脚本，这样可以快速利用godot打包好环境\n\n暂只考虑我的系统（Linux）导出Linux+Windows版",
+  "state": "CLOSED",
+  "createdAt": "2026-11-02T10:43:24Z",
+  "updatedAt": "2026-11-08T09:02:59Z",
+  "closedAt": "2026-11-08T09:02:59Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "enhancement"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

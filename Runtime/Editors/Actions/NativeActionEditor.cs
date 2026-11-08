@@ -167,7 +167,7 @@ public partial class NativeActionEditor : Window
             if (target.Kind == MotionTargetKind.Entity) { targetPreview = LegacyPreview(target.Id); actor = new(preview.World, targetPreview); }
             else if (!force && appliedTarget == target && preview.Player is not null) { ReleaseLegacyPreview(); actor = new(preview.World, preview.Player); }
             else { ReleaseLegacyPreview(); await preview.ApplyAsync(CharacterDefinition(target)); appliedTarget = target; actor = new(preview.World, preview.Player!); }
-            PopulateSkeleton(); preview.Bridge.Services.Motions.Play(actor, document.Graph);ApplyDocumentPose();
+            PopulateSkeleton(); preview.Bridge.Services.Motions.Play(actor, document.Graph);frame.Value=0;ApplyDocumentPose();
             canvas.QueueRedraw(); FitView(); status.Text = "预览已加载。";
         }
         catch (Exception e) { status.Text = e.GetBaseException().Message; }

@@ -92,7 +92,8 @@ public partial class NativeActionEditor
         var local=LocalTarget(name,dragX,dragY,false);
         double localX=local.X-barOrigin.X,localY=local.Y-barOrigin.Y;
         barTarget=dragMode==DragMode.BarX?(barStart.X+localX,barStart.Y):(barStart.X,barStart.Y+localY);
-        overlay?.SetBarOffset(dragMode==DragMode.BarX?new((float)((dragSurface.X-dragOrigin.X)/NativeMotionOverlay.BarHalf),0):new(0,(float)((dragSurface.Y-dragOrigin.Y)/NativeMotionOverlay.BarHalf)));
+        double wpp=MotionViewport.WorldPerPixel(surface.Size.X,surface.Size.Y,PreviewView),delta=wpp>0?(dragMode==DragMode.BarX?barTarget.X-barStart.X:barTarget.Y-barStart.Y)/wpp:0;
+        overlay?.SetBarOffset(dragMode==DragMode.BarX?new((float)(delta/NativeMotionOverlay.BarHalf),0):new(0,(float)(delta/NativeMotionOverlay.BarHalf)));
     }
 
     public override void _UnhandledKeyInput(InputEvent @event)
@@ -125,6 +126,7 @@ public partial class NativeActionEditor
             if(dragMode is DragMode.BarX or DragMode.BarY)
             {
                 overlay?.SetBarOffset(null);
+                if(Math.Abs(barTarget.X-barStart.X)<1e-9&&Math.Abs(barTarget.Y-barStart.Y)<1e-9){status.Text="未移动，未写入局部 X/Y。";return;}
                 document.Translate(Clip.Id,name,frame.Value,barTarget.X,barTarget.Y);
                 status.Text="已写入局部 X/Y；一次拖动生成一个撤销记录。";
             }
@@ -242,7 +244,13 @@ public partial class NativeActionEditor
     private void SyncOverlay()
     {
         if(overlay is null||PreviewActor is not {} actor)return;
-        overlay.Sync(actor.Services.Motions.Skeleton(actor),highlightedBone,IkChains,PreviewView,new((float)actor.X,(float)actor.Y));
+        var nodes=actor.Services.Motions.Skeleton(actor);
+        double angle=actor.Read("image_angle");
+        if(highlightedBone is {} bone&&nodes.FirstOrDefault(item=>item.Name==bone) is {} selected&&nodes.FirstOrDefault(item=>item.Instance==selected.Parent) is {} parent)angle=parent.Angle;
+        double direction=actor.Instance.Scope.ReadOr("Direction",1).Number,radians=angle*Math.PI/180;
+        var u=new Vector2((float)(Math.Cos(radians)*direction),(float)-Math.Sin(radians));
+        var v=new Vector2((float)(Math.Sin(radians)*direction),(float)Math.Cos(radians));
+        overlay.Sync(nodes,highlightedBone,IkChains,PreviewView,new((float)actor.X,(float)actor.Y),u,v);
         SyncIkSelection();
         UpdatePlaybackOverlay();
     }

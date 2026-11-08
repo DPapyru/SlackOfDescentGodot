@@ -11,6 +11,7 @@ public partial class NativeMotionOverlay : Control
     private MotionIkChain[] chains = [];
     private MotionView view;
     private Vector2 actor;
+    private Vector2 barX = new(1, 0), barY = new(0, 1);
     private string? selected;
     private double? ringAngle;
     private Vector2? barOffset;
@@ -29,14 +30,17 @@ public partial class NativeMotionOverlay : Control
     internal Vector2? BallPoint => SelectedNode() is { } node ? Surface(node.X, node.Y) + Direction(ringAngle ?? node.Angle) * RingRadius : null;
     internal IReadOnlyList<Vector2> BarPoints => new[] { BarCenter(0) ?? Vector2.Zero, BarCenter(1) ?? Vector2.Zero };
     internal Vector2? BarOffset => barOffset;
-    internal Rect2? BarRect(int axis) => BarCenter(axis) is { } center ? BarRect(center, axis == 0 ? new(1, 0) : new(0, 1)) : null;
+    internal Vector2 BarAxis(int axis) => axis == 0 ? barX : barY;
+    internal Rect2? BarRect(int axis) => BarCenter(axis) is { } center ? BarRect(center, BarAxis(axis)) : null;
+    internal Vector2? BarKnob(int axis) => BarCenter(axis) is { } center ? Knob(center, BarAxis(axis), axis == 0 ? barOffset?.X ?? 0 : barOffset?.Y ?? 0) : null;
     internal int ChainFocusIndex => selected is null ? -1 : Array.FindIndex(chains, chain => chain.Root == selected || chain.Mid == selected || chain.End == selected);
     internal string[] FocusChainBones => ChainFocusIndex is var focus && focus >= 0 ? [chains[focus].Root, chains[focus].Mid, chains[focus].End] : [];
     internal bool EndHandleVisible => ChainFocusIndex >= 0;
     public override void _Ready() => MouseFilter = MouseFilterEnum.Ignore;
-    public void Sync(IReadOnlyList<NativeBone> bones, string? selectedBone, IEnumerable<MotionIkChain>? ikChains, MotionView frame, Vector2 actorPosition)
+    public void Sync(IReadOnlyList<NativeBone> bones, string? selectedBone, IEnumerable<MotionIkChain>? ikChains, MotionView frame, Vector2 actorPosition, Vector2 xAxis, Vector2 yAxis)
     {
-        nodes = bones.ToArray(); selected = selectedBone; chains = ikChains?.Where(chain => chain.Enabled).ToArray() ?? []; view = frame; actor = actorPosition; QueueRedraw();
+        nodes = bones.ToArray(); selected = selectedBone; chains = ikChains?.Where(chain => chain.Enabled).ToArray() ?? []; view = frame; actor = actorPosition;
+        barX = xAxis.LengthSquared() > 0 ? xAxis.Normalized() : new(1, 0); barY = yAxis.LengthSquared() > 0 ? yAxis.Normalized() : new(0, 1); QueueRedraw();
     }
     internal void SetRingAngle(double? degrees)
     {
@@ -52,17 +56,18 @@ public partial class NativeMotionOverlay : Control
         var center = Surface(node.X, node.Y);
         if (surfacePoint.DistanceTo(center + Direction(ringAngle ?? node.Angle) * RingRadius) <= BallHit) return "ball";
         var xBar = BarCenter(0);
-        if (xBar is { } x && Math.Abs(surfacePoint.X - x.X) <= BarHalf && Math.Abs(surfacePoint.Y - x.Y) <= BarHit) return "bar:x";
+        if (xBar is { } x && OnBar(surfacePoint - x, BarAxis(0))) return "bar:x";
         var yBar = BarCenter(1);
-        if (yBar is { } y && Math.Abs(surfacePoint.Y - y.Y) <= BarHalf && Math.Abs(surfacePoint.X - y.X) <= BarHit) return "bar:y";
+        if (yBar is { } y && OnBar(surfacePoint - y, BarAxis(1))) return "bar:y";
         return null;
     }
+    private static bool OnBar(Vector2 delta, Vector2 axis) => Math.Abs(delta.Dot(axis)) <= BarHalf && Math.Abs(delta.Dot(new Vector2(-axis.Y, axis.X))) <= BarHit;
     private NativeBone? SelectedNode() => selected is null ? null : nodes.FirstOrDefault(node => node.Name == selected);
     private Vector2? BarCenter(int axis)
     {
         if (SelectedNode() is not { } node) return null;
         var ring = Surface(node.X, node.Y);
-        return axis == 0 ? ring + new Vector2(0, RingRadius + BarGap) : ring + new Vector2(RingRadius + BarGap, 0);
+        return ring + (axis == 0 ? barY : barX) * (RingRadius + BarGap);
     }
     public override void _Draw()
     {
@@ -118,16 +123,20 @@ public partial class NativeMotionOverlay : Control
         var ring = Surface(focusNode.X, focusNode.Y);
         DrawArc(ring, RingRadius, 0, Mathf.Tau, 64, RingColor, 3, true);
         DrawCircle(ring + Direction(ringAngle ?? focusNode.Angle) * RingRadius, BallRadius, BallColor);
-        if (BarCenter(0) is { } xBar) DrawBar(xBar, new(1, 0), barOffset?.X ?? 0);
-        if (BarCenter(1) is { } yBar) DrawBar(yBar, new(0, 1), barOffset?.Y ?? 0);
+        if (BarCenter(0) is { } xBar) DrawBar(xBar, barX, barOffset?.X ?? 0);
+        if (BarCenter(1) is { } yBar) DrawBar(yBar, barY, barOffset?.Y ?? 0);
     }
-    private static Rect2 BarRect(Vector2 center, Vector2 axis) =>
-        new(center - axis * BarHalf - new Vector2(Math.Abs(axis.Y), Math.Abs(axis.X)) * BarThickness / 2, new(axis.X == 0 ? BarThickness : BarHalf * 2, axis.X == 0 ? BarHalf * 2 : BarThickness));
+    private static Rect2 BarRect(Vector2 center, Vector2 axis)
+    {
+        var half = new Vector2(Math.Abs(axis.Y), Math.Abs(axis.X)) * BarThickness / 2;
+        var start = center - axis * BarHalf; var end = center + axis * BarHalf;
+        return new Rect2(new Vector2(Math.Min(start.X, end.X), Math.Min(start.Y, end.Y)) - half, new Vector2(Math.Abs(start.X - end.X), Math.Abs(start.Y - end.Y)) + half * 2);
+    }
+    private static Vector2 Knob(Vector2 center, Vector2 axis, float offset) => center + axis * Mathf.Clamp(offset, -1f, 1f) * BarHalf;
     private void DrawBar(Vector2 center, Vector2 axis, float offset)
     {
-        DrawRect(BarRect(center, axis), BarColor);
-        var knob = center + axis * Mathf.Clamp(offset, -1f, 1f) * BarHalf;
-        DrawCircle(knob, BarThickness, KnobColor);
+        DrawLine(center - axis * BarHalf, center + axis * BarHalf, BarColor, BarThickness);
+        DrawCircle(Knob(center, axis, offset), BarThickness, KnobColor);
     }
     private static Vector2 Direction(double degrees)
     {

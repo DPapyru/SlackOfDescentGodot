@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Wiki
+    url: https://github.com/DPapyru/SlackOfDescentGodot/wiki
+    about: 使用问题与文档请先查阅 Wiki

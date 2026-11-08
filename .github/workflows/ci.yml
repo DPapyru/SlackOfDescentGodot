@@ -1,0 +1,22 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [ai, main]
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: dotnet build -c Debug --no-incremental
+      - run: dotnet run --project Tests/Architecture/ArchitectureTests.csproj -- .godot/mono/temp/bin/Debug/SlackOfDescent.dll production
+      - run: dotnet build -c Debug -p:IncludeDiagnostics=true
+      - run: dotnet run --project Tests/Architecture/ArchitectureTests.csproj -- .godot/mono/temp/bin/Debug/SlackOfDescent.dll diagnostics

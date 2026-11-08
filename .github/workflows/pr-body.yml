@@ -1,0 +1,17 @@
+name: pr-body
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+permissions:
+  pull-requests: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (pr.base.ref !== 'ai') return;
+            const head = (pr.body || '').split('\n').slice(0, 3).join('\n');
+            if (!/Closes\s+#\d+/i.test(head)) core.setFailed('PR body first 3 lines must contain Closes #N');

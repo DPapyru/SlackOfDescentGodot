@@ -109,10 +109,10 @@ public sealed class NativeCharacterPreview : IDisposable
         if (Player is { } player) { World.Write(player, "x", 96); World.Write(player, "y", 0); World.Write(player, "vspeed", 0); }
         Graphics.Build();
     }
-    public void FrameOn(int centerX, int centerY, int width, int height, int portWidth = 0, int portHeight = 0)
+    public void FrameOn(double centerX, double centerY, double width, double height, int portWidth = 0, int portHeight = 0)
     {
-        portWidth = portWidth > 0 ? portWidth : width;
-        portHeight = portHeight > 0 ? portHeight : height;
+        portWidth = portWidth > 0 ? portWidth : (int)width;
+        portHeight = portHeight > 0 ? portHeight : (int)height;
         World.Engine.Write("view_enabled", 1);
         World.Engine.Write("view_wview", width, 0);
         World.Engine.Write("view_hview", height, 0);

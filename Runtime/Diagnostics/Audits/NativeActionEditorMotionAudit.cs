@@ -35,6 +35,12 @@ public partial class NativeActionEditor
         bool ButtonText(string text)=>Descendants(this).OfType<Button>().Any(button=>button.Text==text);
         bool ParamVisible(string name)=>Enumerable.Range(0,parameterView.ItemCount).Any(index=>parameterView.GetItemText(index)==name);
         Vector2 SurfacePoint(double x,double y){var (surfaceX,surfaceY)=MotionViewport.ToSurface(x,y,surface.Size.X,surface.Size.Y,PreviewView);return new((float)surfaceX,(float)surfaceY);}
+        (double X,double Y) RenderedPoint(double x,double y)
+        {
+            var view=preview!.World.View(0);
+            var (surfaceX,surfaceY)=MotionViewport.ToSurface(x,y,surface.Size.X,surface.Size.Y,new(view.X,view.Y,view.Width,view.Height,(int)view.PortWidth,(int)view.PortHeight));
+            return(surfaceX,surfaceY);
+        }
         void Layout()
         {
             Expect(tabs is TabBar&&tabs.TabCount==projects.Count,"the character bar lists one tab per project");
@@ -48,6 +54,7 @@ public partial class NativeActionEditor
             var transport=Descendants(this).FirstOrDefault(node=>node.Name=="TimelineDock");
             Expect(transport is not null&&Descendants(transport).OfType<CheckButton>().Any(button=>button.Text is "▶" or "⏸"),"the transport dock owns the play toggle");
             Expect(transport is not null&&Descendants(transport).OfType<Button>().Any(button=>button.Text=="单帧"),"the transport dock owns single step");
+            Expect(Descendants(this).OfType<VSplitContainer>().Any(split=>Descendants(split).Contains(transport)),"the bottom dock is resizable through a split container");
             Expect(transport is not null&&Descendants(transport).OfType<OptionButton>().Any(button=>button.ItemCount==3&&Enumerable.Range(0,3).Select(index=>button.GetItemText(index)).SequenceEqual(new[]{"0.5x","1x","2x"})),"the transport dock owns the speed chooser");
             Expect(stateList is ItemList&&stateList.GetParent()?.GetParent() is TabContainer dockPages&&dockPages.GetTabTitle(0)=="状态","the left dock starts with the state list");
             Expect(MenuLabels("视图").Contains("重载预览"),"the view menu keeps the reload preview fallback");
@@ -61,6 +68,30 @@ public partial class NativeActionEditor
         Layout();
         GD.Print("MOTION_EDITOR_LAYOUT_OK");
         await Ready();
+        Expect(preview!.Bridge.BoundCharacter(preview.Player!.Id) is not null,"the preview keeps the character binding");
+        Expect(Math.Abs(frame.Value)<.001,"the preview opens on frame 0");
+        _UnhandledKeyInput(new InputEventKey{Keycode=Key.Q,Pressed=true,Echo=false});
+        Expect(!GetViewport().IsInputHandled(),"an unbound key bubbles past the editor");
+        _UnhandledKeyInput(new InputEventKey{Keycode=Key.Escape,Pressed=true,Echo=false});
+        Expect(!GetViewport().IsInputHandled()&&!dragging,"Escape outside a drag is not swallowed");
+        _UnhandledKeyInput(new InputEventKey{Keycode=Key.F,Pressed=true,Echo=false});
+        Expect(GetViewport().IsInputHandled(),"the F shortcut marks the key handled");
+        preview.Graphics.SpriteGeometryAudit=new();preview.Graphics.Build();
+        var loadedDraws=preview.Graphics.SpriteGeometryAudit;double loadedWorst=0;int loadedLimbs=0;
+        foreach(var node in PreviewActor!.Services.Motions.Skeleton(PreviewActor))
+        {
+            Expect(Math.Abs(node.X)>.5||Math.Abs(node.Y)>.5,"the loaded preview applies the document pose instead of leaving "+node.Name+" at the world origin");
+            var limb=loadedDraws.Where(draw=>(draw.Position-new Vector2((float)node.X,(float)node.Y)).Length()<=.01f).ToArray();
+            Expect(limb.Length>0,"the loaded preview draws the limb for "+node.Name);
+            var (overlayX,overlayY)=MotionViewport.ToSurface(node.X,node.Y,surface.Size.X,surface.Size.Y,overlay!.View);
+            foreach(var draw in limb)
+            {
+                var (renderedX,renderedY)=RenderedPoint(draw.Position.X,draw.Position.Y);
+                loadedWorst=Math.Max(loadedWorst,Math.Sqrt((overlayX-renderedX)*(overlayX-renderedX)+(overlayY-renderedY)*(overlayY-renderedY)));loadedLimbs++;
+                Expect(Math.Abs(overlayX-renderedX)<=.5&&Math.Abs(overlayY-renderedY)<=.5,"the loaded skeleton joint "+node.Name+" lands on its drawn limb: overlay="+overlayX.ToString("F2")+","+overlayY.ToString("F2")+" rendered="+renderedX.ToString("F2")+","+renderedY.ToString("F2"));
+            }
+        }
+        Expect(loadedLimbs>0&&loadedWorst<=.5,"the loaded skeleton lands on the drawn limbs: draws="+loadedLimbs+" worst="+loadedWorst.ToString("F3"));
         PopupCentered();
         for(int i=0;i<3;i++)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
         var statePage=inspector.GetTabControl(1);
@@ -102,6 +133,15 @@ public partial class NativeActionEditor
         Expect(Math.Abs(Clip.Sample(3)["HEAD"].Angle-30)<.001,"editing the angle writes the key immediately");
         RunAction("undo");Expect(Math.Abs(Clip.Sample(3)["HEAD"].Angle-liveAngle)<.001,"undo covers immediate writes");
         RunAction("redo");Expect(Math.Abs(Clip.Sample(3)["HEAD"].Angle-30)<.001,"redo covers immediate writes");
+        _UnhandledKeyInput(new InputEventKey{Keycode=Key.Z,CtrlPressed=true,Pressed=true});
+        Expect(Math.Abs(Clip.Sample(3)["HEAD"].Angle-liveAngle)<.001,"ctrl+z undoes the last edit");
+        _UnhandledKeyInput(new InputEventKey{Keycode=Key.Z,CtrlPressed=true,ShiftPressed=true,Pressed=true});
+        Expect(Math.Abs(Clip.Sample(3)["HEAD"].Angle-30)<.001,"ctrl+shift+z redoes the last edit");
+        angle.Value=35;int echoUndo=document.UndoDepth;double echoAngle=Clip.Sample(3)["HEAD"].Angle;
+        _UnhandledKeyInput(new InputEventKey{Keycode=Key.Z,CtrlPressed=true,Pressed=true,Echo=true});
+        Expect(document.UndoDepth==echoUndo&&Math.Abs(Clip.Sample(3)["HEAD"].Angle-echoAngle)<.001,"a held ctrl+z echo neither undoes nor writes: depth="+document.UndoDepth+" angle="+Clip.Sample(3)["HEAD"].Angle.ToString("F2"));
+        _UnhandledKeyInput(new InputEventKey{Keycode=Key.Z,CtrlPressed=true,Pressed=true});
+        Expect(document.UndoDepth==echoUndo-1&&Math.Abs(Clip.Sample(3)["HEAD"].Angle-30)<.001,"ctrl+z without echo undoes the last angle edit: depth="+document.UndoDepth+" angle="+Clip.Sample(3)["HEAD"].Angle.ToString("F2"));
         duration.Value=25;Expect(Clip.Duration==25,"the clip duration is written immediately");
         loop.ButtonPressed=false;Expect(!Clip.Loop,"the clip loop flag is written immediately");
         Expect(!ButtonText("写入关键帧")&&!ButtonText("更新片段")&&!ButtonText("写入参数")&&!ButtonText("写入事件"),"the submit buttons are gone");
@@ -223,11 +263,15 @@ public partial class NativeActionEditor
         var ringNodes=ringActor.Services.Motions.Skeleton(ringActor);
         var headNode=ringNodes.Single(node=>node.Name=="HEAD");
         Expect(overlay!.RingVisible,"selecting a bone shows the ring");
-        Expect(Math.Abs(overlay.RingPixelRadius-54)<.001,"the ring keeps a fixed 54 pixel radius");
+        Expect(Math.Abs(overlay.RingPixelRadius-72)<.001,"the ring keeps a fixed 72 pixel radius");
         Expect(Math.Abs((overlay.BallAngle??double.NaN)-headNode.Angle)<.001,"the ball angle equals the selected bone world angle");
-        var arrows=overlay.ArrowPoints;
-        Expect(arrows.Count==8,"the ring shows eight step arrows");
-        for(int i=0;i<8;i++)Expect(overlay.RingHit(arrows[i])=="arrow:"+i,"arrow "+i+" is hittable");
+        var bars=overlay.BarPoints;
+        Expect(bars.Count==2&&bars[0]!=Vector2.Zero&&bars[1]!=Vector2.Zero&&overlay.RingHit(bars[0])=="bar:x"&&overlay.RingHit(bars[1])=="bar:y","the ring draws an X bar and a Y bar that are hittable");
+        var xBarRect=overlay.BarRect(0);var yBarRect=overlay.BarRect(1);
+        Expect(xBarRect is not null&&yBarRect is not null&&xBarRect.Value.GetCenter().DistanceTo(bars[0])<.001f&&yBarRect.Value.GetCenter().DistanceTo(bars[1])<.001f,"the drawn bar rects are centered on the bar points: x="+xBarRect?.GetCenter()+" y="+yBarRect?.GetCenter());
+        Expect(xBarRect is not null&&yBarRect is not null&&Math.Abs(xBarRect.Value.Size.X-144)<.001f&&Math.Abs(xBarRect.Value.Size.Y-8)<.001f&&Math.Abs(yBarRect.Value.Size.X-8)<.001f&&Math.Abs(yBarRect.Value.Size.Y-144)<.001f,"the X bar is 144x8 and the Y bar is 8x144");
+        Expect(xBarRect is not null&&yBarRect is not null&&overlay.RingHit(xBarRect.Value.GetCenter())=="bar:x"&&overlay.RingHit(yBarRect.Value.GetCenter())=="bar:y","the bar rect centers hit their own bars");
+        Expect(overlay.BarAxis(0).DistanceTo(new Vector2(1,0))<.001f&&overlay.BarAxis(1).DistanceTo(new Vector2(0,1))<.001f,"a level parent keeps the X bar horizontal and the Y bar vertical: "+overlay.BarAxis(0)+","+overlay.BarAxis(1));
         int ballUndo=document.UndoDepth;
         var ball=overlay.BallPoint;Expect(ball is not null,"the ring shows a ball");
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=ball!.Value});
@@ -241,25 +285,112 @@ public partial class NativeActionEditor
         Expect(document.UndoDepth==ballUndo+1,"the ball drag is one undo step");
         Expect(Math.Abs(ringActor.Services.Motions.Skeleton(ringActor).Single(node=>node.Name=="HEAD").Angle-desired)<.1,"the bone world angle follows the dragged absolute angle");
         SelectBone("HEAD");
-        var arrowNodes=ringActor.Services.Motions.Skeleton(ringActor);
-        double arrowStartY=arrowNodes.Single(node=>node.Name=="HEAD").Y;int arrowUndo=document.UndoDepth;
-        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=overlay.ArrowPoints[0]});
-        Expect(Math.Abs(ringActor.Services.Motions.Skeleton(ringActor).Single(node=>node.Name=="HEAD").Y-(arrowStartY-1))<.001,"the top arrow steps the bone one world unit up");
-        Expect(document.UndoDepth==arrowUndo+1,"an arrow step is one undo step");
+        var barBefore=Clip.Sample(0)["HEAD"];int barUndo=document.UndoDepth;
+        var xBar=overlay.BarPoints[0];
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=xBar});
+        Expect(dragging&&dragMode==DragMode.BarX,"pressing the X bar starts a local X drag");
+        Expect(Math.Abs(Clip.Sample(0)["HEAD"].X-barBefore.X)<.001&&Math.Abs(Clip.Sample(0)["HEAD"].Y-barBefore.Y)<.001,"pressing the X bar writes nothing before release");
+        Expect(document.UndoDepth==barUndo,"pressing the X bar adds no undo step");
+        SurfaceInput(new InputEventMouseMotion{Position=xBar+new Vector2(24,0)});
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=xBar+new Vector2(24,0)});
+        var barAfter=Clip.Sample(0)["HEAD"];
+        Expect(barAfter.X>barBefore.X+.01,"dragging the X bar right increases local X");
+        Expect(Math.Abs(barAfter.Y-barBefore.Y)<.01,"the X bar leaves local Y alone");
+        Expect(document.UndoDepth==barUndo+1,"the X bar drag is one undo step");
         SelectBone("HEAD");
-        double shiftStartY=ringActor.Services.Motions.Skeleton(ringActor).Single(node=>node.Name=="HEAD").Y;
-        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,ShiftPressed=true,Position=overlay.ArrowPoints[0]});
-        Expect(Math.Abs(ringActor.Services.Motions.Skeleton(ringActor).Single(node=>node.Name=="HEAD").Y-(shiftStartY-10))<.001,"shift steps the arrow ten world units");
+        var yBefore=Clip.Sample(0)["HEAD"];int yUndo=document.UndoDepth;
+        var yBar=overlay.BarPoints[1];
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=yBar});
+        Expect(dragging&&dragMode==DragMode.BarY,"pressing the Y bar starts a local Y drag");
+        Expect(Math.Abs(Clip.Sample(0)["HEAD"].X-yBefore.X)<.001&&Math.Abs(Clip.Sample(0)["HEAD"].Y-yBefore.Y)<.001,"pressing the Y bar writes nothing before release");
+        Expect(document.UndoDepth==yUndo,"pressing the Y bar adds no undo step");
+        SurfaceInput(new InputEventMouseMotion{Position=yBar+new Vector2(0,-24)});
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=yBar+new Vector2(0,-24)});
+        var yAfter=Clip.Sample(0)["HEAD"];
+        Expect(yAfter.Y<yBefore.Y-.01,"dragging the Y bar up moves the bone up");
+        Expect(document.UndoDepth==yUndo+1,"the Y bar drag is one undo step");
         SelectBone("HEAD");
-        var localBefore=Clip.Sample(0)["HEAD"];
-        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=overlay.ArrowPoints[2]});
-        var localAfter=Clip.Sample(0)["HEAD"];
-        Expect(Math.Abs(localAfter.X-(localBefore.X+1))<.05&&Math.Abs(localAfter.Y-localBefore.Y)<.05,"the right arrow steps local X");
+        var arrowZoom=SurfacePoint(ringActor.X,ringActor.Y);
+        bool OldArrowsBlank()=>Enumerable.Range(0,8).All(index=>{var node=ringActor.Services.Motions.Skeleton(ringActor).Single(item=>item.Name=="HEAD");double radians=(90-index*45)*Math.PI/180;var point=SurfacePoint(node.X,node.Y)+new Vector2((float)(Math.Cos(radians)*76),(float)(-Math.Sin(radians)*76));return PickBoneAt(point) is null&&overlay.RingHit(point) is null;});
+        for(int guard=0;guard<16&&!OldArrowsBlank();guard++)SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.WheelDown,Pressed=true,Position=arrowZoom});
+        Expect(OldArrowsBlank(),"zooming out leaves the old arrow positions on empty canvas");
+        foreach(bool shifted in new[]{false,true})
+            for(int i=0;i<8;i++)
+            {
+                SelectBone("HEAD");
+                var arrowNode=ringActor.Services.Motions.Skeleton(ringActor).Single(node=>node.Name=="HEAD");
+                double arrowRadians=(90-i*45)*Math.PI/180;
+                var arrowPoint=SurfacePoint(arrowNode.X,arrowNode.Y)+new Vector2((float)(Math.Cos(arrowRadians)*76),(float)(-Math.Sin(arrowRadians)*76));
+                var arrowPose=Clip.Sample(0)["HEAD"];int arrowUndo=document.UndoDepth;
+                SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,ShiftPressed=shifted,Position=arrowPoint});
+                var pressedNode=ringActor.Services.Motions.Skeleton(ringActor).Single(node=>node.Name=="HEAD");
+                Expect(Math.Abs(Clip.Sample(0)["HEAD"].X-arrowPose.X)<.001&&Math.Abs(Clip.Sample(0)["HEAD"].Y-arrowPose.Y)<.001,"pressing the old arrow positions writes no local X/Y");
+                Expect(document.UndoDepth==arrowUndo,"pressing the old arrow positions adds no undo step");
+                Expect(Math.Abs(pressedNode.X-arrowNode.X)<.001&&Math.Abs(pressedNode.Y-arrowNode.Y)<.001,"pressing the old arrow positions moves no bone");
+                var arrowMoved=arrowPoint+new Vector2(24,0);
+                SurfaceInput(new InputEventMouseMotion{Position=arrowMoved});
+                SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,ShiftPressed=shifted,Position=arrowMoved});
+                var releasedPose=Clip.Sample(0)["HEAD"];var releasedNode=ringActor.Services.Motions.Skeleton(ringActor).Single(node=>node.Name=="HEAD");
+                Expect(Math.Abs(releasedPose.X-arrowPose.X)<.001&&Math.Abs(releasedPose.Y-arrowPose.Y)<.001,"dragging from an old arrow position writes no local X/Y");
+                Expect(document.UndoDepth==arrowUndo,"dragging from an old arrow position adds no undo step");
+                Expect(Math.Abs(releasedNode.X-arrowNode.X)<.001&&Math.Abs(releasedNode.Y-arrowNode.Y)<.001,"dragging from an old arrow position moves no bone");
+            }
         SelectBone("HEAD");
-        var verticalBefore=Clip.Sample(0)["HEAD"];
-        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=overlay.ArrowPoints[4]});
-        var verticalAfter=Clip.Sample(0)["HEAD"];
-        Expect(Math.Abs(verticalAfter.Y-(verticalBefore.Y+1))<.05&&Math.Abs(verticalAfter.X-verticalBefore.X)<.05,"the down arrow steps local Y");
+        string parentName=parentNode?.Name??"BODY_TOP";
+        document.Edit(g=>{var track=g.Clips[0].Tracks.FirstOrDefault(item=>item.Bone==parentName);if(track is null){track=new(){Bone=parentName};g.Clips[0].Tracks.Add(track);}track.Keys.RemoveAll(key=>key.Frame==0);track.Keys.Add(new(){Frame=0,Angle=30});});
+        Refresh();ApplyDocumentPose();SelectBone("HEAD");
+        var rotatedBefore=Clip.Sample(0)["HEAD"];int rotatedUndo=document.UndoDepth;
+        var rotatedBar=overlay.BarPoints[0];
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=rotatedBar});
+        SurfaceInput(new InputEventMouseMotion{Position=rotatedBar+new Vector2(24,0)});
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=rotatedBar+new Vector2(24,0)});
+        var rotatedAfter=Clip.Sample(0)["HEAD"];
+        Expect(Math.Abs(rotatedAfter.X-rotatedBefore.X)>.01,"the X bar under a rotated parent changes local X");
+        Expect(Math.Abs(rotatedAfter.Y-rotatedBefore.Y)<.01,"the X bar under a rotated parent leaves local Y alone");
+        Expect(document.UndoDepth==rotatedUndo+1,"the rotated parent X drag is one undo step");
+        document.Edit(g=>{var track=g.Clips[0].Tracks.FirstOrDefault(item=>item.Bone==parentName);if(track is null){track=new(){Bone=parentName};g.Clips[0].Tracks.Add(track);}track.Keys.RemoveAll(key=>key.Frame==0);track.Keys.Add(new(){Frame=0,Angle=0});});
+        Refresh();ApplyDocumentPose();SelectBone("HEAD");
+        ringActor.Write("Direction",-1);ApplyDocumentPose();SelectBone("HEAD");
+        var mirrorBefore=Clip.Sample(0)["HEAD"];int mirrorUndo=document.UndoDepth;
+        var mirrorBar=overlay.BarPoints[0];
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=mirrorBar});
+        SurfaceInput(new InputEventMouseMotion{Position=mirrorBar+new Vector2(24,0)});
+        Expect(overlay.BarKnob(0) is { } mirrorKnob&&mirrorKnob.X-mirrorBar.X>20,"the mirrored bar knob follows the pointer to the right: "+overlay.BarKnob(0));
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=mirrorBar+new Vector2(24,0)});
+        var mirrorAfter=Clip.Sample(0)["HEAD"];
+        Expect(Math.Abs(mirrorAfter.X-mirrorBefore.X)>.01,"the mirrored X bar still changes local X");
+        Expect(Math.Abs(mirrorAfter.Y-mirrorBefore.Y)<.01,"the mirrored X bar leaves local Y alone");
+        Expect(document.UndoDepth==mirrorUndo+1,"the mirrored X drag is one undo step");
+        ringActor.Write("Direction",1);ApplyDocumentPose();SelectBone("HEAD");
+        document.Edit(g=>{var track=g.Clips[0].Tracks.FirstOrDefault(item=>item.Bone==parentName);if(track is null){track=new(){Bone=parentName};g.Clips[0].Tracks.Add(track);}track.Keys.RemoveAll(key=>key.Frame==0);track.Keys.Add(new(){Frame=0,Angle=90});});
+        Refresh();ApplyDocumentPose();SelectBone("HEAD");
+        var uprightXRect=overlay.BarRect(0);var uprightYRect=overlay.BarRect(1);
+        Expect(overlay.BarAxis(0).DistanceTo(new Vector2(0,-1))<.001f&&uprightXRect is not null&&Math.Abs(uprightXRect.Value.Size.X-8)<.001f&&Math.Abs(uprightXRect.Value.Size.Y-144)<.001f,"the X bar stands upright under a 90 degree parent: axis="+overlay.BarAxis(0)+" size="+uprightXRect?.Size);
+        Expect(uprightYRect is not null&&Math.Abs(uprightYRect.Value.Size.X-144)<.001f&&Math.Abs(uprightYRect.Value.Size.Y-8)<.001f,"the Y bar lies flat under a 90 degree parent: size="+uprightYRect?.Size);
+        var uprightBefore=Clip.Sample(0)["HEAD"];int uprightUndo=document.UndoDepth;
+        var uprightBar=overlay.BarPoints[0];
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=uprightBar});
+        SurfaceInput(new InputEventMouseMotion{Position=uprightBar+new Vector2(24,0)});
+        Expect(overlay.BarKnob(0) is { } uprightKnob&&uprightKnob.DistanceTo(uprightBar)<.5f,"a perpendicular drag leaves the upright X bar knob still: "+overlay.BarKnob(0));
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=uprightBar+new Vector2(24,0)});
+        var uprightAfter=Clip.Sample(0)["HEAD"];
+        Expect(Math.Abs(uprightAfter.X-uprightBefore.X)<.01&&Math.Abs(uprightAfter.Y-uprightBefore.Y)<.01,"a perpendicular drag on the upright X bar writes no local X/Y: "+uprightAfter.X.ToString("F3")+","+uprightAfter.Y.ToString("F3"));
+        Expect(document.UndoDepth==uprightUndo,"a perpendicular drag on the upright X bar adds no undo step");
+        Expect(status.Text.Contains("未移动"),"a perpendicular drag on the upright X bar reports no movement: "+status.Text);
+        SelectBone("HEAD");
+        var alongBefore=Clip.Sample(0)["HEAD"];int alongUndo=document.UndoDepth;
+        var alongBar=overlay.BarPoints[0];
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=alongBar});
+        SurfaceInput(new InputEventMouseMotion{Position=alongBar+new Vector2(0,-24)});
+        Expect(overlay.BarKnob(0) is { } alongKnob&&Math.Abs((alongBar.Y-alongKnob.Y)-24)<.5f,"the upright X bar knob follows the pointer up: "+overlay.BarKnob(0));
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=alongBar+new Vector2(0,-24)});
+        var alongAfter=Clip.Sample(0)["HEAD"];
+        Expect(alongAfter.X-alongBefore.X>.01&&Math.Abs(alongAfter.Y-alongBefore.Y)<.01,"dragging the upright X bar up changes local X only: "+alongAfter.X.ToString("F3")+","+alongAfter.Y.ToString("F3"));
+        Expect(document.UndoDepth==alongUndo+1,"the upright X bar drag is one undo step");
+        document.Edit(g=>{var track=g.Clips[0].Tracks.FirstOrDefault(item=>item.Bone==parentName);if(track is null){track=new(){Bone=parentName};g.Clips[0].Tracks.Add(track);}track.Keys.RemoveAll(key=>key.Frame==0);track.Keys.Add(new(){Frame=0,Angle=0});});
+        Refresh();ApplyDocumentPose();SelectBone("HEAD");
+        var flatRect=overlay.BarRect(0);
+        Expect(overlay.BarAxis(0).DistanceTo(new Vector2(1,0))<.001f&&flatRect is not null&&Math.Abs(flatRect.Value.Size.X-144)<.001f&&Math.Abs(flatRect.Value.Size.Y-8)<.001f,"a level parent lays the X bar flat again: axis="+overlay.BarAxis(0)+" size="+flatRect?.Size);
         SelectBone("HAND1_ABOVE");
         Expect(overlay.ChainFocusIndex>=0,"selecting an IK chain bone focuses the chain");
         var chainBones=overlay.FocusChainBones;
@@ -465,12 +596,13 @@ public partial class NativeActionEditor
         var chainBefore=Clip.Sample(frame.Value);
         double midLength=Math.Sqrt(chainBefore["HAND1_ABOVE"].X*chainBefore["HAND1_ABOVE"].X+chainBefore["HAND1_ABOVE"].Y*chainBefore["HAND1_ABOVE"].Y);
         double endLength=Math.Sqrt(chainBefore["HAND1_BELOW"].X*chainBefore["HAND1_BELOW"].X+chainBefore["HAND1_BELOW"].Y*chainBefore["HAND1_BELOW"].Y);
-        var endPoint=PointFor("HAND1_BELOW");
+        var endPoint=PointFor("HAND1_BELOW");int ikGestureUndo=document.UndoDepth;
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=endPoint});
         Expect(dragging&&dragMode==DragMode.Ik,"dragging an IK chain end uses IK by default");
         var farPoint=SurfacePoint(canvasActor.X+120,canvasActor.Y-60);
         SurfaceInput(new InputEventMouseMotion{Position=farPoint});
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=farPoint});
+        Expect(document.UndoDepth==ikGestureUndo+1,"the IK gesture is exactly one undo step");
         var chainPose=Clip.Sample(frame.Value);
         Expect(Math.Abs(Math.Sqrt(chainPose["HAND1_ABOVE"].X*chainPose["HAND1_ABOVE"].X+chainPose["HAND1_ABOVE"].Y*chainPose["HAND1_ABOVE"].Y)-midLength)<.001&&Math.Abs(Math.Sqrt(chainPose["HAND1_BELOW"].X*chainPose["HAND1_BELOW"].X+chainPose["HAND1_BELOW"].Y*chainPose["HAND1_BELOW"].Y)-endLength)<.001,"IK drag keeps both segment lengths");
         Expect(status.Text.Contains("夹"),"unreachable IK target is clamped to the chain reach");
@@ -585,6 +717,7 @@ public partial class NativeActionEditor
         double playBefore=playActor.Services.Motions.State(playActor)!.Frame;
         TickPlayback(FrameContext.FixedDelta);await Ready();
         Expect(playActor.Services.Motions.State(playActor)!.Frame==playBefore+1,"play advances one fixed frame "+playBefore+"->"+playActor.Services.Motions.State(playActor)!.Frame);
+        Expect(Math.Abs(timelineSlider.Value-(playBefore+1))<.001,"the progress bar follows playback");
         playing.ButtonPressed=false;
         double pausedFrame=playActor.Services.Motions.State(playActor)!.Frame;
         TickPlayback(FrameContext.FixedDelta);await Ready();
@@ -606,6 +739,32 @@ public partial class NativeActionEditor
         frame.Value=0;RestartPlayback();playing.ButtonPressed=true;
         TickPlayback(FrameContext.FixedDelta*10);await Ready();
         Expect(overlay.Playback.Contains("audit.beat")&&overlay.Playback.Contains("audit.beat2"),"batched steps accumulate every triggered event");
+        var playbackEngine=preview!.World.View(0);SyncOverlay();
+        Expect(overlay.View.ViewX==playbackEngine.X&&overlay.View.ViewY==playbackEngine.Y&&overlay.View.ViewWidth==playbackEngine.Width&&overlay.View.ViewHeight==playbackEngine.Height,"the overlay camera mirrors the engine view after playback");
+        Expect(Math.Abs(overlay.View.ViewX-(viewCenterX-viewWidth/2))>.5,"playback moved the engine camera away from the editor framing");
+        preview.Graphics.SpriteGeometryAudit=new();preview.Graphics.Build();
+        var renderedDraws=preview.Graphics.SpriteGeometryAudit;int limbDraws=0;double worstLimb=0;
+        foreach(var node in PreviewActor!.Services.Motions.Skeleton(PreviewActor))
+        {
+            var limb=renderedDraws.Where(draw=>(draw.Position-new Vector2((float)node.X,(float)node.Y)).Length()<=.01f).ToArray();
+            Expect(limb.Length>0,"the renderer draws the limb for "+node.Name);
+            var (overlayX,overlayY)=MotionViewport.ToSurface(node.X,node.Y,surface.Size.X,surface.Size.Y,overlay.View);
+            foreach(var draw in limb)
+            {
+                var (renderedX,renderedY)=RenderedPoint(draw.Position.X,draw.Position.Y);
+                worstLimb=Math.Max(worstLimb,Math.Sqrt((overlayX-renderedX)*(overlayX-renderedX)+(overlayY-renderedY)*(overlayY-renderedY)));limbDraws++;
+                Expect(Math.Abs(overlayX-renderedX)<=.5&&Math.Abs(overlayY-renderedY)<=.5,"the skeleton joint "+node.Name+" lands on its drawn limb: overlay="+overlayX.ToString("F2")+","+overlayY.ToString("F2")+" rendered="+renderedX.ToString("F2")+","+renderedY.ToString("F2"));
+            }
+        }
+        Expect(limbDraws>0&&worstLimb<=.5,"every skeleton joint lands on its drawn limb: draws="+limbDraws+" worst="+worstLimb.ToString("F3"));
+        var panBefore=PreviewView;
+        double panPerPixel=MotionViewport.WorldPerPixel(surface.Size.X,surface.Size.Y,panBefore);
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Middle,Pressed=true,Position=new(200,200)});
+        SurfaceInput(new InputEventMouseMotion{Position=new(240,200)});
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Middle,Pressed=false,Position=new(240,200)});
+        var panAfter=PreviewView;
+        Expect(Math.Abs((panBefore.ViewX-panAfter.ViewX)-40*panPerPixel)<1,"panning after playback continues from the renderer camera: "+panBefore.ViewX.ToString("F2")+"->"+panAfter.ViewX.ToString("F2"));
+        Expect(Math.Abs(panAfter.ViewY-panBefore.ViewY)<1,"a horizontal pan keeps the vertical camera: "+panBefore.ViewY.ToString("F2")+"->"+panAfter.ViewY.ToString("F2"));
         Change(g=>{g.States.Add(new(){Id="next",Clip="idle"});g.States[0].Transitions.Add(new(){Target="next",Conditions=[new(){Kind=MotionConditionKind.Timer,Comparison=MotionComparison.GreaterOrEqual,Value=2}]});});
         frame.Value=0;RestartPlayback();playing.ButtonPressed=true;
         TickPlayback(FrameContext.FixedDelta*3);await Ready();

@@ -28,6 +28,8 @@ public partial class NativeMotionOverlay : Control
     internal double? BallAngle => SelectedNode() is { } node ? ringAngle ?? node.Angle : null;
     internal Vector2? BallPoint => SelectedNode() is { } node ? Surface(node.X, node.Y) + Direction(ringAngle ?? node.Angle) * RingRadius : null;
     internal IReadOnlyList<Vector2> BarPoints => new[] { BarCenter(0) ?? Vector2.Zero, BarCenter(1) ?? Vector2.Zero };
+    internal Vector2? BarOffset => barOffset;
+    internal Rect2? BarRect(int axis) => BarCenter(axis) is { } center ? BarRect(center, axis == 0 ? new(1, 0) : new(0, 1)) : null;
     internal int ChainFocusIndex => selected is null ? -1 : Array.FindIndex(chains, chain => chain.Root == selected || chain.Mid == selected || chain.End == selected);
     internal string[] FocusChainBones => ChainFocusIndex is var focus && focus >= 0 ? [chains[focus].Root, chains[focus].Mid, chains[focus].End] : [];
     internal bool EndHandleVisible => ChainFocusIndex >= 0;
@@ -119,10 +121,11 @@ public partial class NativeMotionOverlay : Control
         if (BarCenter(0) is { } xBar) DrawBar(xBar, new(1, 0), barOffset?.X ?? 0);
         if (BarCenter(1) is { } yBar) DrawBar(yBar, new(0, 1), barOffset?.Y ?? 0);
     }
+    private static Rect2 BarRect(Vector2 center, Vector2 axis) =>
+        new(center - axis * BarHalf - new Vector2(Math.Abs(axis.Y), Math.Abs(axis.X)) * BarThickness / 2, new(axis.X == 0 ? BarThickness : BarHalf * 2, axis.X == 0 ? BarHalf * 2 : BarThickness));
     private void DrawBar(Vector2 center, Vector2 axis, float offset)
     {
-        var across = new Vector2(-axis.Y, axis.X);
-        DrawRect(new Rect2(center - axis * BarHalf - across * BarThickness / 2, new(axis.X == 0 ? BarThickness : BarHalf * 2, axis.X == 0 ? BarHalf * 2 : BarThickness)), BarColor);
+        DrawRect(BarRect(center, axis), BarColor);
         var knob = center + axis * Mathf.Clamp(offset, -1f, 1f) * BarHalf;
         DrawCircle(knob, BarThickness, KnobColor);
     }

@@ -43,7 +43,12 @@ public partial class NativeActionEditor
             if(dragging&&draggedBone is {} name)
             {
                 dragging=false;
-                if(dragSurface.DistanceTo(dragOrigin)<3){overlay?.SetRingAngle(null);status.Text="已选中骨骼；未拖动，未写入关键帧。";return;}
+                if(dragSurface.DistanceTo(dragOrigin)<3)
+                {
+                    overlay?.SetRingAngle(null);overlay?.SetBarOffset(null);
+                    status.Text=dragMode switch{DragMode.BarX or DragMode.BarY=>"已选中骨骼；未拖动，未写入局部 X/Y。",DragMode.Ball=>"已选中骨骼；未拖动，未写入旋转。",_=>"已选中骨骼；未拖动，未写入关键帧。"};
+                    return;
+                }
                 CommitDrag(name);
             }
             else if(panning)panning=false;
@@ -87,15 +92,17 @@ public partial class NativeActionEditor
         var local=LocalTarget(name,dragX,dragY,false);
         double localX=local.X-barOrigin.X,localY=local.Y-barOrigin.Y;
         barTarget=dragMode==DragMode.BarX?(barStart.X+localX,barStart.Y):(barStart.X,barStart.Y+localY);
-        overlay?.SetBarOffset(dragMode==DragMode.BarX?new((float)(localX/NativeMotionOverlay.BarHalf),0):new(0,(float)(localY/NativeMotionOverlay.BarHalf)));
+        overlay?.SetBarOffset(dragMode==DragMode.BarX?new((float)((dragSurface.X-dragOrigin.X)/NativeMotionOverlay.BarHalf),0):new(0,(float)((dragSurface.Y-dragOrigin.Y)/NativeMotionOverlay.BarHalf)));
     }
 
     public override void _UnhandledKeyInput(InputEvent @event)
     {
-        if(@event is not InputEventKey{Pressed:true} key)return;
-        if(key.Keycode==Key.Escape)CancelDrag();
+        if(@event is not InputEventKey{Pressed:true,Echo:false} key)return;
+        if(key.Keycode==Key.Escape){if(!dragging)return;CancelDrag();}
         else if(key.Keycode==Key.F&&!TypingInField())FitView();
         else if(key.Keycode==Key.Z&&key.CtrlPressed&&!TypingInField())RunAction(key.ShiftPressed?"redo":"undo");
+        else return;
+        GetViewport().SetInputAsHandled();
     }
     private bool TypingInField()=>GetViewport()?.GuiGetFocusOwner() switch { LineEdit or TextEdit => true, SpinBox box => box.GetLineEdit().HasFocus(), _ => false };
 

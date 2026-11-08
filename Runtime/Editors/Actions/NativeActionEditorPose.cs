@@ -193,7 +193,7 @@ public partial class NativeActionEditor
         viewWidth=next;viewCenterX=worldX-(u-.5)*next;viewCenterY=worldY-(v-.5)*next*.75;
         ApplyView();
     }
-    private void BeginPan(Vector2 position){panning=true;panOrigin=position;panCenterX=viewCenterX;panCenterY=viewCenterY;}
+    private void BeginPan(Vector2 position){panning=true;panOrigin=position;var view=PreviewView;panCenterX=view.ViewX+view.ViewWidth/2;panCenterY=view.ViewY+view.ViewHeight/2;}
     private void UpdatePan(Vector2 position)
     {
         double worldPerPixel=MotionViewport.WorldPerPixel(surface.Size.X,surface.Size.Y,PreviewView);

@@ -35,17 +35,11 @@ public partial class NativeActionEditor
         bool ButtonText(string text)=>Descendants(this).OfType<Button>().Any(button=>button.Text==text);
         bool ParamVisible(string name)=>Enumerable.Range(0,parameterView.ItemCount).Any(index=>parameterView.GetItemText(index)==name);
         Vector2 SurfacePoint(double x,double y){var (surfaceX,surfaceY)=MotionViewport.ToSurface(x,y,surface.Size.X,surface.Size.Y,PreviewView);return new((float)surfaceX,(float)surfaceY);}
-        Transform2D RendererTransform()
+        (double X,double Y) RenderedPoint(double x,double y)
         {
-            var view=preview!.World.View(0);var camera=preview.Graphics.Camera;
-            var zero=view.ToScreen(camera.X,camera.Y);var right=view.ToScreen(camera.X+1,camera.Y);var down=view.ToScreen(camera.X,camera.Y+1);
-            return new(new((float)(right.X-zero.X),(float)(right.Y-zero.Y)),new((float)(down.X-zero.X),(float)(down.Y-zero.Y)),new((float)zero.X,(float)zero.Y));
-        }
-        (double X,double Y) RenderedPoint(double worldX,double worldY)
-        {
-            var camera=preview!.Graphics.Camera;var local=RendererTransform()*(new Vector2((float)worldX,(float)worldY)-camera);
-            double scale=Math.Min(surface.Size.X/640.0,surface.Size.Y/480.0);
-            return((surface.Size.X-640*scale)/2+local.X*scale,(surface.Size.Y-480*scale)/2+local.Y*scale);
+            var view=preview!.World.View(0);
+            var (surfaceX,surfaceY)=MotionViewport.ToSurface(x,y,surface.Size.X,surface.Size.Y,new(view.X,view.Y,view.Width,view.Height,(int)view.PortWidth,(int)view.PortHeight));
+            return(surfaceX,surfaceY);
         }
         void Layout()
         {
@@ -732,8 +726,8 @@ public partial class NativeActionEditor
         frame.Value=0;RestartPlayback();playing.ButtonPressed=true;
         TickPlayback(FrameContext.FixedDelta*10);await Ready();
         Expect(overlay.Playback.Contains("audit.beat")&&overlay.Playback.Contains("audit.beat2"),"batched steps accumulate every triggered event");
-        var playbackEngine=preview!.World.Engine;SyncOverlay();
-        Expect(Math.Abs(overlay.View.ViewX-playbackEngine.Read("view_xview",[0]).Number)<.001&&Math.Abs(overlay.View.ViewY-playbackEngine.Read("view_yview",[0]).Number)<.001&&Math.Abs(overlay.View.ViewWidth-playbackEngine.Read("view_wview",[0]).Number)<.001&&Math.Abs(overlay.View.ViewHeight-playbackEngine.Read("view_hview",[0]).Number)<.001,"the overlay camera mirrors the engine view after playback");
+        var playbackEngine=preview!.World.View(0);SyncOverlay();
+        Expect(overlay.View.ViewX==playbackEngine.X&&overlay.View.ViewY==playbackEngine.Y&&overlay.View.ViewWidth==playbackEngine.Width&&overlay.View.ViewHeight==playbackEngine.Height,"the overlay camera mirrors the engine view after playback");
         Expect(Math.Abs(overlay.View.ViewX-(viewCenterX-viewWidth/2))>.5,"playback moved the engine camera away from the editor framing");
         preview.Graphics.SpriteGeometryAudit=new();preview.Graphics.Build();
         var renderedDraws=preview.Graphics.SpriteGeometryAudit;int limbDraws=0;double worstLimb=0;
@@ -750,6 +744,14 @@ public partial class NativeActionEditor
             }
         }
         Expect(limbDraws>0&&worstLimb<=.5,"every skeleton joint lands on its drawn limb: draws="+limbDraws+" worst="+worstLimb.ToString("F3"));
+        var panBefore=PreviewView;
+        double panPerPixel=MotionViewport.WorldPerPixel(surface.Size.X,surface.Size.Y,panBefore);
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Middle,Pressed=true,Position=new(200,200)});
+        SurfaceInput(new InputEventMouseMotion{Position=new(240,200)});
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Middle,Pressed=false,Position=new(240,200)});
+        var panAfter=PreviewView;
+        Expect(Math.Abs((panBefore.ViewX-panAfter.ViewX)-40*panPerPixel)<1,"panning after playback continues from the renderer camera: "+panBefore.ViewX.ToString("F2")+"->"+panAfter.ViewX.ToString("F2"));
+        Expect(Math.Abs(panAfter.ViewY-panBefore.ViewY)<1,"a horizontal pan keeps the vertical camera: "+panBefore.ViewY.ToString("F2")+"->"+panAfter.ViewY.ToString("F2"));
         Change(g=>{g.States.Add(new(){Id="next",Clip="idle"});g.States[0].Transitions.Add(new(){Target="next",Conditions=[new(){Kind=MotionConditionKind.Timer,Comparison=MotionComparison.GreaterOrEqual,Value=2}]});});
         frame.Value=0;RestartPlayback();playing.ButtonPressed=true;
         TickPlayback(FrameContext.FixedDelta*3);await Ready();

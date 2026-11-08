@@ -1,0 +1,29 @@
+name: 任务
+description: 描述一项需要完成的工作
+title: "[task] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: 目标
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 范围
+    validations:
+      required: true
+  - type: textarea
+    id: excluded
+    attributes:
+      label: 不做
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收
+    validations:
+      required: true

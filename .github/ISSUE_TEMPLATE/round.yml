@@ -1,0 +1,36 @@
+name: 轮次
+description: 规划一轮迭代
+title: "[round] "
+labels: [round]
+body:
+  - type: textarea
+    id: current
+    attributes:
+      label: 当前目标
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 范围
+    validations:
+      required: true
+  - type: textarea
+    id: excluded
+    attributes:
+      label: 不做
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收
+    validations:
+      required: true
+  - type: textarea
+    id: children
+    attributes:
+      label: 子 issue
+      description: 每行一个 #N
+    validations:
+      required: true

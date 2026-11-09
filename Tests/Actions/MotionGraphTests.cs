@@ -8,6 +8,7 @@ public static class MotionGraphTests
         void Check(bool ok,string message){if(!ok)throw new Exception(message);count++;}
         bool Throws(Action action,string text){try{action();return false;}catch(Exception error){return error.Message.Contains(text,StringComparison.Ordinal);}}
         (double X,double Y) Compose((double X,double Y) parent,double angle,double x,double y){var (offsetX,offsetY)=MotionRigCoordinates.Rotate(x,y,angle);return (parent.X+offsetX,parent.Y+offsetY);}
+        double Wrap(double angle){angle%=360;return angle<=-180?angle+360:angle>180?angle-360:angle;}
         var clip=new MotionClip{Id="idle",Duration=4,Loop=false,Tracks=[new(){Bone="HEAD",Keys=[new(){Frame=0,Angle=350},new(){Frame=4,X=8,Angle=10,ScaleX=2,Picture=3}]}]};
         var pose=clip.Sample(2)["HEAD"];
         Check(pose.X==4&&pose.ScaleX==1.5&&Math.Abs(pose.Angle-360)<.001&&pose.Picture==0,"timeline interpolation and stepped pictures");
@@ -31,6 +32,31 @@ public static class MotionGraphTests
         var duplicateSlots=new MotionGraph{Skeleton="legacy:objEnemyDoll",Clips=[new(){Tracks=[new(){Bone="process:0"},new(){Bone="process:1"}]}],States=[new(){Id="idle",Clip="idle"}],EntitySlots=new(){{"process:0","process:0"},{"process:1","process:0"}}};duplicateSlots.Clips[0].Id="idle";Check(Throws(() => duplicateSlots.Validate(),"occupied"),"duplicate entity slots report conflict");
         var drag=new MotionGraph{Id="ik.drag",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_TOP",Keys=[new(){Frame=0,X=0,Y=0}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=3,Y=0}]},new(){Bone="HAND1_BELOW",Keys=[new(){Frame=0,X=3,Y=0}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND1_BELOW"}]};
         var dragDoc=new MotionGraphDocument(drag);var dragged=dragDoc.Drag("idle","HAND1_BELOW",0,4,2);var midPose=dragDoc.Graph.Clips[0].Tracks.Single(t=>t.Bone=="HAND1_ABOVE").Keys[0];var endPose=dragDoc.Graph.Clips[0].Tracks.Single(t=>t.Bone=="HAND1_BELOW").Keys[0];Check(dragged.Success&&Math.Abs(Math.Sqrt(midPose.X*midPose.X+midPose.Y*midPose.Y)-3)<.001&&Math.Abs(Math.Sqrt(endPose.X*endPose.X+endPose.Y*endPose.Y)-3)<.001,"IK drag preserves both segment lengths");dragDoc.Undo();Check(dragDoc.Graph.Clips[0].Tracks.Single(t=>t.Bone=="HAND1_BELOW").Keys[0].X==3,"IK drag is one undo operation");
+        var reachGraph=new MotionGraph{Id="ik.reach",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_TOP",Keys=[new(){Frame=0}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=3,Y=0}]},new(){Bone="HAND1_BELOW",Keys=[new(){Frame=0,X=3,Y=0}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND1_BELOW"}]};
+        var reachDoc=new MotionGraphDocument(reachGraph);int reachUndo=reachDoc.UndoDepth;var near=reachDoc.Drag("idle","HAND1_BELOW",0,2,1);var nearPose=reachDoc.Graph.Clips[0].Sample(0);
+        var nearMidPoint=Compose((nearPose["BODY_TOP"].X,nearPose["BODY_TOP"].Y),nearPose["BODY_TOP"].Angle,nearPose["HAND1_ABOVE"].X,nearPose["HAND1_ABOVE"].Y);
+        var nearEndPoint=Compose(nearMidPoint,nearPose["BODY_TOP"].Angle+nearPose["HAND1_ABOVE"].Angle,nearPose["HAND1_BELOW"].X,nearPose["HAND1_BELOW"].Y);
+        Check(near.Success&&!near.Clamped&&near.Reason.Length==0,"reachable IK drag reports no clamp");
+        Check(Math.Abs(Math.Sqrt(nearPose["HAND1_ABOVE"].X*nearPose["HAND1_ABOVE"].X+nearPose["HAND1_ABOVE"].Y*nearPose["HAND1_ABOVE"].Y)-3)<1e-9&&Math.Abs(nearPose["HAND1_ABOVE"].Y)<1e-9&&Math.Abs(Math.Sqrt(nearPose["HAND1_BELOW"].X*nearPose["HAND1_BELOW"].X+nearPose["HAND1_BELOW"].Y*nearPose["HAND1_BELOW"].Y)-3)<1e-9&&Math.Abs(nearPose["HAND1_BELOW"].Y)<1e-9,"IK writeback keeps both segments on the local X axis");
+        Check(Math.Abs(nearEndPoint.X-2)<1e-9&&Math.Abs(nearEndPoint.Y-1)<1e-9,"reachable IK writeback lands the end on the target");
+        Check(Math.Abs(Wrap(nearPose["BODY_TOP"].Angle+near.RootAngle))<1e-9,"IK writeback stores the rig angle convention for the chain root");
+        Check(Math.Abs(Wrap(nearPose["HAND1_ABOVE"].Angle-(near.RootAngle-near.MidAngle)))<1e-9,"IK writeback stores the rig angle convention for the chain mid");
+        Check(reachDoc.UndoDepth==reachUndo+1,"reachable IK drag is one undo step");
+        var far=reachDoc.Drag("idle","HAND1_BELOW",0,30,0);var farPose=reachDoc.Graph.Clips[0].Sample(0);
+        var farMidPoint=Compose((farPose["BODY_TOP"].X,farPose["BODY_TOP"].Y),farPose["BODY_TOP"].Angle,farPose["HAND1_ABOVE"].X,farPose["HAND1_ABOVE"].Y);
+        var farEndPoint=Compose(farMidPoint,farPose["BODY_TOP"].Angle+farPose["HAND1_ABOVE"].Angle,farPose["HAND1_BELOW"].X,farPose["HAND1_BELOW"].Y);
+        Check(far.Success&&far.Clamped&&far.Reason=="目标超出链长，已夹到可达范围。","IK drag beyond reach clamps once with the reach message");
+        Check(Math.Abs(farEndPoint.X-6)<1e-9&&Math.Abs(farEndPoint.Y)<1e-9,"IK clamp lands on the reachable boundary");
+        Check(Math.Abs(Math.Sqrt(farPose["HAND1_ABOVE"].X*farPose["HAND1_ABOVE"].X+farPose["HAND1_ABOVE"].Y*farPose["HAND1_ABOVE"].Y)-3)<1e-9&&Math.Abs(Math.Sqrt(farPose["HAND1_BELOW"].X*farPose["HAND1_BELOW"].X+farPose["HAND1_BELOW"].Y*farPose["HAND1_BELOW"].Y)-3)<1e-9,"clamped IK drag keeps both segment lengths");
+        Check(reachDoc.UndoDepth==reachUndo+2,"clamped IK drag is one undo step");
+        var clear=reachDoc.Drag("idle","HAND1_BELOW",0,0,2);
+        Check(clear.Success&&!clear.Clamped&&clear.Reason.Length==0,"a follow-up reachable IK drag clears the clamp result");
+        var framedGraph=new MotionGraph{Id="ik.framed",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_TOP",Keys=[new(){Frame=0}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=3}]},new(){Bone="HAND1_BELOW",Keys=[new(){Frame=0,X=3}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND1_BELOW"}]};
+        var framedDoc=new MotionGraphDocument(framedGraph);var framedResult=framedDoc.Drag("idle","HAND1_BELOW",0,2,1,null,false,new MotionIkFrame(30,0,5));var framedPose=framedDoc.Graph.Clips[0].Sample(0);
+        var framedMidPoint=Compose((0d,5d),framedPose["BODY_TOP"].Angle+30,framedPose["HAND1_ABOVE"].X,framedPose["HAND1_ABOVE"].Y);
+        var framedEndPoint=Compose(framedMidPoint,framedPose["BODY_TOP"].Angle+30+framedPose["HAND1_ABOVE"].Angle,framedPose["HAND1_BELOW"].X,framedPose["HAND1_BELOW"].Y);
+        Check(framedResult.Success&&Math.Abs(framedEndPoint.X-2)<1e-9&&Math.Abs(framedEndPoint.Y-1)<1e-9,"IK drag honours the chain root frame override");
+        Check(Math.Abs(Wrap(framedPose["BODY_TOP"].Angle+framedResult.RootAngle+30))<1e-9,"IK writeback subtracts the chain parent angle from the root rotation");
         var viewport=new MotionView(100,200,320,240,640,480);
         var mapped=MotionViewport.ToWorld(400,300,640,480,viewport);var mappedBack=MotionViewport.ToSurface(300,350,640,480,viewport);
         Check(Math.Abs(mapped.X-300)<.001&&Math.Abs(mapped.Y-350)<.001&&Math.Abs(mappedBack.X-400)<.001&&Math.Abs(mappedBack.Y-300)<.001,"viewport maps a 1:1 surface and round trips");

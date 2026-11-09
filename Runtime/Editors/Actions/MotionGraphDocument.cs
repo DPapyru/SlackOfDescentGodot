@@ -19,13 +19,13 @@ public sealed class MotionGraphDocument(MotionGraph graph)
     }
     public bool Undo(){coalesceKey=null;if(!undo.TryPop(out var data))return false;redo.Push(Snapshot());Restore(data);Dirty=true;return true;}
     public bool Redo(){coalesceKey=null;if(!redo.TryPop(out var data))return false;undo.Push(Snapshot());Restore(data);Dirty=true;return true;}
-    public MotionIkResult Drag(string clipId,string bone,double frame,double targetX,double targetY,bool? bendPositive=null,bool forceFk=false)
+    public MotionIkResult Drag(string clipId,string bone,double frame,double targetX,double targetY,bool? bendPositive=null,bool forceFk=false,MotionIkFrame? ikFrame=null)
     {
         MotionIkResult result=MotionIkResult.Invalid("拖动未应用。");
         var before=Snapshot();
         try
         {
-            result=MotionPoseEditor.Drag(Graph,clipId,bone,frame,targetX,targetY,bendPositive,forceFk);
+            result=MotionPoseEditor.Drag(Graph,clipId,bone,frame,targetX,targetY,bendPositive,forceFk,ikFrame);
             if(!result.Success){Restore(before);return result;}
             Graph.Validate();undo.Push(before);redo.Clear();Dirty=true;coalesceKey=null;return result;
         }

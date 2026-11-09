@@ -6,6 +6,7 @@ public partial class NativeActionEditor
 {
     private TextEdit sourceText = null!;
     private bool sourceSyncing;
+    private string sourceSnapshot = "";
 
     private void BuildSourcePage(TabContainer pages)
     {
@@ -26,39 +27,26 @@ public partial class NativeActionEditor
     {
         if (sourceText is null || sourceText.HasFocus()) return;
         sourceSyncing = true;
-        try { sourceText.Text = MotionToml.Render(document.Graph); }
+        try { sourceText.Text = sourceSnapshot = MotionToml.Render(document.Graph); }
         finally { sourceSyncing = false; }
     }
 
     private void ReloadSource()
     {
         if (sourceText is null) return;
-        sourceText.Text = MotionToml.Render(document.Graph);
+        sourceSnapshot = sourceText.Text = MotionToml.Render(document.Graph);
         status.Text = "源码已重新加载。";
     }
 
     private void CommitSource()
     {
-        if (sourceSyncing || sourceText is null || refreshing) return;
-        try
+        if (sourceSyncing || sourceText is null || refreshing || sourceText.Text == sourceSnapshot) return;
+        Guard(() =>
         {
             var parsed = MotionToml.Parse(sourceText.Text);
-            document.Edit(graph =>
-            {
-                graph.FormatVersion = parsed.FormatVersion;
-                graph.Id = parsed.Id;
-                graph.Skeleton = parsed.Skeleton;
-                graph.Entry = parsed.Entry;
-                graph.Clips = parsed.Clips;
-                graph.States = parsed.States;
-                graph.Parameters = parsed.Parameters;
-                graph.IkChains = parsed.IkChains;
-                graph.EntitySlots = parsed.EntitySlots;
-            });
-            Refresh();
-            sourceText.Text = MotionToml.Render(document.Graph);
+            Change(graph => graph.CopyFrom(parsed));
+            sourceSnapshot = sourceText.Text;
             status.Text = "源码已应用。";
-        }
-        catch (Exception error) { status.Text = error.GetBaseException().Message; }
+        });
     }
 }

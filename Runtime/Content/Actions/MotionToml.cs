@@ -1,14 +1,14 @@
 using System.Globalization;
 using System.Text;
-using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 
 namespace SlackOfDescent;
 
 public static class MotionToml
 {
-    private static readonly JsonSerializerOptions Text = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+    private static readonly JsonSerializerOptions Strict = new(NativeContentStore.Json) { UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow };
 
     public static string Render(MotionGraph graph)
     {
@@ -51,10 +51,11 @@ public static class MotionToml
                 current[key] = value;
             }
         }
+        if (root.Count == 0) throw new InvalidDataException("TOML 内容为空。");
         MotionGraph graph;
         try
         {
-            graph = JsonSerializer.Deserialize<MotionGraph>(root.ToJsonString(), NativeContentStore.Json) ?? throw new InvalidDataException("TOML 内容为空。");
+            graph = JsonSerializer.Deserialize<MotionGraph>(root.ToJsonString(), Strict) ?? throw new InvalidDataException("TOML 内容为空。");
         }
         catch (JsonException error)
         {
@@ -96,15 +97,15 @@ public static class MotionToml
 
     private static string Value(JsonNode value)
     {
-        if (value is not JsonArray array) return value.ToJsonString(Text);
+        if (value is not JsonArray array) return value.ToJsonString(NativeContentStore.Json);
         if (array.Any(item => item is JsonObject or JsonArray)) throw new InvalidDataException("TOML 视图不支持混合数组。");
-        return "[" + string.Join(", ", array.Select(item => item?.ToJsonString(Text) ?? "null")) + "]";
+        return "[" + string.Join(", ", array.Select(item => item?.ToJsonString(NativeContentStore.Json) ?? "null")) + "]";
     }
 
     private static string Key(string key)
     {
         if (key.Length > 0 && key.All(character => char.IsAsciiLetterOrDigit(character) || character is '_' or '-')) return key;
-        return JsonSerializer.Serialize(key, Text);
+        return JsonSerializer.Serialize(key, NativeContentStore.Json);
     }
 
     private static JsonObject OpenTable(JsonObject root, List<string> segments, HashSet<string> defined, int line)
@@ -134,7 +135,6 @@ public static class MotionToml
         else throw new InvalidDataException("数组表与已有值冲突：第 " + line + " 行。");
         var table = new JsonObject();
         array.Add(table);
-        defined.Add((path.Length == 0 ? Key(key) : path + "." + Key(key)) + "[" + (array.Count - 1) + "]");
         return table;
     }
 
@@ -231,14 +231,36 @@ public static class MotionToml
         if (text is "true") return JsonValue.Create(true);
         if (text is "false") return JsonValue.Create(false);
         if (text.IndexOfAny(['\'', '"', '{', '}', ']', '[']) >= 0) throw new InvalidDataException("不支持的值语法：第 " + line + " 行。");
-        if (text.Contains('.' ) || text.Contains('e') || text.Contains('E'))
+        if (!IsNumber(text)) throw new InvalidDataException("不支持的值语法：第 " + line + " 行。");
+        if (text.Contains('.') || text.Contains('e') || text.Contains('E'))
         {
             if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double number) || !double.IsFinite(number)) throw new InvalidDataException("数值无效：第 " + line + " 行。");
             return JsonValue.Create(number);
         }
         if (long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out long integer)) return JsonValue.Create(integer);
-        if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double value) && double.IsFinite(value)) return JsonValue.Create(value);
-        throw new InvalidDataException("不支持的值语法：第 " + line + " 行。");
+        throw new InvalidDataException("整数超出范围：第 " + line + " 行。");
+    }
+
+    private static bool IsNumber(string text)
+    {
+        int index = text[0] is '+' or '-' ? 1 : 0, start = index;
+        while (index < text.Length && char.IsAsciiDigit(text[index])) index++;
+        if (index == start || (index - start > 1 && text[start] == '0')) return false;
+        if (index < text.Length && text[index] == '.')
+        {
+            start = ++index;
+            while (index < text.Length && char.IsAsciiDigit(text[index])) index++;
+            if (index == start) return false;
+        }
+        if (index < text.Length && text[index] is 'e' or 'E')
+        {
+            index++;
+            if (index < text.Length && text[index] is '+' or '-') index++;
+            start = index;
+            while (index < text.Length && char.IsAsciiDigit(text[index])) index++;
+            if (index == start) return false;
+        }
+        return index == text.Length;
     }
 
     private static IEnumerable<string> SplitValues(string text, int line)
@@ -326,7 +348,7 @@ public static class MotionToml
                 case 'r': value.Append('\r'); break;
                 case 't': value.Append('\t'); break;
                 case 'u':
-                    if (index + 4 > text.Length || !ushort.TryParse(text.AsSpan(index, 4), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out ushort code))
+                    if (index + 4 > text.Length || !text.AsSpan(index, 4).ToArray().All(char.IsAsciiHexDigit) || !ushort.TryParse(text.AsSpan(index, 4), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out ushort code))
                         throw new InvalidDataException("无效的 \\u 转义：第 " + line + " 行。");
                     value.Append((char)code);
                     index += 4;

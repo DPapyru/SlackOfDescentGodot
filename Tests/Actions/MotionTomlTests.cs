@@ -61,6 +61,16 @@ public static class MotionTomlTests
         Throws("id =\n", "缺少值");
         Throws("[[clips]\n", "数组表头");
         Throws("id = 1\nclips = []\nstates = []\n", "结构与动作图字段不匹配");
+        Throws("id = \"audit\"\nclips = []\nstates = []\nunknown = 1\n", "结构与动作图字段不匹配");
+        Throws("id = 007\n", "不支持的值");
+        Throws("id = .5\n", "不支持的值");
+        Throws("id = 1.\n", "不支持的值");
+        Throws("id = 01.5\n", "不支持的值");
+        Throws("id = 9223372036854775808\n", "超出范围");
+        Throws("id = \"a\\u 041b\"\n", "转义");
+        Throws("[a]\n[a]\n", "表重复定义");
+        Throws("'id' = 1\n", "单引号键名");
+        Throws("id = \"\"\"x\"\"\"\n", "多行字符串");
         return checks;
     }
 }

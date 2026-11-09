@@ -25,7 +25,7 @@ public partial class NativeActionEditor
     private double dragStartAngle,dragStartPointer;
     private (double X,double Y) barOrigin,barTarget;
     private MotionPose barStart;
-    private bool dragBend,syncingBone;
+    private bool dragBend;
     private string? highlightedBone;
 
     private void SurfaceInput(InputEvent input)

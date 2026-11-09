@@ -112,31 +112,31 @@ public partial class NativeActionEditor
         Expect(sourceView.Text.StartsWith("[[frame]]")&&sourceView.Text.Contains("index = "+frame.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)),"节点属性修改 renders the current frame block");
         Expect(rawView.Text.Contains("[[clip]]")&&rawView.Text.Contains("[[state]]")&&rawView.Text.Contains("[state.movement]"),"原始数据 renders the whole graph as TOML tables");
         AuditCompletion();
-        rawView.Text=rawView.Text.Replace("duration = 60","duration = 45");
-        sourceView.Text="[[frame]]\nindex = 0\nHEAD.x = 2.5\n";
+        TypeSource(rawView,rawView.Text.Replace("duration = 60","duration = 45"));
+        TypeSource(sourceView,"[[frame]]\nindex = 0\nHEAD.x = 2.5\n");
         CommitFrame();
         Expect(Math.Abs(Clip.Sample(0).GetValueOrDefault("HEAD").X-2.5)<1e-9&&sourceView.Text.Contains("HEAD.x = 2.5"),"committing the frame text writes the pose and re-renders the block");
-        sourceView.Text="[[frame]]\nindex = 0\nHEAD.y = 1.5\n";
-        await Wait(600);
+        TypeSource(sourceView,"[[frame]]\nindex = 0\nHEAD.y = 1.5\n");
+        await Wait(800);
         Expect(Math.Abs(Clip.Sample(0).GetValueOrDefault("HEAD").Y-1.5)<1e-9,"a paused edit hot-updates the frame text");
         int frameUndo=document.UndoDepth;
-        sourceView.Text="[[frame]]\nindex = 0\nHEAD.nope = 1\n";
+        TypeSource(sourceView,"[[frame]]\nindex = 0\nHEAD.nope = 1\n");
         CommitFrame();
         Expect(sourceView.Text.Contains("HEAD.nope")&&document.UndoDepth==frameUndo,"invalid frame text is rejected without an edit");
         Expect(rawView.Text.Contains("duration = 45"),"an unfocused graph edit survives refreshes from the frame page");
         CommitGraph();
         Expect(Math.Abs(Clip.Duration-45)<1e-9,"committing the graph text applies the whole document");
-        rawView.Text=rawView.Text.Replace("loop = true","loop = false");
-        await Wait(600);
+        TypeSource(rawView,rawView.Text.Replace("loop = true","loop = false"));
+        await Wait(800);
         Expect(!Clip.Loop,"a paused edit hot-updates the graph text");
         frame.Value=100000;
-        sourceView.Text="[[frame]]\nindex = 100000\nHEAD.x = 4\n";
+        TypeSource(sourceView,"[[frame]]\nindex = 100000\nHEAD.x = 4\n");
         int rangeUndo=document.UndoDepth;
         CommitFrame();
         Expect(document.UndoDepth==rangeUndo&&status.Text.Contains("帧号超出片段长度"),"an out of range frame text is rejected without an edit");
         frame.Value=0;
         int graphUndo=document.UndoDepth;
-        rawView.Text="id = \"broken\"\nskeleton = \"Nana\"\nentry = \"idle\"\n[[clip]]\nid = \"idle\"\nduration = 10\n[[state]]\nid = \"idle\"\nclip = \"idle\"\nunknown = 1\n";
+        TypeSource(rawView,"id = \"broken\"\nskeleton = \"Nana\"\nentry = \"idle\"\n[[clip]]\nid = \"idle\"\nduration = 10\n[[state]]\nid = \"idle\"\nclip = \"idle\"\nunknown = 1\n");
         CommitGraph();
         Expect(document.Graph.Id!="broken"&&document.UndoDepth==graphUndo&&rawView.Text.Contains("unknown = 1"),"invalid graph text is rejected without an edit");
         AuditHighlighter();
@@ -718,6 +718,13 @@ public partial class NativeActionEditor
 
     private static void AuditSourceExpect(bool ok,string message){if(!ok)throw new InvalidOperationException("Motion editor: "+message);}
 
+    private static void TypeSource(CodeEdit edit,string text)
+    {
+        edit.SelectAll();
+        edit.InsertTextAtCaret(text);
+        edit.EmitSignal(TextEdit.SignalName.TextChanged);
+    }
+
     private void AuditCompletion()
     {
         (bool Ok,string Detail) source=Completion(sourceView);
@@ -768,9 +775,9 @@ public partial class NativeActionEditor
     {
         async Task Wait(int milliseconds){long start=System.Diagnostics.Stopwatch.GetTimestamp();while(System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds<milliseconds)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);}
         document=new(new MotionGraph{Id="audit.hot",Clips=[new(){Id="idle",Duration=60,Tracks=[new(){Bone="HEAD",Keys=[new(){Frame=0,X=1},new(){Frame=42,X=4}]},new(){Bone="BODY_TOP",Keys=[new(){Frame=0}]}]}],States=[new(){Id="idle",Clip="idle"}]});
-        Refresh();frame.Value=0;
-        sourceView.Text="[[frame]]\nindex = 42\nHEAD.y = 7\n";
-        await Wait(600);
+        Refresh();frame.Value=0;GetViewport().GuiReleaseFocus();
+        TypeSource(sourceView,"[[frame]]\nindex = 42\nHEAD.y = 7\n");
+        await Wait(800);
         AuditSourceExpect(Math.Abs(frame.Value-42)<1e-9&&Math.Abs(timelineSlider.Value-42)<1e-9,"typing index 42 moves the playhead to frame 42");
         AuditSourceExpect(Math.Abs(Clip.Sample(42)["HEAD"].Y-7)<1e-9&&Math.Abs(Clip.Sample(42)["HEAD"].X-4)<1e-9,"the hot update writes the edited key at its own index");
         int undo=document.UndoDepth;
@@ -778,11 +785,11 @@ public partial class NativeActionEditor
         timelineSlider.Value=10;
         AuditSourceExpect(sourceView.Text.Contains("index = 10")&&sourceView.GetCaretLine()==3&&sourceView.GetCaretColumn()==2,"dragging the timeline refreshes the text and keeps the caret");
         string invalid="[[frame]]\nindex = 10\nHEAD.nope = 1\n";
-        sourceView.Text=invalid;
-        await Wait(600);
+        TypeSource(sourceView,invalid);
+        await Wait(800);
         AuditSourceExpect(sourceView.Text==invalid&&status.Text.Contains("未知骨骼")&&document.UndoDepth==undo,"invalid input keeps the user text, reports Chinese and does not edit");
-        sourceView.Text="[[frame]]\nindex = 10\nHEAD.y = 7\n";
-        await Wait(600);
+        TypeSource(sourceView,"[[frame]]\nindex = 10\nHEAD.y = 7\n");
+        await Wait(800);
         int depth=document.UndoDepth;
         AuditSourceExpect(Math.Abs(Clip.Sample(10)["HEAD"].Y-7)<1e-9&&depth==undo+1,"a valid hot update writes one undo step");
         GetViewport().GuiReleaseFocus();

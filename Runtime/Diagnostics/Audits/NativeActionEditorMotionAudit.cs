@@ -46,11 +46,11 @@ public partial class NativeActionEditor
             Expect(tabs.TabCount>0&&tabs.CurrentTab==activeProject,"the active tab is the active project");
             Expect(surface is TextureRect&&overlay is not null,"the center stage keeps the single motion surface");
             Expect(Count<TextureRect>()==1&&overlay.GetParent()==surface&&Descendants(this).OfType<SubViewport>().Count(node=>node.GetParent()==this)==1&&Descendants(this).OfType<GmCanvas>().Count(node=>node.GetParent()==viewport)==1,"the studio owns one surface, overlay, viewport and canvas");
-            Expect(leftPages is TabContainer&&leftPages.GetTabCount()==2&&leftPages.GetTabTitle(0)=="节点属性修改"&&leftPages.GetTabTitle(1)=="原始数据","the left dock has exactly two pages");
+            Expect(leftPages is TabContainer&&leftPages.GetTabCount()==1&&leftPages.GetTabTitle(0)=="节点属性修改","the left dock opens on the single pose page");
             Expect(leftPages.GetParent() is VBoxContainer leftDock&&Math.Abs(leftDock.CustomMinimumSize.X-350)<.001,"the left sidebar is 350 pixels wide");
-            Expect(leftPages.CurrentTab==0&&sourceView.GetParent()==leftPages.GetTabControl(0)&&rawView.GetParent()==leftPages.GetTabControl(1),"the left pages own the code and raw views");
+            Expect(leftPages.CurrentTab==0&&sourceView.GetParent()==leftPages.GetTabControl(0),"the left page owns the code view");
             Expect(Descendants(this).OfType<TabContainer>().All(page=>page==leftPages),"the deleted dock pages are gone");
-            Expect(sourceView is CodeEdit{Editable:true}&&rawView is CodeEdit{Editable:true},"both left pages are editable code");
+            Expect(sourceView is CodeEdit{Editable:true},"the left page is editable code");
             var settings=Descendants(this).FirstOrDefault(node=>node.Name=="ActionSettings");
             Expect(settings is VBoxContainer{ CustomMinimumSize.X: 280 }&&Descendants(settings).OfType<TabContainer>().Count()==0,"the right dock is a single 280 pixel 动作设置 page");
             Expect(settings is not null&&Descendants(settings).Contains(clipChoice)&&Descendants(settings).Contains(duration)&&Descendants(settings).Contains(loop)&&loop.Text=="循环","动作设置 holds the clip dropdown, 总帧数 and 循环");
@@ -78,6 +78,7 @@ public partial class NativeActionEditor
             Expect(legacyMethods.All(name=>GetType().GetMethod(name,System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.Public|System.Reflection.BindingFlags.NonPublic) is null),"the removed page entry points are gone");
         }
         Layout();
+        AuditLeftPages();
         GD.Print("MOTION_EDITOR_LAYOUT_OK");
         await Ready();
         Expect(preview!.Bridge.BoundCharacter(preview.Player!.Id) is not null,"the preview keeps the character binding");
@@ -717,5 +718,18 @@ public partial class NativeActionEditor
         ApplyToGame();var player=world.Instances.First(i=>!i.Destroyed&&world.IsObject(i.Object,world.Constants["objPlayerDoll"].Int));
         Expect(world.NativeServices!.Motions.State(new(world,player)) is not null,"edited graph applies to the game actor");
         GD.Print("MOTION_EDITOR_AUDIT_OK import=PASS edit=PASS undo=PASS save=PASS reload=PASS preview=PASS game=PASS studio=PASS immediate=PASS state=PASS events=PASS ring=PASS");
+    }
+
+    private static void AuditSourceExpect(bool ok,string message){if(!ok)throw new InvalidOperationException("Motion editor: "+message);}
+
+    private void AuditLeftPages()
+    {
+        AuditSourceExpect(leftPages is TabContainer&&leftPages.GetTabCount()==1,"the left dock opens on the single pose page");
+        AuditSourceExpect(leftPages.GetTabTitle(0)=="节点属性修改"&&sourceView is CodeEdit{Editable:true},"the pose page is the editable code view");
+        AuditSourceExpect(rawView is null&&showRawData is CheckButton{ButtonPressed:false},"the raw data page is hidden by default");
+        showRawData.ButtonPressed=true;
+        AuditSourceExpect(leftPages.GetTabCount()==2&&leftPages.GetTabTitle(1)=="原始数据"&&rawView is CodeEdit{Editable:true},"the settings checkbox restores the raw data page");
+        string settingsFile=Path.Combine(store.Root,"Editor","action-editor.json");
+        AuditSourceExpect(File.Exists(settingsFile)&&File.ReadAllText(settingsFile).Contains("\"ShowRawData\": true",StringComparison.Ordinal),"the raw data toggle persists to the editor settings file");
     }
 }

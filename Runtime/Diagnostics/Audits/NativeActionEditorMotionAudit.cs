@@ -788,5 +788,6 @@ public partial class NativeActionEditor
         GetViewport().GuiReleaseFocus();
         _UnhandledKeyInput(new InputEventKey{Keycode=Key.Z,CtrlPressed=true,Pressed=true});
         AuditSourceExpect(document.UndoDepth==depth-1&&Math.Abs(Clip.Sample(10)["HEAD"].Y-7)>1e-9,"one ctrl+z undoes the hot update");
+        frame.Value=0;
     }
 }

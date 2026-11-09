@@ -117,8 +117,8 @@ public partial class NativeActionEditor
         CommitFrame();
         Expect(Math.Abs(Clip.Sample(0).GetValueOrDefault("HEAD").X-2.5)<1e-9&&sourceView.Text.Contains("HEAD.x = 2.5"),"committing the frame text writes the pose and re-renders the block");
         sourceView.Text="[[frame]]\nindex = 0\nHEAD.y = 1.5\n";
-        sourceView.EmitSignal(Control.SignalName.FocusExited);
-        Expect(Math.Abs(Clip.Sample(0).GetValueOrDefault("HEAD").Y-1.5)<1e-9,"losing focus commits the frame text");
+        await Wait(600);
+        Expect(Math.Abs(Clip.Sample(0).GetValueOrDefault("HEAD").Y-1.5)<1e-9,"a paused edit hot-updates the frame text");
         int frameUndo=document.UndoDepth;
         sourceView.Text="[[frame]]\nindex = 0\nHEAD.nope = 1\n";
         CommitFrame();
@@ -127,8 +127,8 @@ public partial class NativeActionEditor
         CommitGraph();
         Expect(Math.Abs(Clip.Duration-45)<1e-9,"committing the graph text applies the whole document");
         rawView.Text=rawView.Text.Replace("loop = true","loop = false");
-        rawView.EmitSignal(Control.SignalName.GuiInput,new InputEventKey{Keycode=Key.Enter,CtrlPressed=true,Pressed=true});
-        Expect(!Clip.Loop,"Ctrl+Enter commits the graph text");
+        await Wait(600);
+        Expect(!Clip.Loop,"a paused edit hot-updates the graph text");
         frame.Value=100000;
         sourceView.Text="[[frame]]\nindex = 100000\nHEAD.x = 4\n";
         int rangeUndo=document.UndoDepth;
@@ -140,6 +140,7 @@ public partial class NativeActionEditor
         CommitGraph();
         Expect(document.Graph.Id!="broken"&&document.UndoDepth==graphUndo&&rawView.Text.Contains("unknown = 1"),"invalid graph text is rejected without an edit");
         AuditHighlighter();
+        await AuditSourceHotUpdate();
         await Shot("motion-left-pages");
         var studio=preview!;var studioWorld=studio.World;
         var skeleton=studio.Bridge.Services.Motions.Skeleton(new(studio.World,studio.Player!));
@@ -761,5 +762,31 @@ public partial class NativeActionEditor
         AuditSourceExpect(leftPages.GetTabCount()==2&&leftPages.GetTabTitle(1)=="原始数据"&&rawView is CodeEdit{Editable:true},"the settings checkbox restores the raw data page");
         string settingsFile=Path.Combine(store.Root,"Editor","action-editor.json");
         AuditSourceExpect(File.Exists(settingsFile)&&File.ReadAllText(settingsFile).Contains("\"ShowRawData\": true",StringComparison.Ordinal),"the raw data toggle persists to the editor settings file");
+    }
+
+    private async Task AuditSourceHotUpdate()
+    {
+        async Task Wait(int milliseconds){long start=System.Diagnostics.Stopwatch.GetTimestamp();while(System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds<milliseconds)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);}
+        document=new(new MotionGraph{Id="audit.hot",Clips=[new(){Id="idle",Duration=60,Tracks=[new(){Bone="HEAD",Keys=[new(){Frame=0,X=1},new(){Frame=42,X=4}]},new(){Bone="BODY_TOP",Keys=[new(){Frame=0}]}]}],States=[new(){Id="idle",Clip="idle"}]});
+        Refresh();frame.Value=0;
+        sourceView.Text="[[frame]]\nindex = 42\nHEAD.y = 7\n";
+        await Wait(600);
+        AuditSourceExpect(Math.Abs(frame.Value-42)<1e-9&&Math.Abs(timelineSlider.Value-42)<1e-9,"typing index 42 moves the playhead to frame 42");
+        AuditSourceExpect(Math.Abs(Clip.Sample(42)["HEAD"].Y-7)<1e-9&&Math.Abs(Clip.Sample(42)["HEAD"].X-4)<1e-9,"the hot update writes the edited key at its own index");
+        int undo=document.UndoDepth;
+        sourceView.SetCaretLine(3);sourceView.SetCaretColumn(2);sourceView.ScrollVertical=0;
+        timelineSlider.Value=10;
+        AuditSourceExpect(sourceView.Text.Contains("index = 10")&&sourceView.GetCaretLine()==3&&sourceView.GetCaretColumn()==2,"dragging the timeline refreshes the text and keeps the caret");
+        string invalid="[[frame]]\nindex = 10\nHEAD.nope = 1\n";
+        sourceView.Text=invalid;
+        await Wait(600);
+        AuditSourceExpect(sourceView.Text==invalid&&status.Text.Contains("未知骨骼")&&document.UndoDepth==undo,"invalid input keeps the user text, reports Chinese and does not edit");
+        sourceView.Text="[[frame]]\nindex = 10\nHEAD.y = 7\n";
+        await Wait(600);
+        int depth=document.UndoDepth;
+        AuditSourceExpect(Math.Abs(Clip.Sample(10)["HEAD"].Y-7)<1e-9&&depth==undo+1,"a valid hot update writes one undo step");
+        GetViewport().GuiReleaseFocus();
+        _UnhandledKeyInput(new InputEventKey{Keycode=Key.Z,CtrlPressed=true,Pressed=true});
+        AuditSourceExpect(document.UndoDepth==depth-1&&Math.Abs(Clip.Sample(10)["HEAD"].Y-7)>1e-9,"one ctrl+z undoes the hot update");
     }
 }

@@ -64,7 +64,9 @@ public partial class NativeActionEditor
         edit.FocusExited += commit;
         edit.GuiInput += input =>
         {
-            if (input is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Enter, CtrlPressed: true }) return;
+            if (input is not InputEventKey { Pressed: true, Echo: false, CtrlPressed: true } key) return;
+            if (key.Keycode == Key.Space) { edit.RequestCodeCompletion(true); edit.AcceptEvent(); return; }
+            if (key.Keycode != Key.Enter) return;
             commit(); edit.AcceptEvent();
         };
         edit.CodeCompletionRequested += () => FillCompletion(edit, framePage);

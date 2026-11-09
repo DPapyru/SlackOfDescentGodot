@@ -57,6 +57,8 @@ public partial class NativeActionEditor
             Expect(Descendants(this).OfType<VSplitContainer>().Any(split=>Descendants(split).Contains(transport)),"the bottom dock is resizable through a split container");
             Expect(transport is not null&&Descendants(transport).OfType<OptionButton>().Any(button=>button.ItemCount==3&&Enumerable.Range(0,3).Select(index=>button.GetItemText(index)).SequenceEqual(new[]{"0.5x","1x","2x"})),"the transport dock owns the speed chooser");
             Expect(stateList is ItemList&&stateList.GetParent()?.GetParent() is TabContainer dockPages&&dockPages.GetTabTitle(0)=="状态","the left dock starts with the state list");
+            var leftPages=stateList.GetParent()?.GetParent() as TabContainer;
+            Expect(leftPages is not null&&leftPages.GetTabCount()==5&&leftPages.GetTabTitle(4)=="源码"&&sourceText is TextEdit&&sourceText.Editable,"the left dock appends an editable TOML source page");
             Expect(MenuLabels("视图").Contains("重载预览"),"the view menu keeps the reload preview fallback");
             Expect(!ButtonText("取景")&&!ButtonText("读取运行帧")&&!ButtonText("预览当前帧"),"the removed toolbar entries are gone");
             Expect(status is Label&&playState is Label&&targetLabel.Text.Length>0,"the status bar reports playback and the target");

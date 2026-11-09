@@ -367,6 +367,7 @@ assertions+=DrawCullTests.Run();
 assertions+=GmValueAdditionTests.Run();
 assertions+=CharacterBaseTests.Run();
 assertions+=ActionEditorTests.Run();
+assertions+=MotionTomlTests.Run();
 var originalMotion=world.Create(dynamicObject,500,500,run:false);
 var nativeMotion=world.Create(dynamicObject,500,500,run:false);
 var originalPart=world.Create(dynamicObject,500,500,run:false);

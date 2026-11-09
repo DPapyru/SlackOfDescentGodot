@@ -129,6 +129,7 @@ public partial class NativeActionEditor
         original = new OptionButton { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; source.AddChild(original);
         foreach (string key in world.Code.Keys.Where(k => k.StartsWith("external/Chara/Motion/", StringComparison.Ordinal)).Order()) original.AddItem(key["external/Chara/Motion/".Length..^4]);
         Button(source, "导入到当前项目", ImportOriginal);
+        BuildSourcePage(pages);
     }
     internal string HelpText()
     {

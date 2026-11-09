@@ -55,7 +55,7 @@ public partial class NativeActionEditor : Window
         refreshing = true;
         int clipIndex = Project.ClipIndex; clipChoice.Clear(); foreach (var c in document.Graph.Clips) clipChoice.AddItem(c.Id); clipChoice.Select(Math.Clamp(clipIndex, 0, clipChoice.ItemCount - 1));
         RefreshTabs(); RefreshStateSource(); RefreshEvents(); RefreshGraph();
-        refreshing = false; RefreshTimeline(); SyncOverlay();
+        refreshing = false; RefreshTimeline(); SyncOverlay(); RefreshSource();
         if (targetLabel is not null) targetLabel.Text = TargetLabel();
         if (bone.ItemCount > 0) bone.Select(Math.Clamp(Project.BoneIndex, 0, bone.ItemCount - 1));
     }

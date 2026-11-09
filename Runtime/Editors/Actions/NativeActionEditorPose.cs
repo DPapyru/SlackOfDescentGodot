@@ -4,7 +4,7 @@ namespace SlackOfDescent;
 
 public partial class NativeActionEditor
 {
-    private enum DragMode { Root, Fk, Ik, Ball, BarX, BarY }
+    private enum DragMode { Root, Fk, Ik, Ball, BarX, BarY, Translate }
     private const int PortWidth=640,PortHeight=480;
     private double viewCenterX,viewCenterY,viewWidth=320;
     private MotionView PreviewView
@@ -46,7 +46,7 @@ public partial class NativeActionEditor
                 if(dragSurface.DistanceTo(dragOrigin)<3)
                 {
                     overlay?.SetRingAngle(null);overlay?.SetBarOffset(null);
-                    status.Text=dragMode switch{DragMode.BarX or DragMode.BarY=>"已选中骨骼；未拖动，未写入局部 X/Y。",DragMode.Ball=>"已选中骨骼；未拖动，未写入旋转。",_=>"已选中骨骼；未拖动，未写入关键帧。"};
+                    status.Text=dragMode switch{DragMode.BarX or DragMode.BarY or DragMode.Translate=>"已选中骨骼；未拖动，未写入局部 X/Y。",DragMode.Ball=>"已选中骨骼；未拖动，未写入旋转。",_=>"已选中骨骼；未拖动，未写入关键帧。"};
                     return;
                 }
                 CommitDrag(name);
@@ -85,6 +85,13 @@ public partial class NativeActionEditor
         (dragX,dragY)=CanvasPosition(motion.Position);dragSurface=motion.Position;
         if(dragMode==DragMode.Ball){var local=LocalTarget(draggedBone!,dragX,dragY,false);overlay?.SetRingAngle(Math.Atan2(-local.Y,local.X)*180/Math.PI);}
         else if(dragMode is DragMode.BarX or DragMode.BarY)BarDrag(draggedBone!);
+        else if(dragMode==DragMode.Translate)TranslateDrag(draggedBone!);
+    }
+
+    private void TranslateDrag(string name)
+    {
+        var local=LocalTarget(name,dragX,dragY,false);
+        barTarget=(barStart.X+local.X-barOrigin.X,barStart.Y+local.Y-barOrigin.Y);
     }
 
     private void BarDrag(string name)
@@ -116,7 +123,7 @@ public partial class NativeActionEditor
         if(name=="root")dragMode=DragMode.Root;
         else if(button.AltPressed)dragMode=DragMode.Fk;
         else if(IsIkEnd(name)){dragMode=DragMode.Ik;dragBend=MotionPoseEditor.Bend(document.Graph,Clip.Id,name,frame.Value)??true;}
-        else dragMode=DragMode.Fk;
+        else {dragMode=DragMode.Translate;barOrigin=local;barStart=LocalPose(name);barTarget=local;}
     }
 
     private void CommitDrag(string name)
@@ -134,9 +141,14 @@ public partial class NativeActionEditor
             {
                 overlay?.SetRingAngle(null);
                 var local=LocalTarget(name,dragX,dragY,false);
-                double radians=Math.Atan2(-local.Y,local.X);
-                var result=document.Drag(Clip.Id,name,frame.Value,Math.Cos(radians),-Math.Sin(radians),null,true);
-                status.Text=result.Success?(result.Clamped?result.Reason:"已写入旋转；一次拖动生成一个撤销记录。"):result.Reason;
+                document.Rotate(Clip.Id,name,frame.Value,Math.Atan2(-local.Y,local.X)*180/Math.PI);
+                status.Text="已写入旋转；一次拖动生成一个撤销记录。";
+            }
+            else if(dragMode==DragMode.Translate)
+            {
+                if(Math.Abs(barTarget.X-barStart.X)<1e-9&&Math.Abs(barTarget.Y-barStart.Y)<1e-9){status.Text="未移动，未写入局部 X/Y。";return;}
+                document.Translate(Clip.Id,name,frame.Value,barTarget.X,barTarget.Y);
+                status.Text="已写入局部 X/Y；一次拖动生成一个撤销记录。";
             }
             else
             {

@@ -264,6 +264,15 @@ public static class MotionPoseEditor
         SetKey(clip, bone is "root" or "__root__" ? null : bone, frame, new MotionPose(x, y, current.Angle, current.ScaleX, current.ScaleY, current.Picture));
     }
 
+    public static void Rotate(MotionGraph graph, string clipId, string bone, double frame, double angle)
+    {
+        var clip = graph.Clips.SingleOrDefault(item => item.Id == clipId) ?? throw new InvalidDataException("Motion clip is missing: " + clipId);
+        if (!double.IsFinite(frame) || !double.IsFinite(angle)) throw new InvalidDataException("旋转角度必须是有限数值。");
+        if (bone.Length == 0) throw new InvalidDataException("请选择骨骼节点。");
+        var current = clip.Sample(frame).GetValueOrDefault(bone);
+        SetKey(clip, bone is "root" or "__root__" ? null : bone, frame, new MotionPose(current.X, current.Y, Normalize(angle), current.ScaleX, current.ScaleY, current.Picture));
+    }
+
     private static void SetRootKey(MotionClip clip, double frame, MotionPose pose)
     {
         SetKey(clip, null, frame, pose);

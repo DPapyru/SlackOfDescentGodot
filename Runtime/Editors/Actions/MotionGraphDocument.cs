@@ -41,6 +41,16 @@ public sealed class MotionGraphDocument(MotionGraph graph)
         }
         catch{Restore(before);throw;}
     }
+    public void Rotate(string clipId,string bone,double frame,double angle)
+    {
+        var before=Snapshot();
+        try
+        {
+            MotionPoseEditor.Rotate(Graph,clipId,bone,frame,angle);
+            Graph.Validate();undo.Push(before);redo.Clear();Dirty=true;coalesceKey=null;
+        }
+        catch{Restore(before);throw;}
+    }
     public void Save(string path){Graph.Save(path);Dirty=false;coalesceKey=null;}
     internal int UndoDepth=>undo.Count;
     internal void RestoreDirty(bool value)=>Dirty=value;

@@ -56,6 +56,9 @@ public static class MotionGraphTests
         fkDoc.Translate("idle","HAND1_BELOW",0,7,-2);var translated=fkDoc.Graph.Clips[0].Sample(0)["HAND1_BELOW"];
         Check(translated.X==7&&translated.Y==-2&&Math.Abs(translated.Angle-fkPose["HAND1_BELOW"].Angle)<.001,"local translate writes X/Y and keeps the angle");
         fkDoc.Undo();Check(Math.Abs(fkDoc.Graph.Clips[0].Sample(0)["HAND1_BELOW"].X-fkPose["HAND1_BELOW"].X)<.001,"local translate is one undo operation");
+        var rotateBefore=fkDoc.Graph.Clips[0].Sample(0)["HAND1_BELOW"];fkDoc.Rotate("idle","HAND1_BELOW",0,33);var rotated=fkDoc.Graph.Clips[0].Sample(0)["HAND1_BELOW"];
+        Check(Math.Abs(rotated.X-rotateBefore.X)<.001&&Math.Abs(rotated.Y-rotateBefore.Y)<.001&&Math.Abs(rotated.Angle-33)<.001,"rotation writes only the angle");
+        fkDoc.Undo();Check(Math.Abs(fkDoc.Graph.Clips[0].Sample(0)["HAND1_BELOW"].Angle-rotateBefore.Angle)<.001,"rotation is one undo operation");
         var spinGraph=new MotionGraph{Id="spin",Clips=[new(){Id="idle",Duration=10,Tracks=[new(){Bone="HEAD",Keys=[new(){Frame=0,X=3,Y=0}]}]}],States=[new(){Id="idle",Clip="idle"}]};
         var spinDoc=new MotionGraphDocument(spinGraph);var spinResult=spinDoc.Drag("idle","HEAD",0,0,5);
         var headPose=spinDoc.Graph.Clips[0].Sample(0)["HEAD"];var headPoint=Compose((0d,0d),0d,headPose.X,headPose.Y);

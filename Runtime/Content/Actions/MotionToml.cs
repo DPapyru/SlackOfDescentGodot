@@ -156,9 +156,17 @@ public static class MotionToml
     {
         var text = new StringBuilder();
         text.Append("[[frame]]\nindex = ").Append(Number(frame)).Append('\n');
-        if (clip.Root.Count > 0) WritePose(text, "root", clip.RootPose(frame), false);
-        foreach (var pair in clip.Sample(frame).OrderBy(item => item.Key, StringComparer.Ordinal)) WritePose(text, pair.Key, pair.Value, false);
+        if (clip.Root.Count > 0) WriteGroup(text, "root", clip.RootPose(frame));
+        foreach (var pair in clip.Sample(frame).OrderBy(item => item.Key, StringComparer.Ordinal)) WriteGroup(text, pair.Key, pair.Value);
         return text.ToString();
+    }
+
+    private static void WriteGroup(StringBuilder text, string bone, MotionPose pose)
+    {
+        var group = new StringBuilder();
+        WritePose(group, bone, pose, false);
+        if (group.Length == 0) return;
+        text.Append('\n').Append("# ").Append(bone).Append('\n').Append(group);
     }
 
     public static MotionFrameEdit ParseFrame(string text, string clipId, double frame)

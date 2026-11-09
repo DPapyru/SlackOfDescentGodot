@@ -83,6 +83,13 @@ public static class MotionTomlTests
         Check(MotionToml.FrameChanged(posedClip, changed), "edited current frame reports a change");
         MotionToml.ApplyFrame(posed, "idle", changed);
         Check(posedClip.Tracks[0].Keys.Single(key => key.Frame == 5).X == 9 && posedClip.Sample(5)["HEAD"].X == 9, "current frame commit writes the key and re-renders the pose");
+        var grouped = new MotionGraph { Id = "grouped", Clips = [new() { Id = "idle", Duration = 10, Tracks = [new() { Bone = "HEAD", Keys = [new() { Frame = 0, X = 2, Y = 3, Angle = 5, ScaleX = 2, ScaleY = 3, Picture = 1 }] }, new() { Bone = "BODY_TOP", Keys = [new() { Frame = 0, X = -1, Angle = 90 }] }] }], States = [new() { Id = "idle", Clip = "idle" }] };
+        string groupedText = MotionToml.RenderFrame(grouped.Clips[0], 0);
+        Check(groupedText == "[[frame]]\nindex = 0\n\n# BODY_TOP\nBODY_TOP.x = -1\nBODY_TOP.angle = 90\n\n# HEAD\nHEAD.x = 2\nHEAD.y = 3\nHEAD.angle = 5\nHEAD.scaleX = 2\nHEAD.scaleY = 3\nHEAD.picture = 1\n", "frame text groups the pose by bone with comment headers and keeps the field order");
+        Check(!MotionToml.FrameChanged(grouped.Clips[0], MotionToml.ParseFrame(groupedText, "idle", 0)), "grouped frame text parses back to the same pose");
+        Check(MotionToml.RenderFrame(MotionToml.Parse(MotionToml.Render(grouped)).Clips[0], 0) == groupedText, "grouped frame text round-trips through the whole graph");
+        var groupedDefault = new MotionGraph { Id = "grouped.default", Clips = [new() { Id = "idle", Duration = 10, Tracks = [new() { Bone = "HEAD", Keys = [new() { Frame = 0 }] }] }], States = [new() { Id = "idle", Clip = "idle" }] };
+        Check(!MotionToml.RenderFrame(groupedDefault.Clips[0], 0).Contains("# HEAD"), "an all-default bone renders no empty group");
         ThrowsFrame("[[frame]]\nindex = 6\nHEAD.x = 1\n", "idle", 5, "index 必须");
         ThrowsFrame("[[frame]]\nindex = 5\nHEAD.nope = 1\n", "idle", 5, "未知骨骼字段");
         ThrowsFrame("[[frame]]\nindex = 5\nNO.x = 1\n", "idle", 5, "未知骨骼");

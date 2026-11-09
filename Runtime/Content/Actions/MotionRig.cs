@@ -269,7 +269,7 @@ public static class MotionPoseEditor
         var clip = graph.Clips.SingleOrDefault(item => item.Id == clipId) ?? throw new InvalidDataException("Motion clip is missing: " + clipId);
         if (!double.IsFinite(frame) || !double.IsFinite(angle)) throw new InvalidDataException("旋转角度必须是有限数值。");
         if (bone.Length == 0) throw new InvalidDataException("请选择骨骼节点。");
-        var current = clip.Sample(frame).GetValueOrDefault(bone);
+        var current = bone is "root" or "__root__" ? clip.RootPose(frame) : clip.Sample(frame).GetValueOrDefault(bone);
         SetKey(clip, bone is "root" or "__root__" ? null : bone, frame, new MotionPose(current.X, current.Y, Normalize(angle), current.ScaleX, current.ScaleY, current.Picture));
     }
 

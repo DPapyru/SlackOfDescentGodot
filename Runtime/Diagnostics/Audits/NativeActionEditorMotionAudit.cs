@@ -272,7 +272,7 @@ public partial class NativeActionEditor
         Expect(xBarRect is not null&&yBarRect is not null&&Math.Abs(xBarRect.Value.Size.X-144)<.001f&&Math.Abs(xBarRect.Value.Size.Y-8)<.001f&&Math.Abs(yBarRect.Value.Size.X-8)<.001f&&Math.Abs(yBarRect.Value.Size.Y-144)<.001f,"the X bar is 144x8 and the Y bar is 8x144");
         Expect(xBarRect is not null&&yBarRect is not null&&overlay.RingHit(xBarRect.Value.GetCenter())=="bar:x"&&overlay.RingHit(yBarRect.Value.GetCenter())=="bar:y","the bar rect centers hit their own bars");
         Expect(overlay.BarAxis(0).DistanceTo(new Vector2(1,0))<.001f&&overlay.BarAxis(1).DistanceTo(new Vector2(0,1))<.001f,"a level parent keeps the X bar horizontal and the Y bar vertical: "+overlay.BarAxis(0)+","+overlay.BarAxis(1));
-        int ballUndo=document.UndoDepth;
+        int ballUndo=document.UndoDepth;var ballBefore=Clip.Sample(0)["HEAD"];
         var ball=overlay.BallPoint;Expect(ball is not null,"the ring shows a ball");
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=ball!.Value});
         Expect(dragging&&dragMode==DragMode.Ball,"pressing the ball starts an absolute angle drag");
@@ -282,7 +282,7 @@ public partial class NativeActionEditor
         SurfaceInput(new InputEventMouseMotion{Position=ballTarget});
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=ballTarget});
         Expect(Math.Abs(Clip.Sample(0)["HEAD"].Angle-desired)<.1,"dragging the ball writes the absolute angle");
-        Expect(Math.Abs(Clip.Sample(0)["HEAD"].X-4)<.001&&Math.Abs(Clip.Sample(0)["HEAD"].Y+16)<.001,"the ball drag leaves local X/Y untouched");
+        Expect(Math.Abs(Clip.Sample(0)["HEAD"].X-ballBefore.X)<.001&&Math.Abs(Clip.Sample(0)["HEAD"].Y-ballBefore.Y)<.001,"the ball drag leaves local X/Y untouched");
         Expect(document.UndoDepth==ballUndo+1,"the ball drag is one undo step");
         Expect(Math.Abs(ringActor.Services.Motions.Skeleton(ringActor).Single(node=>node.Name=="HEAD").Angle-desired)<.1,"the bone world angle follows the dragged absolute angle");
         SelectBone("HEAD");

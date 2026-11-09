@@ -7,12 +7,15 @@ public partial class NativeActionEditor
     internal async Task AuditKeyboardAsync(string output)
     {
         await KeyAuditReadyAsync();
+        Show();
+        await KeyAuditTickAsync();
         SetKeyMode(KeyMode.Default);
         document=new(new MotionGraph{Id="audit.keyboard",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="HEAD",Keys=[new(){Frame=0,X=4,Y=-16}]}]}],States=[new(){Id="idle",Clip="idle"}]});
         Refresh();frame.Value=0;ApplyDocumentPose();SelectBone("HEAD");
         await AuditKeyModeAsync(output);
         await AuditCanvasUndoAsync();
         AuditKeyboardHelp();
+        Hide();
         GD.Print("MOTION_EDITOR_KEYS_OK modes=PASS focus=PASS undo=PASS save=PASS help=PASS");
     }
     private static void KeyAuditExpect(bool ok,string message){if(!ok)throw new InvalidOperationException("Keyboard: "+message);}

@@ -145,6 +145,7 @@ public partial class NativeActionEditor
         rawView.Text="id = \"broken\"\nskeleton = \"Nana\"\nentry = \"idle\"\n[[clip]]\nid = \"idle\"\nduration = 10\n[[state]]\nid = \"idle\"\nclip = \"idle\"\nunknown = 1\n";
         CommitGraph();
         Expect(document.Graph.Id!="broken"&&document.UndoDepth==graphUndo&&rawView.Text.Contains("unknown = 1"),"invalid graph text is rejected without an edit");
+        AuditHighlighter();
         await Shot("motion-left-pages");
         var studio=preview!;var studioWorld=studio.World;
         var skeleton=studio.Bridge.Services.Motions.Skeleton(new(studio.World,studio.Player!));
@@ -721,6 +722,21 @@ public partial class NativeActionEditor
     }
 
     private static void AuditSourceExpect(bool ok,string message){if(!ok)throw new InvalidOperationException("Motion editor: "+message);}
+
+    private void AuditHighlighter()
+    {
+        string text=sourceView.Text;
+        sourceView.Text="[[frame]]\nindex = 0\nHEAD.x = 1\nHEAD.angle = 2\nHEAD.picture = 3\nkind = \"Damage\"\n# 注释\n";
+        var highlighter=(TomlSyntaxHighlighter)sourceView.SyntaxHighlighter;
+        Color LineColor(int line)
+        {
+            int column=-1;Color color=Colors.White;
+            foreach(var pair in highlighter._GetLineSyntaxHighlighting(line)){int start=pair.Key.AsInt32();if(start<=column)continue;column=start;color=pair.Value.AsGodotDictionary()["color"].AsColor();}
+            return color;
+        }
+        AuditSourceExpect(new[]{LineColor(2),LineColor(3),LineColor(4),LineColor(5),LineColor(6)}.Distinct().Count()==5,"the highlighter gives coordinates, angles, pictures, enums and comments five distinct colors");
+        sourceView.Text=text;
+    }
 
     private void AuditLeftPages()
     {

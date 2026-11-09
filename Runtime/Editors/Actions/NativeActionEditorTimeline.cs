@@ -40,7 +40,7 @@ public partial class NativeActionEditor
         Button(header, "单帧", Step);
         speedChoice = new OptionButton(); foreach (string speed in new[] { "0.5x", "1x", "2x" }) speedChoice.AddItem(speed); speedChoice.Select(1); header.AddChild(speedChoice);
         speedChoice.ItemSelected += index => playbackSpeed = index switch { 0 => .5, 2 => 2, _ => 1 };
-        frame = Number(header, "动作帧", 0, 100000); frame.ValueChanged += _ => { if (!refreshing) { ApplyDocumentPose(); RefreshCodeViews(); UpdateTimeLabel(); } };
+        frame = Number(header, "动作帧", 0, 100000); frame.ValueChanged += _ => { if (!refreshing) { timelineSlider.SetValueNoSignal(frame.Value); ApplyDocumentPose(); RefreshCodeViews(); UpdateTimeLabel(); } };
         playState = new Label { Name = "PlayState", AutowrapMode = TextServer.AutowrapMode.WordSmart, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; header.AddChild(playState);
         timelineSlider = Slider(dock, 60, value => frame.Value = value);
     }

@@ -10,6 +10,7 @@ public partial class NativeActionEditor
     private string sourceSnapshot = "", rawSnapshot = "";
     private MotionGraphDocument? renderedDocument;
     private bool showRawPage;
+    private readonly MotionSourceDebounce frameDebounce = new(.4), graphDebounce = new(.4);
     private string SettingsPath => Path.Combine(store.Root, "Editor", "action-editor.json");
     private sealed class ActionEditorSettings
     {
@@ -31,14 +32,14 @@ public partial class NativeActionEditor
 
     private void BuildSourcePages(TabContainer pages)
     {
-        sourceView = SourcePage(pages, "节点属性修改", "SourceView", CommitFrame, true);
+        sourceView = SourcePage(pages, "节点属性修改", "SourceView", frameDebounce, true);
         if (showRawPage) AddRawPage();
     }
 
     private void AddRawPage()
     {
         if (rawView is not null) return;
-        rawView = SourcePage(leftPages, "原始数据", "RawView", CommitGraph, false);
+        rawView = SourcePage(leftPages, "原始数据", "RawView", graphDebounce, false);
     }
 
     private void RemoveRawPage()
@@ -57,17 +58,15 @@ public partial class NativeActionEditor
         RefreshCodeViews();
     }
 
-    private CodeEdit SourcePage(TabContainer pages, string title, string name, Action commit, bool framePage)
+    private CodeEdit SourcePage(TabContainer pages, string title, string name, MotionSourceDebounce debounce, bool framePage)
     {
         var page = new VBoxContainer { Name = title }; pages.AddChild(page);
         var edit = CodeEditView(name); page.AddChild(edit);
-        edit.FocusExited += commit;
+        edit.TextChanged += debounce.Restart;
         edit.GuiInput += input =>
         {
-            if (input is not InputEventKey { Pressed: true, Echo: false, CtrlPressed: true } key) return;
-            if (key.Keycode == Key.Space) { edit.RequestCodeCompletion(true); edit.AcceptEvent(); return; }
-            if (key.Keycode != Key.Enter) return;
-            commit(); edit.AcceptEvent();
+            if (input is not InputEventKey { Pressed: true, Echo: false, CtrlPressed: true, Keycode: Key.Space }) return;
+            edit.RequestCodeCompletion(true); edit.AcceptEvent();
         };
         edit.CodeCompletionRequested += () => FillCompletion(edit, framePage);
         return edit;
@@ -85,28 +84,52 @@ public partial class NativeActionEditor
         Guard(() =>
         {
             bool replaced = renderedDocument != document;
-            if (!sourceView.HasFocus() && (replaced || sourceView.Text == sourceSnapshot)) sourceView.Text = sourceSnapshot = MotionToml.RenderFrame(Clip, frame.Value);
-            if (rawView is not null && !rawView.HasFocus() && (replaced || rawView.Text == rawSnapshot)) rawView.Text = rawSnapshot = MotionToml.Render(document.Graph);
+            if (!sourceView.HasFocus() && (replaced || sourceView.Text == sourceSnapshot)) ReplaceSourceText(sourceView, MotionToml.RenderFrame(Clip, frame.Value), ref sourceSnapshot);
+            if (rawView is not null && !rawView.HasFocus() && (replaced || rawView.Text == rawSnapshot)) ReplaceSourceText(rawView, MotionToml.Render(document.Graph), ref rawSnapshot);
             renderedDocument = document;
             HighlightSourceBone();
         });
     }
 
+    private static void ReplaceSourceText(CodeEdit edit, string text, ref string snapshot)
+    {
+        snapshot = text;
+        if (edit.Text == text) return;
+        int line = edit.GetCaretLine(), column = edit.GetCaretColumn(), horizontal = edit.ScrollHorizontal;
+        double vertical = edit.ScrollVertical;
+        edit.Text = text;
+        int lines = edit.GetLineCount(), target = lines == 0 ? 0 : Math.Clamp(line, 0, lines - 1);
+        edit.SetCaretLine(target);
+        edit.SetCaretColumn(lines == 0 ? 0 : Math.Min(column, edit.GetLine(target).Length));
+        edit.ScrollVertical = vertical;
+        edit.ScrollHorizontal = horizontal;
+    }
+
+    private void TickSourceUpdates(double delta)
+    {
+        if (frameDebounce.Tick(delta)) CommitFrame();
+        if (graphDebounce.Tick(delta)) CommitGraph();
+    }
+
     private void CommitFrame()
     {
+        frameDebounce.Cancel();
         if (sourceView is null || refreshing || sourceView.Text == sourceSnapshot) return;
         Guard(() =>
         {
-            var edit = MotionToml.ParseFrame(sourceView.Text, Clip.Id, frame.Value);
-            if (!MotionToml.FrameChanged(Clip, edit)) { status.Text = "当前帧内容未修改。"; return; }
-            if (!TryChange(graph => MotionToml.ApplyFrame(graph, Clip.Id, edit))) return;
+            var edit = MotionToml.ParseFrame(sourceView.Text, Clip.Id);
+            if (edit.Index < 0 || edit.Index > Clip.Duration) throw new InvalidDataException("帧号超出片段长度：" + edit.Index.ToString("R", CultureInfo.InvariantCulture) + " / " + Clip.Duration.ToString("R", CultureInfo.InvariantCulture) + "。");
+            bool changed = MotionToml.FrameChanged(Clip, edit), moved = Math.Abs(frame.Value - edit.Index) > 1e-9;
+            if (changed && !TryChange(graph => MotionToml.ApplyFrame(graph, Clip.Id, edit))) return;
             sourceSnapshot = sourceView.Text;
-            status.Text = "当前帧已应用。";
+            if (moved) frame.Value = edit.Index;
+            status.Text = changed ? "当前帧已应用。" : moved ? "播放头已移到第 " + edit.Index.ToString("R", CultureInfo.InvariantCulture) + " 帧。" : "当前帧内容未修改。";
         });
     }
 
     private void CommitGraph()
     {
+        graphDebounce.Cancel();
         if (rawView is null || refreshing || rawView.Text == rawSnapshot) return;
         Guard(() =>
         {

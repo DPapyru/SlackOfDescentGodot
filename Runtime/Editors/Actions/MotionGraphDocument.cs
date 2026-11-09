@@ -45,3 +45,19 @@ public sealed class MotionGraphDocument(MotionGraph graph)
     internal int UndoDepth=>undo.Count;
     internal void RestoreDirty(bool value)=>Dirty=value;
 }
+
+internal sealed class MotionSourceDebounce(double delay)
+{
+    private double remaining;
+    public bool Pending { get; private set; }
+    public void Restart() { remaining = delay; Pending = true; }
+    public void Cancel() { remaining = 0; Pending = false; }
+    public bool Tick(double delta)
+    {
+        if (!Pending) return false;
+        remaining -= delta;
+        if (remaining > 0) return false;
+        Pending = false;
+        return true;
+    }
+}

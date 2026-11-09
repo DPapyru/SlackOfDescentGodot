@@ -169,7 +169,7 @@ public static class MotionToml
         text.Append('\n').Append("# ").Append(bone).Append('\n').Append(group);
     }
 
-    public static MotionFrameEdit ParseFrame(string text, string clipId, double frame)
+    public static MotionFrameEdit ParseFrame(string text, string clipId)
     {
         var root = ParseDocument(text, "当前帧");
         if (root.Values.Count != 1 || !root.Values.TryGetValue("frame", out var frames) || frames is not List<object> list)
@@ -177,7 +177,6 @@ public static class MotionToml
         if (list.Count != 1) throw new InvalidDataException("节点属性修改只接受一个 [[frame]] 块。");
         if (list[0] is not TomlTable table) throw new InvalidDataException("节点属性修改只接受一个 [[frame]] 块。");
         double index = Number(table, "index");
-        if (Math.Abs(index - frame) > 1e-9) throw new InvalidDataException("index 必须等于当前帧 " + Number(frame) + "。");
         if (table.Values.TryGetValue("clip", out var clipValue) && (clipValue is not string id || id != clipId)) throw new InvalidDataException("clip 必须等于当前片段：" + clipId + "。");
         var bones = new Dictionary<string, Dictionary<string, double>>(StringComparer.Ordinal);
         foreach (var pair in table.Values)

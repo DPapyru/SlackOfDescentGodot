@@ -719,20 +719,22 @@ public partial class NativeActionEditor
 
     private void AuditCompletion()
     {
-        AuditSourceExpect(Completion(sourceView),"节点属性修改 offers TOML completion on Ctrl+Space");
-        AuditSourceExpect(Completion(rawView),"原始数据 offers TOML completion on Ctrl+Space");
+        (bool Ok,string Detail) source=Completion(sourceView);
+        AuditSourceExpect(source.Ok,"节点属性修改 offers TOML completion on Ctrl+Space: "+source.Detail);
+        (bool Ok,string Detail) raw=Completion(rawView);
+        AuditSourceExpect(raw.Ok,"原始数据 offers TOML completion on Ctrl+Space: "+raw.Detail);
     }
 
-    private static bool Completion(CodeEdit edit)
+    private static (bool Ok,string Detail) Completion(CodeEdit edit)
     {
         string text=edit.Text;
         edit.Text="HEA";edit.SetCaretLine(0);edit.SetCaretColumn(3);
         edit.EmitSignal(Control.SignalName.GuiInput,new InputEventKey{Keycode=Key.Space,CtrlPressed=true,Pressed=true,Echo=false});
-        bool offered=edit.GetCodeCompletionOption(0).Count>0;
-        bool shown=edit.GetChildren().OfType<Window>().Any(window=>window.Visible);
+        int count=edit.GetCodeCompletionOptions().Count,bones=0;
+        for(int i=0;i<count;i++) if(MotionSkeleton.Bones.Contains(edit.GetCodeCompletionOption(i)["display_text"].AsString())) bones++;
         edit.CancelCodeCompletion();
         edit.Text=text;
-        return offered&&shown;
+        return (count>0&&bones>0,"options="+count+" boneCandidates="+bones+" expects at least one real bone name such as HEAD or BODY_TOP");
     }
 
     private void AuditHighlighter()

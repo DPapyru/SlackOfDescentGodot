@@ -14,7 +14,7 @@ public partial class NativeActionEditor
     private void LoadKeyMode()
     {
         try { if (File.Exists(KeyModePath)) keyMode = NativeContentStore.Load<string>(KeyModePath) == "vim" ? KeyMode.Vim : KeyMode.Default; }
-        catch (Exception error) when (error is IOException or InvalidDataException or System.Text.Json.JsonException) { keyMode = KeyMode.Default; }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidDataException or System.Text.Json.JsonException) { keyMode = KeyMode.Default; }
     }
     private void SaveKeyMode()
     {

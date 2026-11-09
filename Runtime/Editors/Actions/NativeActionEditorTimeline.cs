@@ -64,11 +64,11 @@ public partial class NativeActionEditor
         Button(header, "新增片段", () => Change(g => g.Clips.Add(new() { Id = clipId.Text })));
         duration = Number(header, "长度（60Hz）", 1, 100000, 60); duration.ValueChanged += value => { if (!syncingTimeline && !refreshing) ChangeKey(_ => Clip.Duration = value, "duration:" + Clip.Id); };
         loop = new CheckButton { Text = "循环", ButtonPressed = true }; header.AddChild(loop); loop.Toggled += on => { if (!syncingTimeline && !refreshing) ChangeKey(_ => Clip.Loop = on, "loop:" + Clip.Id); };
-        playing = new CheckButton { Text = "▶" }; header.AddChild(playing); playing.Toggled += on => { playing.Text = on ? "⏸" : "▶"; if (on) RestartPlayback(); else UpdatePlaybackOverlay(); };
+        playing = new CheckButton { Text = "▶" }; header.AddChild(playing); playing.Toggled += on => { playing.Text = on ? "⏸" : "▶"; if (!on) { UpdatePlaybackOverlay(); return; } if (PreviewAvailable()) RestartPlayback(); };
         Button(header, "单帧", Step);
         speedChoice = new OptionButton(); foreach (string speed in new[] { "0.5x", "1x", "2x" }) speedChoice.AddItem(speed); speedChoice.Select(1); header.AddChild(speedChoice);
         speedChoice.ItemSelected += index => playbackSpeed = index switch { 0 => .5, 2 => 2, _ => 1 };
-        frame = Number(header, "动作帧", 0, 100000); frame.ValueChanged += _ => { ReadKey(); if (!refreshing) ApplyDocumentPose(); };
+        frame = Number(header, "动作帧", 0, 100000); frame.ValueChanged += _ => { ReadKey(); if (!refreshing && PreviewAvailable()) ApplyDocumentPose(); };
         playState = new Label { Name = "PlayState", AutowrapMode = TextServer.AutowrapMode.WordSmart, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; header.AddChild(playState);
         timelineSlider = Slider(dock, 60, value => frame.Value = value);
         keyList = new ItemList { CustomMinimumSize = new(0, 90) }; dock.AddChild(keyList); keyList.ItemSelected += index => frame.Value = keyList.GetItemMetadata((int)index).AsDouble();

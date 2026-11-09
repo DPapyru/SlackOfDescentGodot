@@ -30,6 +30,7 @@ public partial class NativeActionEditor
 
     private void SurfaceInput(InputEvent input)
     {
+        if(preview is null){if(input is InputEventMouseButton{Pressed:true})InitializePreview();return;}
         if(input is InputEventKey{Pressed:true,Keycode:Key.Escape}){CancelDrag();return;}
         if(input is InputEventMouseButton button){SurfaceButton(button);return;}
         if(input is InputEventMouseMotion motion)SurfaceMotion(motion);

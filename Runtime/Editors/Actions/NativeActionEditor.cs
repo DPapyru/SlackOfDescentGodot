@@ -34,6 +34,7 @@ public partial class NativeActionEditor : Window
     private string? path { get => Project.Path; set => Project.Path = value; }
     private MotionProject Project => projects[Math.Clamp(activeProject, 0, projects.Count - 1)];
     public event Action? Closed;
+    internal bool PreviewReady => !busy && preview?.Player is not null;
     public NativeActionEditor(GmWorld world, ContentRegistry registry, NativeContentStore store, IEnumerable<string>? packages = null)
     {
         this.world = world; this.registry = registry; this.store = store;
@@ -60,8 +61,10 @@ public partial class NativeActionEditor : Window
         if (bone.ItemCount > 0) bone.Select(Math.Clamp(Project.BoneIndex, 0, bone.ItemCount - 1));
     }
     private static string NodeName(string id) => "state_" + Convert.ToHexString(System.Text.Encoding.UTF8.GetBytes(id));
+    private bool PreviewAvailable() { if (preview is not null) return true; InitializePreview(); return false; }
     private void PopulateSkeleton()
     {
+        if (!PreviewAvailable()) return;
         if (PreviewActor is not { } active) return;
         var nodes = active.Services.Motions.Skeleton(active);
         highlightedBone = null; int selected = bone.Selected; bone.Clear(); bone.AddItem("root"); foreach (var node in nodes) bone.AddItem(node.Name); syncingBone = true; bone.Select(Math.Clamp(selected, 0, bone.ItemCount - 1)); syncingBone = false;
@@ -150,9 +153,9 @@ public partial class NativeActionEditor : Window
         }
         document = new(graph); Project.Target = target; path = file; Refresh(); InitializePreview(); status.Text = file;
     }
-    private async void InitializePreview(bool force = false)
+    internal async void InitializePreview(bool force = false)
     {
-        if (busy) return; busy = true; playing.ButtonPressed = false;
+        if (busy) return; busy = true; if (preview is not null) playing.ButtonPressed = false;
         try
         {
             if (preview is null)
@@ -170,7 +173,7 @@ public partial class NativeActionEditor : Window
             PopulateSkeleton(); preview.Bridge.Services.Motions.Play(actor, document.Graph);frame.Value=0;ApplyDocumentPose();
             canvas.QueueRedraw(); FitView(); status.Text = "预览已加载。";
         }
-        catch (Exception e) { status.Text = e.GetBaseException().Message; }
+        catch (Exception e) { playing.ButtonPressed = false; status.Text = e.GetBaseException().Message; }
         finally { busy = false; }
     }
     private CharacterDefinition CharacterDefinition(MotionProjectTarget target)
@@ -204,7 +207,7 @@ public partial class NativeActionEditor : Window
         int steps = 0; while (elapsed >= FrameContext.FixedDelta && steps < 30) { elapsed -= FrameContext.FixedDelta; steps++; }
         if (steps > 0) Advance(steps);
     }
-    private void Step() => Advance(1);
+    private void Step() { if (PreviewAvailable()) Advance(1); }
     private async void Advance(int steps)
     {
         var activePreview = preview; if (busy || activePreview is null || PreviewActor is not { } active) return; busy = true;

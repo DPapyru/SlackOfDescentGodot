@@ -78,7 +78,7 @@ public partial class NativeActionEditor
         BuildWorkspace(body);
         BuildTimeline(body);
         status = new Label { Name = "动作状态", AutoTranslateMode = AutoTranslateModeEnum.Disabled, AutowrapMode = TextServer.AutowrapMode.WordSmart, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new(0, 22) }; root.AddChild(status);
-        Refresh(); InitializePreview();
+        Refresh(); status.Text = "预览未加载：点击画布、开始播放或 视图→重载预览 触发加载。";
     }
     private void BuildCharacterBar(VBoxContainer root)
     {

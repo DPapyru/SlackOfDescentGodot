@@ -7,15 +7,14 @@ public partial class NativeActionEditor
 {
     private CodeEdit sourceView = null!, rawView = null!;
     private string sourceSnapshot = "", rawSnapshot = "";
-    private readonly HashSet<string> sourceCompletion = new(StringComparer.Ordinal), rawCompletion = new(StringComparer.Ordinal);
 
     private void BuildSourcePages(TabContainer pages)
     {
-        sourceView = SourcePage(pages, "节点属性修改", "SourceView", CommitFrame, sourceCompletion, true);
-        rawView = SourcePage(pages, "原始数据", "RawView", CommitGraph, rawCompletion, false);
+        sourceView = SourcePage(pages, "节点属性修改", "SourceView", CommitFrame, true);
+        rawView = SourcePage(pages, "原始数据", "RawView", CommitGraph, false);
     }
 
-    private CodeEdit SourcePage(TabContainer pages, string title, string name, Action commit, HashSet<string> seen, bool framePage)
+    private CodeEdit SourcePage(TabContainer pages, string title, string name, Action commit, bool framePage)
     {
         var page = new VBoxContainer { Name = title }; pages.AddChild(page);
         var edit = CodeEditView(name); page.AddChild(edit);
@@ -25,7 +24,7 @@ public partial class NativeActionEditor
             if (input is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Enter, CtrlPressed: true }) return;
             commit(); edit.AcceptEvent();
         };
-        edit.CodeCompletionRequested += () => FillCompletion(edit, seen, framePage);
+        edit.CodeCompletionRequested += () => FillCompletion(edit, framePage);
         return edit;
     }
 
@@ -84,12 +83,9 @@ public partial class NativeActionEditor
         }
     }
 
-    internal void FillCompletion(CodeEdit edit, HashSet<string> seen, bool framePage)
+    internal void FillCompletion(CodeEdit edit, bool framePage)
     {
-        void Add(CodeEdit.CodeCompletionKind kind, string display, string insert)
-        {
-            if (seen.Add(display + "\n" + insert)) edit.AddCodeCompletionOption(kind, display, insert);
-        }
+        void Add(CodeEdit.CodeCompletionKind kind, string display, string insert) => edit.AddCodeCompletionOption(kind, display, insert);
         foreach (string bone in MotionSkeleton.Bones) Add(CodeEdit.CodeCompletionKind.Class, bone, bone);
         Add(CodeEdit.CodeCompletionKind.Class, "root", "root");
         foreach (string field in MotionToml.PoseFields) Add(CodeEdit.CodeCompletionKind.Member, field, field);

@@ -110,8 +110,14 @@ public partial class NativeActionEditor
         Expect(sourceView.CodeCompletionEnabled&&rawView.CodeCompletionEnabled,"the left pages complete TOML");
         Expect(sourceView.Text.StartsWith("[[frame]]")&&sourceView.Text.Contains("index = "+frame.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)),"节点属性修改 renders the current frame block");
         Expect(rawView.Text.Contains("[[clip]]")&&rawView.Text.Contains("[[state]]")&&rawView.Text.Contains("[state.movement]"),"原始数据 renders the whole graph as TOML tables");
-        FillCompletion(sourceView,sourceCompletion,true);Expect(sourceView.GetCodeCompletionOption(0).Count>0,"节点属性修改 offers TOML completion");
-        FillCompletion(rawView,rawCompletion,false);Expect(rawView.GetCodeCompletionOption(0).Count>0,"原始数据 offers TOML completion");
+        string sourceText=sourceView.Text;
+        sourceView.Text="HEA";sourceView.SetCaretLine(0);sourceView.SetCaretColumn(3);
+        FillCompletion(sourceView,true);Expect(sourceView.GetCodeCompletionOption(0).Count>0,"节点属性修改 offers TOML completion");
+        sourceView.Text=sourceText;
+        string rawText=rawView.Text;
+        rawView.Text="HEA";rawView.SetCaretLine(0);rawView.SetCaretColumn(3);
+        FillCompletion(rawView,false);Expect(rawView.GetCodeCompletionOption(0).Count>0,"原始数据 offers TOML completion");
+        rawView.Text=rawText.Replace("duration = 60","duration = 45");
         sourceView.Text="[[frame]]\nindex = 0\nHEAD.x = 2.5\n";
         CommitFrame();
         Expect(Math.Abs(Clip.Sample(0).GetValueOrDefault("HEAD").X-2.5)<1e-9&&sourceView.Text.Contains("HEAD.x = 2.5"),"committing the frame text writes the pose and re-renders the block");
@@ -122,7 +128,6 @@ public partial class NativeActionEditor
         sourceView.Text="[[frame]]\nindex = 0\nHEAD.nope = 1\n";
         CommitFrame();
         Expect(sourceView.Text.Contains("HEAD.nope")&&document.UndoDepth==frameUndo,"invalid frame text is rejected without an edit");
-        rawView.Text=rawView.Text.Replace("duration = 60","duration = 45");
         CommitGraph();
         Expect(Math.Abs(Clip.Duration-45)<1e-9,"committing the graph text applies the whole document");
         rawView.Text=rawView.Text.Replace("loop = true","loop = false");

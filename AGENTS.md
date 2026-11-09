@@ -8,6 +8,7 @@
 - **Agent Permissions:** Implementation agents MUST NOT modify documentation files directly. They may only propose documentation changes. Only designated documentation subagents (or the main agent acting as the doc writer) can write to docs.
 - **Main Agent Role:** When sub-agents are authorized and deployed by the user, the main agent must only report/supervise and refrain from doing the work itself, unless explicitly instructed otherwise by the user.
 - **Execution Pace:** Execute only one step per turn. Proceed step-by-step rather than completing everything at once, unless explicitly authorized by the user.
+- **Test Isolation:** Tests run only through a dedicated test sub-agent dispatched by the main agent; no other sub-agent may run tests. Concurrent test runs have caused an OOM.
 
 ## Branch Model
 

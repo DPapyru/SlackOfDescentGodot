@@ -131,7 +131,7 @@ public partial class NativeActionEditor : Window
         void Close() { closing = true; Hide(); Closed?.Invoke(); QueueFree(); }
         ConfirmDirtyClose(Close);
     }
-    private void ImportOriginal() => Guard(() => { string name = original.GetItemText((int)original.Selected); document = new(MotionImport.FromAst(world.Code["external/Chara/Motion/" + name + ".txt"], name.Replace('/', '.'), document.Graph.Skeleton)); path = null; Refresh(); InitializePreview(); status.Text = "已导入：" + name; });
+    private void ImportOriginal() => Guard(() => { string name = original.GetItemText((int)original.Selected); document = new(MotionImport.FromAst(world.Code["external/Chara/Motion/" + name + ".txt"], name.Replace('/', '.'), document.Graph.Skeleton, clipId: name)); path = null; Refresh(); InitializePreview(); status.Text = "已导入：" + name; });
     private void Save() { if (path is null) { ChooseFile(true); return; } Guard(() => { document.Save(path); Refresh(); status.Text = "已保存：" + path; }); }
     private void ChooseFile(bool save)
     {

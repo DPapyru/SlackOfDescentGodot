@@ -145,33 +145,27 @@ public partial class NativeActionEditor
     }
     private void RefreshCodeViews()
     {
-        if (sourceView is null) return;
-        try
+        Guard(() =>
         {
             var clip = Clip;
             var text = new System.Text.StringBuilder();
             text.Append("// 片段 ").Append(clip.Id).Append("  帧 ").Append(frame.Value.ToString("F1")).Append(" / ").Append(clip.Duration.ToString("F0")).Append('\n');
-            var sample = clip.Sample(frame.Value);
-            var root = clip.RootPose(frame.Value);
-            text.Append("root: { x: ").Append(root.X.ToString("F2")).Append(", y: ").Append(root.Y.ToString("F2")).Append(" }\n");
-            foreach (var pair in sample.OrderBy(item => item.Key, StringComparer.Ordinal))
-                text.Append(pair.Key).Append(": { x: ").Append(pair.Value.X.ToString("F2")).Append(", y: ").Append(pair.Value.Y.ToString("F2")).Append(", angle: ").Append(pair.Value.Angle.ToString("F2")).Append(" }\n");
+            text.Append(Line("root", clip.RootPose(frame.Value)));
+            foreach (var pair in clip.Sample(frame.Value).OrderBy(item => item.Key, StringComparer.Ordinal)) text.Append(Line(pair.Key, pair.Value));
+            static string Line(string name, MotionPose pose) => name + ": { x: " + pose.X.ToString("F2") + ", y: " + pose.Y.ToString("F2") + ", angle: " + pose.Angle.ToString("F2")
+                + ", sx: " + pose.ScaleX.ToString("F2") + ", sy: " + pose.ScaleY.ToString("F2") + ", picture: " + pose.Picture + " }\n";
             if (!sourceView.HasFocus()) sourceView.Text = text.ToString();
             if (!rawView.HasFocus()) rawView.Text = JsonSerializer.Serialize(document.Graph, NativeContentStore.Json);
-        }
-        catch (Exception error) { status.Text = error.GetBaseException().Message; }
+        });
     }
+    private const string MotionCodePrefix = "external/Chara/Motion/";
     private void ShowOriginalMotions()
     {
         var popup = new PopupMenu { Name = "ImportOriginal" }; AddChild(popup);
         int index = 0;
-        foreach (string key in world.Code.Keys.Where(k => k.StartsWith("external/Chara/Motion/", StringComparison.Ordinal)).Order())
-        {
-            popup.AddItem(key["external/Chara/Motion/".Length..^4], index);
-            popup.SetItemMetadata(index, key["external/Chara/Motion/".Length..^4]);
-            index++;
-        }
-        popup.IdPressed += id => { ImportOriginal(popup.GetItemMetadata((int)id).AsString()); popup.QueueFree(); };
+        foreach (string key in world.Code.Keys.Where(k => k.StartsWith(MotionCodePrefix, StringComparison.Ordinal)).Order()) popup.AddItem(key[MotionCodePrefix.Length..^4], index++);
+        popup.IdPressed += id => ImportOriginal(popup.GetItemText((int)id));
+        popup.PopupHide += popup.QueueFree;
         popup.Popup(new Rect2I(new Vector2I((int)GetMousePosition().X, (int)GetMousePosition().Y), Vector2I.One));
     }
     internal string HelpText()
@@ -179,7 +173,7 @@ public partial class NativeActionEditor
         string preset = HelpPreset();
         var text = new System.Text.StringBuilder();
         text.AppendLine("一、动作图是什么");
-        text.AppendLine("片段：一段关键帧姿态。状态：Mod 运行时的节点，引用一个片段并带运动与转换；编辑器界面不出现状态编辑，只在「原始数据」里可读可改。");
+        text.AppendLine("片段：一段关键帧姿态。状态：Mod 运行时的节点，引用一个片段并带运动与转换；编辑器界面不出现状态编辑，只能在「原始数据」里只读查看。");
         text.AppendLine("转换：满足条件时从当前状态切到目标状态。条件：按键/落地/速度/血量/受击/计时/参数等判断。运动：状态自带的速度、重力与位移。事件：片段内指定帧或接触区间触发的伤害、交互、生成、销毁、SDK 与地图事件。");
         text.AppendLine();
         text.AppendLine("二、原版对照");

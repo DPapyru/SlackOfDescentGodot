@@ -47,11 +47,12 @@ public partial class NativeActionEditor
             Expect(surface is TextureRect&&overlay is not null,"the center stage keeps the single motion surface");
             Expect(Count<TextureRect>()==1&&overlay.GetParent()==surface&&Descendants(this).OfType<SubViewport>().Count(node=>node.GetParent()==this)==1&&Descendants(this).OfType<GmCanvas>().Count(node=>node.GetParent()==viewport)==1,"the studio owns one surface, overlay, viewport and canvas");
             Expect(leftPages is TabContainer&&leftPages.GetTabCount()==2&&leftPages.GetTabTitle(0)=="节点属性修改"&&leftPages.GetTabTitle(1)=="原始数据","the left dock has exactly two pages");
+            Expect(leftPages.GetParent() is VBoxContainer leftDock&&Math.Abs(leftDock.CustomMinimumSize.X-350)<.001,"the left sidebar is 350 pixels wide");
             Expect(leftPages.CurrentTab==0&&sourceView.GetParent()==leftPages.GetTabControl(0)&&rawView.GetParent()==leftPages.GetTabControl(1),"the left pages own the code and raw views");
             Expect(Descendants(this).OfType<TabContainer>().All(page=>page==leftPages),"the deleted dock pages are gone");
             Expect(sourceView is TextEdit{Editable:false}&&rawView is TextEdit{Editable:false},"both left pages are read-only");
             var settings=Descendants(this).FirstOrDefault(node=>node.Name=="ActionSettings");
-            Expect(settings is VBoxContainer&&Descendants(settings).OfType<TabContainer>().Count()==0,"the right dock is a single 动作设置 page");
+            Expect(settings is VBoxContainer{ CustomMinimumSize.X: 280 }&&Descendants(settings).OfType<TabContainer>().Count()==0,"the right dock is a single 280 pixel 动作设置 page");
             Expect(settings is not null&&Descendants(settings).Contains(clipChoice)&&Descendants(settings).Contains(duration)&&Descendants(settings).Contains(loop)&&loop.Text=="循环","动作设置 holds the clip dropdown, 总帧数 and 循环");
             var transport=Descendants(this).FirstOrDefault(node=>node.Name=="TimelineDock");
             Expect(transport is not null&&Descendants(transport).Contains(timelineSlider)&&timelineSlider is HSlider&&frame is SpinBox,"the bottom dock keeps the timeline");

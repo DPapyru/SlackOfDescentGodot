@@ -19,9 +19,9 @@ public partial class NativeActionEditor
         int failed=0;
         for(int i=1;i<=imports;i++)
         {
-            var names=world.Code.Keys.Where(key=>key.StartsWith("external/Chara/Motion/",StringComparison.Ordinal)).Order().ToArray();
+            var names=world.Code.Keys.Where(key=>key.StartsWith(MotionCodePrefix,StringComparison.Ordinal)).Order().ToArray();
             if(names.Length==0)throw new InvalidOperationException("No original motion is available.");
-            string name=names[(i-1)%names.Length]["external/Chara/Motion/".Length..^4];
+            string name=names[(i-1)%names.Length][MotionCodePrefix.Length..^4];
             string expected=name.Replace('/','.');
             var previous=document;
             long began=Stopwatch.GetTimestamp();

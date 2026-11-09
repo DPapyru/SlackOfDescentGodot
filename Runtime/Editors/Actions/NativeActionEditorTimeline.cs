@@ -12,17 +12,13 @@ public partial class NativeActionEditor
     private Label playState = null!, timeLabel = null!;
     private bool syncingTimeline;
     private static HSlider Slider(Node parent, double max, Action<double> changed) { var slider = new HSlider { MinValue = 0, MaxValue = max, Step = .25, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; parent.AddChild(slider); slider.ValueChanged += value => changed(value); return slider; }
-    private List<MotionKey> Keys()
-    {
-        string name = rootTrackMode || highlightedBone is null ? "root" : highlightedBone;
-        if (name == "root") return Clip.Root;
-        var track = Clip.Tracks.SingleOrDefault(t => t.Bone == name);
-        if (track is null) { track = new() { Bone = name }; Clip.Tracks.Add(track); } return track.Keys;
-    }
     private void DeleteSelectedKey() => Guard(() =>
     {
         if (!rootTrackMode && highlightedBone is null) throw new InvalidOperationException("请先选中骨骼。");
-        Change(_ => { var keys = Keys(); keys.RemoveAll(k => k.Frame == frame.Value); });
+        string name = rootTrackMode || highlightedBone is null ? "root" : highlightedBone;
+        var keys = name == "root" ? Clip.Root : Clip.Tracks.SingleOrDefault(track => track.Bone == name)?.Keys;
+        if (keys is null || !keys.Any(key => key.Frame == frame.Value)) { status.Text = "当前帧没有关键帧。"; return; }
+        Change(_ => keys.RemoveAll(key => key.Frame == frame.Value));
         status.Text = "已删除当前帧关键帧。";
     });
     private void ChangeKey(Action<MotionGraph> action, string coalesce) { if (refreshing) return; Guard(() => { document.Edit(action, coalesce); Refresh(); ApplyDocumentPose(); if (playing.ButtonPressed) RestartPlayback(); status.Text = "已编辑。"; }); }

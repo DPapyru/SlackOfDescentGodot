@@ -128,6 +128,7 @@ public partial class NativeActionEditor
         sourceView.Text="[[frame]]\nindex = 0\nHEAD.nope = 1\n";
         CommitFrame();
         Expect(sourceView.Text.Contains("HEAD.nope")&&document.UndoDepth==frameUndo,"invalid frame text is rejected without an edit");
+        Expect(rawView.Text.Contains("duration = 45"),"an unfocused graph edit survives refreshes from the frame page");
         CommitGraph();
         Expect(Math.Abs(Clip.Duration-45)<1e-9,"committing the graph text applies the whole document");
         rawView.Text=rawView.Text.Replace("loop = true","loop = false");

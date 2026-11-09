@@ -7,6 +7,7 @@ public partial class NativeActionEditor
 {
     private CodeEdit sourceView = null!, rawView = null!;
     private string sourceSnapshot = "", rawSnapshot = "";
+    private MotionGraphDocument? renderedDocument;
 
     private void BuildSourcePages(TabContainer pages)
     {
@@ -39,8 +40,10 @@ public partial class NativeActionEditor
         if (sourceView is null || rawView is null) return;
         Guard(() =>
         {
-            if (!sourceView.HasFocus()) sourceView.Text = sourceSnapshot = MotionToml.RenderFrame(Clip, frame.Value);
-            if (!rawView.HasFocus()) rawView.Text = rawSnapshot = MotionToml.Render(document.Graph);
+            bool replaced = renderedDocument != document;
+            if (!sourceView.HasFocus() && (replaced || sourceView.Text == sourceSnapshot)) sourceView.Text = sourceSnapshot = MotionToml.RenderFrame(Clip, frame.Value);
+            if (!rawView.HasFocus() && (replaced || rawView.Text == rawSnapshot)) rawView.Text = rawSnapshot = MotionToml.Render(document.Graph);
+            renderedDocument = document;
             HighlightSourceBone();
         });
     }

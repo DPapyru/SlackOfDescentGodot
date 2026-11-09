@@ -782,6 +782,7 @@ public partial class NativeActionEditor
         Expect(registered.Count>0&&help.Contains(registered[0].Name+" → "+registered[0].Resource),"help lists registered original motions");
         ApplyToGame();var player=world.Instances.First(i=>!i.Destroyed&&world.IsObject(i.Object,world.Constants["objPlayerDoll"].Int));
         Expect(world.NativeServices!.Motions.State(new(world,player)) is not null,"edited graph applies to the game actor");
+        await AuditKeyboardAsync(output);
         GD.Print("MOTION_EDITOR_AUDIT_OK import=PASS edit=PASS undo=PASS save=PASS reload=PASS preview=PASS game=PASS studio=PASS immediate=PASS state=PASS events=PASS ring=PASS");
     }
 }

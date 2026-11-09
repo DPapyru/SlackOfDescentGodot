@@ -152,6 +152,13 @@ public static class MotionToml
         return graph;
     }
 
+    internal static string Clean(string text)
+    {
+        var clean = new StringBuilder(text?.Length ?? 0);
+        foreach (char character in text ?? "") if (character is not ('\u200B' or '\u200C' or '\u200D' or '\uFEFF' or '\u00AD')) clean.Append(character);
+        return clean.ToString();
+    }
+
     public static string RenderFrame(MotionClip clip, double frame)
     {
         var text = new StringBuilder();

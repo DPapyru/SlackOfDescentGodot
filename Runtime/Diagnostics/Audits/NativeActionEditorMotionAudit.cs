@@ -716,6 +716,11 @@ public partial class NativeActionEditor
         Expect(registered.Count>0&&help.Contains(registered[0].Name+" → "+registered[0].Resource),"help lists registered original motions");
         ApplyToGame();var player=world.Instances.First(i=>!i.Destroyed&&world.IsObject(i.Object,world.Constants["objPlayerDoll"].Int));
         Expect(world.NativeServices!.Motions.State(new(world,player)) is not null,"edited graph applies to the game actor");
+        var sourceMenu=sourceView.GetMenu();
+        int MenuId(int id)=>sourceMenu.GetItemIndex(id);
+        Expect(new (int Id,string Text)[]{((int)TextEdit.MenuItems.Cut,"剪切"),((int)TextEdit.MenuItems.Copy,"复制"),((int)TextEdit.MenuItems.Paste,"粘贴"),((int)TextEdit.MenuItems.SelectAll,"全选"),((int)TextEdit.MenuItems.Clear,"清除"),((int)TextEdit.MenuItems.Undo,"撤销"),((int)TextEdit.MenuItems.Redo,"重做"),((int)TextEdit.MenuItems.DisplayUcc,"显示控制字符")}.All(item=>MenuId(item.Id)>=0&&sourceMenu.GetItemText(MenuId(item.Id))==item.Text),"the source context menu speaks Chinese");
+        Expect(MenuId((int)TextEdit.MenuItems.SubmenuInsertUcc)<0&&MenuId((int)TextEdit.MenuItems.SubmenuTextDir)<0,"the source context menu hides control-character insertion and writing direction");
+        Expect(sourceView.TextDirection==Control.TextDirection.Ltr&&rawView.TextDirection==Control.TextDirection.Ltr,"both source pages are fixed left to right");
         GD.Print("MOTION_EDITOR_AUDIT_OK import=PASS edit=PASS undo=PASS save=PASS reload=PASS preview=PASS game=PASS studio=PASS immediate=PASS state=PASS events=PASS ring=PASS");
     }
 }

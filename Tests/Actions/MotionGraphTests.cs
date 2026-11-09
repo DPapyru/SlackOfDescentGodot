@@ -21,6 +21,18 @@ public static class MotionGraphTests
         var restored=System.Text.Json.JsonSerializer.Deserialize<MotionGraph>(System.Text.Json.JsonSerializer.Serialize(graph,NativeContentStore.Json),NativeContentStore.Json)!;
         restored.Validate();Check(restored.Clips[0].Sample(2)["HEAD"]==pose,"save reload preserves poses");
         var document=new MotionGraphDocument(restored);document.Edit(g=>g.Clips[0].Tracks[0].Keys[0].X=12);document.Undo();Check(document.Graph.Clips[0].Tracks[0].Keys[0].X==0,"undo restores timeline");document.Redo();Check(document.Graph.Clips[0].Tracks[0].Keys[0].X==12,"redo restores edit");
+        var idleTemplate=new MotionGraph{Id="idle.template",Skeleton="Nana",Clips=[new()],States=[new()]};
+        Check(MotionRigTemplates.EnsureIdleTemplate(idleTemplate),"idle template fills an empty document");
+        Check(idleTemplate.Clips[0].Tracks.Count==MotionSkeleton.Bones.Length&&idleTemplate.Clips[0].Tracks.All(track=>track.Keys.Count>=2),"idle template keys every bone on two frames");
+        Check(MotionSkeleton.Bones.All(bone=>idleTemplate.Clips[0].Sample(0)[bone]==MotionRigTemplates.Pose(bone)),"idle template stores the full local reference pose");
+        Check(MotionSkeleton.Bones.Any(bone=>idleTemplate.Clips[0].Sample(0)[bone].X!=0||idleTemplate.Clips[0].Sample(0)[bone].Y!=0),"idle template is not collapsed to the origin");
+        var idleDocument=new MotionGraphDocument(new MotionGraph{Id="idle.undo",Clips=[new()],States=[new()]});
+        idleDocument.Edit(graph=>MotionRigTemplates.EnsureIdleTemplate(graph),"idle-template");
+        Check(idleDocument.UndoDepth==1&&idleDocument.Graph.Clips[0].Tracks.Count==MotionSkeleton.Bones.Length,"idle template injection is a single undo step");
+        idleDocument.Undo();Check(idleDocument.Graph.Clips[0].Tracks.Count==0,"undo restores the empty idle document");
+        string idlePath=Path.Combine(Path.GetTempPath(),"motion-idle-"+Guid.NewGuid().ToString("N")+".motion.json");
+        try{idleTemplate.Save(idlePath);var reloadedIdle=MotionGraph.Load(idlePath);Check(MotionSkeleton.Bones.All(bone=>reloadedIdle.Clips[0].Sample(0)[bone]==idleTemplate.Clips[0].Sample(0)[bone]&&reloadedIdle.Clips[0].Sample(1)[bone]==idleTemplate.Clips[0].Sample(1)[bone]),"idle template poses survive save and reload");}
+        finally{if(File.Exists(idlePath))File.Delete(idlePath);}
         var ik=MotionIk.Solve((0d,0d),(3d,0d),(6d,0d),(20d,0d),true);Check(ik.Success&&ik.Clamped&&Math.Abs(ik.Reach-6)<.001,"IK clamps unreachable endpoint");
         Check(!MotionIk.Solve((0d,0d),(0d,0d),(2d,0d),(1d,0d)).Success,"IK rejects zero length segment");
         Check(!MotionIk.Solve((0d,0d),(2d,0d),(4d,0d),(0d,0d)).Success,"IK rejects coincident root target");

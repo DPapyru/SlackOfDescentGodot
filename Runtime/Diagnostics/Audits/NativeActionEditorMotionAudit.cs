@@ -70,6 +70,7 @@ public partial class NativeActionEditor
         await Ready();
         Expect(preview!.Bridge.BoundCharacter(preview.Player!.Id) is not null,"the preview keeps the character binding");
         Expect(Math.Abs(frame.Value)<.001,"the preview opens on frame 0");
+        Expect(document.Graph.Clips[0].Tracks.Count==MotionSkeleton.Bones.Length&&document.Graph.Clips[0].Tracks.All(track=>track.Keys.Count>=2),"the default idle template covers every bone on two frames");
         _UnhandledKeyInput(new InputEventKey{Keycode=Key.Q,Pressed=true,Echo=false});
         Expect(!GetViewport().IsInputHandled(),"an unbound key bubbles past the editor");
         _UnhandledKeyInput(new InputEventKey{Keycode=Key.Escape,Pressed=true,Echo=false});
@@ -440,7 +441,7 @@ public partial class NativeActionEditor
         SwitchProject(projectIndex+1);
         await Ready();
         Expect(ReferenceEquals(preview,studio)&&ReferenceEquals(preview.World,studioWorld),"switching projects keeps the single preview world");
-        Change(g=>g.Clips[0].Tracks.Add(new(){Bone="HEAD",Keys=[new(){Frame=0}]}));
+        Change(g=>g.Clips[0].Duration=30);
         Expect(Project.Dirty,"editing a project marks it dirty");
         CloseProject(projects.Count-1);
         Expect(pendingConfirmation is not null&&confirmation.DialogText.Contains("未保存"),"closing a dirty project asks for confirmation");

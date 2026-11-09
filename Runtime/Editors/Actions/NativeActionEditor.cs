@@ -38,11 +38,21 @@ public partial class NativeActionEditor : Window
     {
         this.world = world; this.registry = registry; this.store = store;
         this.packages = packages?.ToArray() ?? [];
-        projects.Add(new MotionProject(new(MotionTargetKind.PlayerPreset, "Nana"), new(DefaultGraph())));
+        projects.Add(new MotionProject(new(MotionTargetKind.PlayerPreset, "Nana"), TemplateDocument(DefaultGraph())));
     }
     internal MotionGraphDocument Document => document;
     internal IReadOnlyList<MotionProject> Projects => projects;
     private static MotionGraph DefaultGraph() => new() { Clips = [new()], States = [new() { Movement = new() { InputSpeed = 4, Gravity = .6, JumpSpeed = 10 } }] };
+    private static MotionGraphDocument TemplateDocument(MotionGraph graph)
+    {
+        var document = new MotionGraphDocument(graph);
+        if (!MotionSkeleton.IsLegacy(graph.Skeleton) && graph.Clips.Count > 0 && graph.Clips.All(clip => clip.Tracks.Count == 0 && clip.Root.Count == 0))
+        {
+            document.Edit(_ => MotionRigTemplates.EnsureIdleTemplate(graph), "idle-template");
+            document.RestoreDirty(false);
+        }
+        return document;
+    }
     private MotionClip Clip => document.Graph.Clips[(int)Math.Max(0, clipChoice.Selected)];
     private string SelectedStateId => stateChoice.Selected < 0 ? document.Graph.States[0].Id : stateChoice.GetItemText((int)stateChoice.Selected);
     private MotionTransition? SelectedTransition => stateChoice.Selected < 0 || SelectedIndex(transitionList) < 0 ? null : document.Graph.States[(int)stateChoice.Selected].Transitions[SelectedIndex(transitionList)];

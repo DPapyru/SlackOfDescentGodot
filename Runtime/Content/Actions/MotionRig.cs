@@ -173,6 +173,44 @@ public static class MotionRigTemplates
             }
         }
     }
+
+    public static bool EnsureIdleTemplate(MotionGraph graph)
+    {
+        if (MotionSkeleton.IsLegacy(graph.Skeleton) || graph.Clips.Count == 0) return false;
+        if (graph.Clips.Any(clip => clip.Tracks.Count > 0 || clip.Root.Count > 0)) return false;
+        var descriptor = new MotionSkeletonDescriptor("idle", MotionSkeleton.Bones.Select((bone, index) =>
+        {
+            var pose = Pose(bone);
+            return new MotionSkeletonNode(bone, index, -1, 0, 0, 0, -1, pose.X, pose.Y);
+        }));
+        EnsureReferencePose(graph, descriptor);
+        foreach (var clip in graph.Clips)
+            foreach (var track in clip.Tracks)
+                if (track.Keys.Count == 1)
+                {
+                    var key = track.Keys[0];
+                    track.Keys.Add(new() { Frame = Math.Min(1, clip.Duration), X = key.X, Y = key.Y, Angle = key.Angle, ScaleX = key.ScaleX, ScaleY = key.ScaleY, Picture = key.Picture });
+                }
+        return true;
+    }
+
+    public static bool IsIdleTemplate(MotionGraph graph)
+    {
+        if (MotionSkeleton.IsLegacy(graph.Skeleton) || graph.Clips.Count == 0) return false;
+        return graph.Clips.All(clip => clip.Root.Count == 1 && clip.Tracks.Count == MotionSkeleton.Bones.Length &&
+            MotionSkeleton.Bones.All(bone => clip.Tracks.FirstOrDefault(track => track.Bone == bone) is { Keys.Count: 2 } track && track.Keys.All(key =>
+            {
+                var pose = Pose(bone);
+                return key.X == pose.X && key.Y == pose.Y && key.Angle == pose.Angle && key.ScaleX == pose.ScaleX && key.ScaleY == pose.ScaleY && key.Picture == pose.Picture;
+            })));
+    }
+
+    public static MotionPose Pose(string bone)
+    {
+        if (bone is "root" or "__root__") return new(0, 0, 0, 1, 1, 0);
+        var (x, y) = NativeCharacterBones.RestOffset(bone);
+        return new(x, y, 0, 1, 1, 0);
+    }
 }
 
 public static class MotionRigCoordinates

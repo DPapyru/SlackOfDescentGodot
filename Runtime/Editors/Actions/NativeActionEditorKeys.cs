@@ -10,7 +10,7 @@ public partial class NativeActionEditor
     private KeyMode keyMode;
     private bool vimNormal = true;
     private bool vimDeletePending;
-    private string KeyModePath => Path.Combine(store.Root, "Editor", "action-editor.json");
+    private string KeyModePath => Path.Combine(store.Root, "Editor", "action-editor-keys.json");
     private void LoadKeyMode()
     {
         try { if (File.Exists(KeyModePath)) keyMode = NativeContentStore.Load<string>(KeyModePath) == "vim" ? KeyMode.Vim : KeyMode.Default; }

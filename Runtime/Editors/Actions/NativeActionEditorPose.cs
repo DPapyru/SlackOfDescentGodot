@@ -4,7 +4,7 @@ namespace SlackOfDescent;
 
 public partial class NativeActionEditor
 {
-    private enum DragMode { Root, Fk, Ik, Ball, BarX, BarY, Translate }
+    private enum DragMode { Root, Fk, Ik, Ball, Translate }
     private const int PortWidth=640,PortHeight=480;
     private double viewCenterX,viewCenterY,viewWidth=320;
     private MotionView PreviewView
@@ -23,8 +23,8 @@ public partial class NativeActionEditor
     private DragMode dragMode;
     private Vector2 dragOrigin,dragSurface;
     private double dragStartAngle,dragStartPointer;
-    private (double X,double Y) barOrigin,barTarget;
-    private MotionPose barStart;
+    private (double X,double Y) dragLocal;
+    private MotionPose dragStartPose;
     private bool dragBend,syncingBone;
     private string? highlightedBone;
 
@@ -45,8 +45,8 @@ public partial class NativeActionEditor
                 dragging=false;
                 if(dragSurface.DistanceTo(dragOrigin)<3)
                 {
-                    overlay?.SetRingAngle(null);overlay?.SetBarOffset(null);
-                    status.Text=dragMode switch{DragMode.BarX or DragMode.BarY or DragMode.Translate=>"已选中骨骼；未拖动，未写入局部 X/Y。",DragMode.Ball=>"已选中骨骼；未拖动，未写入旋转。",_=>"已选中骨骼；未拖动，未写入关键帧。"};
+                    overlay.SetRingAngle(null);ApplyDocumentPose();
+                    status.Text=dragMode switch{DragMode.Translate=>"已选中骨骼；未拖动，未写入局部 X/Y。",DragMode.Ball=>"已选中骨骼；未拖动，未写入旋转。",_=>"已选中骨骼；未拖动，未写入关键帧。"};
                     return;
                 }
                 CommitDrag(name);
@@ -62,15 +62,7 @@ public partial class NativeActionEditor
 
     private void SurfacePress(InputEventMouseButton button)
     {
-        if(overlay?.RingHit(button.Position) is {} hit)
-        {
-            if(hit=="ball"&&highlightedBone is {} ball){draggedBone=ball;dragging=true;dragMode=DragMode.Ball;dragOrigin=dragSurface=button.Position;(dragX,dragY)=CanvasPosition(button.Position);return;}
-            if(hit is "bar:x" or "bar:y"&&highlightedBone is {} bar)
-            {
-                draggedBone=bar;dragging=true;dragMode=hit=="bar:x"?DragMode.BarX:DragMode.BarY;dragOrigin=dragSurface=button.Position;(dragX,dragY)=CanvasPosition(button.Position);
-                barOrigin=LocalTarget(bar,dragX,dragY,false);barStart=LocalPose(bar);barTarget=barOrigin;return;
-            }
-        }
+        if(overlay.RingHit(button.Position)=="ball"&&highlightedBone is {} ball){draggedBone=ball;dragging=true;dragMode=DragMode.Ball;dragOrigin=dragSurface=button.Position;(dragX,dragY)=CanvasPosition(button.Position);return;}
         draggedBone=PickBoneAt(button.Position);
         if(draggedBone is null){ClearBoneSelection();BeginPan(button.Position);return;}
         SelectBone(draggedBone);
@@ -83,24 +75,39 @@ public partial class NativeActionEditor
     {
         if(!dragging){if(panning)UpdatePan(motion.Position);return;}
         (dragX,dragY)=CanvasPosition(motion.Position);dragSurface=motion.Position;
-        if(dragMode==DragMode.Ball){var local=LocalTarget(draggedBone!,dragX,dragY,false);overlay?.SetRingAngle(Math.Atan2(-local.Y,local.X)*180/Math.PI);}
-        else if(dragMode is DragMode.BarX or DragMode.BarY)BarDrag(draggedBone!);
-        else if(dragMode==DragMode.Translate)TranslateDrag(draggedBone!);
+        if(dragMode==DragMode.Ball){var local=LocalTarget(draggedBone!,dragX,dragY,false);overlay.SetRingAngle(Math.Atan2(-local.Y,local.X)*180/Math.PI);}
+        PreviewDrag(draggedBone!);
     }
 
-    private void TranslateDrag(string name)
+    private void PreviewDrag(string name)
     {
-        var local=LocalTarget(name,dragX,dragY,false);
-        barTarget=(barStart.X+local.X-barOrigin.X,barStart.Y+local.Y-barOrigin.Y);
+        var graph=document.Preview(copy=>ApplyDrag(copy,name));
+        if(graph is not null)ApplyPose(graph);
     }
 
-    private void BarDrag(string name)
+    private MotionIkResult ApplyDrag(MotionGraph graph,string name)
+    {
+        if(dragMode==DragMode.Ball)
+        {
+            var local=LocalTarget(name,dragX,dragY,false);
+            double angle=Math.Atan2(-local.Y,local.X)*180/Math.PI;
+            MotionPoseEditor.Rotate(graph,Clip.Id,name,frame.Value,angle);
+            return new(true,false,angle,angle,angle,0,"");
+        }
+        if(dragMode==DragMode.Translate)
+        {
+            var (localX,localY)=TranslateTarget(name);
+            MotionPoseEditor.Translate(graph,Clip.Id,name,frame.Value,localX,localY);
+            return new(true,false,0,0,0,0,"");
+        }
+        var (targetX,targetY)=DragTarget(name);
+        return MotionPoseEditor.Drag(graph,Clip.Id,name,frame.Value,targetX,targetY,dragMode==DragMode.Ik?dragBend:null,dragMode==DragMode.Fk);
+    }
+
+    private (double X,double Y) TranslateTarget(string name)
     {
         var local=LocalTarget(name,dragX,dragY,false);
-        double localX=local.X-barOrigin.X,localY=local.Y-barOrigin.Y;
-        barTarget=dragMode==DragMode.BarX?(barStart.X+localX,barStart.Y):(barStart.X,barStart.Y+localY);
-        double wpp=MotionViewport.WorldPerPixel(surface.Size.X,surface.Size.Y,PreviewView),delta=wpp>0?(dragMode==DragMode.BarX?barTarget.X-barStart.X:barTarget.Y-barStart.Y)/wpp:0;
-        overlay?.SetBarOffset(dragMode==DragMode.BarX?new((float)(delta/NativeMotionOverlay.BarHalf),0):new(0,(float)(delta/NativeMotionOverlay.BarHalf)));
+        return (dragStartPose.X+local.X-dragLocal.X,dragStartPose.Y+local.Y-dragLocal.Y);
     }
 
     public override void _UnhandledKeyInput(InputEvent @event)
@@ -123,42 +130,30 @@ public partial class NativeActionEditor
         if(name=="root")dragMode=DragMode.Root;
         else if(button.AltPressed)dragMode=DragMode.Fk;
         else if(IsIkEnd(name)){dragMode=DragMode.Ik;dragBend=MotionPoseEditor.Bend(document.Graph,Clip.Id,name,frame.Value)??true;}
-        else {dragMode=DragMode.Translate;barOrigin=local;barStart=LocalPose(name);barTarget=local;}
+        else {dragMode=DragMode.Translate;dragLocal=local;dragStartPose=LocalPose(name);}
     }
 
     private void CommitDrag(string name)
     {
         try
         {
-            if(dragMode is DragMode.BarX or DragMode.BarY)
+            MotionIkResult? outcome=null;
+            if(dragMode==DragMode.Translate)
             {
-                overlay?.SetBarOffset(null);
-                if(Math.Abs(barTarget.X-barStart.X)<1e-9&&Math.Abs(barTarget.Y-barStart.Y)<1e-9){status.Text="未移动，未写入局部 X/Y。";return;}
-                document.Translate(Clip.Id,name,frame.Value,barTarget.X,barTarget.Y);
-                status.Text="已写入局部 X/Y；一次拖动生成一个撤销记录。";
+                var (targetX,targetY)=TranslateTarget(name);
+                if(Math.Abs(targetX-dragStartPose.X)<1e-9&&Math.Abs(targetY-dragStartPose.Y)<1e-9){overlay.SetRingAngle(null);status.Text="未移动，未写入局部 X/Y。";ApplyDocumentPose();return;}
             }
-            else if(dragMode==DragMode.Ball)
+            document.Edit(graph=>{outcome=ApplyDrag(graph,name);if(!outcome.Value.Success)throw new InvalidDataException(outcome.Value.Reason);});
+            overlay.SetRingAngle(null);
+            status.Text=dragMode switch
             {
-                overlay?.SetRingAngle(null);
-                var local=LocalTarget(name,dragX,dragY,false);
-                document.Rotate(Clip.Id,name,frame.Value,Math.Atan2(-local.Y,local.X)*180/Math.PI);
-                status.Text="已写入旋转；一次拖动生成一个撤销记录。";
-            }
-            else if(dragMode==DragMode.Translate)
-            {
-                if(Math.Abs(barTarget.X-barStart.X)<1e-9&&Math.Abs(barTarget.Y-barStart.Y)<1e-9){status.Text="未移动，未写入局部 X/Y。";return;}
-                document.Translate(Clip.Id,name,frame.Value,barTarget.X,barTarget.Y);
-                status.Text="已写入局部 X/Y；一次拖动生成一个撤销记录。";
-            }
-            else
-            {
-                var (targetX,targetY)=DragTarget(name);
-                var result=document.Drag(Clip.Id,name,frame.Value,targetX,targetY,dragMode==DragMode.Ik?dragBend:null,dragMode==DragMode.Fk);
-                status.Text=result.Success?(result.Clamped?result.Reason:"节点已更新；一次拖动生成一个撤销记录。"):result.Reason;
-            }
+                DragMode.Ball=>"已写入旋转；一次拖动生成一个撤销记录。",
+                DragMode.Translate=>"已写入局部 X/Y；一次拖动生成一个撤销记录。",
+                _=>outcome is {Clamped:true}?outcome.Value.Reason:"节点已更新；一次拖动生成一个撤销记录。"
+            };
             Refresh();ApplyDocumentPose();
         }
-        catch(InvalidDataException error){status.Text=error.Message;Refresh();ApplyDocumentPose();}
+        catch(InvalidDataException error){overlay.SetRingAngle(null);status.Text=error.Message;Refresh();ApplyDocumentPose();}
     }
 
     private (double X,double Y) DragTarget(string name)
@@ -219,34 +214,21 @@ public partial class NativeActionEditor
     private void CancelDrag()
     {
         if(!dragging)return;
-        dragging=false;draggedBone=null;overlay?.SetRingAngle(null);overlay?.SetBarOffset(null);status.Text="已取消拖动，文档未修改。";
+        dragging=false;draggedBone=null;overlay.SetRingAngle(null);status.Text="已取消拖动，文档未修改。";ApplyDocumentPose();
     }
 
-    internal string? PickBoneAt(Vector2 position)
-    {
-        if(PreviewActor is not {} actor||surface.Size.X<=0||surface.Size.Y<=0)return null;
-        var (X,Y)=CanvasPosition(position);var instances=actor.World.Instances;
-        string? best=null;double bestDepth=double.MaxValue;int bestOrder=-1;
-        foreach(var node in actor.Services.Motions.Skeleton(actor))
-        {
-            var part=instances.FirstOrDefault(item=>item.Id==node.Instance);
-            if(part is null||part.Destroyed||!part.Active||!part.Scope.ReadOr("visible").Truth)continue;
-            var bounds=actor.World.Bounds(part);
-            if(bounds.Empty||X<bounds.Left||X>bounds.Right||Y<bounds.Top||Y>bounds.Bottom)continue;
-            double depth=part.Scope.ReadOr("depth").Number;int order=instances.IndexOf(part);
-            if(depth<bestDepth||(depth==bestDepth&&order>bestOrder)){best=node.Name;bestDepth=depth;bestOrder=order;}
-        }
-        return best;
-    }
+    internal string? PickBoneAt(Vector2 position)=>overlay.PickBone(position);
 
-    private (double X,double Y) CanvasPosition(Vector2 position)=>MotionViewport.ToWorld(position.X,position.Y,surface.Size.X,surface.Size.Y,PreviewView);
+    private (double X,double Y) CanvasPosition(Vector2 position)=>overlay.WorldPoint(position);
 
-    private void ApplyDocumentPose()
+    private void ApplyDocumentPose()=>ApplyPose(document.Graph);
+
+    private void ApplyPose(MotionGraph graph)
     {
         if(preview is null||PreviewActor is not {} actor)return;
         try
         {
-            preview.Bridge.Services.Motions.Preview(actor,document.Graph,Clip.Id,frame.Value);
+            preview.Bridge.Services.Motions.Preview(actor,graph,Clip.Id,frame.Value);
             if(playing is not null&&!playing.ButtonPressed)sessionStale=true;
             preview.Graphics.Build();canvas.QueueRedraw();SyncOverlay();
         }
@@ -255,14 +237,9 @@ public partial class NativeActionEditor
 
     private void SyncOverlay()
     {
-        if(overlay is null||PreviewActor is not {} actor)return;
+        if(PreviewActor is not {} actor)return;
         var nodes=actor.Services.Motions.Skeleton(actor);
-        double angle=actor.Read("image_angle");
-        if(highlightedBone is {} bone&&nodes.FirstOrDefault(item=>item.Name==bone) is {} selected&&nodes.FirstOrDefault(item=>item.Instance==selected.Parent) is {} parent)angle=parent.Angle;
-        double direction=actor.Instance.Scope.ReadOr("Direction",1).Number,radians=angle*Math.PI/180;
-        var u=new Vector2((float)(Math.Cos(radians)*direction),(float)-Math.Sin(radians));
-        var v=new Vector2((float)(Math.Sin(radians)*direction),(float)Math.Cos(radians));
-        overlay.Sync(nodes,highlightedBone,IkChains,PreviewView,new((float)actor.X,(float)actor.Y),u,v);
+        overlay.Sync(nodes,highlightedBone,IkChains,PreviewView,new((float)actor.X,(float)actor.Y));
         SyncIkSelection();
         UpdatePlaybackOverlay();
     }

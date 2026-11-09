@@ -42,6 +42,15 @@ public sealed class MotionGraphDocument(MotionGraph graph)
         catch{Restore(before);throw;}
     }
     public void Rotate(string clipId,string bone,double frame,double angle)=>Edit(graph=>MotionPoseEditor.Rotate(graph,clipId,bone,frame,angle));
+    public MotionGraph? Preview(Action<MotionGraph> change)
+    {
+        try
+        {
+            var copy=JsonSerializer.Deserialize<MotionGraph>(Snapshot(),NativeContentStore.Json)!;
+            change(copy);copy.Validate();return copy;
+        }
+        catch(InvalidDataException){return null;}
+    }
     public void Save(string path){Graph.Save(path);Dirty=false;coalesceKey=null;}
     internal int UndoDepth=>undo.Count;
     internal void RestoreDirty(bool value)=>Dirty=value;

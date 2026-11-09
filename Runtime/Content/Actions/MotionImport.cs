@@ -105,6 +105,6 @@ public static class MotionImport
             }
             clip.Tracks.Add(track);
         }
-        var graph=new MotionGraph{Id=id,Skeleton=skeleton,Clips=[clip],States=[new(){Clip=clip.Id}]};graph.Validate();return graph;
+        var graph=new MotionGraph{Id=id,Skeleton=skeleton,Origin="native",Clips=[clip],States=[new(){Clip=clip.Id}]};graph.Validate();return graph;
     }
 }

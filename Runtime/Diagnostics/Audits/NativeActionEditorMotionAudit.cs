@@ -104,9 +104,9 @@ public partial class NativeActionEditor
         var studio=preview!;var studioWorld=studio.World;
         var skeleton=studio.Bridge.Services.Motions.Skeleton(new(studio.World,studio.Player!));
         Expect(skeleton.Count==15,"preview exposes the 15 part skeleton");
-        document=new(new MotionGraph{Id="audit.ik",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_TOP",Keys=[new(){Frame=0}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=3}]},new(){Bone="HAND1_BELOW",Keys=[new(){Frame=0,X=3}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND1_BELOW"}]});
+        document=new(new MotionGraph{Id="audit.ik",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_TOP",Keys=[new(){Frame=0}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=3}]},new(){Bone="HAND2_ABOVE",Keys=[new(){Frame=0,X=3}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND2_ABOVE"}]});
         Refresh();
-        var ikDragged=document.Drag("idle","HAND1_BELOW",0,4,2);
+        var ikDragged=document.Drag("idle","HAND2_ABOVE",0,4,2);
         Expect(ikDragged.Success,"IK drag applies from the editor document");
         Expect(Clip.Tracks.Single(t=>t.Bone=="BODY_TOP").Keys.Single().Angle!=0,"IK drag writes the chain root angle");
         document.Undo();Expect(Clip.Tracks.Single(t=>t.Bone=="BODY_TOP").Keys.Single().Angle==0,"IK drag undo restores the chain root");
@@ -246,7 +246,7 @@ public partial class NativeActionEditor
         inspector.CurrentTab=3;
         await Shot("motion-events");
         Project.ClipIndex=0;
-        document=new(new MotionGraph{Id="audit.ring",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_BOTTOM",Keys=[new(){Frame=0,X=0,Y=0,Angle=0}]},new(){Bone="BODY_TOP",Keys=[new(){Frame=0,X=0,Y=0,Angle=0}]},new(){Bone="HEAD",Keys=[new(){Frame=0,X=4,Y=-16,Angle=0}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=10,Y=0,Angle=0}]},new(){Bone="HAND1_BELOW",Keys=[new(){Frame=0,X=10,Y=0,Angle=0}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND1_BELOW"}]});
+        document=new(new MotionGraph{Id="audit.ring",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_BOTTOM",Keys=[new(){Frame=0,X=0,Y=0,Angle=0}]},new(){Bone="BODY_TOP",Keys=[new(){Frame=0,X=0,Y=0,Angle=0}]},new(){Bone="HEAD",Keys=[new(){Frame=0,X=4,Y=-16,Angle=0}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=10,Y=0,Angle=0}]},new(){Bone="HAND2_ABOVE",Keys=[new(){Frame=0,X=10,Y=0,Angle=0}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND2_ABOVE"}]});
         Refresh();frame.Value=0;
         var ringActor=PreviewActor!;ringActor.Write("Direction",1);ringActor.Write("image_angle",0);
         ApplyDocumentPose();
@@ -395,10 +395,10 @@ public partial class NativeActionEditor
         SelectBone("HAND1_ABOVE");
         Expect(overlay.ChainFocusIndex>=0,"selecting an IK chain bone focuses the chain");
         var chainBones=overlay.FocusChainBones;
-        Expect(chainBones.Length==3&&chainBones.Contains("BODY_TOP")&&chainBones.Contains("HAND1_ABOVE")&&chainBones.Contains("HAND1_BELOW"),"the overlay highlights all three chain bones");
+        Expect(chainBones.Length==3&&chainBones.Contains("BODY_TOP")&&chainBones.Contains("HAND1_ABOVE")&&chainBones.Contains("HAND2_ABOVE"),"the overlay highlights all three chain bones");
         Expect(overlay.EndHandleVisible,"the chain end has a handle");
         var ikRows=ikList.GetSelectedItems();
-        Expect(ikRows.Length==1&&ikList.GetItemText(ikRows[0]).Contains("HAND1_BELOW"),"the left dock selects the chain");
+        Expect(ikRows.Length==1&&ikList.GetItemText(ikRows[0]).Contains("HAND2_ABOVE"),"the left dock selects the chain");
         inspector.CurrentTab=0;
         await Shot("motion-ring");
         SelectBone("HEAD");

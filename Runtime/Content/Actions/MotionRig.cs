@@ -264,6 +264,13 @@ public static class MotionPoseEditor
         SetKey(clip, bone is "root" or "__root__" ? null : bone, frame, new MotionPose(x, y, current.Angle, current.ScaleX, current.ScaleY, current.Picture));
     }
 
+    public static void SetPose(MotionGraph graph, string clipId, string bone, double frame, MotionPose pose)
+    {
+        var clip = graph.Clips.SingleOrDefault(item => item.Id == clipId) ?? throw new InvalidDataException("Motion clip is missing: " + clipId);
+        if (!double.IsFinite(frame)) throw new InvalidDataException("拖动坐标必须是有限数值。");
+        SetKey(clip, bone is "root" or "__root__" ? null : bone, frame, pose);
+    }
+
     private static void SetRootKey(MotionClip clip, double frame, MotionPose pose)
     {
         SetKey(clip, null, frame, pose);

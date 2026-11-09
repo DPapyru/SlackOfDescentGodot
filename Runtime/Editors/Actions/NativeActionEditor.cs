@@ -77,6 +77,7 @@ public partial class NativeActionEditor : Window
     {
         highlightedBone = name;
         SyncOverlay();
+        HighlightSourceBone();
     }
     private void ClearBoneSelection()
     {

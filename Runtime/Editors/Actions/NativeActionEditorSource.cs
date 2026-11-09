@@ -8,29 +8,25 @@ public partial class NativeActionEditor
     private CodeEdit sourceView = null!, rawView = null!;
     private string sourceSnapshot = "", rawSnapshot = "";
     private readonly HashSet<string> sourceCompletion = new(StringComparer.Ordinal), rawCompletion = new(StringComparer.Ordinal);
-    private static readonly string[] TomlPoseFields = ["x", "y", "angle", "scaleX", "scaleY", "picture"];
 
     private void BuildSourcePages(TabContainer pages)
     {
-        var framePage = new VBoxContainer { Name = "节点属性修改" }; pages.AddChild(framePage);
-        sourceView = CodeEditView("SourceView"); framePage.AddChild(sourceView);
-        sourceView.FocusExited += CommitFrame;
-        sourceView.GuiInput += input =>
-        {
-            if (input is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Enter, CtrlPressed: true }) return;
-            CommitFrame(); sourceView.AcceptEvent();
-        };
-        sourceView.CodeCompletionRequested += () => FillCompletion(sourceView, sourceCompletion, true);
+        sourceView = SourcePage(pages, "节点属性修改", "SourceView", CommitFrame, sourceCompletion, true);
+        rawView = SourcePage(pages, "原始数据", "RawView", CommitGraph, rawCompletion, false);
+    }
 
-        var rawPage = new VBoxContainer { Name = "原始数据" }; pages.AddChild(rawPage);
-        rawView = CodeEditView("RawView"); rawPage.AddChild(rawView);
-        rawView.FocusExited += CommitGraph;
-        rawView.GuiInput += input =>
+    private CodeEdit SourcePage(TabContainer pages, string title, string name, Action commit, HashSet<string> seen, bool framePage)
+    {
+        var page = new VBoxContainer { Name = title }; pages.AddChild(page);
+        var edit = CodeEditView(name); page.AddChild(edit);
+        edit.FocusExited += commit;
+        edit.GuiInput += input =>
         {
             if (input is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Enter, CtrlPressed: true }) return;
-            CommitGraph(); rawView.AcceptEvent();
+            commit(); edit.AcceptEvent();
         };
-        rawView.CodeCompletionRequested += () => FillCompletion(rawView, rawCompletion, false);
+        edit.CodeCompletionRequested += () => FillCompletion(edit, seen, framePage);
+        return edit;
     }
 
     private static CodeEdit CodeEditView(string name) => new()
@@ -42,9 +38,12 @@ public partial class NativeActionEditor
     private void RefreshCodeViews()
     {
         if (sourceView is null || rawView is null) return;
-        if (!sourceView.HasFocus()) sourceView.Text = sourceSnapshot = MotionToml.RenderFrame(Clip, frame.Value);
-        if (!rawView.HasFocus()) rawView.Text = rawSnapshot = MotionToml.Render(document.Graph);
-        HighlightSourceBone();
+        Guard(() =>
+        {
+            if (!sourceView.HasFocus()) sourceView.Text = sourceSnapshot = MotionToml.RenderFrame(Clip, frame.Value);
+            if (!rawView.HasFocus()) rawView.Text = rawSnapshot = MotionToml.Render(document.Graph);
+            HighlightSourceBone();
+        });
     }
 
     private void CommitFrame()
@@ -54,7 +53,7 @@ public partial class NativeActionEditor
         {
             var edit = MotionToml.ParseFrame(sourceView.Text, Clip.Id, frame.Value);
             if (!MotionToml.FrameChanged(Clip, edit)) { status.Text = "当前帧内容未修改。"; return; }
-            Change(graph => MotionToml.ApplyFrame(graph, Clip.Id, edit));
+            if (!TryChange(graph => MotionToml.ApplyFrame(graph, Clip.Id, edit))) return;
             sourceSnapshot = sourceView.Text;
             status.Text = "当前帧已应用。";
         });
@@ -66,7 +65,7 @@ public partial class NativeActionEditor
         Guard(() =>
         {
             var parsed = MotionToml.Parse(rawView.Text);
-            Change(graph => graph.CopyFrom(parsed));
+            if (!TryChange(graph => graph.CopyFrom(parsed))) return;
             rawSnapshot = rawView.Text;
             status.Text = "源码已应用。";
         });
@@ -93,7 +92,7 @@ public partial class NativeActionEditor
         }
         foreach (string bone in MotionSkeleton.Bones) Add(CodeEdit.CodeCompletionKind.Class, bone, bone);
         Add(CodeEdit.CodeCompletionKind.Class, "root", "root");
-        foreach (string field in TomlPoseFields) Add(CodeEdit.CodeCompletionKind.Member, field, field);
+        foreach (string field in MotionToml.PoseFields) Add(CodeEdit.CodeCompletionKind.Member, field, field);
         foreach (string key in new[] { "index", "clip" }) Add(CodeEdit.CodeCompletionKind.Keyword, key, key);
         foreach (string clip in document.Graph.Clips.Select(item => item.Id)) Add(CodeEdit.CodeCompletionKind.Enum, clip, clip);
         foreach (string state in document.Graph.States.Select(item => item.Id)) Add(CodeEdit.CodeCompletionKind.Enum, state, state);

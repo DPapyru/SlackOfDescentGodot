@@ -115,6 +115,9 @@ public partial class NativeActionEditor
         sourceView.Text="[[frame]]\nindex = 0\nHEAD.x = 2.5\n";
         CommitFrame();
         Expect(Math.Abs(Clip.Sample(0).GetValueOrDefault("HEAD").X-2.5)<1e-9&&sourceView.Text.Contains("HEAD.x = 2.5"),"committing the frame text writes the pose and re-renders the block");
+        sourceView.Text="[[frame]]\nindex = 0\nHEAD.y = 1.5\n";
+        sourceView.EmitSignal(Control.SignalName.FocusExited);
+        Expect(Math.Abs(Clip.Sample(0).GetValueOrDefault("HEAD").Y-1.5)<1e-9,"losing focus commits the frame text");
         int frameUndo=document.UndoDepth;
         sourceView.Text="[[frame]]\nindex = 0\nHEAD.nope = 1\n";
         CommitFrame();
@@ -122,6 +125,15 @@ public partial class NativeActionEditor
         rawView.Text=rawView.Text.Replace("duration = 60","duration = 45");
         CommitGraph();
         Expect(Math.Abs(Clip.Duration-45)<1e-9,"committing the graph text applies the whole document");
+        rawView.Text=rawView.Text.Replace("loop = true","loop = false");
+        rawView.EmitSignal(Control.SignalName.GuiInput,new InputEventKey{Keycode=Key.Enter,CtrlPressed=true,Pressed=true});
+        Expect(!Clip.Loop,"Ctrl+Enter commits the graph text");
+        frame.Value=100000;
+        sourceView.Text="[[frame]]\nindex = 100000\nHEAD.x = 4\n";
+        int rangeUndo=document.UndoDepth;
+        CommitFrame();
+        Expect(document.UndoDepth==rangeUndo&&status.Text.Contains("帧号超出片段长度"),"an out of range frame text is rejected without an edit");
+        frame.Value=0;
         int graphUndo=document.UndoDepth;
         rawView.Text="id = \"broken\"\nskeleton = \"Nana\"\nentry = \"idle\"\n[[clip]]\nid = \"idle\"\nduration = 10\n[[state]]\nid = \"idle\"\nclip = \"idle\"\nunknown = 1\n";
         CommitGraph();
@@ -135,7 +147,8 @@ public partial class NativeActionEditor
         var ikDragged=document.Drag("idle","HAND1_BELOW",0,4,2);
         Expect(ikDragged.Success,"IK drag applies from the editor document");
         Expect(Clip.Tracks.Single(t=>t.Bone=="BODY_TOP").Keys.Single().Angle!=0,"IK drag writes the chain root angle");
-        document.Undo();Expect(Clip.Tracks.Single(t=>t.Bone=="BODY_TOP").Keys.Single().Angle==0,"IK drag undo restores the chain root");
+        Refresh();Expect(sourceView.Text.Contains("BODY_TOP.angle"),"a canvas drag re-renders the frame text");
+        document.Undo();Refresh();Expect(Clip.Tracks.Single(t=>t.Bone=="BODY_TOP").Keys.Single().Angle==0&&!sourceView.Text.Contains("BODY_TOP.angle"),"IK drag undo restores the chain root and the text");
         await Shot("motion-studio");
         await Shot("motion-transport");
         Project.ClipIndex=0;

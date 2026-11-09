@@ -17,7 +17,7 @@ public sealed class MotionFrameEdit(double index, Dictionary<string, Dictionary<
 public static class MotionToml
 {
     private static readonly string[] GraphKeys = ["formatVersion", "id", "skeleton", "entry", "clip", "frame", "phase", "event", "state", "parameters", "ikChain", "entitySlots"];
-    private static readonly string[] PoseFields = ["x", "y", "angle", "scaleX", "scaleY", "picture"];
+    internal static readonly string[] PoseFields = ["x", "y", "angle", "scaleX", "scaleY", "picture"];
 
     public static string Render(MotionGraph graph)
     {
@@ -205,8 +205,9 @@ public static class MotionToml
 
     public static void ApplyFrame(MotionGraph graph, string clipId, MotionFrameEdit edit)
     {
-        if (!FrameChanged(ClipOf(graph, clipId), edit)) return;
         var clip = ClipOf(graph, clipId);
+        if (edit.Index < 0 || edit.Index > clip.Duration) throw new InvalidDataException("帧号超出片段长度：" + Number(edit.Index) + " / " + Number(clip.Duration) + "。");
+        if (!FrameChanged(clip, edit)) return;
         var sample = clip.Sample(edit.Index);
         var root = clip.RootPose(edit.Index);
         foreach (var pair in edit.Bones)
@@ -218,17 +219,9 @@ public static class MotionToml
             {
                 if (Field(key.Pose, field.Key) == field.Value) continue;
                 changed = true;
-                switch (field.Key)
-                {
-                    case "x": key.X = field.Value; break;
-                    case "y": key.Y = field.Value; break;
-                    case "angle": key.Angle = field.Value; break;
-                    case "scaleX": key.ScaleX = field.Value; break;
-                    case "scaleY": key.ScaleY = field.Value; break;
-                    default: key.Picture = Integer(field.Value, pair.Key + ".picture"); break;
-                }
+                SetField(key, field.Key, field.Value);
             }
-            if (changed) MotionPoseEditor.SetPose(graph, clipId, pair.Key, edit.Index, key.Pose);
+            if (changed) MotionPoseEditor.SetKey(clip, pair.Key == "root" ? null : pair.Key, edit.Index, key.Pose);
         }
     }
 
@@ -350,37 +343,14 @@ public static class MotionToml
                 {
                     if (!PoseFields.Contains(field.Key)) throw new InvalidDataException("未知骨骼字段：" + pair.Key + "." + field.Key + "。");
                     if (field.Value is not double value || !double.IsFinite(value)) throw new InvalidDataException("骨骼字段需要有限数值：" + pair.Key + "." + field.Key + "。");
-                    switch (field.Key)
-                    {
-                        case "x": key.X = value; break;
-                        case "y": key.Y = value; break;
-                        case "angle": key.Angle = value; break;
-                        case "scaleX": key.ScaleX = value; break;
-                        case "scaleY": key.ScaleY = value; break;
-                        default: key.Picture = Integer(value, pair.Key + ".picture"); break;
-                    }
+                    SetField(key, field.Key, value);
                     written++;
                 }
                 if (written == 0) throw new InvalidDataException("骨骼需要至少一个字段：" + pair.Key + "。");
                 keys[pair.Key] = key;
             }
-            foreach (var pair in keys) AddKey(clip, pair.Key, pair.Value);
+            foreach (var pair in keys) MotionPoseEditor.SetKey(clip, pair.Key == "root" ? null : pair.Key, pair.Value.Frame, pair.Value.Pose);
         }
-    }
-
-    private static void AddKey(MotionClip clip, string bone, MotionKey key)
-    {
-        List<MotionKey> keys;
-        if (bone == "root") keys = clip.Root;
-        else
-        {
-            var track = clip.Tracks.FirstOrDefault(item => item.Bone == bone);
-            if (track is null) { track = new MotionTrack { Bone = bone }; clip.Tracks.Add(track); }
-            keys = track.Keys;
-        }
-        if (keys.Any(item => Math.Abs(item.Frame - key.Frame) < 1e-9)) throw new InvalidDataException("骨骼在帧 " + Number(key.Frame) + " 上重复：" + bone + "。");
-        keys.Add(key);
-        keys.Sort((first, second) => first.Frame.CompareTo(second.Frame));
     }
 
     private static MotionClip ClipOf(MotionGraph graph, string id) => graph.Clips.FirstOrDefault(item => item.Id == id) ?? throw new InvalidDataException("片段不存在：" + id + "。");
@@ -394,6 +364,19 @@ public static class MotionToml
         "scaleY" => pose.ScaleY,
         _ => pose.Picture
     };
+
+    private static void SetField(MotionKey key, string name, double value)
+    {
+        switch (name)
+        {
+            case "x": key.X = value; break;
+            case "y": key.Y = value; break;
+            case "angle": key.Angle = value; break;
+            case "scaleX": key.ScaleX = value; break;
+            case "scaleY": key.ScaleY = value; break;
+            default: key.Picture = Integer(value, "picture"); break;
+        }
+    }
 
     private static TomlTable ParseDocument(string text, string label)
     {

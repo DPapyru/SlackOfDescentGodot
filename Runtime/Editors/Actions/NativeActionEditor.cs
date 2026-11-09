@@ -83,6 +83,7 @@ public partial class NativeActionEditor : Window
     {
         highlightedBone = null;
         SyncOverlay();
+        if (sourceView is not null && !sourceView.HasFocus()) sourceView.Deselect();
     }
     private IReadOnlyList<MotionIkChain> IkChains => MotionIkPresets.For(document.Graph);
     private bool IsIkEnd(string name) => IkChains.Any(chain => chain.Enabled && chain.End == name);
@@ -94,7 +95,8 @@ public partial class NativeActionEditor : Window
         status.Text = "已生成参考姿态；一次拖动即可撤销。";
     });
     private void Guard(Action action) { try { action(); } catch (Exception e) { status.Text = e.GetBaseException().Message; } }
-    private void Change(Action<MotionGraph> action,string? coalesce=null) { if (refreshing) return; Guard(() => { document.Edit(action,coalesce); Refresh(); ApplyDocumentPose(); if (playing.ButtonPressed) RestartPlayback(); status.Text = "已编辑。"; }); }
+    private bool TryChange(Action<MotionGraph> action,string? coalesce=null) { if (refreshing) return false; try { document.Edit(action,coalesce); Refresh(); ApplyDocumentPose(); if (playing.ButtonPressed) RestartPlayback(); return true; } catch (Exception e) { status.Text = e.GetBaseException().Message; return false; } }
+    private void Change(Action<MotionGraph> action,string? coalesce=null) { if (TryChange(action,coalesce)) status.Text = "已编辑。"; }
     private void Confirm(string text, Action action) { pendingConfirmation = action; confirmation.DialogText = text; confirmation.PopupCentered(); }
     private void ShowMessage(string text) { message.DialogText = text; message.PopupCentered(); }
     internal void RequestClose()

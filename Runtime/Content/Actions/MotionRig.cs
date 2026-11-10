@@ -201,10 +201,10 @@ public static class MotionPoseEditor
             bool bend = bendPositive ?? Bend(graph, clipId, bone, frame, ikFrame) ?? true;
             var result = MotionIk.Solve(rootX, rootY, midX, midY, endX, endY, targetX, targetY, bend);
             if (!result.Success) return result;
-            double firstLength = Math.Sqrt(mid.X * mid.X + mid.Y * mid.Y), secondLength = Math.Sqrt(end.X * end.X + end.Y * end.Y);
-            SetKey(clip, chain.Root, frame, new MotionPose(root.X, root.Y, Normalize(-result.RootAngle - parentAngle), root.ScaleX, root.ScaleY, root.Picture));
-            SetKey(clip, chain.Mid, frame, new MotionPose(firstLength, 0, Normalize(result.RootAngle - result.MidAngle), mid.ScaleX, mid.ScaleY, mid.Picture));
-            SetKey(clip, chain.End, frame, new MotionPose(secondLength, 0, end.Angle, end.ScaleX, end.ScaleY, end.Picture));
+            double midDir = Math.Atan2(-mid.Y, mid.X) * 180 / Math.PI, endDir = Math.Atan2(-end.Y, end.X) * 180 / Math.PI;
+            SetKey(clip, chain.Root, frame, new MotionPose(root.X, root.Y, Normalize(-result.RootAngle - parentAngle - midDir), root.ScaleX, root.ScaleY, root.Picture));
+            SetKey(clip, chain.Mid, frame, new MotionPose(mid.X, mid.Y, Normalize(result.RootAngle - result.MidAngle + midDir - endDir), mid.ScaleX, mid.ScaleY, mid.Picture));
+            SetKey(clip, chain.End, frame, new MotionPose(end.X, end.Y, end.Angle, end.ScaleX, end.ScaleY, end.Picture));
             return result;
         }
         var current = clip.Sample(frame).GetValueOrDefault(bone);
@@ -219,7 +219,6 @@ public static class MotionPoseEditor
         SetKey(clip, bone, frame, new MotionPose(Math.Cos(angle * Math.PI / 180) * length, -Math.Sin(angle * Math.PI / 180) * length, angle, current.ScaleX, current.ScaleY, current.Picture));
         return new(true, false, angle, angle, angle, length, "");
     }
-
     public static bool? Bend(MotionGraph graph, string clipId, string bone, double frame, MotionIkFrame? ikFrame = null)
     {
         var clip = graph.Clips.SingleOrDefault(item => item.Id == clipId);

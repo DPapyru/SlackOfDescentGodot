@@ -148,6 +148,10 @@ public static class MotionGraphTests
             try{var motion=MotionImport.FromAst(pair.Value,pair.Key,"Nana");motion.Validate();imported++;}
             catch(InvalidDataException e){Check(e.Message.Contains("random",StringComparison.Ordinal)||e.Message.Contains("bone index",StringComparison.Ordinal)||e.Message.Contains("frame times",StringComparison.Ordinal),"unsupported motion reports exact random syntax: "+pair.Key+": "+e.Message);rejected++;}
         Check(imported>100&&imported+rejected==780,"entire original motion collection is accounted for");
+        var importName="PlayerNana/Stand0_Damage";var importedMotion=MotionImport.FromAst(world.Code["external/Chara/Motion/"+importName+".txt"],importName.Replace('/','.'),"Nana",clipId:importName);
+        Check(importedMotion.Clips[0].Id==importName&&importedMotion.States[0].Clip==importName,"imported clip id follows the source motion name");
+        string importPath=Path.Combine(Path.GetTempPath(),"motion-import-"+Guid.NewGuid().ToString("N")+".motion.json");importedMotion.Save(importPath);
+        Check(MotionGraph.Load(importPath).Clips[0].Id==importName,"save reload keeps the imported clip name");File.Delete(importPath);
         var eventClip=new MotionClip{Id="events",Duration=2,Loop=true,Events=[new(){Id="start",Start=0},new(){Id="fraction",Start=.5},new(){Id="end",Start=2}]};
         var eventHost=new Host{Facts=new(InputSnapshot.Empty,false,0,0,100,false,false)};
         var eventPlayer=new MotionPlayer(new(){Clips=[eventClip],States=[new(){Clip="events"}]},eventHost);

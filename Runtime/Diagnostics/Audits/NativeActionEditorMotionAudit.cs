@@ -113,6 +113,7 @@ public partial class NativeActionEditor
         Expect(rawView.Text.Contains("[[clip]]")&&rawView.Text.Contains("[[state]]")&&rawView.Text.Contains("[state.movement]"),"原始数据 renders the whole graph as TOML tables");
         AuditCompletion();
         TypeSource(rawView,rawView.Text.Replace("duration = 60","duration = 45"));
+        CommitGraph();
         TypeSource(sourceView,"[[frame]]\nindex = 0\nHEAD.x = 2.5\n");
         CommitFrame();
         Expect(Math.Abs(Clip.Sample(0).GetValueOrDefault("HEAD").X-2.5)<1e-9&&sourceView.Text.Contains("HEAD.x = 2.5"),"committing the frame text writes the pose and re-renders the block");
@@ -776,6 +777,7 @@ public partial class NativeActionEditor
         async Task Wait(int milliseconds){long start=System.Diagnostics.Stopwatch.GetTimestamp();while(System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds<milliseconds)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);}
         document=new(new MotionGraph{Id="audit.hot",Clips=[new(){Id="idle",Duration=60,Tracks=[new(){Bone="HEAD",Keys=[new(){Frame=0,X=1},new(){Frame=42,X=4}]},new(){Bone="BODY_TOP",Keys=[new(){Frame=0}]}]}],States=[new(){Id="idle",Clip="idle"}]});
         Refresh();frame.Value=0;GetViewport().GuiReleaseFocus();
+        frameDebounce.Cancel();graphDebounce.Cancel();
         TypeSource(sourceView,"[[frame]]\nindex = 42\nHEAD.y = 7\n");
         await Wait(800);
         AuditSourceExpect(Math.Abs(frame.Value-42)<1e-9&&Math.Abs(timelineSlider.Value-42)<1e-9,"typing index 42 moves the playhead to frame 42");

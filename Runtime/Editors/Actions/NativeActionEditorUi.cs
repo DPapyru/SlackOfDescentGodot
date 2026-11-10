@@ -58,10 +58,13 @@ public partial class NativeActionEditor
             case "referencePose": GenerateReferencePose(); break;
             case "applyGame": ApplyToGame(); break;
             case "help": ShowHelp(); break;
+            case "keyDefault": SetKeyMode(KeyMode.Default); break;
+            case "keyVim": SetKeyMode(KeyMode.Vim); break;
         }
     }
     private void BuildEditor()
     {
+        LoadKeyMode(); GetViewport().GuiFocusChanged += TrackFocus;
         Name = "NativeActionEditor"; Title = "动作编辑器"; Size = new(1360, 900); MinSize = new(1120, 720); Unresizable = false; Transient = true;
         Theme = NativeEditorTheme.Create();
         CloseRequested += RequestClose;
@@ -95,7 +98,7 @@ public partial class NativeActionEditor
         var bar = Row(root); bar.Name = "MenuBar";
         AddMenu(bar, "文件", menu => { MenuItem(menu, "新建项目…", "new"); MenuItem(menu, "打开…", "open"); MenuItem(menu, "保存", "save"); MenuItem(menu, "另存为…", "saveAs"); MenuItem(menu, "保存到…", "saveTo"); menu.AddSeparator(); MenuItem(menu, "关闭项目", "close"); MenuItem(menu, "退出", "quit"); });
         AddMenu(bar, "编辑", menu => { MenuItem(menu, "撤销", "undo"); MenuItem(menu, "重做", "redo"); });
-        AddMenu(bar, "视图", menu => { MenuItem(menu, "显示骨架", "showBones", overlay?.ShowBones ?? true); MenuItem(menu, "显示骨骼名", "showNames", overlay?.ShowNames ?? false); menu.AddSeparator(); MenuItem(menu, "重载预览", "reloadPreview"); MenuItem(menu, "生成参考姿态", "referencePose"); menu.AddSeparator(); MenuItem(menu, "应用到游戏角色", "applyGame"); });
+        AddMenu(bar, "视图", menu => { MenuItem(menu, "显示骨架", "showBones", overlay?.ShowBones ?? true); MenuItem(menu, "显示骨骼名", "showNames", overlay?.ShowNames ?? false); menu.AddSeparator(); MenuItem(menu, "重载预览", "reloadPreview"); MenuItem(menu, "生成参考姿态", "referencePose"); menu.AddSeparator(); MenuItem(menu, "应用到游戏角色", "applyGame"); menu.AddSeparator(); MenuItem(menu, "键位：默认", "keyDefault", keyMode == KeyMode.Default); MenuItem(menu, "键位：vim", "keyVim", keyMode == KeyMode.Vim); });
         AddMenu(bar, "帮助", menu => MenuItem(menu, "状态机说明…", "help"));
         var brand = new Label { Text = "骨架动作与状态图", HorizontalAlignment = HorizontalAlignment.Right, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; bar.AddChild(brand);
     }
@@ -152,6 +155,31 @@ public partial class NativeActionEditor
         text.AppendLine();
         text.AppendLine("四、原版动作名清单（" + preset + "）");
         foreach (var item in Registered(preset)) text.AppendLine(item.Name + " → " + item.Resource);
+        text.AppendLine();
+        text.AppendLine("五、键位表");
+        text.AppendLine("默认：F 取景；Esc 取消画布拖动；Ctrl+Z 撤销；Ctrl+Shift+Z 重做；Ctrl+S 保存；Ctrl+Space 呼出补全清单。");
+        text.AppendLine("vim：Esc 回普通模式；i 插入模式（插入模式只保留 Ctrl 组合与 F）；h / l 上一帧 / 下一帧；j / k 上一个 / 下一个骨骼；dd 删除当前帧关键帧；u 撤销。");
+        text.AppendLine("画布：左键拖动骨骼（IK 末端默认 IK，Alt 临时 FK）；右键 / Esc 取消；中键拖动平移；滚轮缩放；点空白取消选中；松手写当前帧关键帧，一次拖动一条撤销。");
+        text.AppendLine("所有键位只在文本控件没有焦点时生效；键位模式在「视图」菜单切换并持久化。");
+        text.AppendLine();
+        text.AppendLine("六、把动作挂进游戏（Mod 五步）");
+        text.AppendLine("1. 动作编辑器「文件 → 保存到… → Mod 项目」导出 motions/<动作图 id>.motion.json，并写 mod.json 的 content.motions。");
+        text.AppendLine("2. 「保存到… → 角色文件」把 CharacterDefinition.MotionGraph 指向动作图；BasePreset 必须等于动作图骨架。");
+        text.AppendLine("3. mod.json 必须是 formatVersion 2，v2 的 content.motions / content.characters 才会被读取。");
+        text.AppendLine("4. Mod 窗口项目页「加入角色…」把角色文件写进 content.characters。");
+        text.AppendLine("5. 进游戏选人后经 BindFullCharacter → Motions.Configure 生效；代码入口是 ActorContext.PlayMotion(id) 或 Motions.Play(actor, id)，不是原版 MotionNum。");
+        text.AppendLine();
+        text.AppendLine("七、TOML 帧块");
+        text.AppendLine("[[frame]]");
+        text.AppendLine("index = 0");
+        text.AppendLine("HEAD.x = 4");
+        text.AppendLine("HEAD.y = -16");
+        text.AppendLine("HEAD.angle = 30");
+        text.AppendLine("字段：x / y / angle / scaleX / scaleY / picture；稀疏不补 0；骨骼.字段 必须是合法骨骼与字段。");
+        text.AppendLine();
+        text.AppendLine("八、状态机与常见坑");
+        text.AppendLine("状态机（States / Transitions / Parameters）是 Mod 运行时概念，界面不出现，只保留在动作图数据里。");
+        text.AppendLine("没有轨道的骨骼直接改 X / Y 会把未填字段写成 0：先选骨骼或「生成参考姿态」，再改数值。");
         return text.ToString();
     }
     private IReadOnlyList<MotionRegistered> Registered(string preset)

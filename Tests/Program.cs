@@ -10,6 +10,7 @@ var context=new GmContext(self);
 int assertions=0;
 assertions+=MotionGraphTests.Run(world);
 assertions+=MotionTomlTests.Run();
+assertions+=MotionSourceTests.Run();
 assertions+=ObjectPerformanceTests.Run(world);
 assertions+=FixedClockTests.Run();
 assertions+=CollisionOptimizationTests.Run(project,source);

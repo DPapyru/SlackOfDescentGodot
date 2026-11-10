@@ -37,6 +37,7 @@ public partial class NativeActionEditor
 
     private void SurfaceButton(InputEventMouseButton button)
     {
+        if(button.Pressed)TakeCanvasFocus();
         if(button.ButtonIndex==MouseButton.Left)
         {
             if(button.Pressed){SurfacePress(button);return;}
@@ -99,13 +100,9 @@ public partial class NativeActionEditor
     public override void _UnhandledKeyInput(InputEvent @event)
     {
         if(@event is not InputEventKey{Pressed:true,Echo:false} key)return;
-        if(key.Keycode==Key.Escape){if(!dragging)return;CancelDrag();}
-        else if(key.Keycode==Key.F&&!TypingInField())FitView();
-        else if(key.Keycode==Key.Z&&key.CtrlPressed&&!TypingInField())RunAction(key.ShiftPressed?"redo":"undo");
-        else return;
+        if(!HandleEditorKey(key))return;
         GetViewport().SetInputAsHandled();
     }
-    private bool TypingInField()=>GetViewport()?.GuiGetFocusOwner() switch { LineEdit or TextEdit => true, SpinBox box => box.GetLineEdit().HasFocus(), _ => false };
 
     private void BeginDrag(InputEventMouseButton button)
     {

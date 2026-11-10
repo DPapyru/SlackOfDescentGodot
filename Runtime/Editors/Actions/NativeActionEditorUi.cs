@@ -51,6 +51,7 @@ public partial class NativeActionEditor
             case "speed:2": playbackSpeed = 2; status.Text = "播放速度 2x"; break;
             case "bindIk": BindSelectedIk(); break;
             case "unbindIk": UnbindSelectedIk(); break;
+            case "customIk": ChooseIkChain(); break;
             case "rootTrack": rootTrackMode = !rootTrackMode; status.Text = rootTrackMode ? "根偏移已开启：删除关键帧作用于根轨道。" : "根偏移已关闭。"; break;
             case "showBones": if (overlay is not null) overlay.ShowBones = !overlay.ShowBones; break;
             case "showNames": if (overlay is not null) overlay.ShowNames = !overlay.ShowNames; break;
@@ -97,7 +98,7 @@ public partial class NativeActionEditor
     {
         var bar = Row(root); bar.Name = "MenuBar";
         AddMenu(bar, "文件", menu => { MenuItem(menu, "新建项目…", "new"); MenuItem(menu, "打开…", "open"); MenuItem(menu, "保存", "save"); MenuItem(menu, "另存为…", "saveAs"); MenuItem(menu, "保存到…", "saveTo"); menu.AddSeparator(); MenuItem(menu, "导入原版动作…", "importOriginal"); menu.AddSeparator(); MenuItem(menu, "关闭项目", "close"); MenuItem(menu, "退出", "quit"); });
-        AddMenu(bar, "编辑", menu => { MenuItem(menu, "撤销", "undo"); MenuItem(menu, "重做", "redo"); menu.AddSeparator(); MenuItem(menu, "添加当前帧关键帧", "addKey"); MenuItem(menu, "删除当前帧关键帧", "deleteKey"); MenuItem(menu, "IK 绑定所选末端", "bindIk"); MenuItem(menu, "解除所选 IK", "unbindIk"); menu.AddSeparator(); MenuItem(menu, "姿态根偏移", "rootTrack", rootTrackMode); });
+        AddMenu(bar, "编辑", menu => { MenuItem(menu, "撤销", "undo"); MenuItem(menu, "重做", "redo"); menu.AddSeparator(); MenuItem(menu, "添加当前帧关键帧", "addKey"); MenuItem(menu, "删除当前帧关键帧", "deleteKey"); MenuItem(menu, "IK 绑定所选末端", "bindIk"); MenuItem(menu, "解除所选 IK", "unbindIk"); MenuItem(menu, "自定义 IK 链…", "customIk"); menu.AddSeparator(); MenuItem(menu, "姿态根偏移", "rootTrack", rootTrackMode); });
         AddMenu(bar, "视图", menu => { MenuItem(menu, "显示骨架", "showBones", overlay?.ShowBones ?? true); MenuItem(menu, "显示骨骼名", "showNames", overlay?.ShowNames ?? false); menu.AddSeparator(); MenuItem(menu, "单帧前进", "step"); MenuItem(menu, "播放速度 0.5x", "speed:0.5", playbackSpeed == .5); MenuItem(menu, "播放速度 1x", "speed:1", playbackSpeed == 1); MenuItem(menu, "播放速度 2x", "speed:2", playbackSpeed == 2); menu.AddSeparator(); MenuItem(menu, "重载预览", "reloadPreview"); MenuItem(menu, "取景", "fitView"); menu.AddSeparator(); MenuItem(menu, "应用到游戏角色", "applyGame"); menu.AddSeparator(); MenuItem(menu, "键位：默认", "keyDefault", keyMode == KeyMode.Default); MenuItem(menu, "键位：vim", "keyVim", keyMode == KeyMode.Vim); });
         AddMenu(bar, "帮助", menu => MenuItem(menu, "说明手册…", "help"));
         var brand = new Label { Text = "动作编辑器", HorizontalAlignment = HorizontalAlignment.Right, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; bar.AddChild(brand);
@@ -162,6 +163,48 @@ public partial class NativeActionEditor
         popup.IdPressed += id => ImportOriginal(popup.GetItemText((int)id));
         popup.PopupHide += popup.QueueFree;
         popup.Popup(new Rect2I(new Vector2I((int)GetMousePosition().X, (int)GetMousePosition().Y), Vector2I.One));
+    }
+    private void ChooseIkChain()
+    {
+        Guard(() =>
+        {
+            var active = PreviewActor ?? throw new InvalidOperationException("请先加载预览骨架。");
+            var nodes = active.Services.Motions.Skeleton(active);
+            var dialog = new ConfirmationDialog { Title = "自定义 IK 链", OkButtonText = "绑定", CancelButtonText = "取消", Size = new(340, 220) }; AddChild(dialog);
+            var body = Column(dialog);
+            var root = ChainChoice(body, "Root", nodes); var mid = ChainChoice(body, "Mid", nodes); var end = ChainChoice(body, "End", nodes);
+            var current = IkChains.FirstOrDefault(chain => chain.Root == highlightedBone || chain.Mid == highlightedBone || chain.End == highlightedBone) ?? IkChains.FirstOrDefault();
+            Pick(root, current?.Root); Pick(mid, current?.Mid); Pick(end, current?.End);
+            dialog.Confirmed += () => { BindIkChain(root.GetItemText(root.Selected), mid.GetItemText(mid.Selected), end.GetItemText(end.Selected)); dialog.QueueFree(); };
+            dialog.Canceled += dialog.QueueFree; dialog.PopupCentered();
+        });
+    }
+    private static OptionButton ChainChoice(Node parent, string label, IReadOnlyList<NativeBone> nodes)
+    {
+        var row = Row(parent); row.AddChild(new Label { Text = label });
+        var choice = new OptionButton { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; row.AddChild(choice);
+        foreach (var node in nodes) choice.AddItem(node.Name);
+        return choice;
+    }
+    private static void Pick(OptionButton choice, string? name)
+    {
+        for (int index = 0; index < choice.ItemCount; index++) if (choice.GetItemText(index) == name) { choice.Select(index); return; }
+    }
+    private void BindIkChain(string rootName, string midName, string endName)
+    {
+        Guard(() =>
+        {
+            var active = PreviewActor ?? throw new InvalidOperationException("请先加载预览骨架。");
+            if (rootName == midName || midName == endName || rootName == endName) throw new InvalidDataException("Root/Mid/End 必须是三个不同骨骼。");
+            var nodes = active.Services.Motions.Skeleton(active);
+            foreach (string name in new[] { rootName, midName, endName }) if (!nodes.Any(node => node.Name == name)) throw new InvalidDataException("骨骼不在预览骨架中：" + name);
+            var root = nodes.Single(node => node.Name == rootName);
+            var mid = nodes.Single(node => node.Name == midName);
+            var end = nodes.Single(node => node.Name == endName);
+            if (root.Instance != mid.Parent || mid.Instance != end.Parent) throw new InvalidDataException("所选骨骼不是同一条 Root → Mid → End 父链。");
+            Change(g => { MotionIkPresets.Materialize(g); g.IkChains!.RemoveAll(chain => chain.End == endName); g.IkChains.Add(new() { Root = rootName, Mid = midName, End = endName }); });
+            status.Text = "已绑定 IK：" + rootName + " → " + midName + " → " + endName;
+        });
     }
     internal string HelpText()
     {

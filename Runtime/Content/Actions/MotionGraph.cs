@@ -163,6 +163,7 @@ public sealed class MotionGraph
             Require(MotionSkeleton.IsNodeName(slot.Key) && !string.IsNullOrWhiteSpace(slot.Value),"Invalid entity slot: "+slot.Key);
         Require(EntitySlots.Values.Distinct(StringComparer.Ordinal).Count()==EntitySlots.Count,"Entity slot target is already occupied.");
     }
+    internal void CopyFrom(MotionGraph other){FormatVersion=other.FormatVersion;Id=other.Id;Skeleton=other.Skeleton;Entry=other.Entry;Clips=other.Clips;States=other.States;Parameters=other.Parameters;IkChains=other.IkChains;EntitySlots=other.EntitySlots;}
     public void Save(string path){Validate();NativeContentStore.Save(path,this);}
     public static MotionGraph Load(string path)=>Load(path,null);
     internal static MotionGraph Load(string path,string? origin){var graph=NativeContentStore.Load<MotionGraph>(path);if(origin is not null)graph.Origin=origin;graph.Validate();return graph;}

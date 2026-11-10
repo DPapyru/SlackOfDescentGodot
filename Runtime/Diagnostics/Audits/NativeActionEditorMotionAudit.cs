@@ -57,6 +57,7 @@ public partial class NativeActionEditor
             Expect(transport is not null&&Descendants(transport).OfType<OptionButton>().Any(button=>button.ItemCount==3&&Enumerable.Range(0,3).Select(index=>button.GetItemText(index)).SequenceEqual(new[]{"0.5x","1x","2x"})),"the transport dock owns the speed chooser");
             Expect(stateList is ItemList&&stateList.GetParent()?.GetParent() is TabContainer dockPages&&dockPages.GetTabTitle(0)=="状态","the left dock starts with the state list");
             Expect(MenuLabels("视图").Contains("重载预览"),"the view menu keeps the reload preview fallback");
+            Expect(!MenuLabels("视图").Contains("生成参考姿态"),"the reference pose menu entry is gone");
             Expect(!ButtonText("取景")&&!ButtonText("读取运行帧")&&!ButtonText("预览当前帧"),"the removed toolbar entries are gone");
             Expect(status is Label&&playState is Label&&targetLabel.Text.Length>0,"the status bar reports playback and the target");
             string[] legacy=["动作列表","动作参数","动作预览","动作参数工作区","动作图工作区","工作区"];
@@ -69,6 +70,20 @@ public partial class NativeActionEditor
         await Ready();
         Expect(preview!.Bridge.BoundCharacter(preview.Player!.Id) is not null,"the preview keeps the character binding");
         Expect(Math.Abs(frame.Value)<.001,"the preview opens on frame 0");
+        var defaultRegistered=MotionImport.Registered(world.Code,"Nana");
+        var defaultExpected=MotionImport.FromAst(world.Code["external/Chara/Motion/"+defaultRegistered[0].Resource+".txt"],document.Graph.Id,document.Graph.Skeleton);
+        var defaultPose=document.Graph.Clips[0].Sample(0);var expectedPose=defaultExpected.Clips[0].Sample(0);
+        Expect(defaultPose.Count>0&&defaultPose.Values.Any(pose=>pose.X!=0||pose.Y!=0),"the default document pose is not collapsed to the origin");
+        Expect(defaultPose.Count==expectedPose.Count&&defaultPose.All(pair=>expectedPose[pair.Key]==pair.Value),"the default document pose equals frame zero of the first registered original motion");
+        Expect(status.Text.Contains("已导入初始姿态"),"the status bar names the imported initial pose: "+status.Text);
+        var savedList=world.Code["external/Chara/Nana/motion_list.txt"];
+        try
+        {
+            world.Code.Remove("external/Chara/Nana/motion_list.txt");
+            var fallback=InitialDocument(new(MotionTargetKind.PlayerPreset,"Nana"),"audit.fallback");
+            Expect(fallback.Graph.Clips.Count==1&&fallback.Graph.Clips[0].Tracks.Count==0&&initialNotice.Contains("导入失败"),"a failed initial import falls back to an empty document with a status message: "+initialNotice);
+        }
+        finally{world.Code["external/Chara/Nana/motion_list.txt"]=savedList;initialNotice="";}
         _UnhandledKeyInput(new InputEventKey{Keycode=Key.Q,Pressed=true,Echo=false});
         Expect(!GetViewport().IsInputHandled(),"an unbound key bubbles past the editor");
         _UnhandledKeyInput(new InputEventKey{Keycode=Key.Escape,Pressed=true,Echo=false});
@@ -416,6 +431,7 @@ public partial class NativeActionEditor
         int projectIndex=activeProject;
         NewProject(new(MotionTargetKind.PlayerPreset,"Ryoko"),"audit.project",false);
         Expect(projects.Count==projectIndex+2&&document.Graph.Skeleton=="Ryoko"&&Project.Target.Kind==MotionTargetKind.PlayerPreset,"new project targets the preset skeleton");
+        Expect(document.Graph.Clips[0].Sample(0).Values.Any(pose=>pose.X!=0||pose.Y!=0),"a new project imports its target preset's first original motion at frame 0");
         Expect(tabs.TabCount==projects.Count,"the character bar lists one tab per project");
         int tabCount=tabs.TabCount;
         NewProject(new(MotionTargetKind.PlayerPreset,"Nana"),"audit.duplicate",false);
@@ -434,7 +450,7 @@ public partial class NativeActionEditor
         SwitchProject(projectIndex+1);
         await Ready();
         Expect(ReferenceEquals(preview,studio)&&ReferenceEquals(preview.World,studioWorld),"switching projects keeps the single preview world");
-        Change(g=>g.Clips[0].Tracks.Add(new(){Bone="HEAD",Keys=[new(){Frame=0}]}));
+        Change(g=>g.Clips[0].Duration+=10);
         Expect(Project.Dirty,"editing a project marks it dirty");
         CloseProject(projects.Count-1);
         Expect(pendingConfirmation is not null&&confirmation.DialogText.Contains("未保存"),"closing a dirty project asks for confirmation");
@@ -697,13 +713,6 @@ public partial class NativeActionEditor
         double movedX=fallbackActor.X+movedRoot.X*movedDirection+(movedPose.X*Math.Cos(movedRadians)+movedPose.Y*Math.Sin(movedRadians))*movedDirection;
         double movedY=fallbackActor.Y+movedRoot.Y-movedPose.X*Math.Sin(movedRadians)+movedPose.Y*Math.Cos(movedRadians);
         Expect(Math.Abs(fallbackPart.Scope.ReadOr("x").Number-movedX)<.001&&Math.Abs(fallbackPart.Scope.ReadOr("y").Number-movedY)<.001,"changing the timeline frame resamples the preview pose");
-        string beforeGenerate=Serialized();
-        RunAction("referencePose");
-        var descriptor=MotionSkeletonDescriptor.FromActor(fallbackActor.World,fallbackActor.Instance,document.Graph.Skeleton);
-        Expect(document.Dirty,"generating the reference pose dirties the document");
-        Expect(descriptor.Nodes.All(node=>document.Graph.Clips[0].Tracks.Any(track=>track.Bone==node.Name&&track.Keys.Any(key=>key.Frame==0&&Math.Abs(key.X-node.LocalX)<.001&&Math.Abs(key.Y-node.LocalY)<.001))),"generated reference pose writes every part");
-        RunAction("undo");
-        Expect(Serialized()==beforeGenerate,"generating the reference pose is one undo step");
         string openFile=Path.Combine(output,"editor.open.motion.json");document.Save(openFile);
         document=new(MotionGraph.Load(openFile));Refresh();viewWidth=1280;ApplyView();InitializePreview();await Ready();
         Expect(!document.Dirty,"reopening a saved project leaves the document clean");

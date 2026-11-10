@@ -158,23 +158,6 @@ public static class MotionIkPresets
     public static void Materialize(MotionGraph graph) => graph.IkChains ??= For(graph).ToList();
 }
 
-public static class MotionRigTemplates
-{
-    public static void EnsureReferencePose(MotionGraph graph, MotionSkeletonDescriptor descriptor)
-    {
-        foreach (var clip in graph.Clips)
-        {
-            if (clip.Root.Count == 0) clip.Root.Add(new() { Frame = 0 });
-            foreach (var node in descriptor.Nodes)
-            {
-                var track = clip.Tracks.FirstOrDefault(item => item.Bone == node.Name);
-                if (track is null) { track = new() { Bone = node.Name }; clip.Tracks.Add(track); }
-                if (track.Keys.Count == 0) track.Keys.Add(new() { Frame = 0, X = node.LocalX, Y = node.LocalY });
-            }
-        }
-    }
-}
-
 public static class MotionRigCoordinates
 {
     public static (double X, double Y) ToLocal(double worldX, double worldY, double parentX, double parentY, double parentAngle, double direction = 1)

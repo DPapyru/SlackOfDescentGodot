@@ -97,15 +97,14 @@ public partial class NativeActionEditor
         if(projects.Any(project=>project.Document.Graph.Id==id))throw new InvalidDataException("项目标识已存在："+id);
         int existing=projects.FindIndex(project=>project.Target==target);
         if(existing>=0){SwitchProject(existing,initializePreview);return;}
-        var graph=new MotionGraph{Id=id,Skeleton=target.Skeleton(CharacterPreset(target)),Clips=[new()],States=[new(){Movement=new(){InputSpeed=4,Gravity=.6,JumpSpeed=10}}]};
-        CaptureProjectState();projects.Add(new MotionProject(target,new(graph)));activeProject=projects.Count-1;
+        var document=InitialDocument(target,id);
+        CaptureProjectState();projects.Add(new MotionProject(target,document));activeProject=projects.Count-1;
         ActivateProject();if(initializePreview)InitializePreview();
     }
     private void ChangeTargetDialog()
     {
         Guard(()=>
         {
-            if(document.Graph.Clips.Any(clip=>clip.Tracks.Count>0||clip.Root.Count>0))throw new InvalidDataException("当前项目已有轨道，请新建项目或清空轨道后再切换目标。");
             var targets=TargetChoices();
             var dialog=new ConfirmationDialog{Title="切换目标",OkButtonText="切换",CancelButtonText="取消",Size=new(520,170)};AddChild(dialog);
             var body=Column(dialog);
@@ -117,11 +116,11 @@ public partial class NativeActionEditor
     }
     internal void ChangeTarget(MotionProjectTarget target)
     {
-        if(document.Graph.Clips.Any(clip=>clip.Tracks.Count>0||clip.Root.Count>0))throw new InvalidDataException("当前项目已有轨道，请新建项目或清空轨道后再切换目标。");
         if(projects.Where((project,index)=>index!=activeProject&&project.Target==target).Any()){status.Text="已有项目使用该角色标签："+TargetChoiceLabel(target);throw new InvalidDataException(status.Text);}
         Project.Target=target;
-        Change(graph=>graph.Skeleton=target.Skeleton(CharacterPreset(target)));
-        InitializePreview();
+        document=InitialDocument(target,document.Graph.Id);
+        initialNotice="已切换到 "+TargetChoiceLabel(target)+"；"+initialNotice;
+        Refresh();InitializePreview();
     }
     private void ExportToProjectDialog()
     {

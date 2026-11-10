@@ -123,6 +123,23 @@ public static class MotionGraphTests
         Check(new MotionProjectTarget(MotionTargetKind.PlayerCharacter,"hero").Skeleton("Yuki")=="Yuki"&&new MotionProjectTarget(MotionTargetKind.Entity,"objEnemyDoll").Skeleton("Nana")=="legacy:objEnemyDoll","project targets resolve skeleton ids without schema changes");
         var registered=MotionImport.Registered(world.Code["external/Chara/Nana/motion_list.txt"]);
         Check(registered.Count>0&&registered.Any(item=>item.Name=="STAND_0"&&item.Resource=="PlayerCommon/StandFem0"),"motion list registration parses PlayerMotionLoad entries");
+        Check(MotionImport.TryFirstRegistered(world.Code,"Nana","motion","Nana",out var initial,out var initialSource,out var initialError)&&initialError.Length==0&&initial!.Id=="motion"&&initial!.Skeleton=="Nana","the first registered original motion becomes the initial document");
+        Check(initialSource==registered[0].Name+" → "+registered[0].Resource,"the initial document imports the first registered original motion");
+        var initialPose=initial!.Clips[0].Sample(0);
+        Check(initialPose.Count>0&&initialPose.Values.Any(pose=>pose.X!=0||pose.Y!=0),"the imported initial pose is not collapsed to the origin");
+        var expectedPose=MotionImport.FromAst(world.Code["external/Chara/Motion/"+registered[0].Resource+".txt"],"motion","Nana").Clips[0].Sample(0);
+        Check(initialPose.Count==expectedPose.Count&&initialPose.All(pair=>expectedPose[pair.Key]==pair.Value),"the imported initial pose equals frame zero of that original motion");
+        object Registration(MotionRegistered item)=>new object[]{"call","PlayerMotionLoad",new object[]{new object[]{"str",""},new object[]{"str",item.Name},new object[]{"str",item.Resource}}};
+        using(var ordered=System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(new object[]{"group",new object[]{Registration(registered[1]),Registration(registered[0])}})))
+        {
+            var orderCode=new Dictionary<string,System.Text.Json.JsonElement>(StringComparer.Ordinal){["external/Chara/Nana/motion_list.txt"]=ordered.RootElement};
+            foreach(var item in registered.Take(2))orderCode["external/Chara/Motion/"+item.Resource+".txt"]=world.Code["external/Chara/Motion/"+item.Resource+".txt"];
+            Check(MotionImport.TryFirstRegistered(orderCode,"Nana","order","Nana",out var orderedGraph,out var orderedSource,out _)&&orderedGraph!.Id=="order"&&orderedSource==registered[1].Name+" → "+registered[1].Resource,"the first registered action follows motion_list registration order");
+        }
+        var emptyCode=new Dictionary<string,System.Text.Json.JsonElement>();
+        Check(!MotionImport.TryFirstRegistered(emptyCode,"Nana","motion","Nana",out var missing,out _,out var missingError)&&missing is null&&missingError.Contains("原版动作清单",StringComparison.Ordinal),"a missing motion list fails with a message instead of throwing");
+        var brokenCode=new Dictionary<string,System.Text.Json.JsonElement>(StringComparer.Ordinal){["external/Chara/Nana/motion_list.txt"]=world.Code["external/Chara/Nana/motion_list.txt"]};
+        Check(!MotionImport.TryFirstRegistered(brokenCode,"Nana","motion","Nana",out var broken,out _,out var brokenError)&&broken is null&&brokenError.Contains("找不到原版动作",StringComparison.Ordinal),"a missing original motion file fails with a message instead of throwing");
         var malformedAst=new object[]{"group",new object[]{
             new object[]{"call","PlayerMotionLoad",new object[]{new object[]{"str",""},new object[]{"str",""},new object[]{"str","Player/X"}}},
             new object[]{"call","PlayerMotionLoad",new object[]{new object[]{"str",""},new object[]{"str","A"},new object[]{"str",""}}},

@@ -30,6 +30,7 @@ public partial class NativeActionEditor : Window
     private ConfirmationDialog confirmation = null!;
     private AcceptDialog message = null!;
     private Action? pendingConfirmation;
+    private string initialNotice = "";
     private MotionGraphDocument document { get => Project.Document; set => Project.Document = value; }
     private string? path { get => Project.Path; set => Project.Path = value; }
     private MotionProject Project => projects[Math.Clamp(activeProject, 0, projects.Count - 1)];
@@ -38,11 +39,25 @@ public partial class NativeActionEditor : Window
     {
         this.world = world; this.registry = registry; this.store = store;
         this.packages = packages?.ToArray() ?? [];
-        projects.Add(new MotionProject(new(MotionTargetKind.PlayerPreset, "Nana"), new(DefaultGraph())));
+        var target = new MotionProjectTarget(MotionTargetKind.PlayerPreset, "Nana");
+        projects.Add(new MotionProject(target, InitialDocument(target, "motion")));
     }
     internal MotionGraphDocument Document => document;
     internal IReadOnlyList<MotionProject> Projects => projects;
-    private static MotionGraph DefaultGraph() => new() { Clips = [new()], States = [new() { Movement = new() { InputSpeed = 4, Gravity = .6, JumpSpeed = 10 } }] };
+    private MotionGraphDocument InitialDocument(MotionProjectTarget target, string id)
+    {
+        var graph = new MotionGraph { Id = id, Skeleton = target.Skeleton(CharacterPreset(target)), Clips = [new()], States = [new() { Movement = new() { InputSpeed = 4, Gravity = .6, JumpSpeed = 10 } }] };
+        if (MotionSkeleton.IsLegacy(graph.Skeleton)) { initialNotice = "目标实体没有可导入的原版动作，已使用空文档。"; return new(graph); }
+        string preset = target.Kind == MotionTargetKind.PlayerPreset ? target.Id : CharacterPreset(target);
+        if (MotionImport.TryFirstRegistered(world.Code, preset, id, graph.Skeleton, out var imported, out string source, out string error))
+        {
+            imported!.States[0].Movement = graph.States[0].Movement;
+            initialNotice = "已导入初始姿态：" + source;
+            return new(imported);
+        }
+        initialNotice = "初始姿态导入失败，已使用空文档：" + error;
+        return new(graph);
+    }
     private MotionClip Clip => document.Graph.Clips[(int)Math.Max(0, clipChoice.Selected)];
     private string SelectedStateId => stateChoice.Selected < 0 ? document.Graph.States[0].Id : stateChoice.GetItemText((int)stateChoice.Selected);
     private MotionTransition? SelectedTransition => stateChoice.Selected < 0 || SelectedIndex(transitionList) < 0 ? null : document.Graph.States[(int)stateChoice.Selected].Transitions[SelectedIndex(transitionList)];
@@ -104,13 +119,6 @@ public partial class NativeActionEditor : Window
     }
     private IReadOnlyList<MotionIkChain> IkChains => MotionIkPresets.For(document.Graph);
     private bool IsIkEnd(string name) => IkChains.Any(chain => chain.Enabled && chain.End == name);
-    private void GenerateReferencePose() => Guard(() =>
-    {
-        if (PreviewActor is not { } actor) throw new InvalidOperationException("请先加载预览骨架。");
-        var descriptor = MotionSkeletonDescriptor.FromActor(actor.World, actor.Instance, document.Graph.Skeleton);
-        Change(graph => MotionRigTemplates.EnsureReferencePose(graph, descriptor));
-        status.Text = "已生成参考姿态；一次拖动即可撤销。";
-    });
     private void RefreshGraph()
     {
         graphView.ClearConnections(); foreach (var node in graphView.GetChildren().OfType<GraphNode>()) { graphView.RemoveChild(node); node.QueueFree(); }
@@ -169,7 +177,7 @@ public partial class NativeActionEditor : Window
             else if (!force && appliedTarget == target && preview.Player is not null) { ReleaseLegacyPreview(); actor = new(preview.World, preview.Player); }
             else { ReleaseLegacyPreview(); await preview.ApplyAsync(CharacterDefinition(target)); appliedTarget = target; actor = new(preview.World, preview.Player!); }
             PopulateSkeleton(); preview.Bridge.Services.Motions.Play(actor, document.Graph);frame.Value=0;ApplyDocumentPose();
-            canvas.QueueRedraw(); FitView(); status.Text = "预览已加载。";
+            canvas.QueueRedraw(); FitView(); status.Text = initialNotice.Length > 0 ? initialNotice : "预览已加载。"; initialNotice = "";
         }
         catch (Exception e) { status.Text = e.GetBaseException().Message; }
         finally { busy = false; }

@@ -15,8 +15,9 @@ const steps = [
     { name: 'build', lock: 'build', command: 'dotnet build -c Debug --no-incremental' },
     { name: 'tests', lock: 'tests', command: 'dotnet run --project Tests/RuntimeTests.csproj' },
     { name: 'verify', lock: 'build', command: 'node Tools/verify.mjs' },
+    { name: 'complexity', lock: 'build', command: 'node Tools/complexity-test.mjs && node Tools/complexity.mjs --since origin/ai' },
 ];
-if (only && !steps.some(step => step.name === only)) throw new Error('usage: node Tools/gate.mjs [--only=build|tests|verify] [--record]');
+if (only && !steps.some(step => step.name === only)) throw new Error('usage: node Tools/gate.mjs [--only=build|tests|verify|complexity] [--record]');
 const snapshot = fs.existsSync(snapshotPath) ? JSON.parse(fs.readFileSync(snapshotPath, 'utf8')) : { warnings: [] };
 const run = (resource, command, log) => {
     const result = spawnSync('node', ['Tools/agent-lock.mjs', resource, command], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });

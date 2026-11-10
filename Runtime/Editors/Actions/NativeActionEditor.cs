@@ -272,7 +272,6 @@ public partial class NativeActionEditor : Window
     }
     private void UpdatePlaybackOverlay()
     {
-        if (overlay is null) return;
         if (PreviewActor is not { } actor) { overlay.Legend = ""; overlay.Playback = ""; return; }
         overlay.Legend = "键位  " + KeyLegend();
         var state = actor.Services.Motions.State(actor);

@@ -33,6 +33,7 @@ public partial class NativeActionEditor
         bool ButtonText(string text)=>Descendants(this).OfType<Button>().Any(button=>button.Text==text);
         bool ParamVisible(string name)=>Enumerable.Range(0,parameterView.ItemCount).Any(index=>parameterView.GetItemText(index)==name);
         Vector2 SurfacePoint(double x,double y){var (surfaceX,surfaceY)=MotionViewport.ToSurface(x,y,surface.Size.X,surface.Size.Y,PreviewView);return new((float)surfaceX,(float)surfaceY);}
+        double Wrap(double angle){angle%=360;return angle<=-180?angle+360:angle>180?angle-360:angle;}
         (double X,double Y) RenderedPoint(double x,double y)
         {
             var view=preview!.World.View(0);
@@ -101,9 +102,9 @@ public partial class NativeActionEditor
         var studio=preview!;var studioWorld=studio.World;
         var skeleton=studio.Bridge.Services.Motions.Skeleton(new(studio.World,studio.Player!));
         Expect(skeleton.Count==15,"preview exposes the 15 part skeleton");
-        document=new(new MotionGraph{Id="audit.ik",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_TOP",Keys=[new(){Frame=0}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=3}]},new(){Bone="HAND1_BELOW",Keys=[new(){Frame=0,X=3}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND1_BELOW"}]});
+        document=new(new MotionGraph{Id="audit.ik",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_TOP",Keys=[new(){Frame=0}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=3}]},new(){Bone="HAND2_ABOVE",Keys=[new(){Frame=0,X=3}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND2_ABOVE"}]});
         Refresh();
-        var ikDragged=document.Drag("idle","HAND1_BELOW",0,4,2);
+        var ikDragged=document.Drag("idle","HAND2_ABOVE",0,4,2);
         Expect(ikDragged.Success,"IK drag applies from the editor document");
         Expect(Clip.Tracks.Single(t=>t.Bone=="BODY_TOP").Keys.Single().Angle!=0,"IK drag writes the chain root angle");
         document.Undo();Expect(Clip.Tracks.Single(t=>t.Bone=="BODY_TOP").Keys.Single().Angle==0,"IK drag undo restores the chain root");
@@ -238,7 +239,7 @@ public partial class NativeActionEditor
         inspector.CurrentTab=3;
         await Shot("motion-events");
         Project.ClipIndex=0;
-        document=new(new MotionGraph{Id="audit.ring",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_BOTTOM",Keys=[new(){Frame=0,X=0,Y=0,Angle=0}]},new(){Bone="BODY_TOP",Keys=[new(){Frame=0,X=0,Y=0,Angle=0}]},new(){Bone="HEAD",Keys=[new(){Frame=0,X=4,Y=-16,Angle=0}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=10,Y=0,Angle=0}]},new(){Bone="HAND1_BELOW",Keys=[new(){Frame=0,X=10,Y=0,Angle=0}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND1_BELOW"}]});
+        document=new(new MotionGraph{Id="audit.ring",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_BOTTOM",Keys=[new(){Frame=0,X=0,Y=0,Angle=0}]},new(){Bone="BODY_TOP",Keys=[new(){Frame=0,X=0,Y=0,Angle=0}]},new(){Bone="HEAD",Keys=[new(){Frame=0,X=4,Y=-16,Angle=0}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=10,Y=0,Angle=0}]},new(){Bone="HAND2_ABOVE",Keys=[new(){Frame=0,X=10,Y=0,Angle=0}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND2_ABOVE"}]});
         Refresh();frame.Value=0;
         var ringActor=PreviewActor!;ringActor.Write("Direction",1);ringActor.Write("image_angle",0);
         ApplyDocumentPose();
@@ -387,10 +388,10 @@ public partial class NativeActionEditor
         SelectBone("HAND1_ABOVE");
         Expect(overlay.ChainFocusIndex>=0,"selecting an IK chain bone focuses the chain");
         var chainBones=overlay.FocusChainBones;
-        Expect(chainBones.Length==3&&chainBones.Contains("BODY_TOP")&&chainBones.Contains("HAND1_ABOVE")&&chainBones.Contains("HAND1_BELOW"),"the overlay highlights all three chain bones");
+        Expect(chainBones.Length==3&&chainBones.Contains("BODY_TOP")&&chainBones.Contains("HAND1_ABOVE")&&chainBones.Contains("HAND2_ABOVE"),"the overlay highlights all three chain bones");
         Expect(overlay.EndHandleVisible,"the chain end has a handle");
         var ikRows=ikList.GetSelectedItems();
-        Expect(ikRows.Length==1&&ikList.GetItemText(ikRows[0]).Contains("HAND1_BELOW"),"the left dock selects the chain");
+        Expect(ikRows.Length==1&&ikList.GetItemText(ikRows[0]).Contains("HAND2_ABOVE"),"the left dock selects the chain");
         inspector.CurrentTab=0;
         await Shot("motion-ring");
         SelectBone("HEAD");
@@ -511,7 +512,7 @@ public partial class NativeActionEditor
         SelectBone("HEAD");frame.Value=2;angle.Value=17;
         Expect(Clip.Tracks.Single(t=>t.Bone=="HEAD").Keys.Any(k=>k.Frame==2&&k.Angle==17),"the timeline controls write a real bone key");
         document.Undo();Expect(!Clip.Tracks.Single(t=>t.Bone=="HEAD").Keys.Any(k=>k.Frame==2),"undo removes the timeline key");document.Redo();
-        document.Edit(g=>g.IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND1_BELOW"}]);
+        document.Edit(g=>g.IkChains=[new(){Root="FOOT1_ABOVE",Mid="FOOT2_ABOVE",End="FOOT3_ABOVE"}]);
         Refresh();var canvasActor=PreviewActor!;canvasActor.Write("Direction",1);ApplyDocumentPose();
         var canvasNodes=canvasActor.Services.Motions.Skeleton(canvasActor);
         string? Topmost(double x,double y)
@@ -587,29 +588,64 @@ public partial class NativeActionEditor
         Expect(Math.Abs(shiftPose.Angle-shiftBefore.Angle)>.001,"Shift drag rotates instead of translating");
         RunAction("undo");Expect(Math.Abs(Clip.Sample(frame.Value)["HEAD"].Angle-shiftBefore.Angle)<.001,"Shift drag is one undo step");RunAction("redo");
         var chainBefore=Clip.Sample(frame.Value);
-        double midLength=Math.Sqrt(chainBefore["HAND1_ABOVE"].X*chainBefore["HAND1_ABOVE"].X+chainBefore["HAND1_ABOVE"].Y*chainBefore["HAND1_ABOVE"].Y);
-        double endLength=Math.Sqrt(chainBefore["HAND1_BELOW"].X*chainBefore["HAND1_BELOW"].X+chainBefore["HAND1_BELOW"].Y*chainBefore["HAND1_BELOW"].Y);
-        var endPoint=PointFor("HAND1_BELOW");int ikGestureUndo=document.UndoDepth;
+        double midLength=Math.Sqrt(chainBefore["FOOT2_ABOVE"].X*chainBefore["FOOT2_ABOVE"].X+chainBefore["FOOT2_ABOVE"].Y*chainBefore["FOOT2_ABOVE"].Y);
+        double endLength=Math.Sqrt(chainBefore["FOOT3_ABOVE"].X*chainBefore["FOOT3_ABOVE"].X+chainBefore["FOOT3_ABOVE"].Y*chainBefore["FOOT3_ABOVE"].Y);
+        double reach=midLength+endLength;
+        var endPoint=PointFor("FOOT3_ABOVE");int ikGestureUndo=document.UndoDepth;
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=endPoint});
         Expect(dragging&&dragMode==DragMode.Ik,"dragging an IK chain end uses IK by default");
+        var startNodes=canvasActor.Services.Motions.Skeleton(canvasActor);
+        var startRoot=startNodes.Single(item=>item.Name=="FOOT1_ABOVE");
+        double nearWorldX=startRoot.X+reach*.8,nearWorldY=startRoot.Y;
+        var nearPoint=SurfacePoint(nearWorldX,nearWorldY);
+        SurfaceInput(new InputEventMouseMotion{Position=nearPoint});
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=nearPoint});
+        Expect(document.UndoDepth==ikGestureUndo+1,"the IK gesture is exactly one undo step");
+        var nearTarget=CanvasPosition(nearPoint);
+        var chainPose=Clip.Sample(frame.Value);
+        var nearNodes=canvasActor.Services.Motions.Skeleton(canvasActor);
+        var nearRoot=nearNodes.Single(item=>item.Name=="FOOT1_ABOVE");
+        var nearMid=nearNodes.Single(item=>item.Name=="FOOT2_ABOVE");
+        var nearEnd=nearNodes.Single(item=>item.Name=="FOOT3_ABOVE");
+        double nearMidLength=Math.Sqrt((nearMid.X-nearRoot.X)*(nearMid.X-nearRoot.X)+(nearMid.Y-nearRoot.Y)*(nearMid.Y-nearRoot.Y));
+        double nearEndLength=Math.Sqrt((nearEnd.X-nearMid.X)*(nearEnd.X-nearMid.X)+(nearEnd.Y-nearMid.Y)*(nearEnd.Y-nearMid.Y));
+        Expect(Math.Abs(nearMidLength-midLength)<1e-6,"reachable IK drag keeps the root segment length: expected="+midLength.ToString("F9")+" actual="+nearMidLength.ToString("F9"));
+        Expect(Math.Abs(nearEndLength-endLength)<1e-6,"reachable IK drag keeps the mid segment length: expected="+endLength.ToString("F9")+" actual="+nearEndLength.ToString("F9"));
+        Expect(Math.Abs(nearEnd.X-nearTarget.X)<1e-6&&Math.Abs(nearEnd.Y-nearTarget.Y)<1e-6,"reachable IK drag lands the end on the pointer: expected="+nearTarget.X.ToString("F9")+","+nearTarget.Y.ToString("F9")+" actual="+nearEnd.X.ToString("F9")+","+nearEnd.Y.ToString("F9"));
+        Expect(!status.Text.Contains("夹"),"a reachable IK drag does not clamp: "+status.Text);
+        Expect(Math.Abs(Wrap(nearRoot.Angle+Math.Atan2(nearMid.Y-nearRoot.Y,nearMid.X-nearRoot.X)*180/Math.PI))<1e-6,"IK writeback keeps the chain root rotation on the solved segment: angle="+nearRoot.Angle.ToString("F9")+" direction="+Math.Atan2(nearMid.Y-nearRoot.Y,nearMid.X-nearRoot.X).ToString("F9"));
+        Expect(Math.Abs(Wrap(nearMid.Angle+Math.Atan2(nearEnd.Y-nearMid.Y,nearEnd.X-nearMid.X)*180/Math.PI))<1e-6,"IK writeback keeps the chain mid rotation on the solved segment: angle="+nearMid.Angle.ToString("F9")+" direction="+Math.Atan2(nearEnd.Y-nearMid.Y,nearEnd.X-nearMid.X).ToString("F9"));
+        canvasNodes=canvasActor.Services.Motions.Skeleton(canvasActor);
         var farPoint=SurfacePoint(canvasActor.X+120,canvasActor.Y-60);
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=PointFor("FOOT3_ABOVE")});
         SurfaceInput(new InputEventMouseMotion{Position=farPoint});
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=farPoint});
-        Expect(document.UndoDepth==ikGestureUndo+1,"the IK gesture is exactly one undo step");
-        var chainPose=Clip.Sample(frame.Value);
-        Expect(Math.Abs(Math.Sqrt(chainPose["HAND1_ABOVE"].X*chainPose["HAND1_ABOVE"].X+chainPose["HAND1_ABOVE"].Y*chainPose["HAND1_ABOVE"].Y)-midLength)<.001&&Math.Abs(Math.Sqrt(chainPose["HAND1_BELOW"].X*chainPose["HAND1_BELOW"].X+chainPose["HAND1_BELOW"].Y*chainPose["HAND1_BELOW"].Y)-endLength)<.001,"IK drag keeps both segment lengths");
-        Expect(status.Text.Contains("夹"),"unreachable IK target is clamped to the chain reach");
-        Expect(Math.Abs(chainPose["BODY_TOP"].Angle-chainBefore["BODY_TOP"].Angle)>.001,"IK drag rotates the chain root");
-        var altBefore=Clip.Sample(frame.Value)["BODY_TOP"].Angle;var altPoint=PointFor("HAND1_BELOW");
+        var farWorld=CanvasPosition(farPoint);
+        var clampedNodes=canvasActor.Services.Motions.Skeleton(canvasActor);
+        var clampedRoot=clampedNodes.Single(item=>item.Name=="FOOT1_ABOVE");
+        var clampedEnd=clampedNodes.Single(item=>item.Name=="FOOT3_ABOVE");
+        double farDx=farWorld.X-clampedRoot.X,farDy=farWorld.Y-clampedRoot.Y,farDistance=Math.Sqrt(farDx*farDx+farDy*farDy);
+        Expect(farDistance>reach+1e-3,"the clamped target starts beyond the chain reach: distance="+farDistance.ToString("F9")+" reach="+reach.ToString("F9"));
+        double clampedX=clampedRoot.X+farDx/farDistance*reach,clampedY=clampedRoot.Y+farDy/farDistance*reach;
+        Expect(Math.Abs(clampedEnd.X-clampedX)<1e-6&&Math.Abs(clampedEnd.Y-clampedY)<1e-6,"unreachable IK target clamps to the reachable boundary: expected="+clampedX.ToString("F9")+","+clampedY.ToString("F9")+" actual="+clampedEnd.X.ToString("F9")+","+clampedEnd.Y.ToString("F9"));
+        Expect(status.Text.Split("夹到可达范围").Length-1==1,"the clamp message appears exactly once: "+status.Text);
+        canvasNodes=canvasActor.Services.Motions.Skeleton(canvasActor);
+        var clearPoint=SurfacePoint(clampedRoot.X+(clampedEnd.X-clampedRoot.X)*.75,clampedRoot.Y+(clampedEnd.Y-clampedRoot.Y)*.75);
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=PointFor("FOOT3_ABOVE")});
+        SurfaceInput(new InputEventMouseMotion{Position=clearPoint});
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=clearPoint});
+        chainPose=Clip.Sample(frame.Value);
+        Expect(!status.Text.Contains("夹"),"a follow-up reachable IK drag clears the clamp message: "+status.Text);
+        var altBefore=Clip.Sample(frame.Value)["FOOT1_ABOVE"].Angle;canvasNodes=canvasActor.Services.Motions.Skeleton(canvasActor);var altPoint=PointFor("FOOT3_ABOVE");
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,AltPressed=true,Position=altPoint});
         Expect(dragging&&dragMode==DragMode.Fk,"alt switches an IK end to temporary FK");
         var altTarget=SurfacePoint(CanvasPosition(altPoint).X+14,CanvasPosition(altPoint).Y-14);
         SurfaceInput(new InputEventMouseMotion{Position=altTarget});
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,AltPressed=true,Position=altTarget});
-        var altPose=Clip.Sample(frame.Value)["HAND1_BELOW"];
-        Expect(Math.Abs(Clip.Sample(frame.Value)["BODY_TOP"].Angle-altBefore)<.001,"temporary FK leaves the IK chain root untouched");
+        var altPose=Clip.Sample(frame.Value)["FOOT3_ABOVE"];
+        Expect(Math.Abs(Clip.Sample(frame.Value)["FOOT1_ABOVE"].Angle-altBefore)<.001,"temporary FK leaves the IK chain root untouched");
         Expect(Math.Abs(Math.Sqrt(altPose.X*altPose.X+altPose.Y*altPose.Y)-endLength)<.001,"temporary FK keeps the end length");
-        RunAction("undo");Expect(Math.Abs(Clip.Sample(frame.Value)["HAND1_BELOW"].X-chainPose["HAND1_BELOW"].X)<.001,"FK override is one undo step");RunAction("redo");
+        RunAction("undo");Expect(Math.Abs(Clip.Sample(frame.Value)["FOOT3_ABOVE"].X-chainPose["FOOT3_ABOVE"].X)<.001,"FK override is one undo step");RunAction("redo");
         SelectBone("HAND1_ABOVE");
         Expect(highlightedBone=="HAND1_ABOVE"&&bone.GetItemText((int)bone.Selected)=="HAND1_ABOVE"&&boneList.GetSelectedItems().Length==1&&boneList.GetItemText(boneList.GetSelectedItems()[0])=="HAND1_ABOVE","bone selection highlights the canvas and the left list");
         var cancelBefore=Serialized();var cancelStart=PointFor("HEAD");
@@ -630,8 +666,16 @@ public partial class NativeActionEditor
         document=new(new MotionGraph{Id="audit.clean",Clips=[new(){Id="idle"}],States=[new(){Id="idle",Clip="idle"}]});
         path=cleanFile;Refresh();InitializePreview();await Ready();
         Expect(!document.Dirty&&document.Graph.IkChains is null&&document.Graph.Clips[0].Tracks.Count==0,"preview load neither dirties nor writes the document");
-        Expect(IsIkEnd("HAND1_BELOW"),"default IK chains stay implicit");
+        Expect(IsIkEnd("HAND2_ABOVE"),"default IK chains stay implicit");
         var fallbackActor=PreviewActor!;
+        var presetNodes=fallbackActor.Services.Motions.Skeleton(fallbackActor);
+        foreach(var chain in MotionIkPresets.For(new MotionGraph{Clips=[new(){Id="idle"}],States=[new(){Id="idle",Clip="idle"}]}))
+        {
+            var presetEnd=presetNodes.Single(node=>node.Name==chain.End);
+            var presetMid=presetNodes.Single(node=>node.Instance==presetEnd.Parent);
+            var presetRoot=presetNodes.Single(node=>node.Instance==presetMid.Parent);
+            Expect(presetRoot.Name==chain.Root&&presetMid.Name==chain.Mid,"IK preset "+chain.End+" follows the skeleton parents: expected "+chain.Root+"→"+chain.Mid+"→"+chain.End+" actual "+presetRoot.Name+"→"+presetMid.Name+"→"+presetEnd.Name);
+        }
         var fallbackBone=fallbackActor.Services.Motions.Skeleton(fallbackActor).First(node=>node.Parent==fallbackActor.Id);
         var fallbackPart=fallbackActor.World.Instances.First(item=>item.Id==fallbackBone.Instance);
         double fallbackDirection=fallbackActor.Instance.Scope.ReadOr("Direction",1).Number,fallbackRadians=fallbackActor.Read("image_angle")*Math.PI/180;

@@ -83,6 +83,8 @@ public partial class NativeActionEditor
         Layout();
         AuditLeftPages();
         GD.Print("MOTION_EDITOR_LAYOUT_OK");
+        Expect(preview is null&&!busy,"the editor opens without creating the preview world");
+        InitializePreview();
         await Ready();
         Expect(preview!.Bridge.BoundCharacter(preview.Player!.Id) is not null,"the preview keeps the character binding");
         Expect(Math.Abs(frame.Value)<.001,"the preview opens on frame 0");

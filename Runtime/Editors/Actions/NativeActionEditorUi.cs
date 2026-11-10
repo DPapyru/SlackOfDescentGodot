@@ -81,7 +81,7 @@ public partial class NativeActionEditor
         BuildWorkspace(body);
         BuildTimeline(body);
         BuildStatusBar(root);
-        Refresh(); InitializePreview();
+        Refresh(); status.Text = "预览未加载：点击画布、开始播放或 视图→重载预览 触发加载。";
     }
     private void BuildCharacterBar(VBoxContainer root)
     {

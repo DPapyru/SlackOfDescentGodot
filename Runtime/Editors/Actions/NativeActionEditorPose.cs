@@ -237,18 +237,7 @@ public partial class NativeActionEditor
         if(PreviewActor is not {} actor)return;
         var nodes=actor.Services.Motions.Skeleton(actor);
         overlay.Sync(nodes,highlightedBone,IkChains,PreviewView,new((float)actor.X,(float)actor.Y));
-        SyncIkSelection();
         UpdatePlaybackOverlay();
-    }
-
-    private void SyncIkSelection()
-    {
-        if(ikList is null)return;
-        var chains=IkChains;int row=-1;
-        if(highlightedBone is {} bone)
-            for(int i=0;i<chains.Count;i++)
-                if(chains[i].Enabled&&(chains[i].Root==bone||chains[i].Mid==bone||chains[i].End==bone)){row=i;break;}
-        if(row>=0&&row<ikList.ItemCount)ikList.Select(row);else ikList.DeselectAll();
     }
 
     private MotionPose LocalPose(string name)=>name is "root" or "__root__"?Clip.RootPose(frame.Value):Clip.Sample(frame.Value).GetValueOrDefault(name);

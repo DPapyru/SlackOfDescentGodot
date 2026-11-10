@@ -19,12 +19,13 @@ public partial class NativeActionEditor
         int failed=0;
         for(int i=1;i<=imports;i++)
         {
-            if(original.ItemCount==0)throw new InvalidOperationException("No original motion is available.");
-            original.Select((i-1)%original.ItemCount);
-            string expected=original.GetItemText((int)original.Selected).Replace('/','.');
+            var names=world.Code.Keys.Where(key=>key.StartsWith(MotionCodePrefix,StringComparison.Ordinal)).Order().ToArray();
+            if(names.Length==0)throw new InvalidOperationException("No original motion is available.");
+            string name=names[(i-1)%names.Length][MotionCodePrefix.Length..^4];
+            string expected=name.Replace('/','.');
             var previous=document;
             long began=Stopwatch.GetTimestamp();
-            ImportOriginal();
+            ImportOriginal(name);
             while(busy)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
             for(int frame=0;frame<2;frame++)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
             if(ReferenceEquals(document,previous)||document.Graph.Id!=expected)failed++;

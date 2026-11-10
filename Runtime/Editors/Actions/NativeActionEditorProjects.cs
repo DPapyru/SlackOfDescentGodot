@@ -26,7 +26,6 @@ public partial class NativeActionEditor
     private void CaptureProjectState()
     {
         Project.ClipIndex=(int)Math.Max(0,clipChoice.Selected);
-        Project.BoneIndex=(int)Math.Max(0,bone.Selected);
         Project.Frame=frame.Value;
     }
     private void SwitchProject(int index,bool initializePreview=true)

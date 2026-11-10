@@ -240,11 +240,17 @@ public static class MotionPoseEditor
 
     public static void Translate(MotionGraph graph, string clipId, string bone, double frame, double x, double y)
     {
-        var clip = graph.Clips.SingleOrDefault(item => item.Id == clipId) ?? throw new InvalidDataException("Motion clip is missing: " + clipId);
         if (!double.IsFinite(frame) || !double.IsFinite(x) || !double.IsFinite(y)) throw new InvalidDataException("拖动坐标必须是有限数值。");
         if (bone.Length == 0) throw new InvalidDataException("请选择骨骼节点。");
-        var current = clip.Sample(frame).GetValueOrDefault(bone);
-        SetKey(clip, bone is "root" or "__root__" ? null : bone, frame, new MotionPose(x, y, current.Angle, current.ScaleX, current.ScaleY, current.Picture));
+        var current = (graph.Clips.SingleOrDefault(item => item.Id == clipId) ?? throw new InvalidDataException("Motion clip is missing: " + clipId)).Sample(frame).GetValueOrDefault(bone);
+        SetPose(graph, clipId, bone, frame, new MotionPose(x, y, current.Angle, current.ScaleX, current.ScaleY, current.Picture));
+    }
+
+    public static void SetPose(MotionGraph graph, string clipId, string bone, double frame, MotionPose pose)
+    {
+        var clip = graph.Clips.SingleOrDefault(item => item.Id == clipId) ?? throw new InvalidDataException("Motion clip is missing: " + clipId);
+        if (!double.IsFinite(frame)) throw new InvalidDataException("拖动坐标必须是有限数值。");
+        SetKey(clip, bone is "root" or "__root__" ? null : bone, frame, pose);
     }
 
     public static void Rotate(MotionGraph graph, string clipId, string bone, double frame, double angle)
@@ -261,7 +267,7 @@ public static class MotionPoseEditor
         SetKey(clip, null, frame, pose);
     }
 
-    private static void SetKey(MotionClip clip, string? bone, double frame, MotionPose pose)
+    internal static void SetKey(MotionClip clip, string? bone, double frame, MotionPose pose)
     {
         var keys = bone is null ? clip.Root : clip.Tracks.FirstOrDefault(track => track.Bone == bone)?.Keys;
         if (keys is null)

@@ -1,5 +1,4 @@
 using Godot;
-using System.Text.Json;
 
 namespace SlackOfDescent;
 
@@ -8,7 +7,6 @@ public partial class NativeActionEditor
     private TabBar tabs = null!;
     private Label targetLabel = null!;
     private Label status = null!;
-    private TextEdit sourceView = null!, rawView = null!;
     private TabContainer leftPages = null!;
     private TextureRect surface = null!;
     private SubViewport viewport = null!;
@@ -130,12 +128,7 @@ public partial class NativeActionEditor
     {
         var dock = new VBoxContainer { CustomMinimumSize = new(350, 0) }; parent.AddChild(dock);
         leftPages = new TabContainer { Name = "LeftPages", SizeFlagsVertical = Control.SizeFlags.ExpandFill }; dock.AddChild(leftPages);
-        var source = new VBoxContainer { Name = "节点属性修改" }; leftPages.AddChild(source);
-        sourceView = new TextEdit { Name = "SourceView", Editable = false, SizeFlagsVertical = Control.SizeFlags.ExpandFill, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new(320, 200) };
-        source.AddChild(sourceView);
-        var raw = new VBoxContainer { Name = "原始数据" }; leftPages.AddChild(raw);
-        rawView = new TextEdit { Name = "RawView", Editable = false, SizeFlagsVertical = Control.SizeFlags.ExpandFill, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        raw.AddChild(rawView);
+        BuildSourcePages(leftPages);
     }
     private void BuildActionPanel(Node parent)
     {
@@ -156,21 +149,6 @@ public partial class NativeActionEditor
             if (!refreshing && !syncingTimeline && !syncingPlayhead) { ClearSelectedKey(); ApplyDocumentPose(); RefreshCodeViews(); }
             UpdateTimeLabel(); timelineTracks?.QueueRedraw();
         };
-    }
-    private void RefreshCodeViews()
-    {
-        Guard(() =>
-        {
-            var clip = Clip;
-            var text = new System.Text.StringBuilder();
-            text.Append("// 片段 ").Append(clip.Id).Append("  帧 ").Append(frame.Value.ToString("F1")).Append(" / ").Append(clip.Duration.ToString("F0")).Append('\n');
-            text.Append(Line("root", clip.RootPose(frame.Value)));
-            foreach (var pair in clip.Sample(frame.Value).OrderBy(item => item.Key, StringComparer.Ordinal)) text.Append(Line(pair.Key, pair.Value));
-            static string Line(string name, MotionPose pose) => name + ": { x: " + pose.X.ToString("F2") + ", y: " + pose.Y.ToString("F2") + ", angle: " + pose.Angle.ToString("F2")
-                + ", sx: " + pose.ScaleX.ToString("F2") + ", sy: " + pose.ScaleY.ToString("F2") + ", picture: " + pose.Picture + " }\n";
-            if (!sourceView.HasFocus()) sourceView.Text = text.ToString();
-            if (!rawView.HasFocus()) rawView.Text = JsonSerializer.Serialize(document.Graph, NativeContentStore.Json);
-        });
     }
     private const string MotionCodePrefix = "external/Chara/Motion/";
     private void ShowOriginalMotions()

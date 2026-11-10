@@ -55,7 +55,6 @@ public partial class NativeActionEditor
             case "showNames": if (overlay is not null) overlay.ShowNames = !overlay.ShowNames; break;
             case "reloadPreview": InitializePreview(true); break;
             case "fitView": FitView(); break;
-            case "referencePose": GenerateReferencePose(); break;
             case "applyGame": ApplyToGame(); break;
             case "help": ShowHelp(); break;
         }
@@ -95,7 +94,7 @@ public partial class NativeActionEditor
         var bar = Row(root); bar.Name = "MenuBar";
         AddMenu(bar, "文件", menu => { MenuItem(menu, "新建项目…", "new"); MenuItem(menu, "打开…", "open"); MenuItem(menu, "保存", "save"); MenuItem(menu, "另存为…", "saveAs"); MenuItem(menu, "保存到…", "saveTo"); menu.AddSeparator(); MenuItem(menu, "关闭项目", "close"); MenuItem(menu, "退出", "quit"); });
         AddMenu(bar, "编辑", menu => { MenuItem(menu, "撤销", "undo"); MenuItem(menu, "重做", "redo"); });
-        AddMenu(bar, "视图", menu => { MenuItem(menu, "显示骨架", "showBones", overlay?.ShowBones ?? true); MenuItem(menu, "显示骨骼名", "showNames", overlay?.ShowNames ?? false); menu.AddSeparator(); MenuItem(menu, "重载预览", "reloadPreview"); MenuItem(menu, "生成参考姿态", "referencePose"); menu.AddSeparator(); MenuItem(menu, "应用到游戏角色", "applyGame"); });
+        AddMenu(bar, "视图", menu => { MenuItem(menu, "显示骨架", "showBones", overlay?.ShowBones ?? true); MenuItem(menu, "显示骨骼名", "showNames", overlay?.ShowNames ?? false); menu.AddSeparator(); MenuItem(menu, "重载预览", "reloadPreview"); menu.AddSeparator(); MenuItem(menu, "应用到游戏角色", "applyGame"); });
         AddMenu(bar, "帮助", menu => MenuItem(menu, "状态机说明…", "help"));
         var brand = new Label { Text = "骨架动作与状态图", HorizontalAlignment = HorizontalAlignment.Right, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; bar.AddChild(brand);
     }
@@ -154,11 +153,7 @@ public partial class NativeActionEditor
         foreach (var item in Registered(preset)) text.AppendLine(item.Name + " → " + item.Resource);
         return text.ToString();
     }
-    private IReadOnlyList<MotionRegistered> Registered(string preset)
-    {
-        if (world.Code.TryGetValue("external/Chara/" + preset + "/motion_list.txt", out var ast)) return MotionImport.Registered(ast);
-        return world.Code.TryGetValue("external/Chara/Nana/motion_list.txt", out var fallback) ? MotionImport.Registered(fallback) : [];
-    }
+    private IReadOnlyList<MotionRegistered> Registered(string preset) => MotionImport.Registered(world.Code, preset);
     private string HelpPreset() => Project.Target.Kind switch
     {
         MotionTargetKind.PlayerPreset => Project.Target.Id,

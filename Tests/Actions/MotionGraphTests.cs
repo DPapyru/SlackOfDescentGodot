@@ -21,18 +21,6 @@ public static class MotionGraphTests
         var restored=System.Text.Json.JsonSerializer.Deserialize<MotionGraph>(System.Text.Json.JsonSerializer.Serialize(graph,NativeContentStore.Json),NativeContentStore.Json)!;
         restored.Validate();Check(restored.Clips[0].Sample(2)["HEAD"]==pose,"save reload preserves poses");
         var document=new MotionGraphDocument(restored);document.Edit(g=>g.Clips[0].Tracks[0].Keys[0].X=12);document.Undo();Check(document.Graph.Clips[0].Tracks[0].Keys[0].X==0,"undo restores timeline");document.Redo();Check(document.Graph.Clips[0].Tracks[0].Keys[0].X==12,"redo restores edit");
-        var idleTemplate=new MotionGraph{Id="idle.template",Skeleton="Nana",Clips=[new()],States=[new()]};
-        Check(MotionRigTemplates.EnsureIdleTemplate(idleTemplate),"idle template fills an empty document");
-        Check(idleTemplate.Clips[0].Tracks.Count==MotionSkeleton.Bones.Length&&idleTemplate.Clips[0].Tracks.All(track=>track.Keys.Count>=2),"idle template keys every bone on two frames");
-        Check(MotionSkeleton.Bones.All(bone=>idleTemplate.Clips[0].Sample(0)[bone]==MotionRigTemplates.Pose(bone)),"idle template stores the full local reference pose");
-        Check(MotionSkeleton.Bones.Any(bone=>idleTemplate.Clips[0].Sample(0)[bone].X!=0||idleTemplate.Clips[0].Sample(0)[bone].Y!=0),"idle template is not collapsed to the origin");
-        var idleDocument=new MotionGraphDocument(new MotionGraph{Id="idle.undo",Clips=[new()],States=[new()]});
-        idleDocument.Edit(graph=>MotionRigTemplates.EnsureIdleTemplate(graph),"idle-template");
-        Check(idleDocument.UndoDepth==1&&idleDocument.Graph.Clips[0].Tracks.Count==MotionSkeleton.Bones.Length,"idle template injection is a single undo step");
-        idleDocument.Undo();Check(idleDocument.Graph.Clips[0].Tracks.Count==0,"undo restores the empty idle document");
-        string idlePath=Path.Combine(Path.GetTempPath(),"motion-idle-"+Guid.NewGuid().ToString("N")+".motion.json");
-        try{idleTemplate.Save(idlePath);var reloadedIdle=MotionGraph.Load(idlePath);Check(MotionSkeleton.Bones.All(bone=>reloadedIdle.Clips[0].Sample(0)[bone]==idleTemplate.Clips[0].Sample(0)[bone]&&reloadedIdle.Clips[0].Sample(1)[bone]==idleTemplate.Clips[0].Sample(1)[bone]),"idle template poses survive save and reload");}
-        finally{if(File.Exists(idlePath))File.Delete(idlePath);}
         var ik=MotionIk.Solve((0d,0d),(3d,0d),(6d,0d),(20d,0d),true);Check(ik.Success&&ik.Clamped&&Math.Abs(ik.Reach-6)<.001,"IK clamps unreachable endpoint");
         Check(!MotionIk.Solve((0d,0d),(0d,0d),(2d,0d),(1d,0d)).Success,"IK rejects zero length segment");
         Check(!MotionIk.Solve((0d,0d),(2d,0d),(4d,0d),(0d,0d)).Success,"IK rejects coincident root target");
@@ -95,6 +83,23 @@ public static class MotionGraphTests
         Check(new MotionProjectTarget(MotionTargetKind.PlayerCharacter,"hero").Skeleton("Yuki")=="Yuki"&&new MotionProjectTarget(MotionTargetKind.Entity,"objEnemyDoll").Skeleton("Nana")=="legacy:objEnemyDoll","project targets resolve skeleton ids without schema changes");
         var registered=MotionImport.Registered(world.Code["external/Chara/Nana/motion_list.txt"]);
         Check(registered.Count>0&&registered.Any(item=>item.Name=="STAND_0"&&item.Resource=="PlayerCommon/StandFem0"),"motion list registration parses PlayerMotionLoad entries");
+        Check(MotionImport.TryFirstRegistered(world.Code,"Nana","motion","Nana",out var initial,out var initialSource,out var initialError)&&initialError.Length==0&&initial!.Id=="motion"&&initial!.Skeleton=="Nana","the first registered original motion becomes the initial document");
+        Check(initialSource==registered[0].Name+" → "+registered[0].Resource,"the initial document imports the first registered original motion");
+        var initialPose=initial!.Clips[0].Sample(0);
+        Check(initialPose.Count>0&&initialPose.Values.Any(pose=>pose.X!=0||pose.Y!=0),"the imported initial pose is not collapsed to the origin");
+        var expectedPose=MotionImport.FromAst(world.Code["external/Chara/Motion/"+registered[0].Resource+".txt"],"motion","Nana").Clips[0].Sample(0);
+        Check(initialPose.Count==expectedPose.Count&&initialPose.All(pair=>expectedPose[pair.Key]==pair.Value),"the imported initial pose equals frame zero of that original motion");
+        object Registration(MotionRegistered item)=>new object[]{"call","PlayerMotionLoad",new object[]{new object[]{"str",""},new object[]{"str",item.Name},new object[]{"str",item.Resource}}};
+        using(var ordered=System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(new object[]{"group",new object[]{Registration(registered[1]),Registration(registered[0])}})))
+        {
+            var orderCode=new Dictionary<string,System.Text.Json.JsonElement>(StringComparer.Ordinal){["external/Chara/Nana/motion_list.txt"]=ordered.RootElement};
+            foreach(var item in registered.Take(2))orderCode["external/Chara/Motion/"+item.Resource+".txt"]=world.Code["external/Chara/Motion/"+item.Resource+".txt"];
+            Check(MotionImport.TryFirstRegistered(orderCode,"Nana","order","Nana",out var orderedGraph,out var orderedSource,out _)&&orderedGraph!.Id=="order"&&orderedSource==registered[1].Name+" → "+registered[1].Resource,"the first registered action follows motion_list registration order");
+        }
+        var emptyCode=new Dictionary<string,System.Text.Json.JsonElement>();
+        Check(!MotionImport.TryFirstRegistered(emptyCode,"Nana","motion","Nana",out var missing,out _,out var missingError)&&missing is null&&missingError.Contains("原版动作清单",StringComparison.Ordinal),"a missing motion list fails with a message instead of throwing");
+        var brokenCode=new Dictionary<string,System.Text.Json.JsonElement>(StringComparer.Ordinal){["external/Chara/Nana/motion_list.txt"]=world.Code["external/Chara/Nana/motion_list.txt"]};
+        Check(!MotionImport.TryFirstRegistered(brokenCode,"Nana","motion","Nana",out var broken,out _,out var brokenError)&&broken is null&&brokenError.Contains("找不到原版动作",StringComparison.Ordinal),"a missing original motion file fails with a message instead of throwing");
         var malformedAst=new object[]{"group",new object[]{
             new object[]{"call","PlayerMotionLoad",new object[]{new object[]{"str",""},new object[]{"str",""},new object[]{"str","Player/X"}}},
             new object[]{"call","PlayerMotionLoad",new object[]{new object[]{"str",""},new object[]{"str","A"},new object[]{"str",""}}},

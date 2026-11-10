@@ -12,6 +12,7 @@ public partial class NativeActionEditor
     private ItemList keyList = null!;
     private bool syncingTimeline, readingKey;
     private static HSlider Slider(Node parent, double max, Action<double> changed) { var slider = new HSlider { MinValue = 0, MaxValue = max, Step = .25, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; parent.AddChild(slider); slider.ValueChanged += value => changed(value); return slider; }
+    private static MotionPose RestPose(string? name) { var (x, y) = NativeCharacterBones.RestOffset(name ?? ""); return new(x, y, 0, 1, 1, 0); }
     private List<MotionKey> Keys()
     {
         string name = SelectedBone ?? "root";
@@ -28,7 +29,7 @@ public partial class NativeActionEditor
         try
         {
             var track = Clip.Tracks.SingleOrDefault(t => t.Bone == selected);
-            var key = rootTrack.ButtonPressed || selected == "root" ? new MotionTrack { Keys = Clip.Root }.Sample(frame.Value) : track is { Keys.Count: > 0 } ? track.Sample(frame.Value) : MotionRigTemplates.Pose(selected ?? "");
+            var key = rootTrack.ButtonPressed || selected == "root" ? new MotionTrack { Keys = Clip.Root }.Sample(frame.Value) : track is { Keys.Count: > 0 } ? track.Sample(frame.Value) : RestPose(selected);
             x.Value = key.X; y.Value = key.Y; angle.Value = key.Angle; sx.Value = key.ScaleX; sy.Value = key.ScaleY; picture.Value = key.Picture;
             if (timelineSlider is not null) { timelineSlider.SetValueNoSignal(frame.Value); keyList.Clear(); var keys = rootTrack.ButtonPressed || selected == "root" ? Clip.Root : Clip.Tracks.SingleOrDefault(t => t.Bone == selected)?.Keys ?? new(); foreach (var k in keys) { keyList.AddItem($"{k.Frame:F2}  ({k.X:F1}, {k.Y:F1})  {k.Angle:F1}°  picture={k.Picture}"); keyList.SetItemMetadata(keyList.ItemCount - 1, k.Frame); } }
         }
@@ -60,7 +61,7 @@ public partial class NativeActionEditor
     private MotionKey BaseKey(string name, List<MotionKey> keys, double at)
     {
         if (keys.FirstOrDefault(item => item.Frame == at) is { } existing) return new MotionKey { Frame = at, X = existing.X, Y = existing.Y, Angle = existing.Angle, ScaleX = existing.ScaleX, ScaleY = existing.ScaleY, Picture = existing.Picture };
-        var pose = name is "root" or "__root__" ? Clip.RootPose(at) : Clip.Tracks.FirstOrDefault(item => item.Bone == name) is { Keys.Count: > 0 } track ? track.Sample(at) : MotionRigTemplates.Pose(name);
+        var pose = name is "root" or "__root__" ? Clip.RootPose(at) : Clip.Tracks.FirstOrDefault(item => item.Bone == name) is { Keys.Count: > 0 } track ? track.Sample(at) : RestPose(name);
         return new MotionKey { Frame = at, X = pose.X, Y = pose.Y, Angle = pose.Angle, ScaleX = pose.ScaleX, ScaleY = pose.ScaleY, Picture = pose.Picture };
     }
     private void RefreshTimeline() { syncingTimeline = true; try { timelineSlider.MaxValue = Clip.Duration; duration.Value = Clip.Duration; loop.ButtonPressed = Clip.Loop; ReadKey(); } finally { syncingTimeline = false; } }

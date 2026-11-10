@@ -186,27 +186,7 @@ public static class MotionPoseEditor
         if (!double.IsFinite(frame) || !double.IsFinite(targetX) || !double.IsFinite(targetY)) return MotionIkResult.Invalid("拖动坐标必须是有限数值。");
         if (bone.Length == 0) return MotionIkResult.Invalid("请选择骨骼节点。");
         var chain = MotionIkPresets.For(graph).FirstOrDefault(item => item.Enabled && item.End == bone);
-        if (chain is not null && !forceFk)
-        {
-            var sample = clip.Sample(frame);
-            var root = sample.GetValueOrDefault(chain.Root);
-            var mid = sample.GetValueOrDefault(chain.Mid);
-            var end = sample.GetValueOrDefault(chain.End);
-            double parentAngle = ikFrame?.ParentAngle ?? 0;
-            double rootX = ikFrame?.RootX ?? root.X, rootY = ikFrame?.RootY ?? root.Y;
-            var midOffset = MotionRigCoordinates.Rotate(mid.X, mid.Y, root.Angle + parentAngle);
-            double midX = rootX + midOffset.X, midY = rootY + midOffset.Y;
-            var endOffset = MotionRigCoordinates.Rotate(end.X, end.Y, root.Angle + mid.Angle + parentAngle);
-            double endX = midX + endOffset.X, endY = midY + endOffset.Y;
-            bool bend = bendPositive ?? Bend(graph, clipId, bone, frame, ikFrame) ?? true;
-            var result = MotionIk.Solve(rootX, rootY, midX, midY, endX, endY, targetX, targetY, bend);
-            if (!result.Success) return result;
-            double firstLength = Math.Sqrt(mid.X * mid.X + mid.Y * mid.Y), secondLength = Math.Sqrt(end.X * end.X + end.Y * end.Y);
-            SetKey(clip, chain.Root, frame, new MotionPose(root.X, root.Y, Normalize(-result.RootAngle - parentAngle), root.ScaleX, root.ScaleY, root.Picture));
-            SetKey(clip, chain.Mid, frame, new MotionPose(firstLength, 0, Normalize(result.RootAngle - result.MidAngle), mid.ScaleX, mid.ScaleY, mid.Picture));
-            SetKey(clip, chain.End, frame, new MotionPose(secondLength, 0, end.Angle, end.ScaleX, end.ScaleY, end.Picture));
-            return result;
-        }
+        if (!forceFk && chain is not null) return DragChain(graph, clip, chain, frame, targetX, targetY, bendPositive, ikFrame);
         var current = clip.Sample(frame).GetValueOrDefault(bone);
         double length = Math.Sqrt(current.X * current.X + current.Y * current.Y);
         if (bone == "root" || bone == "__root__")
@@ -219,7 +199,27 @@ public static class MotionPoseEditor
         SetKey(clip, bone, frame, new MotionPose(Math.Cos(angle * Math.PI / 180) * length, -Math.Sin(angle * Math.PI / 180) * length, angle, current.ScaleX, current.ScaleY, current.Picture));
         return new(true, false, angle, angle, angle, length, "");
     }
-
+    private static MotionIkResult DragChain(MotionGraph graph, MotionClip clip, MotionIkChain chain, double frame, double targetX, double targetY, bool? bendPositive, MotionIkFrame? ikFrame)
+    {
+        var sample = clip.Sample(frame);
+        var root = sample.GetValueOrDefault(chain.Root);
+        var mid = sample.GetValueOrDefault(chain.Mid);
+        var end = sample.GetValueOrDefault(chain.End);
+        double parentAngle = ikFrame?.ParentAngle ?? 0;
+        double rootX = ikFrame?.RootX ?? root.X, rootY = ikFrame?.RootY ?? root.Y;
+        var midOffset = MotionRigCoordinates.Rotate(mid.X, mid.Y, root.Angle + parentAngle);
+        double midX = rootX + midOffset.X, midY = rootY + midOffset.Y;
+        var endOffset = MotionRigCoordinates.Rotate(end.X, end.Y, root.Angle + mid.Angle + parentAngle);
+        double endX = midX + endOffset.X, endY = midY + endOffset.Y;
+        bool bend = bendPositive ?? Bend(graph, clip.Id, chain.End, frame, ikFrame) ?? true;
+        var result = MotionIk.Solve(rootX, rootY, midX, midY, endX, endY, targetX, targetY, bend);
+        if (!result.Success) return result;
+        double midDir = Math.Atan2(-mid.Y, mid.X) * 180 / Math.PI, endDir = Math.Atan2(-end.Y, end.X) * 180 / Math.PI;
+        SetKey(clip, chain.Root, frame, new MotionPose(root.X, root.Y, Normalize(-result.RootAngle - parentAngle - midDir), root.ScaleX, root.ScaleY, root.Picture));
+        SetKey(clip, chain.Mid, frame, new MotionPose(mid.X, mid.Y, Normalize(result.RootAngle - result.MidAngle + midDir - endDir), mid.ScaleX, mid.ScaleY, mid.Picture));
+        SetKey(clip, chain.End, frame, new MotionPose(end.X, end.Y, end.Angle, end.ScaleX, end.ScaleY, end.Picture));
+        return result;
+    }
     public static bool? Bend(MotionGraph graph, string clipId, string bone, double frame, MotionIkFrame? ikFrame = null)
     {
         var clip = graph.Clips.SingleOrDefault(item => item.Id == clipId);

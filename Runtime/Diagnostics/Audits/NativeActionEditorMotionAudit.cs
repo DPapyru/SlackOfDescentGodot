@@ -464,8 +464,9 @@ public partial class NativeActionEditor
         Expect(Math.Abs(nearEndLength-endLength)<1e-6,"reachable IK drag keeps the mid segment length: expected="+endLength.ToString("F9")+" actual="+nearEndLength.ToString("F9"));
         Expect(Math.Abs(nearEnd.X-nearTarget.X)<1e-6&&Math.Abs(nearEnd.Y-nearTarget.Y)<1e-6,"reachable IK drag lands the end on the pointer: expected="+nearTarget.X.ToString("F9")+","+nearTarget.Y.ToString("F9")+" actual="+nearEnd.X.ToString("F9")+","+nearEnd.Y.ToString("F9"));
         Expect(!status.Text.Contains("夹"),"a reachable IK drag does not clamp: "+status.Text);
-        Expect(Math.Abs(Wrap(nearRoot.Angle+Math.Atan2(nearMid.Y-nearRoot.Y,nearMid.X-nearRoot.X)*180/Math.PI))<1e-6,"IK writeback keeps the chain root rotation on the solved segment: angle="+nearRoot.Angle.ToString("F9")+" direction="+Math.Atan2(nearMid.Y-nearRoot.Y,nearMid.X-nearRoot.X).ToString("F9"));
-        Expect(Math.Abs(Wrap(nearMid.Angle+Math.Atan2(nearEnd.Y-nearMid.Y,nearEnd.X-nearMid.X)*180/Math.PI))<1e-6,"IK writeback keeps the chain mid rotation on the solved segment: angle="+nearMid.Angle.ToString("F9")+" direction="+Math.Atan2(nearEnd.Y-nearMid.Y,nearEnd.X-nearMid.X).ToString("F9"));
+        double midDir=Math.Atan2(-chainPose["FOOT2_ABOVE"].Y,chainPose["FOOT2_ABOVE"].X)*180/Math.PI,endDir=Math.Atan2(-chainPose["FOOT3_ABOVE"].Y,chainPose["FOOT3_ABOVE"].X)*180/Math.PI;
+        Expect(Math.Abs(Wrap(nearRoot.Angle+Math.Atan2(nearMid.Y-nearRoot.Y,nearMid.X-nearRoot.X)*180/Math.PI+midDir))<1e-6,"IK writeback keeps the chain root rotation on the solved segment: angle="+nearRoot.Angle.ToString("F9")+" direction="+Math.Atan2(nearMid.Y-nearRoot.Y,nearMid.X-nearRoot.X).ToString("F9")+" midDir="+midDir.ToString("F9"));
+        Expect(Math.Abs(Wrap(nearMid.Angle+Math.Atan2(nearEnd.Y-nearMid.Y,nearEnd.X-nearMid.X)*180/Math.PI+endDir))<1e-6,"IK writeback keeps the chain mid rotation on the solved segment: angle="+nearMid.Angle.ToString("F9")+" direction="+Math.Atan2(nearEnd.Y-nearMid.Y,nearEnd.X-nearMid.X).ToString("F9")+" endDir="+endDir.ToString("F9"));
         var farPoint=SurfacePoint(canvasActor.X+120,canvasActor.Y-60);
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=PointFor("FOOT3_ABOVE")});
         SurfaceInput(new InputEventMouseMotion{Position=farPoint});

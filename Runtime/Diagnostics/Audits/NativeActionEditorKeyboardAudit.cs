@@ -26,6 +26,23 @@ public partial class NativeActionEditor
         KeyAuditExpect(preview?.Player is not null,"preview is ready: "+status.Text);
     }
     private async Task KeyAuditTickAsync(){await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);}
+    private PopupMenu KeyAuditViewMenu()
+    {
+        var button=Descendants(this).OfType<MenuButton>().FirstOrDefault(item=>item.Text=="视图");
+        KeyAuditExpect(button is not null,"the menu bar owns the 视图 menu");
+        var popup=button!.GetPopup();popup.EmitSignal(PopupMenu.SignalName.AboutToPopup);return popup;
+    }
+    private int KeyAuditMenuItem(PopupMenu popup,string label)
+    {
+        for(int i=0;i<popup.ItemCount;i++)if(popup.GetItemText(i)==label)
+        {
+            KeyAuditExpect(popup.IsItemCheckable(i),"the 视图 menu renders "+label+" as a check item");
+            return i;
+        }
+        throw new InvalidOperationException("Keyboard: the 视图 menu lists "+label);
+    }
+    private bool KeyAuditMenuChecked(string label){var popup=KeyAuditViewMenu();return popup.IsItemChecked(KeyAuditMenuItem(popup,label));}
+    private void KeyAuditChoose(string label){var popup=KeyAuditViewMenu();int index=KeyAuditMenuItem(popup,label);popup.EmitSignal(PopupMenu.SignalName.IdPressed,popup.GetItemId(index));}
     private void KeyAuditSend(InputEvent input)=>PushInput(input,true);
     private void KeyAuditTap(Key key,bool ctrl=false,bool shift=false)
     {
@@ -61,9 +78,11 @@ public partial class NativeActionEditor
         focused.ReleaseFocus();await KeyAuditTickAsync();
         KeyAuditTap(Key.S,true);await KeyAuditTickAsync();
         KeyAuditExpect(File.Exists(path),"ctrl+s saves again after the text field releases focus");
-        RunAction("keyVim");
+        KeyAuditExpect(KeyAuditMenuChecked("键位：默认")&&!KeyAuditMenuChecked("键位：vim"),"the 视图 menu checks the default key mode");
+        KeyAuditChoose("键位：vim");
         KeyAuditExpect(keyMode==KeyMode.Vim&&vimNormal,"switching to vim enters normal mode");
         KeyAuditExpect(NativeContentStore.Load<string>(KeyModePath)=="vim","the key mode persists to the editor settings");
+        KeyAuditExpect(KeyAuditMenuChecked("键位：vim")&&!KeyAuditMenuChecked("键位：默认"),"the 视图 menu checks the vim key mode");
         double startFrame=frame.Value;
         KeyAuditTap(Key.L);await KeyAuditTickAsync();
         KeyAuditExpect(Math.Abs(frame.Value-(startFrame+1))<.001,"vim l advances one frame");
@@ -73,7 +92,10 @@ public partial class NativeActionEditor
         KeyAuditExpect(Clip.Tracks.First(track=>track.Bone=="HEAD").Keys.All(key=>key.Frame!=startFrame),"vim dd deletes the current frame key");
         KeyAuditTap(Key.U);await KeyAuditTickAsync();
         KeyAuditExpect(Clip.Tracks.First(track=>track.Bone=="HEAD").Keys.Any(key=>key.Frame==startFrame),"vim u undoes dd");
-        RunAction("keyDefault");
+        KeyAuditChoose("键位：默认");
+        KeyAuditExpect(keyMode==KeyMode.Default,"choosing 键位：默认 returns to the default mode");
+        KeyAuditExpect(NativeContentStore.Load<string>(KeyModePath)=="default","the default key mode persists to the editor settings");
+        KeyAuditExpect(KeyAuditMenuChecked("键位：默认")&&!KeyAuditMenuChecked("键位：vim"),"the 视图 menu checks the default key mode again");
         KeyAuditTap(Key.L);await KeyAuditTickAsync();
         KeyAuditExpect(Math.Abs(frame.Value-startFrame)<.001,"default mode leaves l unbound");
     }

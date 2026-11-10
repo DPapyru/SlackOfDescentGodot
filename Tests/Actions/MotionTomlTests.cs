@@ -107,6 +107,11 @@ public static class MotionTomlTests
         Throws("id = { a = 1 }\n", "内联表");
         Throws("id = 'x'\n", "单引号");
         Throws("id =\n", "缺少值");
+        string dirty = "HE\u200BAD\u200C\u200D\uFEFF\u00AD";
+        Check(MotionToml.Clean(dirty) == "HEAD", "zero-width and soft-hyphen characters are stripped before parsing");
+        Check(!MotionToml.Clean(dirty).Any(character => character is '\u200B' or '\u200C' or '\u200D' or '\uFEFF' or '\u00AD'), "cleaned text keeps none of the invisible codepoints");
+        var invisibleFrame = MotionToml.ParseFrame(MotionToml.Clean("[[frame]]\nindex = 5\nHE\u200DAD.x = 9\n"), "idle", 5);
+        Check(invisibleFrame.Bones.TryGetValue("HEAD", out var invisiblePose) && invisiblePose["x"] == 9, "a pasted zero-width joiner no longer breaks the bone name");
         return checks;
     }
 }

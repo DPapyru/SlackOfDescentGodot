@@ -18,7 +18,7 @@ public partial class NativeActionEditor
     private CodeEdit SourcePage(TabContainer pages, string title, string name, Action commit, bool framePage)
     {
         var page = new VBoxContainer { Name = title }; pages.AddChild(page);
-        var edit = CodeEditView(name); page.AddChild(edit);
+        var edit = CodeEditView(name); page.AddChild(edit); ConfigureSourceMenu(edit);
         edit.FocusExited += commit;
         edit.GuiInput += input =>
         {
@@ -27,6 +27,25 @@ public partial class NativeActionEditor
         };
         edit.CodeCompletionRequested += () => FillCompletion(edit, framePage);
         return edit;
+    }
+
+    private static void ConfigureSourceMenu(CodeEdit edit)
+    {
+        edit.TextDirection = Control.TextDirection.Ltr;
+        var menu = edit.GetMenu();
+        void Rename(int id, string text) { int index = menu.GetItemIndex(id); if (index >= 0) menu.SetItemText(index, text); }
+        void Remove(int id) { int index = menu.GetItemIndex(id); if (index >= 0) menu.RemoveItem(index); }
+        Rename((int)TextEdit.MenuItems.Cut, "剪切");
+        Rename((int)TextEdit.MenuItems.Copy, "复制");
+        Rename((int)TextEdit.MenuItems.Paste, "粘贴");
+        Rename((int)TextEdit.MenuItems.SelectAll, "全选");
+        Rename((int)TextEdit.MenuItems.Clear, "清除");
+        Rename((int)TextEdit.MenuItems.Undo, "撤销");
+        Rename((int)TextEdit.MenuItems.Redo, "重做");
+        Rename((int)TextEdit.MenuItems.DisplayUcc, "显示控制字符");
+        Rename((int)TextEdit.MenuItems.EmojiAndSymbol, "表情与符号…");
+        Remove((int)TextEdit.MenuItems.SubmenuTextDir);
+        Remove((int)TextEdit.MenuItems.SubmenuInsertUcc);
     }
 
     private static CodeEdit CodeEditView(string name) => new()
@@ -68,7 +87,7 @@ public partial class NativeActionEditor
         if (rawView is null || refreshing || rawView.Text == rawSnapshot) return;
         Guard(() =>
         {
-            var parsed = MotionToml.Parse(rawView.Text);
+            var parsed = MotionToml.Parse(MotionToml.Clean(rawView.Text));
             if (!TryChange(graph => graph.CopyFrom(parsed))) return;
             rawSnapshot = rawView.Text;
             status.Text = "源码已应用。";

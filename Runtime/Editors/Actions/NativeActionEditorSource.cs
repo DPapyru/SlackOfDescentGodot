@@ -1,5 +1,6 @@
 using Godot;
 using System.Globalization;
+using System.Text.Json;
 
 namespace SlackOfDescent;
 
@@ -8,11 +9,52 @@ public partial class NativeActionEditor
     private CodeEdit sourceView = null!, rawView = null!;
     private string sourceSnapshot = "", rawSnapshot = "";
     private MotionGraphDocument? renderedDocument;
+    private bool showRawPage;
+    private string SettingsPath => Path.Combine(store.Root, "Editor", "action-editor.json");
+    private sealed class ActionEditorSettings
+    {
+        public bool ShowRawData { get; set; }
+    }
+
+    private void LoadEditorSettings()
+    {
+        if (!File.Exists(SettingsPath)) return;
+        try { showRawPage = NativeContentStore.Load<ActionEditorSettings>(SettingsPath).ShowRawData; }
+        catch (Exception error) when (error is IOException or JsonException) { GD.PrintErr(error.Message); }
+    }
+
+    private void SaveEditorSettings()
+    {
+        try { NativeContentStore.Save(SettingsPath, new ActionEditorSettings { ShowRawData = showRawPage }); }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { GD.PrintErr(error.Message); }
+    }
 
     private void BuildSourcePages(TabContainer pages)
     {
         sourceView = SourcePage(pages, "节点属性修改", "SourceView", CommitFrame, true);
-        rawView = SourcePage(pages, "原始数据", "RawView", CommitGraph, false);
+        if (showRawPage) AddRawPage();
+    }
+
+    private void AddRawPage()
+    {
+        if (rawView is not null) return;
+        rawView = SourcePage(leftPages, "原始数据", "RawView", CommitGraph, false);
+    }
+
+    private void RemoveRawPage()
+    {
+        if (rawView is null) return;
+        var page = rawView.GetParent();
+        rawView = null!; rawSnapshot = "";
+        page.Free();
+    }
+
+    private void ToggleRawPage(bool on)
+    {
+        showRawPage = on;
+        if (on) AddRawPage(); else RemoveRawPage();
+        SaveEditorSettings();
+        RefreshCodeViews();
     }
 
     private CodeEdit SourcePage(TabContainer pages, string title, string name, Action commit, bool framePage)
@@ -22,7 +64,9 @@ public partial class NativeActionEditor
         edit.FocusExited += commit;
         edit.GuiInput += input =>
         {
-            if (input is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Enter, CtrlPressed: true }) return;
+            if (input is not InputEventKey { Pressed: true, Echo: false, CtrlPressed: true } key) return;
+            if (key.Keycode == Key.Space) { edit.RequestCodeCompletion(true); edit.AcceptEvent(); return; }
+            if (key.Keycode != Key.Enter) return;
             commit(); edit.AcceptEvent();
         };
         edit.CodeCompletionRequested += () => FillCompletion(edit, framePage);
@@ -56,12 +100,12 @@ public partial class NativeActionEditor
 
     private void RefreshCodeViews()
     {
-        if (sourceView is null || rawView is null) return;
+        if (sourceView is null) return;
         Guard(() =>
         {
             bool replaced = renderedDocument != document;
             if (!sourceView.HasFocus() && (replaced || sourceView.Text == sourceSnapshot)) sourceView.Text = sourceSnapshot = MotionToml.RenderFrame(Clip, frame.Value);
-            if (!rawView.HasFocus() && (replaced || rawView.Text == rawSnapshot)) rawView.Text = rawSnapshot = MotionToml.Render(document.Graph);
+            if (rawView is not null && !rawView.HasFocus() && (replaced || rawView.Text == rawSnapshot)) rawView.Text = rawSnapshot = MotionToml.Render(document.Graph);
             renderedDocument = document;
             HighlightSourceBone();
         });

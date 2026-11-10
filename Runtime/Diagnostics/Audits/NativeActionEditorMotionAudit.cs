@@ -45,11 +45,11 @@ public partial class NativeActionEditor
             Expect(tabs.TabCount>0&&tabs.CurrentTab==activeProject,"the active tab is the active project");
             Expect(surface is TextureRect&&overlay is not null,"the center stage keeps the single motion surface");
             Expect(Count<TextureRect>()==1&&overlay.GetParent()==surface&&Descendants(this).OfType<SubViewport>().Count(node=>node.GetParent()==this)==1&&Descendants(this).OfType<GmCanvas>().Count(node=>node.GetParent()==viewport)==1,"the studio owns one surface, overlay, viewport and canvas");
-            Expect(leftPages is TabContainer&&leftPages.GetTabCount()==2&&leftPages.GetTabTitle(0)=="节点属性修改"&&leftPages.GetTabTitle(1)=="原始数据","the left dock has exactly two pages");
+            Expect(leftPages is TabContainer&&leftPages.GetTabCount()==1&&leftPages.GetTabTitle(0)=="节点属性修改","the left dock opens on the single pose page");
             Expect(leftPages.GetParent() is VBoxContainer leftDock&&Math.Abs(leftDock.CustomMinimumSize.X-350)<.001,"the left sidebar is 350 pixels wide");
-            Expect(leftPages.CurrentTab==0&&sourceView.GetParent()==leftPages.GetTabControl(0)&&rawView.GetParent()==leftPages.GetTabControl(1),"the left pages own the code and raw views");
+            Expect(leftPages.CurrentTab==0&&sourceView.GetParent()==leftPages.GetTabControl(0),"the left page owns the code view");
             Expect(Descendants(this).OfType<TabContainer>().All(page=>page==leftPages),"the deleted dock pages are gone");
-            Expect(sourceView is CodeEdit{Editable:true}&&rawView is CodeEdit{Editable:true},"both left pages are editable code");
+            Expect(sourceView is CodeEdit{Editable:true},"the left page is editable code");
             var settings=Descendants(this).FirstOrDefault(node=>node.Name=="ActionSettings");
             Expect(settings is VBoxContainer{ CustomMinimumSize.X: 280 }&&Descendants(settings).OfType<TabContainer>().Count()==0,"the right dock is a single 280 pixel 动作设置 page");
             Expect(settings is not null&&Descendants(settings).Contains(clipChoice)&&Descendants(settings).Contains(duration)&&Descendants(settings).Contains(loop)&&Descendants(settings).Contains(frame)&&loop.Text=="循环","动作设置 holds the clip dropdown, 总帧数, 循环 and the current frame");
@@ -81,6 +81,7 @@ public partial class NativeActionEditor
             Expect(legacyMethods.All(name=>GetType().GetMethod(name,System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.Public|System.Reflection.BindingFlags.NonPublic) is null),"the removed page entry points are gone");
         }
         Layout();
+        AuditLeftPages();
         GD.Print("MOTION_EDITOR_LAYOUT_OK");
         await Ready();
         Expect(preview!.Bridge.BoundCharacter(preview.Player!.Id) is not null,"the preview keeps the character binding");
@@ -127,17 +128,11 @@ public partial class NativeActionEditor
         Expect(sourceView.CodeCompletionEnabled&&rawView.CodeCompletionEnabled,"the left pages complete TOML");
         Expect(sourceView.Text.StartsWith("[[frame]]")&&sourceView.Text.Contains("index = "+frame.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)),"节点属性修改 renders the current frame block");
         Expect(rawView.Text.Contains("[[clip]]")&&rawView.Text.Contains("[[state]]")&&rawView.Text.Contains("[state.movement]"),"原始数据 renders the whole graph as TOML tables");
-        string sourceText=sourceView.Text;
-        sourceView.Text="HEA";sourceView.SetCaretLine(0);sourceView.SetCaretColumn(3);
-        FillCompletion(sourceView,true);Expect(sourceView.GetCodeCompletionOption(0).Count>0,"节点属性修改 offers TOML completion");
-        sourceView.Text=sourceText;
-        string rawText=rawView.Text;
-        rawView.Text="HEA";rawView.SetCaretLine(0);rawView.SetCaretColumn(3);
-        FillCompletion(rawView,false);Expect(rawView.GetCodeCompletionOption(0).Count>0,"原始数据 offers TOML completion");
+        AuditCompletion();
         var extendedDuration=Clip.Duration*2;
         string currentDuration="duration = "+Clip.Duration.ToString("R",System.Globalization.CultureInfo.InvariantCulture);
         string extendedText="duration = "+extendedDuration.ToString("R",System.Globalization.CultureInfo.InvariantCulture);
-        rawView.Text=rawText.Replace(currentDuration,extendedText);
+        rawView.Text=rawView.Text.Replace(currentDuration,extendedText);
         sourceView.Text="[[frame]]\nindex = 0\nHEAD.x = 2.5\n";
         CommitFrame();
         Expect(Math.Abs(Clip.Sample(0).GetValueOrDefault("HEAD").X-2.5)<1e-9&&sourceView.Text.Contains("HEAD.x = 2.5"),"committing the frame text writes the pose and re-renders the block");
@@ -164,6 +159,7 @@ public partial class NativeActionEditor
         rawView.Text="id = \"broken\"\nskeleton = \"Nana\"\nentry = \"idle\"\n[[clip]]\nid = \"idle\"\nduration = 10\n[[state]]\nid = \"idle\"\nclip = \"idle\"\nunknown = 1\n";
         CommitGraph();
         Expect(document.Graph.Id!="broken"&&document.UndoDepth==graphUndo&&rawView.Text.Contains("unknown = 1"),"invalid graph text is rejected without an edit");
+        AuditHighlighter();
         await Shot("motion-left-pages");
         var studio=preview!;var studioWorld=studio.World;
         var skeleton=studio.Bridge.Services.Motions.Skeleton(new(studio.World,studio.Player!));
@@ -763,5 +759,53 @@ public partial class NativeActionEditor
         Expect(new (int Id,string Text)[]{((int)TextEdit.MenuItems.Cut,"剪切"),((int)TextEdit.MenuItems.Copy,"复制"),((int)TextEdit.MenuItems.Paste,"粘贴"),((int)TextEdit.MenuItems.SelectAll,"全选"),((int)TextEdit.MenuItems.Clear,"清除"),((int)TextEdit.MenuItems.Undo,"撤销"),((int)TextEdit.MenuItems.Redo,"重做"),((int)TextEdit.MenuItems.DisplayUcc,"显示控制字符")}.All(item=>MenuId(item.Id)>=0&&sourceMenu.GetItemText(MenuId(item.Id))==item.Text),"the source context menu speaks Chinese");
         Expect(MenuId((int)TextEdit.MenuItems.SubmenuInsertUcc)<0&&MenuId((int)TextEdit.MenuItems.SubmenuTextDir)<0,"the source context menu hides control-character insertion and writing direction");
         Expect(sourceView.TextDirection==Control.TextDirection.Ltr&&rawView.TextDirection==Control.TextDirection.Ltr,"both source pages are fixed left to right");
+    }
+
+    private static void AuditSourceExpect(bool ok,string message){if(!ok)throw new InvalidOperationException("Motion editor: "+message);}
+
+    private void AuditCompletion()
+    {
+        (bool Ok,string Detail) source=Completion(sourceView);
+        AuditSourceExpect(source.Ok,"节点属性修改 offers TOML completion on Ctrl+Space: "+source.Detail);
+        (bool Ok,string Detail) raw=Completion(rawView);
+        AuditSourceExpect(raw.Ok,"原始数据 offers TOML completion on Ctrl+Space: "+raw.Detail);
+    }
+
+    private static (bool Ok,string Detail) Completion(CodeEdit edit)
+    {
+        string text=edit.Text;
+        edit.Text="HEA";edit.SetCaretLine(0);edit.SetCaretColumn(3);
+        edit.EmitSignal(Control.SignalName.GuiInput,new InputEventKey{Keycode=Key.Space,CtrlPressed=true,Pressed=true,Echo=false});
+        int count=edit.GetCodeCompletionOptions().Count,bones=0;
+        for(int i=0;i<count;i++) if(MotionSkeleton.Bones.Contains(edit.GetCodeCompletionOption(i)["display_text"].AsString())) bones++;
+        edit.CancelCodeCompletion();
+        edit.Text=text;
+        return (count>0&&bones>0,"options="+count+" boneCandidates="+bones+" expects at least one real bone name such as HEAD or BODY_TOP");
+    }
+
+    private void AuditHighlighter()
+    {
+        string text=sourceView.Text;
+        sourceView.Text="[[frame]]\nindex = 0\nHEAD.x = 1\nHEAD.angle = 2\nHEAD.picture = 3\nkind = \"Damage\"\n# 注释\n";
+        var highlighter=(TomlSyntaxHighlighter)sourceView.SyntaxHighlighter;
+        Color LineColor(int line)
+        {
+            int column=-1;Color color=Colors.White;
+            foreach(var pair in highlighter._GetLineSyntaxHighlighting(line)){int start=pair.Key.AsInt32();if(start<=column)continue;column=start;color=pair.Value.AsGodotDictionary()["color"].AsColor();}
+            return color;
+        }
+        AuditSourceExpect(new[]{LineColor(2),LineColor(3),LineColor(4),LineColor(5),LineColor(6)}.Distinct().Count()==5,"the highlighter gives coordinates, angles, pictures, enums and comments five distinct colors");
+        sourceView.Text=text;
+    }
+
+    private void AuditLeftPages()
+    {
+        AuditSourceExpect(leftPages is TabContainer&&leftPages.GetTabCount()==1,"the left dock opens on the single pose page");
+        AuditSourceExpect(leftPages.GetTabTitle(0)=="节点属性修改"&&sourceView is CodeEdit{Editable:true},"the pose page is the editable code view");
+        AuditSourceExpect(rawView is null&&showRawData is CheckButton{ButtonPressed:false},"the raw data page is hidden by default");
+        showRawData.ButtonPressed=true;
+        AuditSourceExpect(leftPages.GetTabCount()==2&&leftPages.GetTabTitle(1)=="原始数据"&&rawView is CodeEdit{Editable:true},"the settings checkbox restores the raw data page");
+        string settingsFile=Path.Combine(store.Root,"Editor","action-editor.json");
+        AuditSourceExpect(File.Exists(settingsFile)&&File.ReadAllText(settingsFile).Contains("\"ShowRawData\": true",StringComparison.Ordinal),"the raw data toggle persists to the editor settings file");
     }
 }

@@ -13,6 +13,7 @@ public partial class NativeActionEditor
     private GmCanvas canvas = null!;
     private NativeMotionOverlay? overlay;
     private bool rootTrackMode;
+    private CheckButton showRawData = null!;
     private static HBoxContainer Row(Node parent) { var row = new HBoxContainer(); parent.AddChild(row); return row; }
     private static Button Button(Node parent, string text, Action action) { var button = new Button { Text = text }; parent.AddChild(button); button.Pressed += action; return button; }
     private static VBoxContainer Column(Node parent) { var column = new VBoxContainer(); parent.AddChild(column); return column; }
@@ -63,7 +64,7 @@ public partial class NativeActionEditor
     }
     private void BuildEditor()
     {
-        LoadKeyMode(); GetViewport().GuiFocusChanged += TrackFocus;
+        LoadKeyMode(); LoadEditorSettings(); GetViewport().GuiFocusChanged += TrackFocus;
         Name = "NativeActionEditor"; Title = "动作编辑器"; Size = new(1360, 900); MinSize = new(1120, 720); Unresizable = false; Transient = true;
         Theme = NativeEditorTheme.Create();
         CloseRequested += RequestClose;
@@ -149,6 +150,8 @@ public partial class NativeActionEditor
             if (!refreshing && !syncingTimeline && !syncingPlayhead) { ClearSelectedKey(); ApplyDocumentPose(); RefreshCodeViews(); }
             UpdateTimeLabel(); timelineTracks?.QueueRedraw();
         };
+        var rawRow = Row(panel); showRawData = new CheckButton { Name = "ShowRawData", Text = "显示原始数据页", ButtonPressed = showRawPage }; rawRow.AddChild(showRawData);
+        showRawData.Toggled += ToggleRawPage;
     }
     private const string MotionCodePrefix = "external/Chara/Motion/";
     private void ShowOriginalMotions()

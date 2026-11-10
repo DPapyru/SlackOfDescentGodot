@@ -112,6 +112,8 @@ public sealed class MotionGraph
     public string Id { get; set; } = "motion";
     public string Skeleton { get; set; } = "Nana";
     public string Entry { get; set; } = "idle";
+    [System.Text.Json.Serialization.JsonInclude]
+    public string Origin { get; internal set; } = "unknown";
     public List<MotionClip> Clips { get; set; } = new();
     public List<MotionState> States { get; set; } = new();
     public Dictionary<string,double> Parameters { get; set; } = new(StringComparer.Ordinal);
@@ -162,5 +164,6 @@ public sealed class MotionGraph
         Require(EntitySlots.Values.Distinct(StringComparer.Ordinal).Count()==EntitySlots.Count,"Entity slot target is already occupied.");
     }
     public void Save(string path){Validate();NativeContentStore.Save(path,this);}
-    public static MotionGraph Load(string path){var graph=NativeContentStore.Load<MotionGraph>(path);graph.Validate();return graph;}
+    public static MotionGraph Load(string path)=>Load(path,null);
+    internal static MotionGraph Load(string path,string? origin){var graph=NativeContentStore.Load<MotionGraph>(path);if(origin is not null)graph.Origin=origin;graph.Validate();return graph;}
 }

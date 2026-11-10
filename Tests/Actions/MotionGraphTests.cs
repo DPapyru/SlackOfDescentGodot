@@ -174,6 +174,22 @@ public static class MotionGraphTests
         Console.WriteLine("MOTION_IMPORT supported="+imported+" rejected="+rejected);
         bool invalid=false;try{graph.Clips[0].Tracks[0].Keys[0].X=double.NaN;graph.Validate();}catch(InvalidDataException){invalid=true;}
         Check(invalid,"non finite asset values are rejected");
+        string originDirectory=Path.Combine(Path.GetTempPath(),"motion-origin-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(originDirectory);
+        try
+        {
+            string legacyFile=Path.Combine(originDirectory,"legacy.motion.json");
+            File.WriteAllText(legacyFile,"{\"FormatVersion\":1,\"Id\":\"origin.legacy\",\"Skeleton\":\"Nana\",\"Entry\":\"idle\",\"Clips\":[{\"Id\":\"idle\"}],\"States\":[{\"Id\":\"idle\",\"Clip\":\"idle\"}]}");
+            Check(MotionGraph.Load(legacyFile).Origin=="unknown","a motion graph without an origin field loads as unknown");
+            var modGraph=MotionGraph.Load(legacyFile,"example.mod");
+            Check(modGraph.Origin=="example.mod","the mod content loader records the mod id");
+            string modFile=Path.Combine(originDirectory,"mod.motion.json");modGraph.Save(modFile);
+            Check(MotionGraph.Load(modFile).Origin=="example.mod","saving and reloading keeps the origin");
+            var roundTrip=System.Text.Json.JsonSerializer.Deserialize<MotionGraph>(System.Text.Json.JsonSerializer.Serialize(modGraph,NativeContentStore.Json),NativeContentStore.Json)!;
+            Check(roundTrip.Origin=="example.mod","serialization round trip keeps the origin");
+            var nativeGraph=MotionImport.FromAst(world.Code["external/Chara/Motion/PlayerNana/Stand0_Damage.txt"],"origin.native","Nana");
+            Check(nativeGraph.Origin=="native","importing an original GameData action records the native layer");
+        }
+        finally{Directory.Delete(originDirectory,true);}
         return count;
     }
     private sealed class Entity : IEntityBehavior

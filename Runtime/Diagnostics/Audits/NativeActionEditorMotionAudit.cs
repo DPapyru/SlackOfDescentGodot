@@ -509,6 +509,7 @@ public partial class NativeActionEditor
         Expect(ReferenceEquals(preview,previewBefore),"undo and redo do not rebuild the preview");
         await Shot("motion-follow");
         document=new(MotionImport.FromAst(world.Code["external/Chara/Motion/PlayerNana/Stand0_Damage.txt"],"audit.editor","Nana"));Refresh();
+        Expect(document.Graph.Origin=="native"&&(targetLabel.Text.Contains("原版层")||targetLabel.Text.Contains("Native")),"an imported original action is labelled as the native layer");
         SelectBone("HEAD");frame.Value=2;angle.Value=17;
         Expect(Clip.Tracks.Single(t=>t.Bone=="HEAD").Keys.Any(k=>k.Frame==2&&k.Angle==17),"the timeline controls write a real bone key");
         document.Undo();Expect(!Clip.Tracks.Single(t=>t.Bone=="HEAD").Keys.Any(k=>k.Frame==2),"undo removes the timeline key");document.Redo();

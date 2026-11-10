@@ -16,7 +16,13 @@ public partial class NativeActionEditor
         MotionTargetKind.PlayerPreset=>"目标：玩家预设 "+Project.Target.Id,
         MotionTargetKind.PlayerCharacter=>"目标：玩家角色 "+Project.Target.Id,
         _=>"目标：实体 "+Project.Target.Id+"（临时骨架）"
-    };
+    }+"　·　"+OriginBadge();
+    private static string L(string zh,string en)=>NativeLocalization.IsChinese?zh:en;
+    private string OriginBadge()
+    {
+        string origin=document.Graph.Origin;
+        return origin switch{"native"=>L("原版层","Native"),"unknown"=>L("未知来源","Unknown"),_=>"Mod:"+origin};
+    }
     private void CaptureProjectState()
     {
         Project.ClipIndex=(int)Math.Max(0,clipChoice.Selected);

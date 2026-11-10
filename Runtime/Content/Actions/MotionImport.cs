@@ -58,7 +58,7 @@ public static class MotionImport
         return true;
     }
 
-    public static MotionGraph FromAst(JsonElement ast,string id,string skeleton,double sourceHz=30)
+    public static MotionGraph FromAst(JsonElement ast,string id,string skeleton,double sourceHz=30,string? clipId=null)
     {
         if(!double.IsFinite(sourceHz)||sourceHz<=0)throw new InvalidDataException("Invalid source clock.");
         var scalar=new Dictionary<string,double>(StringComparer.Ordinal);
@@ -116,7 +116,7 @@ public static class MotionImport
         if(steps.Length==0)throw new InvalidDataException("Motion has no frame times.");
         if(steps.Any(s=>s.Value<0)||steps.Zip(steps.Skip(1)).Any(p=>p.First.Value>=p.Second.Value))throw new InvalidDataException("Motion frame times are not strictly increasing.");
         double Get(int bone,string field,int index,double fallback=0)=>values.GetValueOrDefault((bone,field,index),fallback);
-        var clip=new MotionClip{Id="imported",Duration=Math.Max(1,Math.Max(scalar.GetValueOrDefault("data_motLong",steps[^1].Value),steps[^1].Value)*factor)};
+        var clip=new MotionClip{Id=clipId??id,Duration=Math.Max(1,Math.Max(scalar.GetValueOrDefault("data_motLong",steps[^1].Value),steps[^1].Value)*factor)};
         foreach(var step in steps)clip.Root.Add(new(){Frame=step.Value*factor,X=Get(-1,"data_motPosX",step.Key.Index),Y=Get(-1,"data_motPosY",step.Key.Index)});
         foreach(int bone in values.Keys.Where(k=>k.Part>=0).Select(k=>k.Part).Distinct().Order())
         {
@@ -130,6 +130,6 @@ public static class MotionImport
             }
             clip.Tracks.Add(track);
         }
-        var graph=new MotionGraph{Id=id,Skeleton=skeleton,Clips=[clip],States=[new(){Clip=clip.Id}]};graph.Validate();return graph;
+        var graph=new MotionGraph{Id=id,Skeleton=skeleton,Origin="native",Clips=[clip],States=[new(){Clip=clip.Id}]};graph.Validate();return graph;
     }
 }

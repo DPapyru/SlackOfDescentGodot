@@ -8,6 +8,7 @@ public static class MotionGraphTests
         void Check(bool ok,string message){if(!ok)throw new Exception(message);count++;}
         bool Throws(Action action,string text){try{action();return false;}catch(Exception error){return error.Message.Contains(text,StringComparison.Ordinal);}}
         (double X,double Y) Compose((double X,double Y) parent,double angle,double x,double y){var (offsetX,offsetY)=MotionRigCoordinates.Rotate(x,y,angle);return (parent.X+offsetX,parent.Y+offsetY);}
+        double Wrap(double angle){angle%=360;return angle<=-180?angle+360:angle>180?angle-360:angle;}
         var clip=new MotionClip{Id="idle",Duration=4,Loop=false,Tracks=[new(){Bone="HEAD",Keys=[new(){Frame=0,Angle=350},new(){Frame=4,X=8,Angle=10,ScaleX=2,Picture=3}]}]};
         var pose=clip.Sample(2)["HEAD"];
         Check(pose.X==4&&pose.ScaleX==1.5&&Math.Abs(pose.Angle-360)<.001&&pose.Picture==0,"timeline interpolation and stepped pictures");
@@ -29,8 +30,33 @@ public static class MotionGraphTests
         var rig=new MotionGraph{Id="legacy.rig",Skeleton="legacy:objEnemy",Clips=[new(){Id="idle",Tracks=[new(){Bone="process:0",Keys=[new(){Frame=0}]}]}],States=[new(){Id="idle",Clip="idle"}],EntitySlots=new(){["process:0"]="process:0"}};rig.Validate();Check(rig.Skeleton=="legacy:objEnemy"&&rig.EntitySlots["process:0"]=="process:0","legacy process graph validates");
         int processObject=world.Constants["objEnemyDoll"].Int;var processActor=world.Create(processObject,0,0,run:false);var processPart=world.Create(processObject,4,0,run:false);processPart.Scope.Write("parent",processActor.Id);processPart.Scope.Write("PartPosDir",0);processPart.Scope.Write("PartPosDis",4);processActor.Scope.Write("Process",processPart.Object,0);var descriptor=MotionSkeletonDescriptor.FromActor(world,processActor);Check(descriptor.Contains("process:0")&&descriptor.Node("process:0").Parent==processActor.Id,"Process/parent skeleton resolves stable node");double originalAngle=processPart.Scope.ReadOr("image_angle").Number;var processGraph=new MotionGraph{Id="legacy.play",Skeleton="legacy:objEnemyDoll",Clips=[new(){Id="idle",Tracks=[new(){Bone="process:0",Keys=[new(){Frame=0,Angle=27}]}]}],States=[new(){Id="idle",Clip="idle"}],EntitySlots=new(){["process:0"]="process:0"}};using(var processBridge=new GmNativeBridge(world,new ContentRegistry())){var processContext=new ActorContext(world,processActor);processBridge.Services.Motions.Play(processContext,processGraph);processBridge.Update(new(FrameContext.FixedDelta,0,1,InputSnapshot.Empty));processBridge.Services.Motions.Stop(processContext);}Check(Math.Abs(processPart.Scope.ReadOr("image_angle").Number-originalAngle)<.001,"stopping legacy motion restores original pose");processActor.Destroyed=true;processPart.Destroyed=true;
         var duplicateSlots=new MotionGraph{Skeleton="legacy:objEnemyDoll",Clips=[new(){Tracks=[new(){Bone="process:0"},new(){Bone="process:1"}]}],States=[new(){Id="idle",Clip="idle"}],EntitySlots=new(){{"process:0","process:0"},{"process:1","process:0"}}};duplicateSlots.Clips[0].Id="idle";Check(Throws(() => duplicateSlots.Validate(),"occupied"),"duplicate entity slots report conflict");
-        var drag=new MotionGraph{Id="ik.drag",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_TOP",Keys=[new(){Frame=0,X=0,Y=0}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=3,Y=0}]},new(){Bone="HAND1_BELOW",Keys=[new(){Frame=0,X=3,Y=0}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND1_BELOW"}]};
-        var dragDoc=new MotionGraphDocument(drag);var dragged=dragDoc.Drag("idle","HAND1_BELOW",0,4,2);var midPose=dragDoc.Graph.Clips[0].Tracks.Single(t=>t.Bone=="HAND1_ABOVE").Keys[0];var endPose=dragDoc.Graph.Clips[0].Tracks.Single(t=>t.Bone=="HAND1_BELOW").Keys[0];Check(dragged.Success&&Math.Abs(Math.Sqrt(midPose.X*midPose.X+midPose.Y*midPose.Y)-3)<.001&&Math.Abs(Math.Sqrt(endPose.X*endPose.X+endPose.Y*endPose.Y)-3)<.001,"IK drag preserves both segment lengths");dragDoc.Undo();Check(dragDoc.Graph.Clips[0].Tracks.Single(t=>t.Bone=="HAND1_BELOW").Keys[0].X==3,"IK drag is one undo operation");
+        var drag=new MotionGraph{Id="ik.drag",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_TOP",Keys=[new(){Frame=0,X=0,Y=0}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=3,Y=0}]},new(){Bone="HAND2_ABOVE",Keys=[new(){Frame=0,X=3,Y=0}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND2_ABOVE"}]};
+        var dragDoc=new MotionGraphDocument(drag);var dragged=dragDoc.Drag("idle","HAND2_ABOVE",0,4,2);var midPose=dragDoc.Graph.Clips[0].Tracks.Single(t=>t.Bone=="HAND1_ABOVE").Keys[0];var endPose=dragDoc.Graph.Clips[0].Tracks.Single(t=>t.Bone=="HAND2_ABOVE").Keys[0];Check(dragged.Success&&Math.Abs(Math.Sqrt(midPose.X*midPose.X+midPose.Y*midPose.Y)-3)<.001&&Math.Abs(Math.Sqrt(endPose.X*endPose.X+endPose.Y*endPose.Y)-3)<.001,"IK drag preserves both segment lengths");dragDoc.Undo();Check(dragDoc.Graph.Clips[0].Tracks.Single(t=>t.Bone=="HAND2_ABOVE").Keys[0].X==3,"IK drag is one undo operation");
+        var reachGraph=new MotionGraph{Id="ik.reach",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_TOP",Keys=[new(){Frame=0}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=3,Y=0}]},new(){Bone="HAND2_ABOVE",Keys=[new(){Frame=0,X=3,Y=0}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND2_ABOVE"}]};
+        var reachDoc=new MotionGraphDocument(reachGraph);int reachUndo=reachDoc.UndoDepth;var near=reachDoc.Drag("idle","HAND2_ABOVE",0,2,1);var nearPose=reachDoc.Graph.Clips[0].Sample(0);
+        var nearMidPoint=Compose((nearPose["BODY_TOP"].X,nearPose["BODY_TOP"].Y),nearPose["BODY_TOP"].Angle,nearPose["HAND1_ABOVE"].X,nearPose["HAND1_ABOVE"].Y);
+        var nearEndPoint=Compose(nearMidPoint,nearPose["BODY_TOP"].Angle+nearPose["HAND1_ABOVE"].Angle,nearPose["HAND2_ABOVE"].X,nearPose["HAND2_ABOVE"].Y);
+        Check(near.Success&&!near.Clamped&&near.Reason.Length==0,"reachable IK drag reports no clamp");
+        Check(Math.Abs(Math.Sqrt(nearPose["HAND1_ABOVE"].X*nearPose["HAND1_ABOVE"].X+nearPose["HAND1_ABOVE"].Y*nearPose["HAND1_ABOVE"].Y)-3)<1e-9&&Math.Abs(nearPose["HAND1_ABOVE"].Y)<1e-9&&Math.Abs(Math.Sqrt(nearPose["HAND2_ABOVE"].X*nearPose["HAND2_ABOVE"].X+nearPose["HAND2_ABOVE"].Y*nearPose["HAND2_ABOVE"].Y)-3)<1e-9&&Math.Abs(nearPose["HAND2_ABOVE"].Y)<1e-9,"IK writeback keeps both segments on the local X axis");
+        Check(Math.Abs(nearEndPoint.X-2)<1e-9&&Math.Abs(nearEndPoint.Y-1)<1e-9,"reachable IK writeback lands the end on the target");
+        Check(Math.Abs(Wrap(nearPose["BODY_TOP"].Angle+near.RootAngle))<1e-9,"IK writeback stores the rig angle convention for the chain root");
+        Check(Math.Abs(Wrap(nearPose["HAND1_ABOVE"].Angle-(near.RootAngle-near.MidAngle)))<1e-9,"IK writeback stores the rig angle convention for the chain mid");
+        Check(reachDoc.UndoDepth==reachUndo+1,"reachable IK drag is one undo step");
+        var far=reachDoc.Drag("idle","HAND2_ABOVE",0,30,0);var farPose=reachDoc.Graph.Clips[0].Sample(0);
+        var farMidPoint=Compose((farPose["BODY_TOP"].X,farPose["BODY_TOP"].Y),farPose["BODY_TOP"].Angle,farPose["HAND1_ABOVE"].X,farPose["HAND1_ABOVE"].Y);
+        var farEndPoint=Compose(farMidPoint,farPose["BODY_TOP"].Angle+farPose["HAND1_ABOVE"].Angle,farPose["HAND2_ABOVE"].X,farPose["HAND2_ABOVE"].Y);
+        Check(far.Success&&far.Clamped&&far.Reason=="目标超出链长，已夹到可达范围。","IK drag beyond reach clamps once with the reach message");
+        Check(Math.Abs(farEndPoint.X-6)<1e-9&&Math.Abs(farEndPoint.Y)<1e-9,"IK clamp lands on the reachable boundary");
+        Check(Math.Abs(Math.Sqrt(farPose["HAND1_ABOVE"].X*farPose["HAND1_ABOVE"].X+farPose["HAND1_ABOVE"].Y*farPose["HAND1_ABOVE"].Y)-3)<1e-9&&Math.Abs(Math.Sqrt(farPose["HAND2_ABOVE"].X*farPose["HAND2_ABOVE"].X+farPose["HAND2_ABOVE"].Y*farPose["HAND2_ABOVE"].Y)-3)<1e-9,"clamped IK drag keeps both segment lengths");
+        Check(reachDoc.UndoDepth==reachUndo+2,"clamped IK drag is one undo step");
+        var clear=reachDoc.Drag("idle","HAND2_ABOVE",0,0,2);
+        Check(clear.Success&&!clear.Clamped&&clear.Reason.Length==0,"a follow-up reachable IK drag clears the clamp result");
+        var framedGraph=new MotionGraph{Id="ik.framed",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_TOP",Keys=[new(){Frame=0}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=3}]},new(){Bone="HAND2_ABOVE",Keys=[new(){Frame=0,X=3}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND2_ABOVE"}]};
+        var framedDoc=new MotionGraphDocument(framedGraph);var framedResult=framedDoc.Drag("idle","HAND2_ABOVE",0,2,1,null,false,new MotionIkFrame(30,0,5));var framedPose=framedDoc.Graph.Clips[0].Sample(0);
+        var framedMidPoint=Compose((0d,5d),framedPose["BODY_TOP"].Angle+30,framedPose["HAND1_ABOVE"].X,framedPose["HAND1_ABOVE"].Y);
+        var framedEndPoint=Compose(framedMidPoint,framedPose["BODY_TOP"].Angle+30+framedPose["HAND1_ABOVE"].Angle,framedPose["HAND2_ABOVE"].X,framedPose["HAND2_ABOVE"].Y);
+        Check(framedResult.Success&&Math.Abs(framedEndPoint.X-2)<1e-9&&Math.Abs(framedEndPoint.Y-1)<1e-9,"IK drag honours the chain root frame override");
+        Check(Math.Abs(Wrap(framedPose["BODY_TOP"].Angle+framedResult.RootAngle+30))<1e-9,"IK writeback subtracts the chain parent angle from the root rotation");
         var viewport=new MotionView(100,200,320,240,640,480);
         var mapped=MotionViewport.ToWorld(400,300,640,480,viewport);var mappedBack=MotionViewport.ToSurface(300,350,640,480,viewport);
         Check(Math.Abs(mapped.X-300)<.001&&Math.Abs(mapped.Y-350)<.001&&Math.Abs(mappedBack.X-400)<.001&&Math.Abs(mappedBack.Y-300)<.001,"viewport maps a 1:1 surface and round trips");
@@ -41,21 +67,21 @@ public static class MotionGraphTests
         Check(Math.Abs(MotionViewport.WorldPerPixel(800,300,new(0,0,320,240,640,480))-.8)<.001&&Math.Abs(MotionViewport.WorldPerPixel(640,480,new(0,0,320,240,640,480))-.5)<.001,"viewport converts a 12px pick radius to world units");
         Check(Math.Abs(MotionViewport.WorldPerPixel(800,300,new(0,0,320,240,640,480))*12-9.6)<.001,"viewport turns the 12px pick radius into 9.6 world units");
         Check(MotionViewport.WorldPerPixel(0,0,new(0,0,320,240,640,480))==0,"viewport reports no scale for an empty surface");
-        var composeGraph=new MotionGraph{Id="ik.compose",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_TOP",Keys=[new(){Frame=0,Angle=15}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=3,Y=0}]},new(){Bone="HAND1_BELOW",Keys=[new(){Frame=0,X=3,Y=0}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND1_BELOW"}]};
-        var composeDoc=new MotionGraphDocument(composeGraph);var composeResult=composeDoc.Drag("idle","HAND1_BELOW",0,4,2);
+        var composeGraph=new MotionGraph{Id="ik.compose",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_TOP",Keys=[new(){Frame=0,Angle=15}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=3,Y=0}]},new(){Bone="HAND2_ABOVE",Keys=[new(){Frame=0,X=3,Y=0}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND2_ABOVE"}]};
+        var composeDoc=new MotionGraphDocument(composeGraph);var composeResult=composeDoc.Drag("idle","HAND2_ABOVE",0,4,2);
         var composed=composeDoc.Graph.Clips[0].Sample(0);
         var rootPoint=(composed["BODY_TOP"].X,composed["BODY_TOP"].Y);
         var midPoint=Compose(rootPoint,composed["BODY_TOP"].Angle,composed["HAND1_ABOVE"].X,composed["HAND1_ABOVE"].Y);
-        var endPoint=Compose(midPoint,composed["BODY_TOP"].Angle+composed["HAND1_ABOVE"].Angle,composed["HAND1_BELOW"].X,composed["HAND1_BELOW"].Y);
+        var endPoint=Compose(midPoint,composed["BODY_TOP"].Angle+composed["HAND1_ABOVE"].Angle,composed["HAND2_ABOVE"].X,composed["HAND2_ABOVE"].Y);
         Check(composeResult.Success&&Math.Abs(endPoint.X-4)<.01&&Math.Abs(endPoint.Y-2)<.01,"IK writeback composes to the dragged target");
-        Check(Math.Abs(Math.Sqrt(composed["HAND1_ABOVE"].X*composed["HAND1_ABOVE"].X+composed["HAND1_ABOVE"].Y*composed["HAND1_ABOVE"].Y)-3)<.001&&Math.Abs(Math.Sqrt(composed["HAND1_BELOW"].X*composed["HAND1_BELOW"].X+composed["HAND1_BELOW"].Y*composed["HAND1_BELOW"].Y)-3)<.001,"IK writeback keeps both segment lengths");
-        composeDoc.Undo();Check(composeDoc.Graph.Clips[0].Sample(0)["BODY_TOP"].Angle==15&&composeDoc.Graph.Clips[0].Sample(0)["HAND1_BELOW"].X==3,"IK writeback is a single undo step");
-        var fkGraph=new MotionGraph{Id="ik.fk",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_TOP",Keys=[new(){Frame=0,Angle=15}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=3,Y=0}]},new(){Bone="HAND1_BELOW",Keys=[new(){Frame=0,X=3,Y=0}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND1_BELOW"}]};
-        var fkDoc=new MotionGraphDocument(fkGraph);var fkDrag=fkDoc.Drag("idle","HAND1_BELOW",0,0,5,null,true);var fkPose=fkDoc.Graph.Clips[0].Sample(0);
-        Check(fkDrag.Success&&fkPose["BODY_TOP"].Angle==15&&Math.Abs(Math.Sqrt(fkPose["HAND1_BELOW"].X*fkPose["HAND1_BELOW"].X+fkPose["HAND1_BELOW"].Y*fkPose["HAND1_BELOW"].Y)-3)<.001&&Math.Abs(fkPose["HAND1_BELOW"].Angle+90)<.001,"temporary FK bypasses the IK chain and keeps the segment length");
-        fkDoc.Translate("idle","HAND1_BELOW",0,7,-2);var translated=fkDoc.Graph.Clips[0].Sample(0)["HAND1_BELOW"];
-        Check(translated.X==7&&translated.Y==-2&&Math.Abs(translated.Angle-fkPose["HAND1_BELOW"].Angle)<.001,"local translate writes X/Y and keeps the angle");
-        fkDoc.Undo();Check(Math.Abs(fkDoc.Graph.Clips[0].Sample(0)["HAND1_BELOW"].X-fkPose["HAND1_BELOW"].X)<.001,"local translate is one undo operation");
+        Check(Math.Abs(Math.Sqrt(composed["HAND1_ABOVE"].X*composed["HAND1_ABOVE"].X+composed["HAND1_ABOVE"].Y*composed["HAND1_ABOVE"].Y)-3)<.001&&Math.Abs(Math.Sqrt(composed["HAND2_ABOVE"].X*composed["HAND2_ABOVE"].X+composed["HAND2_ABOVE"].Y*composed["HAND2_ABOVE"].Y)-3)<.001,"IK writeback keeps both segment lengths");
+        composeDoc.Undo();Check(composeDoc.Graph.Clips[0].Sample(0)["BODY_TOP"].Angle==15&&composeDoc.Graph.Clips[0].Sample(0)["HAND2_ABOVE"].X==3,"IK writeback is a single undo step");
+        var fkGraph=new MotionGraph{Id="ik.fk",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_TOP",Keys=[new(){Frame=0,Angle=15}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=3,Y=0}]},new(){Bone="HAND2_ABOVE",Keys=[new(){Frame=0,X=3,Y=0}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND2_ABOVE"}]};
+        var fkDoc=new MotionGraphDocument(fkGraph);var fkDrag=fkDoc.Drag("idle","HAND2_ABOVE",0,0,5,null,true);var fkPose=fkDoc.Graph.Clips[0].Sample(0);
+        Check(fkDrag.Success&&fkPose["BODY_TOP"].Angle==15&&Math.Abs(Math.Sqrt(fkPose["HAND2_ABOVE"].X*fkPose["HAND2_ABOVE"].X+fkPose["HAND2_ABOVE"].Y*fkPose["HAND2_ABOVE"].Y)-3)<.001&&Math.Abs(fkPose["HAND2_ABOVE"].Angle+90)<.001,"temporary FK bypasses the IK chain and keeps the segment length");
+        fkDoc.Translate("idle","HAND2_ABOVE",0,7,-2);var translated=fkDoc.Graph.Clips[0].Sample(0)["HAND2_ABOVE"];
+        Check(translated.X==7&&translated.Y==-2&&Math.Abs(translated.Angle-fkPose["HAND2_ABOVE"].Angle)<.001,"local translate writes X/Y and keeps the angle");
+        fkDoc.Undo();Check(Math.Abs(fkDoc.Graph.Clips[0].Sample(0)["HAND2_ABOVE"].X-fkPose["HAND2_ABOVE"].X)<.001,"local translate is one undo operation");
         var spinGraph=new MotionGraph{Id="spin",Clips=[new(){Id="idle",Duration=10,Tracks=[new(){Bone="HEAD",Keys=[new(){Frame=0,X=3,Y=0}]}]}],States=[new(){Id="idle",Clip="idle"}]};
         var spinDoc=new MotionGraphDocument(spinGraph);var spinResult=spinDoc.Drag("idle","HEAD",0,0,5);
         var headPose=spinDoc.Graph.Clips[0].Sample(0)["HEAD"];var headPoint=Compose((0d,0d),0d,headPose.X,headPose.Y);
@@ -65,6 +91,20 @@ public static class MotionGraphTests
         dirtyDoc.Edit(g=>g.Clips[0].Duration=30);Check(dirtyDoc.Dirty,"edit marks the document dirty");
         string dirtyPath=Path.Combine(Path.GetTempPath(),"motion-dirty-"+Guid.NewGuid().ToString("N")+".motion.json");dirtyDoc.Save(dirtyPath);
         Check(!dirtyDoc.Dirty&&File.Exists(dirtyPath),"save clears the dirty flag");File.Delete(dirtyPath);
+        var coalesceDoc=new MotionGraphDocument(new MotionGraph{Id="coalesce",Clips=[new(){Id="idle"}],States=[new(){Id="idle",Clip="idle"}]});
+        long clock=0;MotionGraphDocument.TickProvider=()=>clock;
+        coalesceDoc.Edit(g=>g.Clips[0].Duration=10,"duration:idle");coalesceDoc.Edit(g=>g.Clips[0].Duration=11,"duration:idle");
+        Check(coalesceDoc.UndoDepth==1,"same-key edits inside the window keep a single undo step");
+        clock+=500;coalesceDoc.Edit(g=>g.Clips[0].Duration=12,"duration:idle");
+        Check(coalesceDoc.UndoDepth==2,"advancing the clock past the window starts a new undo step");
+        coalesceDoc.Undo();coalesceDoc.Edit(g=>g.Clips[0].Duration=13,"duration:idle");
+        Check(coalesceDoc.UndoDepth==2,"undo resets the coalescing window");
+        coalesceDoc.Undo();coalesceDoc.Redo();coalesceDoc.Edit(g=>g.Clips[0].Duration=14,"duration:idle");
+        Check(coalesceDoc.UndoDepth==3,"redo resets the coalescing window");
+        string coalescePath=Path.Combine(Path.GetTempPath(),"motion-coalesce-"+Guid.NewGuid().ToString("N")+".motion.json");coalesceDoc.Save(coalescePath);
+        coalesceDoc.Edit(g=>g.Clips[0].Duration=15,"duration:idle");
+        Check(coalesceDoc.UndoDepth==4,"save resets the coalescing window");
+        File.Delete(coalescePath);MotionGraphDocument.TickProvider=()=>Environment.TickCount64;
         var renameGraph=new MotionGraph{Clips=[new(){Id="idle"}],States=[new(){Id="idle",Clip="idle",Transitions=[new(){Target="run"}]},new(){Id="run",Clip="idle"}],Entry="idle"};
         MotionGraphEdits.RenameState(renameGraph,"run","walk");
         Check(renameGraph.States[1].Id=="walk"&&renameGraph.States[0].Transitions[0].Target=="walk","rename state rewrites transitions");
@@ -125,6 +165,10 @@ public static class MotionGraphTests
             try{var motion=MotionImport.FromAst(pair.Value,pair.Key,"Nana");motion.Validate();imported++;}
             catch(InvalidDataException e){Check(e.Message.Contains("random",StringComparison.Ordinal)||e.Message.Contains("bone index",StringComparison.Ordinal)||e.Message.Contains("frame times",StringComparison.Ordinal),"unsupported motion reports exact random syntax: "+pair.Key+": "+e.Message);rejected++;}
         Check(imported>100&&imported+rejected==780,"entire original motion collection is accounted for");
+        var importName="PlayerNana/Stand0_Damage";var importedMotion=MotionImport.FromAst(world.Code["external/Chara/Motion/"+importName+".txt"],importName.Replace('/','.'),"Nana",clipId:importName);
+        Check(importedMotion.Clips[0].Id==importName&&importedMotion.States[0].Clip==importName,"imported clip id follows the source motion name");
+        string importPath=Path.Combine(Path.GetTempPath(),"motion-import-"+Guid.NewGuid().ToString("N")+".motion.json");importedMotion.Save(importPath);
+        Check(MotionGraph.Load(importPath).Clips[0].Id==importName,"save reload keeps the imported clip name");File.Delete(importPath);
         var eventClip=new MotionClip{Id="events",Duration=2,Loop=true,Events=[new(){Id="start",Start=0},new(){Id="fraction",Start=.5},new(){Id="end",Start=2}]};
         var eventHost=new Host{Facts=new(InputSnapshot.Empty,false,0,0,100,false,false)};
         var eventPlayer=new MotionPlayer(new(){Clips=[eventClip],States=[new(){Clip="events"}]},eventHost);
@@ -147,6 +191,22 @@ public static class MotionGraphTests
         Console.WriteLine("MOTION_IMPORT supported="+imported+" rejected="+rejected);
         bool invalid=false;try{graph.Clips[0].Tracks[0].Keys[0].X=double.NaN;graph.Validate();}catch(InvalidDataException){invalid=true;}
         Check(invalid,"non finite asset values are rejected");
+        string originDirectory=Path.Combine(Path.GetTempPath(),"motion-origin-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(originDirectory);
+        try
+        {
+            string legacyFile=Path.Combine(originDirectory,"legacy.motion.json");
+            File.WriteAllText(legacyFile,"{\"FormatVersion\":1,\"Id\":\"origin.legacy\",\"Skeleton\":\"Nana\",\"Entry\":\"idle\",\"Clips\":[{\"Id\":\"idle\"}],\"States\":[{\"Id\":\"idle\",\"Clip\":\"idle\"}]}");
+            Check(MotionGraph.Load(legacyFile).Origin=="unknown","a motion graph without an origin field loads as unknown");
+            var modGraph=MotionGraph.Load(legacyFile,"example.mod");
+            Check(modGraph.Origin=="example.mod","the mod content loader records the mod id");
+            string modFile=Path.Combine(originDirectory,"mod.motion.json");modGraph.Save(modFile);
+            Check(MotionGraph.Load(modFile).Origin=="example.mod","saving and reloading keeps the origin");
+            var roundTrip=System.Text.Json.JsonSerializer.Deserialize<MotionGraph>(System.Text.Json.JsonSerializer.Serialize(modGraph,NativeContentStore.Json),NativeContentStore.Json)!;
+            Check(roundTrip.Origin=="example.mod","serialization round trip keeps the origin");
+            var nativeGraph=MotionImport.FromAst(world.Code["external/Chara/Motion/PlayerNana/Stand0_Damage.txt"],"origin.native","Nana");
+            Check(nativeGraph.Origin=="native","importing an original GameData action records the native layer");
+        }
+        finally{Directory.Delete(originDirectory,true);}
         return count;
     }
     private sealed class Entity : IEntityBehavior

@@ -146,10 +146,10 @@ public static class MotionIkPresets
     public static readonly IReadOnlyDictionary<string, (string Root, string Mid, string End)> Limbs =
         new Dictionary<string, (string, string, string)>(StringComparer.Ordinal)
         {
-            ["left_hand"] = ("BODY_TOP", "HAND1_ABOVE", "HAND1_BELOW"),
-            ["right_hand"] = ("BODY_TOP", "HAND2_ABOVE", "HAND2_BELOW"),
-            ["left_foot"] = ("BODY_BOTTOM", "FOOT1_ABOVE", "FOOT1_BELOW"),
-            ["right_foot"] = ("BODY_BOTTOM", "FOOT2_ABOVE", "FOOT2_BELOW")
+            ["left_hand"] = ("BODY_TOP", "HAND1_ABOVE", "HAND2_ABOVE"),
+            ["right_hand"] = ("BODY_TOP", "HAND1_BELOW", "HAND2_BELOW"),
+            ["left_foot"] = ("BODY_BOTTOM", "FOOT1_ABOVE", "FOOT2_ABOVE"),
+            ["right_foot"] = ("BODY_BOTTOM", "FOOT1_BELOW", "FOOT2_BELOW")
         };
 
     public static IReadOnlyList<MotionIkChain> For(MotionGraph graph) =>
@@ -176,9 +176,11 @@ public static class MotionRigCoordinates
     }
 }
 
+public readonly record struct MotionIkFrame(double ParentAngle, double RootX, double RootY);
+
 public static class MotionPoseEditor
 {
-    public static MotionIkResult Drag(MotionGraph graph, string clipId, string bone, double frame, double targetX, double targetY, bool? bendPositive = null, bool forceFk = false)
+    public static MotionIkResult Drag(MotionGraph graph, string clipId, string bone, double frame, double targetX, double targetY, bool? bendPositive = null, bool forceFk = false, MotionIkFrame? ikFrame = null)
     {
         var clip = graph.Clips.SingleOrDefault(item => item.Id == clipId) ?? throw new InvalidDataException("Motion clip is missing: " + clipId);
         if (!double.IsFinite(frame) || !double.IsFinite(targetX) || !double.IsFinite(targetY)) return MotionIkResult.Invalid("拖动坐标必须是有限数值。");
@@ -190,23 +192,19 @@ public static class MotionPoseEditor
             var root = sample.GetValueOrDefault(chain.Root);
             var mid = sample.GetValueOrDefault(chain.Mid);
             var end = sample.GetValueOrDefault(chain.End);
-            var midOffset = MotionRigCoordinates.Rotate(mid.X, mid.Y, root.Angle);
-            double midX = root.X + midOffset.X, midY = root.Y + midOffset.Y;
-            var endOffset = MotionRigCoordinates.Rotate(end.X, end.Y, root.Angle + mid.Angle);
+            double parentAngle = ikFrame?.ParentAngle ?? 0;
+            double rootX = ikFrame?.RootX ?? root.X, rootY = ikFrame?.RootY ?? root.Y;
+            var midOffset = MotionRigCoordinates.Rotate(mid.X, mid.Y, root.Angle + parentAngle);
+            double midX = rootX + midOffset.X, midY = rootY + midOffset.Y;
+            var endOffset = MotionRigCoordinates.Rotate(end.X, end.Y, root.Angle + mid.Angle + parentAngle);
             double endX = midX + endOffset.X, endY = midY + endOffset.Y;
-            bool bend = bendPositive ?? Bend(graph, clipId, bone, frame) ?? true;
-            var result = MotionIk.Solve(root.X, root.Y, midX, midY, endX, endY, targetX, targetY, bend);
+            bool bend = bendPositive ?? Bend(graph, clipId, bone, frame, ikFrame) ?? true;
+            var result = MotionIk.Solve(rootX, rootY, midX, midY, endX, endY, targetX, targetY, bend);
             if (!result.Success) return result;
             double firstLength = Math.Sqrt(mid.X * mid.X + mid.Y * mid.Y), secondLength = Math.Sqrt(end.X * end.X + end.Y * end.Y);
-            double rootRadians = result.RootAngle * Math.PI / 180, midRadians = result.MidAngle * Math.PI / 180;
-            double solvedMidX = root.X + Math.Cos(rootRadians) * firstLength, solvedMidY = root.Y + Math.Sin(rootRadians) * firstLength;
-            double solvedEndX = solvedMidX + Math.Cos(midRadians) * secondLength, solvedEndY = solvedMidY + Math.Sin(midRadians) * secondLength;
-            double localMidAngle = Normalize(result.MidAngle - result.RootAngle);
-            var localMid = MotionRigCoordinates.Rotate(solvedMidX - root.X, solvedMidY - root.Y, -result.RootAngle);
-            var localEnd = MotionRigCoordinates.Rotate(solvedEndX - solvedMidX, solvedEndY - solvedMidY, -(result.RootAngle + localMidAngle));
-            SetKey(clip, chain.Root, frame, new MotionPose(root.X, root.Y, Normalize(result.RootAngle), root.ScaleX, root.ScaleY, root.Picture));
-            SetKey(clip, chain.Mid, frame, new MotionPose(localMid.X, localMid.Y, localMidAngle, mid.ScaleX, mid.ScaleY, mid.Picture));
-            SetKey(clip, chain.End, frame, new MotionPose(localEnd.X, localEnd.Y, end.Angle, end.ScaleX, end.ScaleY, end.Picture));
+            SetKey(clip, chain.Root, frame, new MotionPose(root.X, root.Y, Normalize(-result.RootAngle - parentAngle), root.ScaleX, root.ScaleY, root.Picture));
+            SetKey(clip, chain.Mid, frame, new MotionPose(firstLength, 0, Normalize(result.RootAngle - result.MidAngle), mid.ScaleX, mid.ScaleY, mid.Picture));
+            SetKey(clip, chain.End, frame, new MotionPose(secondLength, 0, end.Angle, end.ScaleX, end.ScaleY, end.Picture));
             return result;
         }
         var current = clip.Sample(frame).GetValueOrDefault(bone);
@@ -222,7 +220,7 @@ public static class MotionPoseEditor
         return new(true, false, angle, angle, angle, length, "");
     }
 
-    public static bool? Bend(MotionGraph graph, string clipId, string bone, double frame)
+    public static bool? Bend(MotionGraph graph, string clipId, string bone, double frame, MotionIkFrame? ikFrame = null)
     {
         var clip = graph.Clips.SingleOrDefault(item => item.Id == clipId);
         var chain = MotionIkPresets.For(graph).FirstOrDefault(item => item.Enabled && item.End == bone);
@@ -231,11 +229,13 @@ public static class MotionPoseEditor
         var root = sample.GetValueOrDefault(chain.Root);
         var mid = sample.GetValueOrDefault(chain.Mid);
         var end = sample.GetValueOrDefault(chain.End);
-        var midOffset = MotionRigCoordinates.Rotate(mid.X, mid.Y, root.Angle);
-        double midX = root.X + midOffset.X, midY = root.Y + midOffset.Y;
-        var endOffset = MotionRigCoordinates.Rotate(end.X, end.Y, root.Angle + mid.Angle);
+        double parentAngle = ikFrame?.ParentAngle ?? 0;
+        double rootX = ikFrame?.RootX ?? root.X, rootY = ikFrame?.RootY ?? root.Y;
+        var midOffset = MotionRigCoordinates.Rotate(mid.X, mid.Y, root.Angle + parentAngle);
+        double midX = rootX + midOffset.X, midY = rootY + midOffset.Y;
+        var endOffset = MotionRigCoordinates.Rotate(end.X, end.Y, root.Angle + mid.Angle + parentAngle);
         double endX = midX + endOffset.X, endY = midY + endOffset.Y;
-        return (midX - root.X) * (endY - midY) - (midY - root.Y) * (endX - midX) >= 0;
+        return (midX - rootX) * (endY - midY) - (midY - rootY) * (endX - midX) >= 0;
     }
 
     public static void Translate(MotionGraph graph, string clipId, string bone, double frame, double x, double y)

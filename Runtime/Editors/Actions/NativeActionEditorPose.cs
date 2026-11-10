@@ -37,6 +37,7 @@ public partial class NativeActionEditor
 
     private void SurfaceButton(InputEventMouseButton button)
     {
+        if(button.Pressed)TakeCanvasFocus();
         if(button.ButtonIndex==MouseButton.Left)
         {
             if(button.Pressed){SurfacePress(button);return;}
@@ -99,13 +100,9 @@ public partial class NativeActionEditor
     public override void _UnhandledKeyInput(InputEvent @event)
     {
         if(@event is not InputEventKey{Pressed:true,Echo:false} key)return;
-        if(key.Keycode==Key.Escape){if(!dragging)return;CancelDrag();}
-        else if(key.Keycode==Key.F&&!TypingInField())FitView();
-        else if(key.Keycode==Key.Z&&key.CtrlPressed&&!TypingInField())RunAction(key.ShiftPressed?"redo":"undo");
-        else return;
+        if(!HandleEditorKey(key))return;
         GetViewport().SetInputAsHandled();
     }
-    private bool TypingInField()=>GetViewport()?.GuiGetFocusOwner() switch { LineEdit or TextEdit => true, SpinBox box => box.GetLineEdit().HasFocus(), _ => false };
 
     private void BeginDrag(InputEventMouseButton button)
     {
@@ -115,7 +112,7 @@ public partial class NativeActionEditor
         dragStartPointer=Math.Atan2(-local.Y,local.X)*180/Math.PI;
         if(name=="root")dragMode=DragMode.Root;
         else if(button.AltPressed)dragMode=DragMode.Fk;
-        else if(IsIkEnd(name)){dragMode=DragMode.Ik;dragBend=MotionPoseEditor.Bend(document.Graph,Clip.Id,name,frame.Value)??true;}
+        else if(IsIkEnd(name)){dragMode=DragMode.Ik;dragBend=MotionPoseEditor.Bend(document.Graph,Clip.Id,name,frame.Value,IkFrame(name))??true;}
         else dragMode=DragMode.Fk;
     }
 
@@ -141,7 +138,7 @@ public partial class NativeActionEditor
             else
             {
                 var (targetX,targetY)=DragTarget(name);
-                var result=document.Drag(Clip.Id,name,frame.Value,targetX,targetY,dragMode==DragMode.Ik?dragBend:null,dragMode==DragMode.Fk);
+                var result=document.Drag(Clip.Id,name,frame.Value,targetX,targetY,dragMode==DragMode.Ik?dragBend:null,dragMode==DragMode.Fk,dragMode==DragMode.Ik?IkFrame(name):null);
                 status.Text=result.Success?(result.Clamped?result.Reason:"节点已更新；一次拖动生成一个撤销记录。"):result.Reason;
             }
             Refresh();ApplyDocumentPose();
@@ -267,6 +264,18 @@ public partial class NativeActionEditor
 
     private MotionPose LocalPose(string name)=>name is "root" or "__root__"?Clip.RootPose(frame.Value):Clip.Sample(frame.Value).GetValueOrDefault(name);
 
+    private MotionIkFrame? IkFrame(string bone)
+    {
+        if(PreviewActor is not {} actor)return null;
+        var chain=IkChains.FirstOrDefault(item=>item.Enabled&&item.End==bone);
+        if(chain is null)return null;
+        var nodes=actor.Services.Motions.Skeleton(actor);
+        if(nodes.FirstOrDefault(item=>item.Name==chain.Root) is not {} root)return null;
+        if(nodes.Any(item=>item.Instance==root.Parent))return null;
+        var rootPose=Clip.RootPose(frame.Value);
+        return new(actor.Read("image_angle"),rootPose.X,rootPose.Y);
+    }
+
     private (double X,double Y) LocalTarget(string node,double worldX,double worldY,bool chain)
     {
         if(PreviewActor is not {} actor)return (worldX,worldY);
@@ -274,7 +283,7 @@ public partial class NativeActionEditor
         if(node=="root")return MotionRigCoordinates.ToLocal(worldX,worldY,actor.X,actor.Y,0,player.Scope.ReadOr("Direction",1).Number);
         if(chain&&IkChains.FirstOrDefault(item=>item.Enabled&&item.End==node) is { } link)parentName=link.Root;
         if(!nodes.Any(item=>item.Name==parentName))return (worldX,worldY);var selected=nodes.Single(item=>item.Name==parentName);int parentId=selected.Parent;
-        if(parentId==actor.Id)return MotionRigCoordinates.ToLocal(worldX,worldY,actor.X,actor.Y,actor.Read("image_angle"),player.Scope.ReadOr("Direction",1).Number);
+        if(parentId==actor.Id)return MotionRigCoordinates.ToLocal(worldX,worldY,actor.X,actor.Y,0,player.Scope.ReadOr("Direction",1).Number);
         if(!nodes.Any(item=>item.Instance==parentId))return (worldX,worldY);var parent=nodes.Single(item=>item.Instance==parentId);
         return MotionRigCoordinates.ToLocal(worldX,worldY,parent.X,parent.Y,parent.Angle,player.Scope.ReadOr("Direction",1).Number);
     }

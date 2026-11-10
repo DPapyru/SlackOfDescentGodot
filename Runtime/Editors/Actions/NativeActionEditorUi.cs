@@ -128,10 +128,53 @@ public partial class NativeActionEditor
         var ik = Page(pages, "IK 链");
         ikList = List(ik, 140); ikList.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
         var ikButtons = Row(ik); Button(ikButtons, "绑定所选末端", BindSelectedIk); Button(ikButtons, "解除所选 IK", UnbindSelectedIk);
+        Button(Row(ik), "自定义链…", ChooseIkChain);
         var source = Page(pages, "原版动作");
         original = new OptionButton { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; source.AddChild(original);
         foreach (string key in world.Code.Keys.Where(k => k.StartsWith("external/Chara/Motion/", StringComparison.Ordinal)).Order()) original.AddItem(key["external/Chara/Motion/".Length..^4]);
         Button(source, "导入到当前项目", ImportOriginal);
+    }
+    private void ChooseIkChain()
+    {
+        Guard(() =>
+        {
+            var active = PreviewActor ?? throw new InvalidOperationException("请先加载预览骨架。");
+            var nodes = active.Services.Motions.Skeleton(active);
+            var dialog = new ConfirmationDialog { Title = "自定义 IK 链", OkButtonText = "绑定", CancelButtonText = "取消", Size = new(340, 220) }; AddChild(dialog);
+            var body = Column(dialog);
+            var root = ChainChoice(body, "Root", nodes); var mid = ChainChoice(body, "Mid", nodes); var end = ChainChoice(body, "End", nodes);
+            var current = IkChains.FirstOrDefault(chain => chain.Root == highlightedBone || chain.Mid == highlightedBone || chain.End == highlightedBone) ?? IkChains.FirstOrDefault();
+            Pick(root, current?.Root); Pick(mid, current?.Mid); Pick(end, current?.End);
+            dialog.Confirmed += () => { BindIkChain(root.GetItemText(root.Selected), mid.GetItemText(mid.Selected), end.GetItemText(end.Selected)); dialog.QueueFree(); };
+            dialog.Canceled += dialog.QueueFree; dialog.PopupCentered();
+        });
+    }
+    private static OptionButton ChainChoice(Node parent, string label, IReadOnlyList<NativeBone> nodes)
+    {
+        var row = Row(parent); row.AddChild(new Label { Text = label });
+        var choice = new OptionButton { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; row.AddChild(choice);
+        foreach (var node in nodes) choice.AddItem(node.Name);
+        return choice;
+    }
+    private static void Pick(OptionButton choice, string? name)
+    {
+        for (int index = 0; index < choice.ItemCount; index++) if (choice.GetItemText(index) == name) { choice.Select(index); return; }
+    }
+    private void BindIkChain(string rootName, string midName, string endName)
+    {
+        Guard(() =>
+        {
+            var active = PreviewActor ?? throw new InvalidOperationException("请先加载预览骨架。");
+            if (rootName == midName || midName == endName || rootName == endName) throw new InvalidDataException("Root/Mid/End 必须是三个不同骨骼。");
+            var nodes = active.Services.Motions.Skeleton(active);
+            foreach (string name in new[] { rootName, midName, endName }) if (!nodes.Any(node => node.Name == name)) throw new InvalidDataException("骨骼不在预览骨架中：" + name);
+            var root = nodes.Single(node => node.Name == rootName);
+            var mid = nodes.Single(node => node.Name == midName);
+            var end = nodes.Single(node => node.Name == endName);
+            if (root.Instance != mid.Parent || mid.Instance != end.Parent) throw new InvalidDataException("所选骨骼不是同一条 Root → Mid → End 父链。");
+            Change(g => { MotionIkPresets.Materialize(g); g.IkChains!.RemoveAll(chain => chain.End == endName); g.IkChains.Add(new() { Root = rootName, Mid = midName, End = endName }); });
+            status.Text = "已绑定 IK：" + rootName + " → " + midName + " → " + endName;
+        });
     }
     internal string HelpText()
     {

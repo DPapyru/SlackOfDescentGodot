@@ -45,6 +45,7 @@ public partial class NativeActionEditor
             Expect(tabs is TabBar&&tabs.TabCount==projects.Count,"the character bar lists one tab per project");
             Expect(tabs.TabCount>0&&tabs.CurrentTab==activeProject,"the active tab is the active project");
             Expect(boneList is ItemList&&ikList is ItemList,"the left dock lists bones and IK chains");
+            Expect(ButtonText("自定义链…"),"the IK page offers an explicit Root/Mid/End binding");
             Expect(surface is TextureRect&&overlay is not null,"the center stage keeps the single motion surface");
             Expect(Count<TextureRect>()==1&&overlay.GetParent()==surface&&Descendants(this).OfType<SubViewport>().Count(node=>node.GetParent()==this)==1&&Descendants(this).OfType<GmCanvas>().Count(node=>node.GetParent()==viewport)==1,"the studio owns one surface, overlay, viewport and canvas");
             Expect(inspector is TabContainer&&inspector.GetTabCount()==4,"the right dock keeps four inspectors");
@@ -666,7 +667,9 @@ public partial class NativeActionEditor
         document=new(new MotionGraph{Id="audit.clean",Clips=[new(){Id="idle"}],States=[new(){Id="idle",Clip="idle"}]});
         path=cleanFile;Refresh();InitializePreview();await Ready();
         Expect(!document.Dirty&&document.Graph.IkChains is null&&document.Graph.Clips[0].Tracks.Count==0,"preview load neither dirties nor writes the document");
-        Expect(IsIkEnd("HAND2_ABOVE"),"default IK chains stay implicit");
+        Expect(IsIkEnd("HAND3_ABOVE"),"default IK chains stay implicit");
+        var defaultChains=MotionIkPresets.For(new MotionGraph{Clips=[new(){Id="idle"}],States=[new(){Id="idle",Clip="idle"}]});
+        Expect(defaultChains.Select(chain=>chain.Root+"→"+chain.Mid+"→"+chain.End).SequenceEqual(new[]{"HAND1_ABOVE→HAND2_ABOVE→HAND3_ABOVE","HAND1_BELOW→HAND2_BELOW→HAND3_BELOW","FOOT1_ABOVE→FOOT2_ABOVE→FOOT3_ABOVE","FOOT1_BELOW→FOOT2_BELOW→FOOT3_BELOW"}),"default IK chains mirror three bone limbs");
         var fallbackActor=PreviewActor!;
         var presetNodes=fallbackActor.Services.Motions.Skeleton(fallbackActor);
         foreach(var chain in MotionIkPresets.For(new MotionGraph{Clips=[new(){Id="idle"}],States=[new(){Id="idle",Clip="idle"}]}))
@@ -676,6 +679,15 @@ public partial class NativeActionEditor
             var presetRoot=presetNodes.Single(node=>node.Instance==presetMid.Parent);
             Expect(presetRoot.Name==chain.Root&&presetMid.Name==chain.Mid,"IK preset "+chain.End+" follows the skeleton parents: expected "+chain.Root+"→"+chain.Mid+"→"+chain.End+" actual "+presetRoot.Name+"→"+presetMid.Name+"→"+presetEnd.Name);
         }
+        BindIkChain("HAND1_ABOVE","HAND2_ABOVE","HAND3_ABOVE");
+        Expect(document.Graph.IkChains is {Count:4}&&document.Graph.IkChains!.Any(chain=>chain.Root=="HAND1_ABOVE"&&chain.Mid=="HAND2_ABOVE"&&chain.End=="HAND3_ABOVE"),"the explicit Root/Mid/End binding writes the chain");
+        Expect(IsIkEnd("HAND3_ABOVE")&&!IsIkEnd("HAND2_ABOVE"),"the explicit chain takes effect immediately");
+        int chainCount=document.Graph.IkChains!.Count;
+        BindIkChain("HAND1_ABOVE","HAND2_ABOVE","FOOT3_ABOVE");
+        Expect(document.Graph.IkChains!.Count==chainCount&&status.Text.Contains("父链"),"a non-chain bone selection is rejected: "+status.Text);
+        string chainFile=Path.Combine(output,"editor.chain.motion.json");document.Save(chainFile);
+        document=new(MotionGraph.Load(chainFile));Refresh();
+        Expect(document.Graph.IkChains is {Count:4}&&document.Graph.IkChains!.Any(chain=>chain.Root=="HAND1_ABOVE"&&chain.Mid=="HAND2_ABOVE"&&chain.End=="HAND3_ABOVE"),"a custom chain survives save and reload");
         var fallbackBone=fallbackActor.Services.Motions.Skeleton(fallbackActor).First(node=>node.Parent==fallbackActor.Id);
         var fallbackPart=fallbackActor.World.Instances.First(item=>item.Id==fallbackBone.Instance);
         double fallbackDirection=fallbackActor.Instance.Scope.ReadOr("Direction",1).Number,fallbackRadians=fallbackActor.Read("image_angle")*Math.PI/180;

@@ -146,10 +146,10 @@ public static class MotionIkPresets
     public static readonly IReadOnlyDictionary<string, (string Root, string Mid, string End)> Limbs =
         new Dictionary<string, (string, string, string)>(StringComparer.Ordinal)
         {
-            ["left_hand"] = ("BODY_TOP", "HAND1_ABOVE", "HAND2_ABOVE"),
-            ["right_hand"] = ("BODY_TOP", "HAND1_BELOW", "HAND2_BELOW"),
-            ["left_foot"] = ("BODY_BOTTOM", "FOOT1_ABOVE", "FOOT2_ABOVE"),
-            ["right_foot"] = ("BODY_BOTTOM", "FOOT1_BELOW", "FOOT2_BELOW")
+            ["left_hand"] = ("HAND1_ABOVE", "HAND2_ABOVE", "HAND3_ABOVE"),
+            ["right_hand"] = ("HAND1_BELOW", "HAND2_BELOW", "HAND3_BELOW"),
+            ["left_foot"] = ("FOOT1_ABOVE", "FOOT2_ABOVE", "FOOT3_ABOVE"),
+            ["right_foot"] = ("FOOT1_BELOW", "FOOT2_BELOW", "FOOT3_BELOW")
         };
 
     public static IReadOnlyList<MotionIkChain> For(MotionGraph graph) =>

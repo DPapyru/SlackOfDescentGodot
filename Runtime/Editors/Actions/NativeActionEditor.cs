@@ -180,7 +180,8 @@ public partial class NativeActionEditor : Window
     {
         if (!playing.ButtonPressed || busy || preview is null) return;
         elapsed += Math.Min(delta, .5) * playbackSpeed;
-        int steps = 0; while (elapsed >= FrameContext.FixedDelta && steps < 30) { elapsed -= FrameContext.FixedDelta; steps++; }
+        double frameDelta = FrameContext.FixedDelta * EngineStepsPerTimelineFrame;
+        int steps = 0; while (elapsed >= frameDelta && steps < 30) { elapsed -= frameDelta; steps++; }
         if (steps > 0) Advance(steps);
     }
     private void Step() => Advance(1);
@@ -201,7 +202,8 @@ public partial class NativeActionEditor : Window
                 if (clip is not null) foreach (var item in clip.Events.Where(e => !e.Contact && e.Start > lastFrame && e.Start <= state.Frame)) lastEvents.Add(item.Value.Length > 0 ? item.Value : item.Id);
                 lastState = state.State; lastFrame = state.Frame;
                 playState.Text = $"{state.State}  frame={state.Frame:F1}  x={active.X:F2} y={active.Y:F2} suspended={state.Suspended}";
-                timelineSlider.SetValueNoSignal(state.Frame);
+                syncingPlayhead = true;
+                try { frame.Value = state.Frame; } finally { syncingPlayhead = false; }
             }
             canvas.QueueRedraw(); SyncOverlay();
         }
@@ -248,8 +250,9 @@ public partial class NativeActionEditor : Window
         if (state is null) { overlay.Playback = "未播放"; return; }
         var clip = document.Graph.Clips.FirstOrDefault(item => item.Id == document.Graph.States.FirstOrDefault(s => s.Id == state.State)?.Clip);
         var text = new System.Text.StringBuilder();
-        text.Append("运行 ").Append(state.State).Append("  帧 ").Append(state.Frame.ToString("F1"));
+        text.Append("运行 ").Append(state.State).Append("  帧 ").Append(frame.Value.ToString("F0"));
         if (clip is not null) text.Append('/').Append(clip.Duration.ToString("F0"));
+        text.Append("  FPS 30");
         if (lastTransition is not null) text.Append("  转换 ").Append(lastTransition);
         if (lastEvents.Count > 0) text.Append("  事件 ").Append(string.Join(",", lastEvents));
         overlay.Playback = text.ToString();

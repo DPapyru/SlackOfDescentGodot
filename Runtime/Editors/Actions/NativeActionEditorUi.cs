@@ -18,10 +18,6 @@ public partial class NativeActionEditor
     private static HBoxContainer Row(Node parent) { var row = new HBoxContainer(); parent.AddChild(row); return row; }
     private static Button Button(Node parent, string text, Action action) { var button = new Button { Text = text }; parent.AddChild(button); button.Pressed += action; return button; }
     private static VBoxContainer Column(Node parent) { var column = new VBoxContainer(); parent.AddChild(column); return column; }
-    private static SpinBox Number(Node parent, string label, double min = -4096, double max = 4096, double value = 0)
-    {
-        parent.AddChild(new Label { Text = label }); var number = new SpinBox { MinValue = min, MaxValue = max, Step = .01, Value = value, CustomMinimumSize = new(90, 0) }; parent.AddChild(number); return number;
-    }
     private void AddMenu(HBoxContainer parent, string label, Action<PopupMenu> build)
     {
         var button = new MenuButton { Text = label }; parent.AddChild(button); var popup = button.GetPopup();
@@ -49,6 +45,11 @@ public partial class NativeActionEditor
             case "undo": Guard(() => { document.Undo(); Refresh(); ApplyDocumentPose(); }); break;
             case "redo": Guard(() => { document.Redo(); Refresh(); ApplyDocumentPose(); }); break;
             case "deleteKey": DeleteSelectedKey(); break;
+            case "addKey": AddSelectedKey(); break;
+            case "step": Step(); break;
+            case "speed:0.5": playbackSpeed = .5; status.Text = "播放速度 0.5x"; break;
+            case "speed:1": playbackSpeed = 1; status.Text = "播放速度 1x"; break;
+            case "speed:2": playbackSpeed = 2; status.Text = "播放速度 2x"; break;
             case "bindIk": BindSelectedIk(); break;
             case "unbindIk": UnbindSelectedIk(); break;
             case "rootTrack": rootTrackMode = !rootTrackMode; status.Text = rootTrackMode ? "根偏移已开启：删除关键帧作用于根轨道。" : "根偏移已关闭。"; break;
@@ -97,8 +98,8 @@ public partial class NativeActionEditor
     {
         var bar = Row(root); bar.Name = "MenuBar";
         AddMenu(bar, "文件", menu => { MenuItem(menu, "新建项目…", "new"); MenuItem(menu, "打开…", "open"); MenuItem(menu, "保存", "save"); MenuItem(menu, "另存为…", "saveAs"); MenuItem(menu, "保存到…", "saveTo"); menu.AddSeparator(); MenuItem(menu, "导入原版动作…", "importOriginal"); menu.AddSeparator(); MenuItem(menu, "关闭项目", "close"); MenuItem(menu, "退出", "quit"); });
-        AddMenu(bar, "编辑", menu => { MenuItem(menu, "撤销", "undo"); MenuItem(menu, "重做", "redo"); menu.AddSeparator(); MenuItem(menu, "删除当前帧关键帧", "deleteKey"); MenuItem(menu, "IK 绑定所选末端", "bindIk"); MenuItem(menu, "解除所选 IK", "unbindIk"); menu.AddSeparator(); MenuItem(menu, "姿态根偏移", "rootTrack", rootTrackMode); });
-        AddMenu(bar, "视图", menu => { MenuItem(menu, "显示骨架", "showBones", overlay?.ShowBones ?? true); MenuItem(menu, "显示骨骼名", "showNames", overlay?.ShowNames ?? false); menu.AddSeparator(); MenuItem(menu, "重载预览", "reloadPreview"); MenuItem(menu, "取景", "fitView"); menu.AddSeparator(); MenuItem(menu, "应用到游戏角色", "applyGame"); menu.AddSeparator(); MenuItem(menu, "键位：默认", "keyDefault", keyMode == KeyMode.Default); MenuItem(menu, "键位：vim", "keyVim", keyMode == KeyMode.Vim); });
+        AddMenu(bar, "编辑", menu => { MenuItem(menu, "撤销", "undo"); MenuItem(menu, "重做", "redo"); menu.AddSeparator(); MenuItem(menu, "添加当前帧关键帧", "addKey"); MenuItem(menu, "删除当前帧关键帧", "deleteKey"); MenuItem(menu, "IK 绑定所选末端", "bindIk"); MenuItem(menu, "解除所选 IK", "unbindIk"); menu.AddSeparator(); MenuItem(menu, "姿态根偏移", "rootTrack", rootTrackMode); });
+        AddMenu(bar, "视图", menu => { MenuItem(menu, "显示骨架", "showBones", overlay?.ShowBones ?? true); MenuItem(menu, "显示骨骼名", "showNames", overlay?.ShowNames ?? false); menu.AddSeparator(); MenuItem(menu, "单帧前进", "step"); MenuItem(menu, "播放速度 0.5x", "speed:0.5", playbackSpeed == .5); MenuItem(menu, "播放速度 1x", "speed:1", playbackSpeed == 1); MenuItem(menu, "播放速度 2x", "speed:2", playbackSpeed == 2); menu.AddSeparator(); MenuItem(menu, "重载预览", "reloadPreview"); MenuItem(menu, "取景", "fitView"); menu.AddSeparator(); MenuItem(menu, "应用到游戏角色", "applyGame"); menu.AddSeparator(); MenuItem(menu, "键位：默认", "keyDefault", keyMode == KeyMode.Default); MenuItem(menu, "键位：vim", "keyVim", keyMode == KeyMode.Vim); });
         AddMenu(bar, "帮助", menu => MenuItem(menu, "说明手册…", "help"));
         var brand = new Label { Text = "动作编辑器", HorizontalAlignment = HorizontalAlignment.Right, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; bar.AddChild(brand);
     }
@@ -106,9 +107,13 @@ public partial class NativeActionEditor
     {
         var bar = new PanelContainer { Name = "StatusBar", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new(0, 24) };
         bar.AddThemeStyleboxOverride("panel", new StyleBoxFlat { BgColor = new Color("#007acc") });
+        var line = Row(bar);
         status = new Label { Name = "Status", AutoTranslateMode = AutoTranslateModeEnum.Disabled, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, Text = "就绪" };
         status.AddThemeColorOverride("font_color", Colors.White);
-        bar.AddChild(status); root.AddChild(bar);
+        line.AddChild(status);
+        playState = new Label { Name = "PlayState", AutoTranslateMode = AutoTranslateModeEnum.Disabled, Text = "" };
+        playState.AddThemeColorOverride("font_color", Colors.White);
+        line.AddChild(playState); root.AddChild(bar);
     }
     private void BuildWorkspace(Node parent)
     {
@@ -138,12 +143,19 @@ public partial class NativeActionEditor
         panel.AddChild(new Label { Text = "动作设置" });
         panel.AddChild(new Label { Text = "当前编辑动作 (Action)" });
         clipChoice = new OptionButton { Name = "ClipChoice", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; panel.AddChild(clipChoice);
-        clipChoice.ItemSelected += _ => { if (refreshing) return; Project.ClipIndex = Math.Max(0, clipChoice.Selected); RefreshTimeline(); ApplyDocumentPose(); RefreshCodeViews(); };
+        clipChoice.ItemSelected += _ => { if (refreshing) return; Project.ClipIndex = Math.Max(0, clipChoice.Selected); ClearSelectedKey(); RefreshTimeline(); ApplyDocumentPose(); RefreshCodeViews(); };
         var durationRow = Row(panel); durationRow.AddChild(new Label { Text = "总帧数" });
         duration = new SpinBox { MinValue = 1, MaxValue = 100000, Step = 1, CustomMinimumSize = new(90, 0) }; durationRow.AddChild(duration);
         duration.ValueChanged += value => { if (!syncingTimeline && !refreshing) ChangeKey(_ => Clip.Duration = value, "duration:" + Clip.Id); };
         var loopRow = Row(panel); loop = new CheckButton { Text = "循环", ButtonPressed = true }; loopRow.AddChild(loop);
         loop.Toggled += on => { if (!syncingTimeline && !refreshing) ChangeKey(_ => Clip.Loop = on, "loop:" + Clip.Id); };
+        var frameRow = Row(panel); frameRow.AddChild(new Label { Text = "当前帧" });
+        frame = new SpinBox { MinValue = 0, MaxValue = 100000, Step = 1, CustomMinimumSize = new(90, 0) }; frameRow.AddChild(frame);
+        frame.ValueChanged += _ =>
+        {
+            if (!refreshing && !syncingTimeline && !syncingPlayhead) { ClearSelectedKey(); ApplyDocumentPose(); RefreshCodeViews(); }
+            UpdateTimeLabel(); timelineTracks?.QueueRedraw();
+        };
     }
     private void RefreshCodeViews()
     {

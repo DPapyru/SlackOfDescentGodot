@@ -54,7 +54,7 @@ public partial class NativeActionEditor : Window
     {
         refreshing = true;
         int clipIndex = Project.ClipIndex; clipChoice.Clear(); foreach (var c in document.Graph.Clips) clipChoice.AddItem(c.Id); clipChoice.Select(Math.Clamp(clipIndex, 0, clipChoice.ItemCount - 1));
-        RefreshTabs(); RefreshStateSource(); RefreshEvents(); RefreshGraph();
+        RefreshTabs(); RefreshStateSource(); RefreshEvents(); RefreshGraph(); RefreshIkList();
         refreshing = false; RefreshTimeline(); SyncOverlay();
         if (targetLabel is not null) targetLabel.Text = TargetLabel();
         if (bone.ItemCount > 0) bone.Select(Math.Clamp(Project.BoneIndex, 0, bone.ItemCount - 1));
@@ -70,6 +70,7 @@ public partial class NativeActionEditor : Window
     }
     private void RefreshIkList()
     {
+        if (ikList is null) return;
         ikList.Clear();
         foreach (var chain in IkChains) ikList.AddItem(chain.Root + " → " + chain.Mid + " → " + chain.End);
     }
@@ -131,7 +132,7 @@ public partial class NativeActionEditor : Window
         void Close() { closing = true; Hide(); Closed?.Invoke(); QueueFree(); }
         ConfirmDirtyClose(Close);
     }
-    private void ImportOriginal() => Guard(() => { string name = original.GetItemText((int)original.Selected); document = new(MotionImport.FromAst(world.Code["external/Chara/Motion/" + name + ".txt"], name.Replace('/', '.'), document.Graph.Skeleton)); path = null; Refresh(); InitializePreview(); status.Text = "已导入：" + name; });
+    private void ImportOriginal() => Guard(() => { string name = original.GetItemText((int)original.Selected); document = new(MotionImport.FromAst(world.Code["external/Chara/Motion/" + name + ".txt"], name.Replace('/', '.'), document.Graph.Skeleton, clipId: name)); path = null; Refresh(); InitializePreview(); status.Text = "已导入：" + name; });
     private void Save() { if (path is null) { ChooseFile(true); return; } Guard(() => { document.Save(path); Refresh(); status.Text = "已保存：" + path; }); }
     private void ChooseFile(bool save)
     {

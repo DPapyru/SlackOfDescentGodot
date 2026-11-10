@@ -11,6 +11,8 @@ public partial class NativeActionEditor
     private MotionGraphDocument? renderedDocument;
     private bool showRawPage;
     private readonly MotionSourceDebounce frameDebounce = new(.4), graphDebounce = new(.4);
+    private MotionGraphDocument? frameArmedDocument, graphArmedDocument;
+    private int frameArmedRevision, graphArmedRevision;
     private string SettingsPath => Path.Combine(store.Root, "Editor", "action-editor.json");
     private sealed class ActionEditorSettings
     {
@@ -32,14 +34,14 @@ public partial class NativeActionEditor
 
     private void BuildSourcePages(TabContainer pages)
     {
-        sourceView = SourcePage(pages, "节点属性修改", "SourceView", frameDebounce, true);
+        sourceView = SourcePage(pages, "节点属性修改", "SourceView", true);
         if (showRawPage) AddRawPage();
     }
 
     private void AddRawPage()
     {
         if (rawView is not null) return;
-        rawView = SourcePage(leftPages, "原始数据", "RawView", graphDebounce, false);
+        rawView = SourcePage(leftPages, "原始数据", "RawView", false);
     }
 
     private void RemoveRawPage()
@@ -58,11 +60,11 @@ public partial class NativeActionEditor
         RefreshCodeViews();
     }
 
-    private CodeEdit SourcePage(TabContainer pages, string title, string name, MotionSourceDebounce debounce, bool framePage)
+    private CodeEdit SourcePage(TabContainer pages, string title, string name, bool framePage)
     {
         var page = new VBoxContainer { Name = title }; pages.AddChild(page);
         var edit = CodeEditView(name); page.AddChild(edit);
-        edit.TextChanged += debounce.Restart;
+        edit.TextChanged += framePage ? ArmFrameSource : ArmGraphSource;
         edit.GuiInput += input =>
         {
             if (input is not InputEventKey { Pressed: true, Echo: false, CtrlPressed: true, Keycode: Key.Space }) return;
@@ -91,6 +93,16 @@ public partial class NativeActionEditor
         });
     }
 
+    private void ArmFrameSource() { frameDebounce.Restart(); frameArmedDocument = document; frameArmedRevision = document.Revision; }
+    private void ArmGraphSource() { graphDebounce.Restart(); graphArmedDocument = document; graphArmedRevision = document.Revision; }
+    private bool SourceStale(MotionGraphDocument? armed, int revision) => armed is not null && (!ReferenceEquals(armed, document) || armed.Revision != revision);
+    private void DiscardSource(bool framePage)
+    {
+        if (framePage) { frameArmedDocument = null; if (!sourceView.HasFocus()) ReplaceSourceText(sourceView, MotionToml.RenderFrame(Clip, frame.Value), ref sourceSnapshot); }
+        else { graphArmedDocument = null; if (rawView is not null && !rawView.HasFocus()) ReplaceSourceText(rawView, MotionToml.Render(document.Graph), ref rawSnapshot); }
+        status.Text = "文档已更新，源码未应用。";
+    }
+
     private static void ReplaceSourceText(CodeEdit edit, string text, ref string snapshot)
     {
         snapshot = text;
@@ -115,6 +127,7 @@ public partial class NativeActionEditor
     {
         frameDebounce.Cancel();
         if (sourceView is null || refreshing || sourceView.Text == sourceSnapshot) return;
+        if (SourceStale(frameArmedDocument, frameArmedRevision)) { DiscardSource(true); return; }
         Guard(() =>
         {
             var edit = MotionToml.ParseFrame(sourceView.Text, Clip.Id);
@@ -131,6 +144,7 @@ public partial class NativeActionEditor
     {
         graphDebounce.Cancel();
         if (rawView is null || refreshing || rawView.Text == rawSnapshot) return;
+        if (SourceStale(graphArmedDocument, graphArmedRevision)) { DiscardSource(false); return; }
         Guard(() =>
         {
             var parsed = MotionToml.Parse(rawView.Text);

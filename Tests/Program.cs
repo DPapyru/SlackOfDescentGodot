@@ -9,6 +9,7 @@ world.Instances.Add(self);
 var context=new GmContext(self);
 int assertions=0;
 assertions+=MotionGraphTests.Run(world);
+assertions+=MotionPatchParserTests.Run(Path.Combine(project,"Examples","Mods","SinkKnee","sink-pull-knee.json"));
 assertions+=ObjectPerformanceTests.Run(world);
 assertions+=FixedClockTests.Run();
 assertions+=CollisionOptimizationTests.Run(project,source);

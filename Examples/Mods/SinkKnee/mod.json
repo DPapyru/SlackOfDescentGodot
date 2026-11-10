@@ -1,0 +1,20 @@
+{
+  "formatVersion": 2,
+  "id": "example.sink-pull-knee",
+  "name": "Nana · 抓膝拔腿",
+  "author": "SinkKnee",
+  "description": "泥潭膝盖深度越线后播放抓膝拔腿动作。",
+  "version": "0.1.0",
+  "content": {
+    "resources": {},
+    "maps": {},
+    "characters": {},
+    "languages": {},
+    "motions": {},
+    "code": {
+      "entryType": "SinkKnee.SinkKneeMod",
+      "sources": ["MotionPatchParser.cs", "SinkKneeAction.cs", "SinkKneeMod.cs"],
+      "managedDependencies": []
+    }
+  }
+}

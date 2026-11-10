@@ -13,10 +13,11 @@ public partial class NativeActionEditor
         document=new(new MotionGraph{Id="audit.keyboard",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="HEAD",Keys=[new(){Frame=0,X=4,Y=-16}]}]}],States=[new(){Id="idle",Clip="idle"}]});
         Refresh();frame.Value=0;ApplyDocumentPose();SelectBone("HEAD");
         await AuditKeyModeAsync(output);
+        await AuditCompletionAsync();
         await AuditCanvasUndoAsync();
         AuditKeyboardHelp();
         Hide();
-        GD.Print("MOTION_EDITOR_KEYS_OK modes=PASS focus=PASS undo=PASS save=PASS help=PASS");
+        GD.Print("MOTION_EDITOR_KEYS_OK modes=PASS focus=PASS undo=PASS save=PASS help=PASS completion=PASS");
     }
     private static void KeyAuditExpect(bool ok,string message){if(!ok)throw new InvalidOperationException("Keyboard: "+message);}
     private async Task KeyAuditReadyAsync()
@@ -98,6 +99,24 @@ public partial class NativeActionEditor
         KeyAuditExpect(KeyAuditMenuChecked("键位：默认")&&!KeyAuditMenuChecked("键位：vim"),"the 视图 menu checks the default key mode again");
         KeyAuditTap(Key.L);await KeyAuditTickAsync();
         KeyAuditExpect(Math.Abs(frame.Value-startFrame)<.001,"default mode leaves l unbound");
+    }
+    private async Task AuditCompletionAsync()
+    {
+        sourceView.GrabFocus();await KeyAuditTickAsync();
+        KeyAuditExpect(inputContext==EditorInputContext.Text,"the source page holds the text context");
+        KeyAuditTap(Key.Space,true);await KeyAuditTickAsync();
+        if(DisplayServer.GetName()=="headless")GD.Print("COMPLETION_PROBE_SKIP reason=headless");
+        else
+        {
+            int options=sourceView.GetCodeCompletionOptions().Count;
+            KeyAuditExpect(options>0,"ctrl+space inside the source page fills completion options: options="+options);
+        }
+        KeyAuditExpect(!message.Visible,"completing in the source page does not open a dialog");
+        sourceView.CancelCodeCompletion();
+        TakeCanvasFocus();await KeyAuditTickAsync();
+        KeyAuditExpect(inputContext==EditorInputContext.Canvas,"releasing the source focus returns to the canvas context");
+        KeyAuditTap(Key.Space,true);await KeyAuditTickAsync();
+        KeyAuditExpect(!message.Visible&&sourceView.GetCodeCompletionOptions().Count==0,"ctrl+space without source focus neither opens the dialog nor completes: options="+sourceView.GetCodeCompletionOptions().Count);
     }
     private async Task AuditCanvasUndoAsync()
     {

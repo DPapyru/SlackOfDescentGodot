@@ -231,7 +231,7 @@ public partial class NativeActionEditor
         foreach (var item in Registered(preset)) text.AppendLine(item.Name + " → " + item.Resource);
         text.AppendLine();
         text.AppendLine("五、键位表");
-        text.AppendLine("默认：F 取景；Esc 取消画布拖动；Ctrl+Z 撤销；Ctrl+Shift+Z 重做；Ctrl+S 保存；Ctrl+Space 呼出补全清单。");
+        text.AppendLine("默认：F 取景；Esc 取消画布拖动；Ctrl+Z 撤销；Ctrl+Shift+Z 重做；Ctrl+S 保存；Ctrl+Space 在源码页呼出补全清单。");
         text.AppendLine("vim：Esc 回普通模式；i 插入模式（插入模式只保留 Ctrl 组合与 F）；h / l 上一帧 / 下一帧；j / k 上一个 / 下一个骨骼；dd 删除当前帧关键帧；u 撤销。");
         text.AppendLine("画布：左键拖动骨骼（IK 末端默认 IK，Alt 临时 FK）；右键 / Esc 取消；中键拖动平移；滚轮缩放；点空白取消选中；松手写当前帧关键帧，一次拖动一条撤销。");
         text.AppendLine("所有键位只在文本控件没有焦点时生效；键位模式在「视图」菜单切换并持久化。");

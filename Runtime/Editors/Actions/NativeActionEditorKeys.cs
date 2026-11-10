@@ -50,7 +50,6 @@ public partial class NativeActionEditor
         if (key.Keycode == Key.F) { FitView(); return true; }
         if (key.CtrlPressed && key.Keycode == Key.Z) { RunAction(key.ShiftPressed ? "redo" : "undo"); return true; }
         if (key.CtrlPressed && key.Keycode == Key.S) { Save(); return true; }
-        if (key.CtrlPressed && key.Keycode == Key.Space) { ShowCompletion(); return true; }
         return keyMode == KeyMode.Vim && HandleVimKey(key);
     }
     private bool HandleVimKey(InputEventKey key)
@@ -83,8 +82,4 @@ public partial class NativeActionEditor
         SelectBone(names[index]);
     }
     private void DeleteCurrentKey() => DeleteSelectedKey();
-    private void ShowCompletion()
-    {
-        ShowMessage("TOML 帧块补全：\n[[frame]]\nindex = 帧号\n骨骼.字段 = 数值\n字段：x、y、angle、scaleX、scaleY、picture\n骨骼：" + string.Join("、", MotionSkeleton.Bones) + "\n片段：" + string.Join("、", document.Graph.Clips.Select(clip => clip.Id)));
-    }
 }

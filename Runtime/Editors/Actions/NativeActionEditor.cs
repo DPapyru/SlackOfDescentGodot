@@ -59,77 +59,47 @@ public partial class NativeActionEditor : Window
         return new(graph);
     }
     private MotionClip Clip => document.Graph.Clips[(int)Math.Max(0, clipChoice.Selected)];
-    private string SelectedStateId => stateChoice.Selected < 0 ? document.Graph.States[0].Id : stateChoice.GetItemText((int)stateChoice.Selected);
-    private MotionTransition? SelectedTransition => stateChoice.Selected < 0 || SelectedIndex(transitionList) < 0 ? null : document.Graph.States[(int)stateChoice.Selected].Transitions[SelectedIndex(transitionList)];
     private ActorContext? PreviewActor => preview is null ? null : targetPreview is { Destroyed: false } target ? new(preview.World, target) : preview.Player is { } player ? new(preview.World, player) : null;
-    private string? SelectedBone => bone is null || bone.Selected < 0 ? null : bone.GetItemText((int)bone.Selected);
     public override void _Ready() => BuildEditor();
     public override void _Process(double delta) => TickPlayback(delta);
     private void Refresh()
     {
         refreshing = true;
         int clipIndex = Project.ClipIndex; clipChoice.Clear(); foreach (var c in document.Graph.Clips) clipChoice.AddItem(c.Id); clipChoice.Select(Math.Clamp(clipIndex, 0, clipChoice.ItemCount - 1));
-        RefreshTabs(); RefreshStateSource(); RefreshEvents(); RefreshGraph(); RefreshIkList();
-        refreshing = false; RefreshTimeline(); SyncOverlay();
+        RefreshTabs();
+        refreshing = false; RefreshTimeline(); SyncOverlay(); RefreshCodeViews();
         if (targetLabel is not null) targetLabel.Text = TargetLabel();
-        if (bone.ItemCount > 0) bone.Select(Math.Clamp(Project.BoneIndex, 0, bone.ItemCount - 1));
     }
-    private static string NodeName(string id) => "state_" + Convert.ToHexString(System.Text.Encoding.UTF8.GetBytes(id));
     private void PopulateSkeleton()
     {
         if (PreviewActor is not { } active) return;
         var nodes = active.Services.Motions.Skeleton(active);
-        highlightedBone = null; int selected = bone.Selected; bone.Clear(); bone.AddItem("root"); foreach (var node in nodes) bone.AddItem(node.Name); syncingBone = true; bone.Select(Math.Clamp(selected, 0, bone.ItemCount - 1)); syncingBone = false;
-        boneList.Clear(); foreach (var node in nodes) boneList.AddItem(node.Name);
-        RefreshIkList(); status.Text = "预览骨架已加载：" + nodes.Count + " 个节点。";
-    }
-    private void RefreshIkList()
-    {
-        if (ikList is null) return;
-        ikList.Clear();
-        foreach (var chain in IkChains) ikList.AddItem(chain.Root + " → " + chain.Mid + " → " + chain.End);
+        highlightedBone = null;
+        status.Text = "预览骨架已加载：" + nodes.Count + " 个节点。";
     }
     private void BindSelectedIk()
     {
         Guard(() =>
         {
             var active = PreviewActor; if (active is null) throw new InvalidOperationException("请先加载预览骨架。");
-            string end = bone.GetItemText((int)bone.Selected); if (end == "root") throw new InvalidOperationException("根节点不能作为 IK 末端。");
+            string end = highlightedBone ?? throw new InvalidOperationException("请先选中骨骼。"); if (end == "root") throw new InvalidOperationException("根节点不能作为 IK 末端。");
             var nodes = active.Services.Motions.Skeleton(active); if (!nodes.Any(node => node.Name == end)) throw new InvalidOperationException("所选节点不在预览骨架中。"); var current = nodes.Single(node => node.Name == end); if (!nodes.Any(node => node.Instance == current.Parent)) throw new InvalidOperationException("所选节点缺少父节点。"); var mid = nodes.Single(node => node.Instance == current.Parent); if (!nodes.Any(node => node.Instance == mid.Parent)) throw new InvalidOperationException("所选节点没有连续的两骨父链。"); var root = nodes.Single(node => node.Instance == mid.Parent);
             Change(g => { MotionIkPresets.Materialize(g); g.IkChains!.RemoveAll(chain => chain.End == end); g.IkChains.Add(new() { Root = root.Name, Mid = mid.Name, End = end }); }); status.Text = "已绑定 IK：" + root.Name + " → " + mid.Name + " → " + end;
         });
     }
-    private void UnbindSelectedIk() => Guard(() => { string end = bone.GetItemText((int)bone.Selected); Change(g => { MotionIkPresets.Materialize(g); g.IkChains!.RemoveAll(chain => chain.Root == end || chain.Mid == end || chain.End == end); }); status.Text = "已解除所选节点的 IK。"; });
+    private void UnbindSelectedIk() => Guard(() => { string end = highlightedBone ?? throw new InvalidOperationException("请先选中骨骼。"); Change(g => { MotionIkPresets.Materialize(g); g.IkChains!.RemoveAll(chain => chain.Root == end || chain.Mid == end || chain.End == end); }); status.Text = "已解除所选节点的 IK。"; });
     private void SelectBone(string name)
     {
         highlightedBone = name;
-        for (int i = 0; i < bone.ItemCount; i++) if (bone.GetItemText(i) == name) { syncingBone = true; bone.Select(i); syncingBone = false; Project.BoneIndex = i; break; }
-        if (boneList is not null) for (int i = 0; i < boneList.ItemCount; i++) if (boneList.GetItemText(i) == name) { syncingBone = true; boneList.Select(i); syncingBone = false; break; }
-        ReadKey(); SyncOverlay();
+        SyncOverlay();
     }
     private void ClearBoneSelection()
     {
         highlightedBone = null;
-        syncingBone = true; bone.Selected = -1; if (boneList is not null) boneList.DeselectAll(); syncingBone = false;
-        readingKey = true;
-        try { x.Value = 0; y.Value = 0; angle.Value = 0; sx.Value = 1; sy.Value = 1; picture.Value = 0; }
-        finally { readingKey = false; }
-        if (keyList is not null) keyList.Clear();
         SyncOverlay();
     }
     private IReadOnlyList<MotionIkChain> IkChains => MotionIkPresets.For(document.Graph);
     private bool IsIkEnd(string name) => IkChains.Any(chain => chain.Enabled && chain.End == name);
-    private void RefreshGraph()
-    {
-        graphView.ClearConnections(); foreach (var node in graphView.GetChildren().OfType<GraphNode>()) { graphView.RemoveChild(node); node.QueueFree(); }
-        for (int i = 0; i < document.Graph.States.Count; i++)
-        {
-            var state = document.Graph.States[i]; var node = new GraphNode { Name = NodeName(state.Id), Title = (document.Graph.Entry == state.Id ? "▶ " : "") + state.Id, PositionOffset = new(30 + (i % 3) * 220, 30 + (i / 3) * 150), CustomMinimumSize = new(180, 80) };
-            node.AddChild(new Label { Text = state.Clip }); node.SetSlot(0, true, 0, Colors.SkyBlue, true, 0, Colors.Orange); graphView.AddChild(node);
-            node.GuiInput += input => { if (input is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left }) { stateChoice.Select(document.Graph.States.FindIndex(s => s.Id == state.Id)); RefreshStateInspector(); } };
-        }
-        foreach (var state in document.Graph.States) foreach (var transition in state.Transitions) graphView.ConnectNode(NodeName(state.Id), 0, NodeName(transition.Target), 0);
-    }
     private void Guard(Action action) { try { action(); } catch (Exception e) { status.Text = e.GetBaseException().Message; } }
     private void Change(Action<MotionGraph> action,string? coalesce=null) { if (refreshing) return; Guard(() => { document.Edit(action,coalesce); Refresh(); ApplyDocumentPose(); if (playing.ButtonPressed) RestartPlayback(); status.Text = "已编辑。"; }); }
     private void Confirm(string text, Action action) { pendingConfirmation = action; confirmation.DialogText = text; confirmation.PopupCentered(); }
@@ -140,7 +110,7 @@ public partial class NativeActionEditor : Window
         void Close() { closing = true; Hide(); Closed?.Invoke(); QueueFree(); }
         ConfirmDirtyClose(Close);
     }
-    private void ImportOriginal() => Guard(() => { string name = original.GetItemText((int)original.Selected); document = new(MotionImport.FromAst(world.Code["external/Chara/Motion/" + name + ".txt"], name.Replace('/', '.'), document.Graph.Skeleton, clipId: name)); path = null; Refresh(); InitializePreview(); status.Text = "已导入：" + name; });
+    private void ImportOriginal(string name) => Guard(() => { document = new(MotionImport.FromAst(world.Code[MotionCodePrefix + name + ".txt"], name.Replace('/', '.'), document.Graph.Skeleton, clipId: name)); path = null; Refresh(); InitializePreview(); status.Text = "已导入：" + name; });
     private void Save() { if (path is null) { ChooseFile(true); return; } Guard(() => { document.Save(path); Refresh(); status.Text = "已保存：" + path; }); }
     private void ChooseFile(bool save)
     {
@@ -176,7 +146,7 @@ public partial class NativeActionEditor : Window
             if (target.Kind == MotionTargetKind.Entity) { targetPreview = LegacyPreview(target.Id); actor = new(preview.World, targetPreview); }
             else if (!force && appliedTarget == target && preview.Player is not null) { ReleaseLegacyPreview(); actor = new(preview.World, preview.Player); }
             else { ReleaseLegacyPreview(); await preview.ApplyAsync(CharacterDefinition(target)); appliedTarget = target; actor = new(preview.World, preview.Player!); }
-            PopulateSkeleton(); preview.Bridge.Services.Motions.Play(actor, document.Graph);frame.Value=0;ApplyDocumentPose();
+            PopulateSkeleton(); preview.Bridge.Services.Motions.Play(actor, document.Graph);frame.Value=0;ApplyDocumentPose();RefreshCodeViews();
             canvas.QueueRedraw(); FitView(); status.Text = initialNotice.Length > 0 ? initialNotice : "预览已加载。"; initialNotice = "";
         }
         catch (Exception e) { status.Text = e.GetBaseException().Message; }
@@ -275,10 +245,10 @@ public partial class NativeActionEditor : Window
         if (PreviewActor is not { } actor) { overlay.Legend = ""; overlay.Playback = ""; return; }
         overlay.Legend = "键位  " + KeyLegend();
         var state = actor.Services.Motions.State(actor);
-        if (state is null) { overlay.Playback = "状态：未播放"; return; }
+        if (state is null) { overlay.Playback = "未播放"; return; }
         var clip = document.Graph.Clips.FirstOrDefault(item => item.Id == document.Graph.States.FirstOrDefault(s => s.Id == state.State)?.Clip);
         var text = new System.Text.StringBuilder();
-        text.Append("状态 ").Append(state.State).Append("  帧 ").Append(state.Frame.ToString("F1"));
+        text.Append("运行 ").Append(state.State).Append("  帧 ").Append(state.Frame.ToString("F1"));
         if (clip is not null) text.Append('/').Append(clip.Duration.ToString("F0"));
         if (lastTransition is not null) text.Append("  转换 ").Append(lastTransition);
         if (lastEvents.Count > 0) text.Append("  事件 ").Append(string.Join(",", lastEvents));

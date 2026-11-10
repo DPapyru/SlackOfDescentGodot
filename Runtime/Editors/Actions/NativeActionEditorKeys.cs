@@ -75,19 +75,14 @@ public partial class NativeActionEditor
     private void StepFrame(double delta) => frame.Value = Math.Clamp(frame.Value + delta, frame.MinValue, frame.MaxValue);
     private void StepBone(int delta)
     {
-        if (boneList.ItemCount == 0) return;
-        int index = SelectedIndex(boneList);
-        index = index < 0 ? (delta > 0 ? 0 : boneList.ItemCount - 1) : Math.Clamp(index + delta, 0, boneList.ItemCount - 1);
-        boneList.Select(index);
-        SelectBone(boneList.GetItemText(index));
+        if (PreviewActor is not { } actor) return;
+        var names = actor.Services.Motions.Skeleton(actor).Select(node => node.Name).ToList();
+        if (names.Count == 0) return;
+        int index = highlightedBone is null ? -1 : names.IndexOf(highlightedBone);
+        index = index < 0 ? (delta > 0 ? 0 : names.Count - 1) : Math.Clamp(index + delta, 0, names.Count - 1);
+        SelectBone(names[index]);
     }
-    private void DeleteCurrentKey()
-    {
-        if (!rootTrack.ButtonPressed && SelectedBone is null) { status.Text = "dd：请先选择骨骼或姿态根偏移。"; return; }
-        var keys = rootTrack.ButtonPressed || SelectedBone == "root" ? Clip.Root : Clip.Tracks.FirstOrDefault(track => track.Bone == SelectedBone)?.Keys;
-        if (keys is null || !keys.Any(item => item.Frame == frame.Value)) { status.Text = "dd：当前帧没有关键帧。"; return; }
-        Change(_ => Keys().RemoveAll(item => item.Frame == frame.Value));
-    }
+    private void DeleteCurrentKey() => DeleteSelectedKey();
     private void ShowCompletion()
     {
         ShowMessage("TOML 帧块补全：\n[[frame]]\nindex = 帧号\n骨骼.字段 = 数值\n字段：x、y、angle、scaleX、scaleY、picture\n骨骼：" + string.Join("、", MotionSkeleton.Bones) + "\n片段：" + string.Join("、", document.Graph.Clips.Select(clip => clip.Id)));

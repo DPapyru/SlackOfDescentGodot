@@ -1,27 +1,23 @@
 using Godot;
+using System.Text.Json;
 
 namespace SlackOfDescent;
 
 public partial class NativeActionEditor
 {
     private TabBar tabs = null!;
-    private TabContainer inspector = null!;
-    private Label targetLabel = null!, playState = null!;
+    private Label targetLabel = null!;
     private Label status = null!;
-    private OptionButton original = null!, speedChoice = null!;
-    private ItemList stateList = null!, boneList = null!, ikList = null!;
-    private bool syncingStateList;
-    private CheckButton playing = null!;
+    private TextEdit sourceView = null!, rawView = null!;
+    private TabContainer leftPages = null!;
     private TextureRect surface = null!;
     private SubViewport viewport = null!;
     private GmCanvas canvas = null!;
-    private NativeMotionOverlay overlay = null!;
+    private NativeMotionOverlay? overlay;
+    private bool rootTrackMode;
     private static HBoxContainer Row(Node parent) { var row = new HBoxContainer(); parent.AddChild(row); return row; }
     private static Button Button(Node parent, string text, Action action) { var button = new Button { Text = text }; parent.AddChild(button); button.Pressed += action; return button; }
     private static VBoxContainer Column(Node parent) { var column = new VBoxContainer(); parent.AddChild(column); return column; }
-    private static VBoxContainer Page(TabContainer tabs, string name) { var page = new VBoxContainer { Name = name }; tabs.AddChild(page); return page; }
-    private static ItemList List(Node parent, int height) { var list = new ItemList { CustomMinimumSize = new(0, height) }; parent.AddChild(list); return list; }
-    private static int SelectedIndex(ItemList list) { var selected = list.GetSelectedItems(); return selected.Length > 0 ? selected[0] : -1; }
     private static SpinBox Number(Node parent, string label, double min = -4096, double max = 4096, double value = 0)
     {
         parent.AddChild(new Label { Text = label }); var number = new SpinBox { MinValue = min, MaxValue = max, Step = .01, Value = value, CustomMinimumSize = new(90, 0) }; parent.AddChild(number); return number;
@@ -47,12 +43,17 @@ public partial class NativeActionEditor
             case "save": Save(); break;
             case "saveAs": ChooseFile(true); break;
             case "saveTo": SaveToDialog(); break;
+            case "importOriginal": ShowOriginalMotions(); break;
             case "close": CloseProject(activeProject); break;
             case "quit": RequestClose(); break;
             case "undo": Guard(() => { document.Undo(); Refresh(); ApplyDocumentPose(); }); break;
             case "redo": Guard(() => { document.Redo(); Refresh(); ApplyDocumentPose(); }); break;
-            case "showBones": overlay.ShowBones = !overlay.ShowBones; break;
-            case "showNames": overlay.ShowNames = !overlay.ShowNames; break;
+            case "deleteKey": DeleteSelectedKey(); break;
+            case "bindIk": BindSelectedIk(); break;
+            case "unbindIk": UnbindSelectedIk(); break;
+            case "rootTrack": rootTrackMode = !rootTrackMode; status.Text = rootTrackMode ? "根偏移已开启：删除关键帧作用于根轨道。" : "根偏移已关闭。"; break;
+            case "showBones": if (overlay is not null) overlay.ShowBones = !overlay.ShowBones; break;
+            case "showNames": if (overlay is not null) overlay.ShowNames = !overlay.ShowNames; break;
             case "reloadPreview": InitializePreview(true); break;
             case "fitView": FitView(); break;
             case "applyGame": ApplyToGame(); break;
@@ -79,7 +80,7 @@ public partial class NativeActionEditor
         var body = new VSplitContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill }; root.AddChild(body);
         BuildWorkspace(body);
         BuildTimeline(body);
-        status = new Label { Name = "动作状态", AutoTranslateMode = AutoTranslateModeEnum.Disabled, AutowrapMode = TextServer.AutowrapMode.WordSmart, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new(0, 22) }; root.AddChild(status);
+        BuildStatusBar(root);
         Refresh(); InitializePreview();
     }
     private void BuildCharacterBar(VBoxContainer root)
@@ -95,49 +96,87 @@ public partial class NativeActionEditor
     private void BuildMenus(VBoxContainer root)
     {
         var bar = Row(root); bar.Name = "MenuBar";
-        AddMenu(bar, "文件", menu => { MenuItem(menu, "新建项目…", "new"); MenuItem(menu, "打开…", "open"); MenuItem(menu, "保存", "save"); MenuItem(menu, "另存为…", "saveAs"); MenuItem(menu, "保存到…", "saveTo"); menu.AddSeparator(); MenuItem(menu, "关闭项目", "close"); MenuItem(menu, "退出", "quit"); });
-        AddMenu(bar, "编辑", menu => { MenuItem(menu, "撤销", "undo"); MenuItem(menu, "重做", "redo"); });
-        AddMenu(bar, "视图", menu => { MenuItem(menu, "显示骨架", "showBones", overlay?.ShowBones ?? true); MenuItem(menu, "显示骨骼名", "showNames", overlay?.ShowNames ?? false); menu.AddSeparator(); MenuItem(menu, "重载预览", "reloadPreview"); menu.AddSeparator(); MenuItem(menu, "应用到游戏角色", "applyGame"); menu.AddSeparator(); MenuItem(menu, "键位：默认", "keyDefault", keyMode == KeyMode.Default); MenuItem(menu, "键位：vim", "keyVim", keyMode == KeyMode.Vim); });
-        AddMenu(bar, "帮助", menu => MenuItem(menu, "状态机说明…", "help"));
-        var brand = new Label { Text = "骨架动作与状态图", HorizontalAlignment = HorizontalAlignment.Right, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; bar.AddChild(brand);
+        AddMenu(bar, "文件", menu => { MenuItem(menu, "新建项目…", "new"); MenuItem(menu, "打开…", "open"); MenuItem(menu, "保存", "save"); MenuItem(menu, "另存为…", "saveAs"); MenuItem(menu, "保存到…", "saveTo"); menu.AddSeparator(); MenuItem(menu, "导入原版动作…", "importOriginal"); menu.AddSeparator(); MenuItem(menu, "关闭项目", "close"); MenuItem(menu, "退出", "quit"); });
+        AddMenu(bar, "编辑", menu => { MenuItem(menu, "撤销", "undo"); MenuItem(menu, "重做", "redo"); menu.AddSeparator(); MenuItem(menu, "删除当前帧关键帧", "deleteKey"); MenuItem(menu, "IK 绑定所选末端", "bindIk"); MenuItem(menu, "解除所选 IK", "unbindIk"); menu.AddSeparator(); MenuItem(menu, "姿态根偏移", "rootTrack", rootTrackMode); });
+        AddMenu(bar, "视图", menu => { MenuItem(menu, "显示骨架", "showBones", overlay?.ShowBones ?? true); MenuItem(menu, "显示骨骼名", "showNames", overlay?.ShowNames ?? false); menu.AddSeparator(); MenuItem(menu, "重载预览", "reloadPreview"); MenuItem(menu, "取景", "fitView"); menu.AddSeparator(); MenuItem(menu, "应用到游戏角色", "applyGame"); menu.AddSeparator(); MenuItem(menu, "键位：默认", "keyDefault", keyMode == KeyMode.Default); MenuItem(menu, "键位：vim", "keyVim", keyMode == KeyMode.Vim); });
+        AddMenu(bar, "帮助", menu => MenuItem(menu, "说明手册…", "help"));
+        var brand = new Label { Text = "动作编辑器", HorizontalAlignment = HorizontalAlignment.Right, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; bar.AddChild(brand);
+    }
+    private void BuildStatusBar(VBoxContainer root)
+    {
+        var bar = new PanelContainer { Name = "StatusBar", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new(0, 24) };
+        bar.AddThemeStyleboxOverride("panel", new StyleBoxFlat { BgColor = new Color("#007acc") });
+        status = new Label { Name = "Status", AutoTranslateMode = AutoTranslateModeEnum.Disabled, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, Text = "就绪" };
+        status.AddThemeColorOverride("font_color", Colors.White);
+        bar.AddChild(status); root.AddChild(bar);
     }
     private void BuildWorkspace(Node parent)
     {
-        var content = new HSplitContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill, SplitOffsets = [250] }; parent.AddChild(content);
+        var content = new HSplitContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill, SplitOffsets = [350] }; parent.AddChild(content);
         BuildLeftDock(content);
         var center = Column(content); center.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         surface = new TextureRect { CustomMinimumSize = new(400, 300), StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, SizeFlagsVertical = Control.SizeFlags.ExpandFill }; center.AddChild(surface);
         overlay = new NativeMotionOverlay(); surface.AddChild(overlay); overlay.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect); surface.GuiInput += SurfaceInput; surface.Resized += SyncOverlay;
         viewport = new SubViewport { Size = new(640, 480), RenderTargetUpdateMode = SubViewport.UpdateMode.Always, TransparentBg = false }; AddChild(viewport);
         canvas = new GmCanvas(); viewport.AddChild(canvas); surface.Texture = viewport.GetTexture();
-        inspector = new TabContainer { CustomMinimumSize = new(340, 0), SizeFlagsVertical = Control.SizeFlags.ExpandFill }; content.AddChild(inspector);
-        BuildTrackPage(inspector); BuildStatePage(inspector); BuildStateMachinePage(inspector); BuildEventsPage(inspector);
+        BuildActionPanel(content);
     }
     private void BuildLeftDock(Node parent)
     {
-        var dock = new VBoxContainer { CustomMinimumSize = new(250, 0) }; parent.AddChild(dock);
-        var pages = new TabContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill }; dock.AddChild(pages);
-        var states = Page(pages, "状态");
-        stateList = List(states, 160); stateList.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
-        stateList.ItemSelected += index => { if (!syncingStateList) { stateChoice.Select((int)index); RefreshStateInspector(); } };
-        var bones = Page(pages, "骨架节点");
-        boneList = List(bones, 160); boneList.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
-        boneList.ItemSelected += index => { if (!syncingBone) SelectBone(boneList.GetItemText((int)index)); };
-        Button(bones, "刷新骨架", PopulateSkeleton);
-        var ik = Page(pages, "IK 链");
-        ikList = List(ik, 140); ikList.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
-        var ikButtons = Row(ik); Button(ikButtons, "绑定所选末端", BindSelectedIk); Button(ikButtons, "解除所选 IK", UnbindSelectedIk);
-        var source = Page(pages, "原版动作");
-        original = new OptionButton { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; source.AddChild(original);
-        foreach (string key in world.Code.Keys.Where(k => k.StartsWith("external/Chara/Motion/", StringComparison.Ordinal)).Order()) original.AddItem(key["external/Chara/Motion/".Length..^4]);
-        Button(source, "导入到当前项目", ImportOriginal);
+        var dock = new VBoxContainer { CustomMinimumSize = new(350, 0) }; parent.AddChild(dock);
+        leftPages = new TabContainer { Name = "LeftPages", SizeFlagsVertical = Control.SizeFlags.ExpandFill }; dock.AddChild(leftPages);
+        var source = new VBoxContainer { Name = "节点属性修改" }; leftPages.AddChild(source);
+        sourceView = new TextEdit { Name = "SourceView", Editable = false, SizeFlagsVertical = Control.SizeFlags.ExpandFill, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new(320, 200) };
+        source.AddChild(sourceView);
+        var raw = new VBoxContainer { Name = "原始数据" }; leftPages.AddChild(raw);
+        rawView = new TextEdit { Name = "RawView", Editable = false, SizeFlagsVertical = Control.SizeFlags.ExpandFill, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        raw.AddChild(rawView);
+    }
+    private void BuildActionPanel(Node parent)
+    {
+        var panel = new VBoxContainer { Name = "ActionSettings", CustomMinimumSize = new(280, 0), SizeFlagsVertical = Control.SizeFlags.ExpandFill }; parent.AddChild(panel);
+        panel.AddChild(new Label { Text = "动作设置" });
+        panel.AddChild(new Label { Text = "当前编辑动作 (Action)" });
+        clipChoice = new OptionButton { Name = "ClipChoice", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; panel.AddChild(clipChoice);
+        clipChoice.ItemSelected += _ => { if (refreshing) return; Project.ClipIndex = Math.Max(0, clipChoice.Selected); RefreshTimeline(); ApplyDocumentPose(); RefreshCodeViews(); };
+        var durationRow = Row(panel); durationRow.AddChild(new Label { Text = "总帧数" });
+        duration = new SpinBox { MinValue = 1, MaxValue = 100000, Step = 1, CustomMinimumSize = new(90, 0) }; durationRow.AddChild(duration);
+        duration.ValueChanged += value => { if (!syncingTimeline && !refreshing) ChangeKey(_ => Clip.Duration = value, "duration:" + Clip.Id); };
+        var loopRow = Row(panel); loop = new CheckButton { Text = "循环", ButtonPressed = true }; loopRow.AddChild(loop);
+        loop.Toggled += on => { if (!syncingTimeline && !refreshing) ChangeKey(_ => Clip.Loop = on, "loop:" + Clip.Id); };
+    }
+    private void RefreshCodeViews()
+    {
+        Guard(() =>
+        {
+            var clip = Clip;
+            var text = new System.Text.StringBuilder();
+            text.Append("// 片段 ").Append(clip.Id).Append("  帧 ").Append(frame.Value.ToString("F1")).Append(" / ").Append(clip.Duration.ToString("F0")).Append('\n');
+            text.Append(Line("root", clip.RootPose(frame.Value)));
+            foreach (var pair in clip.Sample(frame.Value).OrderBy(item => item.Key, StringComparer.Ordinal)) text.Append(Line(pair.Key, pair.Value));
+            static string Line(string name, MotionPose pose) => name + ": { x: " + pose.X.ToString("F2") + ", y: " + pose.Y.ToString("F2") + ", angle: " + pose.Angle.ToString("F2")
+                + ", sx: " + pose.ScaleX.ToString("F2") + ", sy: " + pose.ScaleY.ToString("F2") + ", picture: " + pose.Picture + " }\n";
+            if (!sourceView.HasFocus()) sourceView.Text = text.ToString();
+            if (!rawView.HasFocus()) rawView.Text = JsonSerializer.Serialize(document.Graph, NativeContentStore.Json);
+        });
+    }
+    private const string MotionCodePrefix = "external/Chara/Motion/";
+    private void ShowOriginalMotions()
+    {
+        var popup = new PopupMenu { Name = "ImportOriginal" }; AddChild(popup);
+        int index = 0;
+        foreach (string key in world.Code.Keys.Where(k => k.StartsWith(MotionCodePrefix, StringComparison.Ordinal)).Order()) popup.AddItem(key[MotionCodePrefix.Length..^4], index++);
+        popup.IdPressed += id => ImportOriginal(popup.GetItemText((int)id));
+        popup.PopupHide += popup.QueueFree;
+        popup.Popup(new Rect2I(new Vector2I((int)GetMousePosition().X, (int)GetMousePosition().Y), Vector2I.One));
     }
     internal string HelpText()
     {
         string preset = HelpPreset();
         var text = new System.Text.StringBuilder();
-        text.AppendLine("一、状态机是什么");
-        text.AppendLine("状态：角色当前正在播哪一段动作。片段：一段带关键帧的姿态轨道。转换：满足条件时从当前状态切到目标状态。条件：按键/落地/速度/血量/受击/计时/参数等判断。运动：状态自带的速度、重力与位移。事件：片段内指定帧或接触区间触发的伤害、交互、生成、销毁、SDK 与地图事件。");
+        text.AppendLine("一、动作图是什么");
+        text.AppendLine("片段：一段关键帧姿态。状态：Mod 运行时的节点，引用一个片段并带运动与转换；编辑器界面不出现状态编辑，只能在「原始数据」里只读查看。");
+        text.AppendLine("转换：满足条件时从当前状态切到目标状态。条件：按键/落地/速度/血量/受击/计时/参数等判断。运动：状态自带的速度、重力与位移。事件：片段内指定帧或接触区间触发的伤害、交互、生成、销毁、SDK 与地图事件。");
         text.AppendLine();
         text.AppendLine("二、原版对照");
         text.AppendLine("状态 ↔ objPlayerDoll 的 Step 里硬编码的 MotionNum 分支。");
@@ -190,7 +229,7 @@ public partial class NativeActionEditor
     };
     private void ShowHelp()
     {
-        var dialog = new AcceptDialog { Title = "状态机说明", OkButtonText = "关闭", Size = new(820, 620) };
+        var dialog = new AcceptDialog { Title = "说明手册", OkButtonText = "关闭", Size = new(820, 620) };
         dialog.AddChild(new TextEdit { Text = HelpText(), Editable = false, SizeFlagsVertical = Control.SizeFlags.ExpandFill, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
         AddChild(dialog); dialog.Confirmed += dialog.QueueFree; dialog.Canceled += dialog.QueueFree; dialog.PopupCenteredRatio(.8f);
     }

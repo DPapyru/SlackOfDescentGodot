@@ -251,10 +251,11 @@ public partial class NativeActionEditor : Window
     }
     private void UpdatePlaybackOverlay()
     {
-        if (PreviewActor is not { } actor) { overlay.Legend = ""; overlay.Playback = ""; return; }
-        overlay.Legend = "键位  " + KeyLegend();
+        if (overlay is not { } overlayView) return;
+        if (PreviewActor is not { } actor) { overlayView.Legend = ""; overlayView.Playback = ""; return; }
+        overlayView.Legend = "键位  " + KeyLegend();
         var state = actor.Services.Motions.State(actor);
-        if (state is null) { overlay.Playback = "未播放"; return; }
+        if (state is null) { overlayView.Playback = "未播放"; return; }
         var clip = document.Graph.Clips.FirstOrDefault(item => item.Id == document.Graph.States.FirstOrDefault(s => s.Id == state.State)?.Clip);
         var text = new System.Text.StringBuilder();
         text.Append("运行 ").Append(state.State).Append("  帧 ").Append(frame.Value.ToString("F0"));
@@ -262,7 +263,7 @@ public partial class NativeActionEditor : Window
         text.Append("  FPS 30");
         if (lastTransition is not null) text.Append("  转换 ").Append(lastTransition);
         if (lastEvents.Count > 0) text.Append("  事件 ").Append(string.Join(",", lastEvents));
-        overlay.Playback = text.ToString();
+        overlayView.Playback = text.ToString();
     }
     private void ApplyToGame() => Guard(() =>
     {

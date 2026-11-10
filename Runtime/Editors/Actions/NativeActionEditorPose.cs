@@ -38,6 +38,7 @@ public partial class NativeActionEditor
 
     private void SurfaceButton(InputEventMouseButton button)
     {
+        if(overlay is not {} overlayView)return;
         if(button.Pressed)TakeCanvasFocus();
         if(button.ButtonIndex==MouseButton.Left)
         {
@@ -47,7 +48,7 @@ public partial class NativeActionEditor
                 dragging=false;
                 if(dragSurface.DistanceTo(dragOrigin)<3)
                 {
-                    overlay.SetRingAngle(null);ApplyDocumentPose();
+                    overlayView.SetRingAngle(null);ApplyDocumentPose();
                     status.Text=dragMode switch{DragMode.Translate=>"已选中骨骼；未拖动，未写入局部 X/Y。",DragMode.Ball=>"已选中骨骼；未拖动，未写入旋转。",_=>"已选中骨骼；未拖动，未写入关键帧。"};
                     return;
                 }
@@ -56,15 +57,21 @@ public partial class NativeActionEditor
             else if(panning)panning=false;
             return;
         }
+        SurfaceViewButton(button);
+        if(button.ButtonIndex==MouseButton.Right&&button.Pressed&&dragging)CancelDrag();
+    }
+
+    private void SurfaceViewButton(InputEventMouseButton button)
+    {
         if(button.ButtonIndex==MouseButton.Middle){if(button.Pressed)BeginPan(button.Position);else panning=false;return;}
         if(button.ButtonIndex==MouseButton.WheelUp&&button.Pressed){ZoomView(button.Position,1/1.12);return;}
         if(button.ButtonIndex==MouseButton.WheelDown&&button.Pressed){ZoomView(button.Position,1.12);return;}
-        if(button.ButtonIndex==MouseButton.Right&&button.Pressed&&dragging)CancelDrag();
     }
 
     private void SurfacePress(InputEventMouseButton button)
     {
-        if(overlay.RingHit(button.Position)=="ball"&&highlightedBone is {} ball){draggedBone=ball;dragging=true;dragMode=DragMode.Ball;dragOrigin=dragSurface=button.Position;(dragX,dragY)=CanvasPosition(button.Position);return;}
+        if(overlay is not {} overlayView)return;
+        if(overlayView.RingHit(button.Position)=="ball"&&highlightedBone is {} ball){draggedBone=ball;dragging=true;dragMode=DragMode.Ball;dragOrigin=dragSurface=button.Position;(dragX,dragY)=CanvasPosition(button.Position);return;}
         draggedBone=PickBoneAt(button.Position);
         if(draggedBone is null){ClearBoneSelection();BeginPan(button.Position);return;}
         SelectBone(draggedBone);
@@ -75,9 +82,10 @@ public partial class NativeActionEditor
 
     private void SurfaceMotion(InputEventMouseMotion motion)
     {
+        if(overlay is not {} overlayView)return;
         if(!dragging){if(panning)UpdatePan(motion.Position);return;}
         (dragX,dragY)=CanvasPosition(motion.Position);dragSurface=motion.Position;
-        if(dragMode==DragMode.Ball){var local=LocalTarget(draggedBone!,dragX,dragY,false);overlay.SetRingAngle(Math.Atan2(-local.Y,local.X)*180/Math.PI);}
+        if(dragMode==DragMode.Ball){var local=LocalTarget(draggedBone!,dragX,dragY,false);overlayView.SetRingAngle(Math.Atan2(-local.Y,local.X)*180/Math.PI);}
         PreviewDrag(draggedBone!);
     }
 
@@ -133,16 +141,17 @@ public partial class NativeActionEditor
 
     private void CommitDrag(string name)
     {
+        if(overlay is not {} overlayView)return;
         try
         {
             MotionIkResult? outcome=null;
             if(dragMode==DragMode.Translate)
             {
                 var (targetX,targetY)=TranslateTarget(name);
-                if(Math.Abs(targetX-dragStartPose.X)<1e-9&&Math.Abs(targetY-dragStartPose.Y)<1e-9){overlay.SetRingAngle(null);status.Text="未移动，未写入局部 X/Y。";ApplyDocumentPose();return;}
+                if(Math.Abs(targetX-dragStartPose.X)<1e-9&&Math.Abs(targetY-dragStartPose.Y)<1e-9){overlayView.SetRingAngle(null);status.Text="未移动，未写入局部 X/Y。";ApplyDocumentPose();return;}
             }
             document.Edit(graph=>{outcome=ApplyDrag(graph,name);if(!outcome.Value.Success)throw new InvalidDataException(outcome.Value.Reason);});
-            overlay.SetRingAngle(null);
+            overlayView.SetRingAngle(null);
             status.Text=dragMode switch
             {
                 DragMode.Ball=>"已写入旋转；一次拖动生成一个撤销记录。",
@@ -151,7 +160,7 @@ public partial class NativeActionEditor
             };
             Refresh();ApplyDocumentPose();
         }
-        catch(InvalidDataException error){overlay.SetRingAngle(null);status.Text=error.Message;Refresh();ApplyDocumentPose();}
+        catch(InvalidDataException error){overlayView.SetRingAngle(null);status.Text=error.Message;Refresh();ApplyDocumentPose();}
     }
 
     private (double X,double Y) DragTarget(string name)
@@ -203,7 +212,8 @@ public partial class NativeActionEditor
     private void BeginPan(Vector2 position){panning=true;panOrigin=position;var view=PreviewView;panCenterX=view.ViewX+view.ViewWidth/2;panCenterY=view.ViewY+view.ViewHeight/2;}
     private void UpdatePan(Vector2 position)
     {
-        double worldPerPixel=MotionViewport.WorldPerPixel(overlay.Size.X,overlay.Size.Y,PreviewView);
+        if(overlay is not {} overlayView)return;
+        double worldPerPixel=MotionViewport.WorldPerPixel(overlayView.Size.X,overlayView.Size.Y,PreviewView);
         viewCenterX=panCenterX-(position.X-panOrigin.X)*worldPerPixel;
         viewCenterY=panCenterY-(position.Y-panOrigin.Y)*worldPerPixel;
         ApplyView();
@@ -212,13 +222,15 @@ public partial class NativeActionEditor
     private void CancelDrag()
     {
         if(!dragging)return;
-        dragging=false;draggedBone=null;overlay.SetRingAngle(null);status.Text="已取消拖动，文档未修改。";ApplyDocumentPose();
+        if(overlay is not {} overlayView)return;
+        dragging=false;draggedBone=null;overlayView.SetRingAngle(null);status.Text="已取消拖动，文档未修改。";ApplyDocumentPose();
     }
 
     internal string? PickBoneAt(Vector2 position)
     {
-        if(overlay.PickBone(position)is {} joint)return joint;
-        if(PreviewActor is not {} actor||overlay.Size.X<=0||overlay.Size.Y<=0)return null;
+        if(overlay is not {} overlayView)return null;
+        if(overlayView.PickBone(position)is {} joint)return joint;
+        if(PreviewActor is not {} actor||overlayView.Size.X<=0||overlayView.Size.Y<=0)return null;
         var (X,Y)=CanvasPosition(position);var instances=actor.World.Instances;
         string? best=null;double bestDepth=double.MaxValue;int bestOrder=-1;
         foreach(var node in actor.Services.Motions.Skeleton(actor))
@@ -226,14 +238,14 @@ public partial class NativeActionEditor
             var part=instances.FirstOrDefault(item=>item.Id==node.Instance);
             if(part is null||part.Destroyed||!part.Active||!part.Scope.ReadOr("visible").Truth)continue;
             var bounds=actor.World.Bounds(part);
-            if(bounds.Empty||X<bounds.Left||X>bounds.Right||Y<bounds.Top||Y>bounds.Bottom)continue;
+            if(!bounds.Overlaps(new(X,Y,X,Y)))continue;
             double depth=part.Scope.ReadOr("depth").Number;int order=instances.IndexOf(part);
             if(depth<bestDepth||(depth==bestDepth&&order>bestOrder)){best=node.Name;bestDepth=depth;bestOrder=order;}
         }
         return best;
     }
 
-    private (double X,double Y) CanvasPosition(Vector2 position)=>overlay.WorldPoint(position);
+    private (double X,double Y) CanvasPosition(Vector2 position)=>overlay!.WorldPoint(position);
 
     private void ApplyDocumentPose()=>ApplyPose(document.Graph);
 
@@ -251,9 +263,10 @@ public partial class NativeActionEditor
 
     private void SyncOverlay()
     {
+        if(overlay is not {} overlayView)return;
         if(PreviewActor is not {} actor)return;
         var nodes=actor.Services.Motions.Skeleton(actor);
-        overlay.Sync(nodes,highlightedBone,IkChains,PreviewView,new((float)actor.X,(float)actor.Y));
+        overlayView.Sync(nodes,highlightedBone,IkChains,PreviewView,new((float)actor.X,(float)actor.Y));
         UpdatePlaybackOverlay();
     }
 

@@ -3,7 +3,7 @@
   "body": "### 🎯 目标\n\n按 Issue #3 的最终确认方案（Q2=A），动作编辑器采用“单画布单世界”架构：左侧状态列表、中间唯一画布、右侧检查器、底部时间轴。本 issue 聚焦其中“画布直接操作部件与骨骼”这一子任务，目标是让用户在画布上点击部件即选中对应骨骼、拖动骨骼实时变形，并由画布驱动左栏与右侧检查器的双向高亮与数据同步。\n\n在此之前，画布上只能看到骨骼线，选骨骼必须去左栏找名字，拖动只能改数值框。本 issue 要消除这个割裂，把预览画布变成可编辑画布。\n\n\n### 📍 位置\n\n- **页面/模块**：动作编辑器（NativeActionEditor）\n- **涉及区域**：中间画布（Center Viewport / Canvas Stage）、底部时间轴（Timeline Track Area）、右侧动作选择面板（Right Sidebar）\n- **关键组件**：SVG 骨骼渲染层、关键帧轨道、动作下拉选择器\n\n\n### 🔄 变更内容\n\n**1. 画布：SVG 骨骼系统替代矩形模拟**\n\n当前画布用 `mock-character` 圆形或简单矩形占位，无法点选具体骨骼。改为 SVG 渲染完整的火柴人骨骼链（HEAD / BODY_TOP / BODY_BOTTOM / ARM_L_ELBOW / ARM_L_HAND / ARM_R_ELBOW / ARM_R_HAND / LEG_L_KNEE / LEG_L_FOOT / LEG_R_KNEE / LEG_R_FOOT），每个关节渲染为可点击的 `<circle>`，骨骼连线渲染为 `<line>`。\n\n**2. 动作选择器与时间轴解耦**\n\n右侧面板只负责选择当前编辑的动作（idle / run / dash / attack）。切换动作时，底部时间轴的轨道内容随之刷新，画布也同步加载该动作下当前帧的骨骼姿态。这与 Issue #3 中“一个标签 = 一个角色，一个动作 = 一个关键帧轨道组”的语义一致。\n\n**3. 时间轴按骨骼节点分行**\n\n底部轨道左侧显示骨骼节点名列表（BODY、HEAD、ARM_LEFT、ARM_RIGHT…），右侧内容区按时间刻度展示白色菱形关键帧。选中某个关键帧时，画布上对应骨骼节点应同步高亮（蓝色 `#007acc`）。\n\n**4. 双向选中联动（本 issue 的核心交互）**\n\n- **画布 → 左栏**：点击画布上的关节 circle，左栏代码块中对应骨骼的 `{ rot, x, y }` 块高亮。\n- **画布 → 时间轴**：被选中的骨骼在底部轨道头部同步高亮。\n- **画布 → 右侧**：右侧面板可预留属性区，显示当前选中骨骼的坐标值（即使初期只读）。\n\n\n### 🖼️ 视觉参考\n\n[action-edit.html](https://github.com/user-attachments/files/34540402/action-edit.html)\n\n*说明：该 HTML 文件作为纯前端 UI 演示，包含完整的 CSS 样式、SVG 火柴人骨骼节点、底部时间轴及右侧动作选择器，可作为 UI 验收和布局参考的基准。*\n\n\n### 🚫 约束与禁止项\n\n- **不要修改** Issue #3 中已锁定的“单画布单世界”架构：一个 SubViewport + 一个 NativeCharacterPreview，动作参数不另建预览。\n- **不要新增**“动作参数”工作区或任何工作区标签页，这些已在阶段 0 中删除。\n- **不要修改** 右侧检查器的标签页划分（轨道 / 状态 / 状态机 / 事件），本 issue 只动画布、动作选择器和时间轴轨道区域。\n- **不要实现** 拖拽变形逻辑本身；本 issue 只交付 UI 骨架与选中联动。真正的拖动实时变形、IK 解算、松手写键属于“画布直接操作部件与骨骼”子 issue 的核心逻辑。\n\n\n### ✅ 验收标准\n\n- [ ] 画布渲染完整的火柴人 SVG 骨骼链，包含 11 个可见关节节点和 9 条骨骼连线。\n- [ ] 点击画布上任一关节 `circle`，该关节的 `class` 变为 `joint selected`，视觉上呈蓝色高亮。\n- [ ] 点击关节时，底部时间轴中对应骨骼的轨道头部同步高亮；左栏代码块中对应骨骼的 `{ rot, x, y }` 块背景高亮。\n- [ ] 右侧动作下拉框切换选项时，底部时间轴轨道内容随之切换（初始可用静态 mock 数据模拟不同动作的关键帧分布差异）。\n- [ ] 时间轴中选中某个关键帧菱形，画布上对应骨骼连线与关节同步高亮。\n- [ ] 画布背景为网格样式（`background-image: linear-gradient` 双层），与 Issue #3 中“画布自适应取景”的视觉基调一致。\n- [ ] 现有 `MOTION_EDITOR_LAYOUT_OK` 与 `MOTION_EDITOR_AUDIT_OK` 审计断言不被破坏。\n\n\n### 🧪 验证方式\n\n- **自动化**：运行 `motion-audit headless`，确认 `MOTION_EDITOR_LAYOUT_OK` 仍通过；运行 `NativeActionEditorAudit`，确认 `ACTION_EDITOR_AUDIT_OK checks=41` 不被破坏。\n- **手动检查**：在浏览器中打开附件 HTML 文件，逐项勾选上述验收标准。确认 SVG 在 800×800 viewBox 下自适应居中，关节 hover 有视觉反馈，选中高亮不丢失。\n\n\n### 🔗 与 Issue #3 的关联\n\n本 issue 是 Issue #3 “把预览画布变成可编辑画布”的子任务，对应改造方向中的“画面里点哪个部件就选中对应骨骼，左栏与画面双向高亮”。它不依赖“预览跟手”或“打开不脏”子 issue，可独立先行；后续的拖拽变形与 IK 解算子 issue 将在此 UI 骨架上叠加上层逻辑。",
   "state": "OPEN",
   "createdAt": "2026-11-08T08:54:52Z",
-  "updatedAt": "2026-11-09T08:26:48Z",
+  "updatedAt": "2026-11-10T13:27:52Z",
   "closedAt": null,
   "author": {
     "login": "DPapyru"
@@ -303,6 +303,149 @@
         "id": "IC_kwDOVf3hE88AAAABkXih7g",
         "body": "## AI回复\n\n已按你的确认落成决策记录（Wiki，不写 changelog）：\n\n- 决策清单：[设计决策](https://github.com/DPapyru/SlackOfDescentGodot/wiki/Decisions)\n- 新页：[状态与片段](https://github.com/DPapyru/SlackOfDescentGodot/wiki/%E7%8A%B6%E6%80%81%E4%B8%8E%E7%89%87%E6%AE%B5)\n- [Home](https://github.com/DPapyru/SlackOfDescentGodot/wiki) 文档索引已加链接。\n\n本轮记为「已定」的条目：布局重排（左两页 / 右一页 / 底部时间轴 / 状态栏，删左右共 8 页）、TOML 帧块格式（`[[frame]]` + `index` + `骨骼.字段`）、CodeEdit 高亮与补全、时间轴 1:1、性能预算 1.2s / 450MB、首次打开导入第一个注册动作、四个 PR 的处理顺序、菜单归属、状态与片段术语及界面用词纪律。\n\n状态机按 Q14 的 ACK 记录：主界面不提供状态 / 状态机编辑；数据保留、只在「原始数据」TOML 可改；运行时不动；可视化等官方 MotionGraph 示例 Mod 落地后评估，示例由你在编辑器稳定后自己实现。\n\n下一步按记录顺序开工：布局 PR → #47 → #48 → #49 / #50；先跑性能探针（worktree 需软链 `GameData`）。本轮未动代码。",
         "createdAt": "2026-11-09T08:26:48Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABkubEKg",
+        "body": "## AI回复\n\n### 1. 为什么现在要协调一次\n第三轮验收跑在 human-test2 上，但 human-test2 不是 ai 的历史。issue 树、PR 分支、ai、human-test2 现在是四套状态，需要先对齐关系，再继续第三轮缺陷修复。本评论只记录核实到的现状与待协调项，**不含结论**，也不改动任何结构。\n\n### 2. 核实结果（2026-11-10）\n\n| 对象 | 现状 | 证据 |\n|---|---|---|\n| #34 正文 | 仍是创建时的「画布 SVG 骨骼选中联动」规格（引用 Issue #3、action-edit.html、ACTION_EDITOR_AUDIT_OK checks=41；该标记仓库内不存在），与标题、与 10 个 sub-issue 都不一致 | #34 正文 |\n| #34 的正式 sub-issue | 10 个：#41 #42 #43 #44 #45 #46 #51 #52 #53 #54，全 open | GraphQL subIssues.totalCount=10 |\n| 第二、三轮 | #65、#76 的 parent 为 null；#61 #62 #63 #64 #70（正文写「父 issue：#65」）与 #77 #78 #79 #80 #81（正文写「父 issue：#76」）没有任何 sub-issue 边 | GraphQL parent 全部为 null |\n| ai | 18 个 open PR 无一合并；MotionGraph 无 origin 字段 | git show origin/ai:Runtime/Content/Actions/MotionGraph.cs 无 Origin；PR mergedAt 全为 null |\n| human-test2 | ai + 68 commit、0 落后；18 个 open PR 的分支全部已合入（#15 #47 #48 #49 #50 #55 #56 #57 #58 #59 #60 #68 #69 #71 #72 #73 #74 #75） | git rev-list --left-right --count origin/ai...origin/human-test2 = 0 68；git merge-base --is-ancestor 逐个为真 |\n| 堆叠关系 | #55(布局) → #60(#41 帧块) → #72(#62 可读性) → #75(#41 索引绑定)；#68(#64) 也基于 #60；#47 是 #41 的旧实现，仍在 ai 上、未关闭 | gh pr view 60/68/72/75 |\n\n由此产生一个具体分叉：origin 字段只存在于 human-test2（MotionGraph.cs:116 字段、:169 加载路径），ai 上没有——同一份 .motion.json 在两条分支上不是同一个读取实现。\n\n### 3. 待协调项（需要维护者定方向，本评论不下结论）\n\n1. **收口方向**：human-test2 → ai 怎么回灌（一条集成 PR / 按堆叠顺序逐个 retarget 到 ai / 只留分支）；ai 更新后 human-test2 是否从 ai 重新同步。\n2. **堆叠去留**：#47 是否关闭；#55 → #60 → #72 → #75 这条 4 层链是否拆开再合，还是整链一起走。\n3. **#41 规格冲突**：2026-11-09T14:54 追加的「index 与播放头双向绑定、取消 Ctrl+Enter/失焦提交、改防抖热更新」与 #60 现实现方向相反，且 #60 没有 REVIEW PASS——改在哪条分支。\n4. **#43 实现过期**：PR #48 最后提交 2026-11-09T05:16Z；08:31Z 已取消合成 idle 模板、要求同分支改写，至今无新提交。\n5. **树结构**：#65 #76 及其下的 bug 是否补真 sub-issue 边（现在只看 GitHub 结构会漏掉整个第二、三轮）。\n6. **孤儿**：#79（IK 绑定关节选择）、#81（多次拖动后节点脱离绑定）、#40（legacy 骨骼映射，已有「等 #34 结束后执行」的决定）、#33（圈复杂度 5 项）；以及「把 #5 纳入示例 Mod」——2026-11-09T00:56 提出，至今没有任何 issue 承接。\n7. **决策索引分叉**：#37 决策索引 body 停在 11-08（7 行，无 #41–#50、无 #65/#76），Wiki「设计决策」21 条；两边不同步。\n8. **验收口径**：内存预算原话是「打开 1.2s以内,内存占用450MB」（2026-11-09T08:14），Wiki 记成「增量 450MB」；#53 实测 RSS +14.8MB。按哪个判定。\n\n### 4. 本轮不动的部分\n不改 #34 正文（仅维护者可编辑）、不合并 PR、不新增或移动 sub-issue 边、不改 #37。等第 3 节有答复后另行记录。\n",
+        "createdAt": "2026-11-10T05:09:38Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABkud57w",
+        "body": "## AI回复\n\n### 补充核实：人测分支的合并不是无损叠加（#77 的成因）\n\n上一条评论只说了「18 个 PR 分支都已合入 human-test2」，没有说**是否无损**。核实结果：不是无损。\n\n| 事实 | 证据 |\n|---|---|\n| #74 分支的「视图」菜单含「键位：默认 / 键位：vim」两项 | `origin/feat/45-keyboard-modes:Runtime/Editors/Actions/NativeActionEditorUi.cs:101` |\n| human-test2 的同一菜单**没有这两项**，但 handler 的 `case \"keyDefault\"/\"keyVim\"` 还在 | `origin/human-test2:.../NativeActionEditorUi.cs:62-63`（菜单在 :103） |\n| 丢失点就是这次合并 | `9874dc7 Merge remote-tracking branch 'origin/feat/45-keyboard-modes' into human-test2`；冲突解决取了 #55/#58 重写的菜单，丢掉了 #74 新增的两项 |\n\n结论按事实陈述：#77「vim 模式未生效」在**那个人测构建**上成立，但它不是 #74 的缺陷——#74 的分支上是齐的，缺的是合并时的接线。\n\n### 为什么审计没拦住\n审计是直接调 handler（`RunAction(\"keyVim\")`）而不是点菜单，所以「入口丢了、状态机还在」这一类恰好落在审计的盲区。同一文件被 8 个 PR 改，`NativeActionEditorMotionAudit.cs` 被 15/18 个 PR 改——逐个手解冲突时，这种丢失可以重复发生，且审计永远是绿的。\n\n### 对照：#80 不是同一种问题\n`Ctrl+Space` 有两个 owner，两条都在 human-test2 上真实存在：`NativeActionEditorSource.cs:70-71`（CodeEdit 拦截 → 真候选窗）与 `NativeActionEditorKeys.cs:53`（→ 文本说明对话框）。两个 PR 各自基于不含对方的基线开发，**冲突只在整合后才出现**——这是整合缺陷，不是合并丢失。\n\n### 影响（方向待维护者定）\n1. #76 第三轮的结论对「那个人测构建」成立，不能直接当作 ai 上代码的缺陷；#77 已确认属此列，#78/#79/#80/#81 需在人测分支重建后复核。\n2. 「#73 的 IK 预设」已进 human-test2（`MotionRig.cs:149-150` 为 `BODY_TOP → HAND1_ABOVE → HAND2_ABOVE`），#79 正文引用的正是这一版——说明第三轮测的是含 #73 的构建，与 ai 现状不同。\n3. 若继续在现有 human-test2 上叠加，同型「入口丢失」无法被审计或 CI 发现。\n\n以上是事实与影响，处置方式（重建人测分支 / 还是先把 PR 合进 ai）等第 3 节 Q1 的答复。",
+        "createdAt": "2026-11-10T05:12:58Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABkufVGw",
+        "body": "human-test2 是用于人类测试和验收的\n其他孤儿issues和动作编辑器的具体处理不会过多挂钩\n\nhuman-test2 分支确实没有无损叠加，这个问题需要定一个更详细的计划了",
+        "createdAt": "2026-11-10T05:14:39Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABkuiA1A",
+        "body": "## AI回复\n\n### 1. 记录维护者 2026-11-10T05:14:39Z 的答复（逐字）\n\n> human-test2 是用于人类测试和验收的\n> 其他孤儿issues和动作编辑器的具体处理不会过多挂钩\n> human-test2 分支确实没有无损叠加，这个问题需要定一个更详细的计划了\n\n据此收敛：\n- **Q1 已答**：human-test2 只作人测/验收，不回灌 ai；ai 仍是唯一集成分支，PR 逐个进 ai。\n- **Q5 已答**：孤儿 issue 不与动作编辑器挂钩（#33 圈复杂度、#40 legacy 骨骼映射、「#5 纳入示例 Mod」都留在 #34 之外）。\n- **新问题**：人测分支怎么生成才无损 → 见第 2 节的提案。\n\n### 2. 提案：人测分支的无损重建计划（待 ACK）\n\n#### 2.1 角色\n| 分支 | 角色 | 允许的操作 |\n|---|---|---|\n| `ai` | 唯一集成分支 | PR 合并目标，只接受 PR |\n| `main` | 发布分支 | 里程碑时 ai → main |\n| `human-testN` | 人测/验收快照 | 由 ai + 未合 PR 分支生成；只读；不接受直接提交；不回灌 |\n\n#### 2.2 生成方式（每次重建，不做增量叠加）\n1. `git checkout -B human-testN origin/ai`（每次从 ai 重建，不复用旧人测分支）\n2. 按固定顺序 `git merge --no-ff` 未合并的 PR 分支，顺序取第 2.4 节\n3. 每合并一个就跑一次 motion audit，结果记进 round issue\n4. 全部合并后跑第 2.3 节的无损校验，再交给你验收\n\n#### 2.3 冲突规则与无损校验（这是本次丢线的正解）\n- **冲突只允许「两侧都保留」**：禁止整块取一侧。本次 #77 就是取了重写后的菜单、丢掉了 #74 新增的两项。\n- **无损校验（强制）**：对每个已合并的分支 B，跑 `git diff <B>..HEAD -- <B 改过的文件>`，逐条判定其中的删除行——要么能指出是「后合的分支有意重写」，要么就是丢线，必须重建。\n- **已知命中 1 例**：`feat/45-keyboard-modes` 的「视图 → 键位：默认 / 键位：vim」两项在 human-test2 中丢失。\n- **审计补位**：审计大量直调 handler（`RunAction(\"keyVim\")`、直接 `EmitSignal(GuiInput)`、`Write(\"Direction\",1)`），结构上抓不到这类丢失；重建后必须跑 #54/#59 的真实路由探针。\n\n#### 2.4 当前未合并 PR 的合并顺序（取自依赖核查）\n`#71`（先合，撤销时钟一失败就中止整个审计）→ `#74` → `#73` → `#56` `#50` `#48` `#49`（#48 需先按新规格改写）→ `#55` → `#58` → `#60` → `#68` → `#72` → `#75` → `#57` `#59` → `#69`（CI 红，先修）\n不参与：#47（自述被 #60 取代）。\n\n#### 2.5 第三轮结论的处置\n重建后按 #77 #78 #79 #80 #81 逐条复测；#77 预期直接消失（合并丢失），其余按重建结果重新定性。\n\n#### 2.6 待 ACK\n| # | 问题 | 推荐 |\n|---|---|---|\n| P1 | 采纳「human-testN = ai 的一次性投影、只读、不回灌」？ | ACK |\n| P2 | 冲突规则「只允许两侧保留」写进流程？ | ACK |\n| P3 | 无损校验怎么落地：手工命令 / 新工具 `Tools/merge-check.mjs` / 只在 round issue 记结果 | 先手工（命令写进 round issue），稳定后再工具化 |\n| P4 | 下次重建用 `human-test3`（不覆盖 human-test2）？ | ACK，旧人测分支保留供对照 |\n| P5 | 重建后 #77 关为「合并丢失」，#78–#81 重新定性？ | ACK |\n\n### 3. 仍待答复的问题（与第 2 节独立）\n\n| # | 问题 | 推荐 |\n|---|---|---|\n| D1 | #43 的 PR #48 停在旧方案（合成 idle 模板），`08:31Z` 已改规格 | 同分支改写，不新开 PR |\n| D2 | #41 的 `14:54Z` 追加（`index` 双向绑定 + 防抖，取消 Ctrl+Enter）与 #60 现实现相反 | 以追加为准；#60 只保留帧块，#75 承担绑定与防抖；关闭 #47 |\n| D3 | #34 树是否补边 | 只把 #65 #76 两条 round 挂上（让第二、三轮可见），bug 不挂 |\n| D4 | #79（IK 缺绑定关节选择）、#81（多次拖动后脱离绑定）属编辑器缺陷、非孤儿 | #79 挂 #34 并新开分支；#81 先复现，命中 `direction` 镜像就并进 IK 修复 PR |\n| D5 | 决策索引 #37 与 Wiki 已分叉 | #37 只做指针表（每条一行 + Wiki 锚点），全文留 Wiki |\n| D6 | 内存预算口径：总量 450MB vs 增量 450MB | 增量（对上「打开后上升 1.5GB」的观察） |\n| D7 | 分支模型缺 human-test2 定义；「轮次 round」无定义 | AGENTS.md 补一行 + Wiki 补「轮次」；我不改文档，只提 |\n| D8 | #69 CI 红：`RuntimeTests` 在 CI 缺 `GameData/manifest.json` 直接抛异常，`verify` 与复杂度门禁没进 CI | 缺失时 skip 并打印原因，再把 verify 接进 CI |\n\n### 4. 本轮不动\n不改 #34 正文、不合并 PR、不动 sub-issue 边、不改 #37；等第 2.6 与第 3 节答复后再落 DECISION。",
+        "createdAt": "2026-11-10T05:17:42Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABkukNhg",
+        "body": "这里没有问题，目前提出的新问题有什么需要追解的？",
+        "createdAt": "2026-11-10T05:20:14Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABkulgng",
+        "body": "## AI回复\n\n### 1. 已确认\n维护者 2026-11-10T05:20:14Z「这里没有问题」→ 记 P1–P5、D1–D8 无异议。以下不再重复，只列**需要追解**的部分。\n\n### 2. 需要追解的问题（每条都卡住一件具体的事）\n\n#### E1 — #43「首次打开导入第一个注册动作」的语义（卡住 PR #48 改写）\n现状：#43 正文仍写「新建/首次打开注入内置 idle 模板……不做模板库」，而 2026-11-09T08:31 的评论已取消该方案，改为导入 `motion_list` 的第一个注册动作。**正文与规格相反**，且正文只有维护者能改。\n要定的四件事：\n1. 「第一个注册」的顺序来源：原版 `motion_list` 的注册顺序？被 Mod 覆盖后按哪个？\n2. 导入的是原版动作 → 无事件、帧间线性插值（`MotionImport.cs`），首次打开的姿态就是该动作第 0 帧，**不一定等于原版待机姿势**。要的是「第 0 帧」还是「取该动作出现频率最高的姿态」？\n3. 目标预设没有 `motion_list`（新角色 / 纯 Mod 角色）时：退回空文档 = 又回到肢体全在 (0,0) 的原始投诉，是否需要「参考姿态兜底」？\n4. #43 正文要不要改成新规格？\n➡️ 建议：1 按 `motion_list` 注册顺序；2 取第 0 帧（可复现、可断言）；3 退回「生成参考姿态」而不是空文档；4 请维护者改正文，我在评论里附上新正文供复制。\n\n#### E2 — #41 源码页的提交语义（卡住 PR #75 收尾）\n实现里已经是 0.4s 防抖（`NativeActionEditorSource.cs:13` 两个独立 timer，frame / graph 各一），但规格没写死；另外三个行为没定：\n1. 非法 TOML：保留用户文本 + 报错，还是回滚到上次合法状态？（现在两种都可能，取决于哪条路径先触发）\n2. 播放头移动时源码文本是否重写、光标是否跟着跳——这是「双向绑定」最容易毁掉输入手感的地方。\n3. 与撤销：一串输入算 1 个 undo 还是 N 个？#70 已把合并窗改成可注入时钟，这里是复用 500ms 合并窗还是「一次提交 = 一个 undo」？\n➡️ 建议：1 保留文本 + 状态栏报错（不吞输入）；2 播放头移动**不**重写正在编辑的帧块，只高亮；3 一次防抖提交 = 一个 undo。\n\n#### E3 — #79 默认 IK 链取哪组骨骼（卡住新分支开工）\n骨骼表是两组镜像链：`HAND1_ABOVE/HAND2_ABOVE/HAND3_ABOVE` 与 `HAND1_BELOW/HAND2_BELOW/HAND3_BELOW`（`MotionRig.cs:294`）。#73 现在把左手映射到 ABOVE 三段、右手映射到 BELOW 三段（`MotionRig.cs:149-150`）。#79 写的「HAND1 → HAND2 → HAND3」没说是哪一组。另有两条待定：\n1. 左右手脚是否都用三段（现有预设只有三段手、脚是 FOOT1-3）？\n2. 自定义链要不要落盘（`MotionGraph.IkChains` 已有字段）？\n3. 默认链变化会让旧 `.motion.json` 里的 `IkChains` 含义变化——算破坏性变更吗？要不要进 `FormatVersion`？\n➡️ 建议：1 沿用镜像约定（左 ABOVE / 右 BELOW），手脚各三段；2 落盘；3 不进 FormatVersion，但加载时对旧链保持原样、只在新建链时用新默认。\n\n#### E4 — #53「打开 ≤1.2s」的口径（卡住验收）\nPR #57 自述：打开 650ms、RSS +14.8MB，但**惰性首载约 11.9s**。「打开」是否包含首次预览加载？\n➡️ 建议：「打开」= 窗口可交互，不含首帧预览；但必须把 11.9s 记成已知限制并在状态栏显示进度，否则用户第一次点画布像卡死。\n\n#### E5 — 整合缺陷修在哪个分支（卡住 #77 / #80）\n人测分支不承载修复（P1），所以 #77（菜单丢失）、#80（Ctrl+Space 双 owner）必须落在 PR 分支或新分支上，但两者都是「只在整合后才出现」的问题，没有天然归属的 issue。\n➡️ 建议：#77 属于 #74 的 follow-up（修在 `feat/45-keyboard-modes`，因为入口是 #74 加的）；#80 新开一个 issue「源码页 Ctrl+Space 与键位表争用」，挂 #34，修在 #72 与 #74 合并后的分支上。\n\n#### E6 — 无损校验里「可解释的重写」怎么判（卡住 P3 手工执行）\n15/18 个 PR 改同一个 `NativeActionEditorMotionAudit.cs`，按 2.3 的规则跑，删除行几乎条条都会命中。需要一句判定标准，否则校验结果没人敢用。\n➡️ 建议：只有两类算可解释——(a) 后合的分支**整函数重写**同一文件；(b) 分支自己删的文件（如 #55 删 `StatePages.cs`）。**入口类新增丢失（菜单项、按钮、快捷键注册）一律算丢线**，因为这类丢失审计看不见，正是 #77 的形态。\n\n#### E7 — #78 / #81 的复现输入（卡住 IK 复测）\n#81 没有复现步骤；审计把 `Direction` 钉成 1（`MotionAudit` 里 `Write(\"Direction\",1)`），而代码里有 `Math.Sign(direction)` 镜像换算，朝左的角色 IK 一定不同。\n➡️ 需要你给三件事（凭印象即可）：角色朝向（朝左/朝右）、拖的是哪个骨骼、第几次拖动开始偏。没有这三样，#81 只能停在「疑似」。\n\n### 3. 不需要你回答、我按已确认结论推进的\n- #47 关闭（被 #60 取代）；#55 先合，否则 #58/#60 的堆叠倒置。\n- #48 在同分支改写（E1 定了才动）。\n- 合并顺序按 P2.4；#69 先修 CI 再合。\n- #65/#76 补 sub-issue 边（D3 已确认只挂两条 round）。",
+        "createdAt": "2026-11-10T05:21:45Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABkuuk4A",
+        "body": "回复:\n> E1 — https://github.com/DPapyru/SlackOfDescentGodot/issues/43「首次打开导入第一个注册动作」的语义（卡住 PR https://github.com/DPapyru/SlackOfDescentGodot/pull/48 改写）\n现状：https://github.com/DPapyru/SlackOfDescentGodot/issues/43 正文仍写「新建/首次打开注入内置 idle 模板……不做模板库」，而 2026-11-09T08:31 的评论已取消该方案，改为导入 motion_list 的第一个注册动作。正文与规格相反，且正文只有维护者能改。\n要定的四件事：\n\n>「第一个注册」的顺序来源：原版 motion_list 的注册顺序？被 Mod 覆盖后按哪个？\n导入的是原版动作 → 无事件、帧间线性插值（MotionImport.cs），首次打开的姿态就是该动作第 0 帧，不一定等于原版待机姿势。要的是「第 0 帧」还是「取该动作出现频率最高的姿态」？\n> 目标预设没有 motion_list（新角色 / 纯 Mod 角色）时：退回空文档 = 又回到肢体全在 (0,0) 的原始投诉，是否需要「参考姿态兜底」？\nhttps://github.com/DPapyru/SlackOfDescentGodot/issues/43 正文要不要改成新规格？\n> ➡️ 建议：1 按 motion_list 注册顺序；2 取第 0 帧（可复现、可断言）；3 退回「生成参考姿态」而不是空文档；4 请维护者改正文，我在评论里附上新正文供复制。\n\n此处问题其实不大,主要是需要一个\"默认动作\",这样避免角色以怪异姿势出现,而参考姿态其实可以被remove了\n首次打开直接使用第0帧即可\n\n回复:\n\n> E2 — https://github.com/DPapyru/SlackOfDescentGodot/issues/41 源码页的提交语义（卡住 PR https://github.com/DPapyru/SlackOfDescentGodot/pull/75 收尾）\n> 实现里已经是 0.4s 防抖（NativeActionEditorSource.cs:13 两个独立 timer，frame / graph 各一），但规格没写死；另外三个行为没定：\n> \n> 非法 TOML：保留用户文本 + 报错，还是回滚到上次合法状态？（现在两种都可能，取决于哪条路径先触发）\n> 播放头移动时源码文本是否重写、光标是否跟着跳——这是「双向绑定」最容易毁掉输入手感的地方。\n> 与撤销：一串输入算 1 个 undo 还是 N 个？https://github.com/DPapyru/SlackOfDescentGodot/issues/70 已把合并窗改成可注入时钟，这里是复用 500ms 合并窗还是「一次提交 = 一个 undo」？\n> ➡️ 建议：1 保留文本 + 状态栏报错（不吞输入）；2 播放头移动不重写正在编辑的帧块，只高亮；3 一次防抖提交 = 一个 undo。\n\n根据你的建议即可，这一块是很好的\n\n回复:\n\n> E3 — https://github.com/DPapyru/SlackOfDescentGodot/issues/79 默认 IK 链取哪组骨骼（卡住新分支开工）\n> 骨骼表是两组镜像链：HAND1_ABOVE/HAND2_ABOVE/HAND3_ABOVE 与 HAND1_BELOW/HAND2_BELOW/HAND3_BELOW（MotionRig.cs:294）。https://github.com/DPapyru/SlackOfDescentGodot/pull/73 现在把左手映射到 ABOVE 三段、右手映射到 BELOW 三段（MotionRig.cs:149-150）。https://github.com/DPapyru/SlackOfDescentGodot/issues/79 写的「HAND1 → HAND2 → HAND3」没说是哪一组。另有两条待定：\n> \n> 左右手脚是否都用三段（现有预设只有三段手、脚是 FOOT1-3）？\n> 自定义链要不要落盘（MotionGraph.IkChains 已有字段）？\n> 默认链变化会让旧 .motion.json 里的 IkChains 含义变化——算破坏性变更吗？要不要进 FormatVersion？\n> ➡️ 建议：1 沿用镜像约定（左 ABOVE / 右 BELOW），手脚各三段；2 落盘；3 不进 FormatVersion，但加载时对旧链保持原样、只在新建链时用新默认。\n\n左右HAND都有这个问题,沿用此规定\n脚同理\n\n回复:\n\n> E4 — https://github.com/DPapyru/SlackOfDescentGodot/issues/53「打开 ≤1.2s」的口径（卡住验收）\n> PR https://github.com/DPapyru/SlackOfDescentGodot/pull/57 自述：打开 650ms、RSS +14.8MB，但惰性首载约 11.9s。「打开」是否包含首次预览加载？\n> ➡️ 建议：「打开」= 窗口可交互，不含首帧预览；但必须把 11.9s 记成已知限制并在状态栏显示进度，否则用户第一次点画布像卡死。\n\n根据建议即可\n\n回复:\n\n> E5 — 整合缺陷修在哪个分支（卡住 https://github.com/DPapyru/SlackOfDescentGodot/issues/77 / https://github.com/DPapyru/SlackOfDescentGodot/issues/80）\n> 人测分支不承载修复（P1），所以 https://github.com/DPapyru/SlackOfDescentGodot/issues/77（菜单丢失）、https://github.com/DPapyru/SlackOfDescentGodot/issues/80（Ctrl+Space 双 owner）必须落在 PR 分支或新分支上，但两者都是「只在整合后才出现」的问题，没有天然归属的 issue。\n> ➡️ 建议：https://github.com/DPapyru/SlackOfDescentGodot/issues/77 属于 https://github.com/DPapyru/SlackOfDescentGodot/pull/74 的 follow-up（修在 feat/45-keyboard-modes，因为入口是 https://github.com/DPapyru/SlackOfDescentGodot/pull/74 加的）；https://github.com/DPapyru/SlackOfDescentGodot/issues/80 新开一个 issue「源码页 Ctrl+Space 与键位表争用」，挂 https://github.com/DPapyru/SlackOfDescentGodot/issues/34，修在 https://github.com/DPapyru/SlackOfDescentGodot/pull/72 与 https://github.com/DPapyru/SlackOfDescentGodot/pull/74 合并后的分支上。\n\n是并没有问题的，但是后续要让所有PR都有一个合并到human-test2的指南评论,用于测试,human-test2测试没有问题后,则就可以根据human-test2,进行pr合并\n\n回复: \n\n> E6 — 无损校验里「可解释的重写」怎么判（卡住 P3 手工执行）\n> 15/18 个 PR 改同一个 NativeActionEditorMotionAudit.cs，按 2.3 的规则跑，删除行几乎条条都会命中。需要一句判定标准，否则校验结果没人敢用。\n> ➡️ 建议：只有两类算可解释——(a) 后合的分支整函数重写同一文件；(b) 分支自己删的文件（如 https://github.com/DPapyru/SlackOfDescentGodot/pull/55 删 StatePages.cs）。入口类新增丢失（菜单项、按钮、快捷键注册）一律算丢线，因为这类丢失审计看不见，正是 https://github.com/DPapyru/SlackOfDescentGodot/issues/77 的形态。\n\n根据建议即可\n\n最后回复E7: #81 的问题是所有关节/骨骼全部存在",
+        "createdAt": "2026-11-10T05:32:16Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABkuvmOw",
+        "body": "## AI回复\n\n### 1. 决策记录（维护者 2026-11-10T05:32:16Z，原话在前）\n\n| 编号 | 维护者原话 | 落成 |\n|---|---|---|\n| E1 | 「此处问题其实不大,主要是需要一个\"默认动作\",这样避免角色以怪异姿势出现,而参考姿态其实可以被remove了」「首次打开直接使用第0帧即可」 | DECISION：首次打开导入「第一个注册的原版动作」，取第 0 帧；不再需要「参考姿态兜底」；「第一个注册」按 `motion_list` 注册顺序 |\n| E2 | 「根据你的建议即可，这一块是很好的」 | DECISION：非法 TOML 保留用户文本 + 状态栏报错；播放头移动不重写正在编辑的帧块、只高亮；一次防抖提交 = 一个 undo；防抖 0.4s 固化为规格 |\n| E3 | 「左右HAND都有这个问题,沿用此规定」「脚同理」 | DECISION：默认 IK 链沿用镜像约定（左 ABOVE / 右 BELOW），左右手、左右脚各三段；自定义链落盘（`IkChains`）；不进 `FormatVersion`，加载旧链保持原样、新建链用新默认 |\n| E4 | 「根据建议即可」 | DECISION：「打开 ≤1.2s」= 窗口可交互，不含首帧预览；惰性首载 11.9s 记为已知限制 + 状态栏进度 |\n| E5 | 「是并没有问题的，但是后续要让所有PR都有一个合并到human-test2的指南评论,用于测试,human-test2测试没有问题后,则就可以根据human-test2,进行pr合并」 | DECISION：#77 修在 `feat/45-keyboard-modes` 作 #74 的 follow-up；#80 新开 issue「源码页 Ctrl+Space 与键位表争用」挂 #34；新增 SPEC：每个 PR 必须有「合并进 human-test2 的指南评论」 |\n| E6 | 「根据建议即可」 | DECISION：无损校验里「可解释的重写」仅两类——后合分支整函数重写同一文件、分支自己删文件；**入口类新增丢失一律算丢线** |\n| E7 | 「#81 的问题是所有关节/骨骼全部存在」 | 待澄清，见 F4 |\n\n### 2. SPEC 提案：PR 的「合并进 human-test2 指南评论」模板（待 ACK）\n\n每个 PR 一条评论，固定五项：\n1. **来路**：base 分支、依赖哪个 PR（#55 → #60 → #72 → #75 这种堆叠要点名）\n2. **合并顺序**：进 human-test2 前必须先合谁、合完要不要 retarget base 到 `ai`\n3. **预期冲突文件**：本次高危是 `NativeActionEditorMotionAudit.cs`（15/18 个 PR 改）、`NativeActionEditor.cs`（10 个）、`NativeActionEditorUi.cs`（8 个）\n4. **合并后必跑**：`node Tools/motion-audit.mjs --headless`、`dotnet run --project Tests/RuntimeTests.csproj`、以及真实路由探针（#54/#59 合并后）\n5. **验收点**：该 PR 对应 issue 的验收条目逐条列出，供人测勾选\n\n执行方式：先补齐现有 17 个 open PR（#47 除外的 16 个），以后新 PR 开的时候一并写。\n➡️ 推荐：ACK；我按第 1 节新决策重排顺序后，逐个 PR 贴这条评论。\n\n### 3. 新产生的问题\n\n| # | 问题 | 推荐 |\n|---|---|---|\n| F1 | E5 的「根据 human-test2 进行 PR 合并」有两种读法：(a) 按 human-test2 验证过的顺序，把 PR **逐个合进 ai**，human-test2 本身不合并；(b) 把 human-test2 整条合并进 ai | (a)。与 P1「人测分支不回灌」一致，也保留一 issue 一 PR 的合并记录 |\n| F2 | 「参考姿态可 remove」的范围：(a) 删「视图 → 生成参考姿态」菜单项；(b) 保留菜单项，只是 #48 不再用它做首次兜底；(c) 连 `MotionRig` 里的参考姿态生成代码一起删 | (b)：代码是 #44/#79 调姿态的现成工具，删了它们要重新造 |\n| F3 | #43 的正文仍写旧的「内置 idle 模板、不做模板库」，与 E1 决策相反；要不要我附一份替换正文供你直接粘贴？ | 要；正文只有你能改，我贴文本、你确认 |\n| F4 | E7 原文「#81 的问题是所有关节/骨骼全部存在」——我理解为**复现前提**：文档里每块骨骼都有轨道/关键帧时才漂移。对吗？另外仍需要：角色朝向（朝左/朝右）、拖的是哪个骨骼、第几次拖动开始偏 | 若是前提，我把「全骨骼轨道」写进 #81 的复现步骤并补断言 |",
+        "createdAt": "2026-11-10T05:33:28Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABku0S8w",
+        "body": "F1 的问题在于，human-test2不合并进ai，就是根据 (a) 进行合并\nF2 目前参考姿态没有实际生效,remove 代码\nF3 和 E1 处理的是同一件事情，就是进入的时候不会那么死板，所以其实只需要导入原版动作的序列0即可，至于是什么，不用在乎\nF4 的问题是，任何一个骨骼都有可能偏移，复现拖动次数是不固定的，角色朝向也是不固定的，只要拖动，中心点偏离角色之后，移动骨骼不会让角色预览有任何姿势变化，除非重新导入姿势",
+        "createdAt": "2026-11-10T05:39:01Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABku1jiQ",
+        "body": "## AI回复\n\n### 1. 决策记录（维护者 2026-11-10T05:39:01Z）\n\n| 编号 | 维护者原话 | 落成 |\n|---|---|---|\n| F1 | 「human-test2不合并进ai，就是根据 (a) 进行合并」 | DECISION：人测分支验证过的顺序 → PR 逐个合进 ai；human-test2 永不合并进 ai（与 P1 一致） |\n| F2 | 「目前参考姿态没有实际生效,remove 代码」 | DECISION：删除「生成参考姿态」的代码与菜单项，不只是不做首次兜底 |\n| F3 | 「和 E1 处理的是同一件事情……其实只需要导入原版动作的序列0即可，至于是什么，不用在乎」 | DECISION：#43 不需要改正文方向，收窄为「首次打开导入第一个注册原版动作的第 0 帧」；不关心具体是哪个动作、不做参考姿态兜底 |\n| F4 | 「任何一个骨骼都有可能偏移，复现拖动次数是不固定的，角色朝向也是不固定的，只要拖动，中心点偏离角色之后，移动骨骼不会让角色预览有任何姿势变化，除非重新导入姿势」 | #81 复现条件：任意骨骼、任意次数、任意朝向；症状 = 视图中心点跑偏后，拖骨骼数据有变但预览不动，重新导入姿势才恢复 |\n\n### 2. 一处更正\nE5 里写的「新开 issue 跟踪 Ctrl+Space 争用」不需要——#80 本身就是这个缺陷（补全不可用 = `Ctrl+Space` 被键位表抢走，用户看到文本说明而不是候选窗）。改为：#80 挂到 #34，作为整合缺陷跟踪，修在 #72 与 #74 合并后的分支。\n\n### 3. F4 的成因假设（未验证）\n「重新导入姿势就恢复」这条很关键：说明文档数据没错，是**预览的视图变换/重绘链路变陈旧**。#49 的 REVIEW 已把 `WorldPerPixel` 的 pan/zoom 换算列为 follow-up，`NativeActionEditorPose.cs` 里 overlay 用世界坐标、写键用父帧局部坐标是两套换算。下一步按「拖动后是否重新 ApplyDocumentPose」加断言复现，不先改代码。\n\n### 4. 按已确认结论可以推进的事（不需要再答复）\n1. #65、#76 挂为 #34 的 sub-issue（D3）。\n2. 16 个待合 PR 逐个补「合并进 human-test2 指南」评论（E5 SPEC），先贴 #71 作样张，你确认模板后批量。\n3. #43 的改写范围收窄为「导入第一个注册动作的第 0 帧」+「移除参考姿态代码」，PR #48 同分支改写（D1）。\n4. #47 建议关闭——但按 AGENTS.md，agent 不关别人（含维护者）的 PR，需你点关闭。\n5. #80 挂 #34；#77 在 `feat/45-keyboard-modes` 上补回菜单两项。",
+        "createdAt": "2026-11-10T05:40:30Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABkzDD-g",
+        "body": "## AI回复\n\n### 进度记录（2026-11-10T18:35+08:00，Lead）\n\n**1. 结构补边（完成）**\n- #65、#76 已挂为 #34 的 sub-issue（decision D3）；#80 也已挂入（E5 更正）。当前 #34 下 13 个 sub-issue：#41–#46、#51–#54、#65、#76、#80。\n\n**2. PR 的「合并进 human-test3 指南」评论（完成 16/16）**\n- #71 #74 #73 #56 #50 #48 #49 #55 #58 #60 #68 #72 #75 #57 #59 #69 全部各有一条指南评论（来路 / 合并顺序 / 预期冲突文件 / 合并后必跑 / 验收点），模板同 #71 样张。\n\n**3. #43（完成，PR #48 同分支改写）**\n- 分支 `feat/43-default-idle-template` @2468b2e（8 文件 +83/−108）：「首次打开/新建/切换目标导入目标预设 motion_list 首个注册动作的第 0 帧」；导入失败空文档 + 状态栏；删除 `MotionRigTemplates` 与「视图 → 生成参考姿态」菜单项；审计夹具因初始 Duration 60→90 改用动态值。\n- 验收：build 0 / RuntimeTests 0（PASS 61571）/ motion-audit 0（`MOTION_AUDIT_OK checks=59`、`IMPORT_PERF_OK failed=0`）；PR #48 描述已重写并带指南评论。\n\n**4. human-test3 重建（进行中）**\n- 从 `origin/ai` @7a247e3 建 `human-test3`，按序 16 个 `--no-ff` merge：9 个冲突（#48 #49 #55 #58 #68 #72 #75 #57 #59）、7 个 clean（#71 #74 #73 #56 #50 #60 #69），冲突一律两侧保留，逐文件判定记入 #76。\n- 两段无损校验（`git diff B..HEAD` + B 新增行存在性）：0 LOSS，13 EXPLAINED、2 NONE（#50 #69），入口类 6 行均有现行等价实现。\n- 集成编译修复：d3f2eee（SourcePage 4 参 / ParseFrame 3 参重载 / diag 成员引用）；e3072f3（raw 页 duration 夹具改动态放大）。当前 audit 红在 :445「dragging an IK chain end uses IK by default」，integrator 定位中。\n\n**5. ai 合并链（进行中）**\n- 已合入：`#71` 5ae82a6、`#74` 87c300b、`#73` 920d3a7、`#56` 2567859、`#50` e6f1c99；每个合入前都在分支树上跑过 build + RuntimeTests + motion-audit 全绿。\n- 进行中：#48（解冲突后的 CS1002 一行修正，待复验）。其后顺序：#49 → #55 → #58 → #60 → #68 → #72 → #75 → #57 → #59 → #69。\n\n**6. 新 ticket 进展**\n- #79：分支 `feat/79-ik-chain-binding`（默认镜像三段链 + Root/Mid/End 自定义链入口 + `IkChains` 落盘），实现完成待 tester 验证后开 PR。\n- #81：分支 `fix/81-drag-binding`，根因已定位（#49 把命中改成 12px 关节圆盘、未命中转 BeginPan → 视图漂移 + 相机剔除），断言 `DragBindingAudit` + 最小修复已完成，先红/后绿验证队列中。\n- #77 #80 #41 #53 #54：等对应前置 PR 合入 ai 后开工（#77 依赖 #55、#80 依赖 #72/#74、#41 依赖 #75、#80/#53/#54 依赖 #75/#57）。\n\n**7. 未完成**\n- ai 合并链剩余 10 个 PR；human-test3 最终绿与 push；#77/#80/#41/#53/#54 的实现与 PR；#34 收尾总结与 #37 索引补行。\n",
+        "createdAt": "2026-11-10T09:59:13Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABkzXoQA",
+        "body": "## AI回复\n\n### 收尾状态（2026-11-10T18:16+08:00，Lead）\n\n**已合入 ai（7/16，每个都先在三项全绿的树上验证再合）**\n| 顺序 | PR | merge sha | 验证 |\n|---|---|---|---|\n| 1 | #71 fix/70-undo-clock | 5ae82a6 | build 0 / RuntimeTests 0 (61569) / audit 0 (checks=59) |\n| 2 | #74 feat/45-keyboard-modes | 87c300b | 0 / 0 (61569) / 0 |\n| 3 | #73 fix/63-ik-chain-solve | 920d3a7 | 0 / 0 (61582) / 0 |\n| 4 | #56 feat/42-import-naming | 2567859 | 0 / 0 (61584) / 0 |\n| 5 | #50 feat/46-origin-layer | e6f1c99 | 0 / 0 (61589) / 0 (checks=60) |\n| 6 | #48 feat/43-default-idle-template | ad2d906 | 0 / 0 (61596) / 0 |\n| 7 | #49 feat/44-rotation-angle-drag | 3bf4f89 | 0 / 0 (61598) / 0 |\n\n**未合入（按既定顺序，接着做）**：#55 feat/51-editor-layout（冲突已解大半，17 hunk）→ #58 → #60 → #68 → #72 → #75 → #57 → #59 → #69。\n\n**ticket 状态**\n- #43 完成（PR #48 同分支改写，已合并）。\n- #79：`feat/79-ik-chain-binding` 本地 4 文件完成（默认镜像三段链 / Root-Mid-End 自定义链 / IkChains 落盘 / 旧链兼容 / 断言与单测）；当前 build 红在两个 API 错配（`NativeBone.IsRoot` 不存在、`ChainChoice` 参数类型应为 `MotionSkeletonNode`），修完即 push+开 PR。\n- #81：`fix/81-drag-binding` 本地完成（`DragBindingAudit` 先红 + `PickBoneAt` 部件包围盒回退 + `UpdatePan` 统一 overlay.Size）；根因 = #49 把命中改成 12px 关节圆盘、未命中转 BeginPan 导致视图漂移与相机剔除。已换基到含 #49 的 ai，待测试后 push+开 PR。\n- #77 #80 #41 #53 #54：未开工，前置 PR（#55×3、#72/#74、#75、#57）尚未合入 ai。\n\n**已验证的确定事实**\n- 16 个 PR 均已补齐「合并进 human-test3 指南」评论（16/16）。\n- #65、#76、#80 已挂 #34 sub-issue（#34 下 13 个）。\n- human-test3 蓝图（ht3@d1c63e9）：16 merge / 9 个冲突 merge / 39 hunk，无损校验 2 NONE、13 EXPLAINED、0 LOSS；记录在 #76 评论。\n- human-test3 最终形态：ai 合并链完成后从 origin/ai 重建（等价 16 PR），再跑三条验收并 push。\n\n**未完成 / 需维护者知道**\n1. ai 合并链剩 9 个 PR（#55 起）。#55 冲突 17 处，是整条链最重的一个。\n2. human-test3 尚未 push（最终形态按要求从 ai 重建）。\n3. #79/#81 分支未 push、PR 未开（验证/编译未过）。\n4. #77 #80 #41 #53 #54 未开工。\n5. #34 正文未动（只有维护者可改）、未加 ready-for-agent 标签、未关任何 PR（#47 仍待维护者关闭）、未 approve。\n6. #37 决策索引补行与 #34 收尾总结未写（待合并链完成后一次写）。\n",
+        "createdAt": "2026-11-10T10:16:16Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABk3BHcw",
+        "body": "## AI回复\n\n### 第三轮收尾总结（2026-11-10T21:28+08:00，Lead）\n\n**1. 最终状态**\n- `origin/ai` = `3950fbf`（#88 merge），21 个 PR 全部 MERGED。\n- `human-test3` = `3950fbf`（从 ai 重建，已 push），**最终验收四条全绿**：build 0 error / RuntimeTests `PASS 61654` / motion-audit `MOTION_AUDIT_OK checks=60`（KEYS completion=PASS、drag=PASS、canvas=PASS、IMPORT_PERF failed=0）/ `node Tools/gate.mjs` → `GATE PASS steps=4 known-pending=2`。\n\n**2. 逐 ticket 结论**\n| ticket | 结论 | 证据 |\n|---|---|---|\n| #43 | 已修（默认导入首个注册动作第 0 帧 + 删参考姿态） | PR #48 / ai ad2d906 |\n| #41 | 已修（index 双向绑定 + 0.4s 防抖 + 非法 TOML 保留文本 + 一次提交=一个 undo） | PR #60 #72 #75；issue #41 验收评论 |\n| #53 | 已修（perf 探针 marker + 惰性首载状态栏 + 增量内存口径） | PR #57；issue #53 验收评论（Wiki 已知限制待写） |\n| #54 | 部分（探针已交付；headless 打 INPUT_PROBE_SKIP，真实路由受显示环境阻塞） | PR #59；issue #54 验收评论 |\n| #79 | 已修（镜像三段链 + Root/Mid/End 自定义链 + IkChains 落盘） | PR #82 / ai 490812e |\n| #81 | 已修（根因=#49 命中改 12px 关节、未命中转 BeginPan → 视图漂移+相机剔除；先红断言后修） | PR #83 / ai 43e25b3 |\n| #77 | 属合并产物，ai 上入口未丢（#74 带入、#55 保留）；已补真实菜单路由防回归断言 | PR #84 / ai 8819d28 |\n| #80 | 已修（删 #74 重复 Ctrl+Space 说明对话框，源页 CodeEdit 独占；先红后绿） | PR #88 / ai 3950fbf |\n\n**3. 结构与被拒项**\n- #65、#76、#80 已挂 #34 sub-issue（13 个）。\n- 21 个 PR 均带「合并进 human-test3 指南」评论（模板同 #71）。\n- 新增 #85（CS8602 清零）+ #86（复杂度后续整理，未做）；`node Tools/gate.mjs` 已绿。\n- 未做/不可做：非 headless 真实键鼠与候选窗探针（本机 :1 GLX 不可用、无 Xvfb/xvfb-run；Wayland+llvmpipe 可开窗但 800ms 防抖断言在软件渲染下超时，见 PR #88 评论）；#53 的 Wiki 已知限制；#86 的结构整理；#47 待维护者关闭；#15 不在本轮范围。\n- 未触碰：#34 正文（仅维护者可改）、未加 ready-for-agent、未 approve、未 close 任何 PR、仓库文档未改。\n\n**4. 风险**\n- `a paused edit hot-updates the frame text` 这条断言对时序敏感（llvmpipe 下失败），人工测试应在真实 GPU 窗口复测。\n- #77 类「入口在合并中丢失」已用真实菜单路由断言防回归，但 human-test 每轮重建后仍建议跑一次 `MOTION_EDITOR_KEYS_OK` 相关审计。\n",
+        "createdAt": "2026-11-10T13:27:52Z",
         "author": {
           "login": "DPapyru"
         },

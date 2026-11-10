@@ -1,10 +1,10 @@
 {
   "title": "[round] 动作编辑器人工测试第二轮：源码页、画布、IK、本地化",
   "body": "## AI回复\n\n父 issue：#34\n\n### 当前目标\n收口 2026-11-09 `human-test2` 人工测试暴露的问题。该分支把 #15 / #47 / #49 / #50 / #55 / #56 / #57 / #58 / #59 / #60 合进来做端到端试玩；**所有 PR 目前都未合并到 `ai`**。\n\n### 范围\n- 子 issue：#61 圈复杂度门禁工具、#62 源码页可读性与补全、#63 IK 末端几何、#64 右键菜单与输入清洗。\n- 以追加评论扩容的既有 issue：#44（点选错位、双滑条、拖动预览）、#41（index 双向联动、取消提交制）、#45（保存/补全快捷键、撤销作用域）。\n- 13 张截图由维护者以评论追加，清单见文末。\n\n### 不做\n- 本 round 不含代码；vim 键位实现仍归 #45；不改落盘格式、不改加载路径。\n\n### 验收\n- [ ] #61–#64 各自验收通过\n- [ ] #44 / #41 / #45 的追加范围各有对应 PR 且通过审查\n- [ ] 相关 PR 合并到 `ai` 之前，本 round 不计完成\n\n### 固定审查流程（给无上下文的新会话 agent）\n1. 读 issue 与 PR；确认 PR 前两行是 `## AI回复` 与 `Closes #N`（CI 已校验 `Closes`）；`git diff ai...<branch>` 只含该 issue 范围。\n2. bug 类：加载 `diagnosing-bugs`，按 issue 复现步骤先复现并记录实际；修复后按验收断言验证。\n3. 加载 `code-review`，双轴审（仓库规范 + issue 规格）。\n4. 门禁：`dotnet build`、`dotnet run --project Tests/RuntimeTests.csproj`、`node Tools/verify.mjs`、相关 `Tools/*-audit.mjs`。\n5. 圈复杂度：`node Tools/complexity.mjs --since ai`；阈值见 #61。\n6. 认知复杂度：嵌套 >4 层、递归/闭包/多接口多数据逐项说明；说不出即退回。\n7. 结论：通过 → 评论 `REVIEW PASS` 并移除 `ready-for-agent`；未通过 → 评论 `REVIEW REJECT` 并保留标签，附文件:行号整改项。全程只读，不合并、不批准、不 force-push。\n\n### 关联\nRelated: #15 #47 #48 #49 #50 #55 #56 #57 #58 #59 #60\n\n- #60 的 base 是 #55 的分支（栈式 PR），审查基线以 #55 合并后为准。\n- #47 与 #60 同源不同分支，避免重复实现。\n\n### 图清单（按上传顺序编号，由维护者追加评论上传）\n图1 原始数据页帧块文本 → #62\n图2 预览器与骨骼 → #44\n图3 环 + 左右双滑条 → #44\n图4 IK 关节被拉长 → #63\n图5 IK 旋转错误 → #63\n图6 `index = 0` 片段 → #41\n图7 时间轴全宽 → #41\n图8 时间轴 25/120 + 夹取文案 → #63\n图9 源码页两个 tab → #62\n图10 右键菜单英文 → #64\n图11 `Insert Control Character` 子菜单 → #64\n图12 `Text Writing Direction` → #64\n图13 预览器全景 → #44\n",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-09T14:54:26Z",
-  "updatedAt": "2026-11-10T00:34:43Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-10T15:54:07Z",
+  "closedAt": "2026-11-10T15:54:07Z",
   "author": {
     "login": "DPapyru"
   },
@@ -50,6 +50,17 @@
         "id": "IC_kwDOVf3hE88AAAABkqdkhg",
         "body": "## AI回复\n\n### 追加范围（wave 2）已完成\n\n| 范围 | PR | 分支 | HEAD | 门禁 |\n|---|---|---|---|---|\n| #44 追加范围 | #49（原分支追加提交） | feat/44-rotation-angle-drag | f90a338 | build 0 err，61566，verify PASS，motion-audit checks=59，ring/canvas PASS |\n| #45 | #74 | feat/45-keyboard-modes | 4692284 | build 0 err，61564，verify PASS，KEYS_OK 五项 + checks=59 |\n| #41 追加范围 | #75 | feat/41-index-binding | 21468b1 | build 0 err，61612，verify PASS，checks=59（含 Revision 守卫实测） |\n\n全部通过专职 test agent 单线程验证 + 独立双轴 review（REVIEW PASS 评论在各 PR 上，含逐条验收证据）。\n\n### 本轮验证中被挖出并修掉的真问题\n\n1. #70（PR #71）：撤销合并窗依赖墙钟 → 审计在负载下随机中止，源码页/补全/菜单断言根本跑不到。已改为可注入时间源。\n2. #62：headless 下 CodeEdit 补全弹窗 Window 节点根本不创建（插桩 windows=0），原断言结构上不可观测。改为「真实 Ctrl+Space 按键 → 候选数>0 且含真实骨骼名」。\n3. #63：`Refresh()` 不重建左栏 IK 列表（document 替换/绑解绑后界面陈旧）+ 审计残留 HAND1 末端假设。两者都修。\n4. #41：`.Text=` 不 emit TextChanged，审计模拟输入无效；更重要的是**陈旧「原始数据」文本在 debounce 兑现时 CopyFrom 覆盖真实编辑**（数据丢失）。加了 document Revision 守卫 + 源码页 Discard/重渲染。\n5. #45 / #62 设置文件撞车：两者都写 Content/Editor/action-editor.json 但 schema 不兼容（字符串 vs 对象），先写者数据被后者覆盖。#45 改为独立 Content/Editor/action-editor-keys.json。\n\n### 建议合并顺序\n\n独立：#69（#61）可随时合。\n\n源码页栈（父合并后 rebase 子）：\n1. #55 → #60\n2. #68（#64）\n3. #72（#62）\n4. #75（#41 追加，最后落地；rebase 时 SourcePage 与审计尾部会和 #68 冲突）\n\n编辑器动作栈：\n1. #70（#70）\n2. #49（#44 追加）\n3. #73（#63，rebase 到 #49 之后；IkFrame 要接新的 ApplyDrag/BeginDrag）\n4. #74（#45，最后落地；rebase 后需复跑键盘审计）\n\n### 仍未完成 / 需维护者动作\n\n- 所有 PR 均未合并（Agent 不合并）。#65 验收要求相关 PR 合并到 `ai`，因此本 round 仍不计完成。\n- 三条 `DECISION:` 待 ACK：#69（Roslyn → 自写 JS 词法扫描）、#73（IK 默认预设末端 HAND1/FOOT1 → HAND2/FOOT2）、#72（新增 Editor/action-editor.json）。\n- 已知非阻塞遗留：Revision 守卫无永久测试（只有 test agent 的临时实验）；history 采集中 audit 每分支只跑一次；跨栈待验项（#49 的 joint-only PickBone 与 #74 键盘审计、#68+#72 合并后 Ctrl+Space 由 CodeEdit 接管）需在对应 PR 合并后复跑一次审计。\n\n",
         "createdAt": "2026-11-10T00:34:43Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABk6Xpjw",
+        "body": "## AI回复\n\n已由 （无新增 PR） 完成并合入 ai。human-test3 @f3869da 验收四条全绿（build 0 error / RuntimeTests PASS 61654 / motion-audit `checks=60` 含 `drag=PASS`、`canvas=PASS` / `node Tools/gate.mjs` `GATE PASS steps=4`）。\n\n第二轮人工测试的问题已在第三轮 #76 及其子项 #77–#81 处理完毕，human-test3 验收通过；本轮 round 由 #76 继续跟踪。\n\n关闭本 issue（后续跟进项见评论正文；如仍有残留请重开或新开 issue）。",
+        "createdAt": "2026-11-10T15:54:04Z",
         "author": {
           "login": "DPapyru"
         },

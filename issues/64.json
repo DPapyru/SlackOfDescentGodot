@@ -1,10 +1,10 @@
 {
   "title": "动作编辑器：源码页右键菜单中文化与零宽字符清洗",
   "body": "## AI回复\n\n父 issue：#65\n\n### 背景\n源码页 `CodeEdit` 的右键菜单是引擎内置英文（图10–图12）；其中 `Insert Control Character` 会把零宽/双向控制符写进 TOML，肉眼不可见却会静默毁掉解析。\n\n### 范围\n- 菜单项中文化：Cut / Copy / Paste / Select All / Clear / Undo / Redo。\n- 隐藏 `Insert Control Character`；`Display Control Characters` 保留并中文化；`Text Writing Direction` 固定左到右后隐藏。\n- 提交入口清洗 `U+200B–200D`、`U+FEFF`、`U+00AD`。\n\n### 不做\n- 不改引擎内置翻译文件、不改全局主题\n- 不新增菜单项\n\n### 验收\n- [ ] 右键菜单全中文且不含 `Insert Control Character`\n- [ ] 粘贴含 `ZWJ` 的骨骼名后提交：要么清洗成功、要么中文报错，不得静默错位\n- [ ] 单测覆盖清洗函数（含 `U+FEFF`、软连字符）\n- [ ] `MOTION_EDITOR_LAYOUT_OK` 不受影响\n\n## Blocked by\n无\n",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-09T14:54:05Z",
-  "updatedAt": "2026-11-09T22:30:59Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-10T15:53:14Z",
+  "closedAt": "2026-11-10T15:53:14Z",
   "author": {
     "login": "DPapyru"
   },
@@ -38,6 +38,18 @@
     ]
   },
   "comments": {
-    "nodes": []
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABk6WQSA",
+        "body": "## AI回复\n\n已由 #68（merge 3228b09） 完成并合入 ai。human-test3 @f3869da 验收四条全绿（build 0 error / RuntimeTests PASS 61654 / motion-audit `checks=60` 含 `drag=PASS`、`canvas=PASS` / `node Tools/gate.mjs` `GATE PASS steps=4`）。\n\n源码页右键菜单中文化与零宽字符清洗。\n\n关闭本 issue（后续跟进项见评论正文；如仍有残留请重开或新开 issue）。",
+        "createdAt": "2026-11-10T15:53:11Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
   }
 }

@@ -1,10 +1,10 @@
 {
   "title": "动作编辑器：导入片段命名与片段重命名",
   "body": "## AI回复\n\n父 issue：#34。\n\n### 背景\n导入片段 id 写死 `imported`（`Runtime/Content/Actions/MotionImport.cs:94`），时间轴只能新增片段、不能重命名（`NativeActionEditorTimeline.cs:63-64`），片段下拉/状态机节点/状态页全被污染。\n\n### 范围\n- 导入时用源动作名做片段 id（下拉文本来源 `NativeActionEditorUi.cs:130`），冲突加序号。\n- 时间轴加片段重命名；删除片段可选（做则需同 PR 处理引用它的状态）。\n\n### 验收\n- 单测：导入 `Binded_HoneyWorm_Catch_Air_Back` 后 id 不是 `imported`。\n- 审计：重命名后片段下拉、状态机节点标题同步；撤销一步。\n- 手工：导入→重命名→保存→重载 名称保持。\n\n### 不做\n不改导入帧生成逻辑（另开「导入质量」issue）。",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-09T02:01:38Z",
-  "updatedAt": "2026-11-09T10:34:43Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-10T15:52:06Z",
+  "closedAt": "2026-11-10T15:52:06Z",
   "author": {
     "login": "DPapyru"
   },
@@ -36,6 +36,17 @@
         "id": "IC_kwDOVf3hE88AAAABkZuftw",
         "body": "## AI回复\n\nPR：https://github.com/DPapyru/SlackOfDescentGodot/pull/56\n\n实现：`MotionImport.FromAst` 片段 id 改为源动作名（图 id，`/`→`.`），并新增导入与保存重载单测。\n\n验证：`dotnet build` 0 errors；`dotnet run --project Tests/RuntimeTests.csproj` PASS 61566 assertions；`node Tools/verify.mjs` PASS。`node Tools/motion-audit.mjs --headless` 在本机 headless Godot 420s 超时，未改动基线上同样超时，属本机环境问题，待 CI 复核。\n\n片段重命名与引用同步留给 #41。",
         "createdAt": "2026-11-09T10:34:43Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABk6UfVA",
+        "body": "## AI回复\n\n已由 #56（merge 2567859） 完成并合入 ai。human-test3 @f3869da 验收四条全绿（build 0 error / RuntimeTests PASS 61654 / motion-audit `checks=60` 含 `drag=PASS`、`canvas=PASS` / `node Tools/gate.mjs` `GATE PASS steps=4`）。\n\n导入动作使用源动作名作为片段 id。\n\n关闭本 issue（后续跟进项见评论正文；如仍有残留请重开或新开 issue）。",
+        "createdAt": "2026-11-10T15:52:03Z",
         "author": {
           "login": "DPapyru"
         },

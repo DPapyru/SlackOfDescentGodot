@@ -1,10 +1,10 @@
 {
   "title": "动作编辑器：多次移动关节后节点与预览角色脱离绑定",
   "body": "## AI回复\n\n父 issue：#76；关联：#44（画布命中与拖动，PR #49 已 REVIEW PASS 未合并）、#63（IK 解算）\n\n### 现象\n移动一定次数的关节节点之后，节点会和预览角色「脱离绑定」：画布上的节点位置不再和角色部件对得上。\n\n### 期望\n无论拖动多少次，节点与部件始终贴合；命中点、绘制点与写入的局部坐标使用同一套换算。\n\n### 现状与怀疑方向（待复现确认）\n- ai 上命中 / 绘制 / 拖拽各有一套坐标换算，每次写入可能累积一点偏差；#49 已收敛为 overlay.SurfacePoint / WorldPoint / PickBone 并加 ≤2px 断言（含窗口缩放），但 pan/zoom 仍走另一处 WorldPerPixel（#49 的 REVIEW 已标为 follow-up）。\n- 另一条线索：重复写入按「当前父链姿态 + 参考偏移」推导局部坐标，浮点累积或符号错误会让位移逐次放大。\n\n### 复现请附\n- 拖的是哪个节点、连续拖几次后开始偏（第 1 次就偏还是第 N 次）、偏移方向是否固定、重新加载文件后是否恢复。\n\n",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-10T01:17:17Z",
-  "updatedAt": "2026-11-10T01:17:17Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-10T15:53:49Z",
+  "closedAt": "2026-11-10T15:53:49Z",
   "author": {
     "login": "DPapyru"
   },
@@ -23,6 +23,29 @@
     "nodes": []
   },
   "comments": {
-    "nodes": []
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABku6UKQ",
+        "body": "## AI回复\n\n**Ticket（复用本 issue 追加确认；来源 #34 的 F4 决策）**\n\n### 做什么\n先复现再加断言，最后修：任意骨骼、任意拖动次数、任意朝向都可能触发；症状是**视图中心点偏离角色之后，拖骨骼数据有变化但预览没有任何姿势变化，重新导入姿势才恢复**。优先怀疑预览的视图变换/重绘链路陈旧（`WorldPerPixel` 的 pan/zoom 换算、`ApplyDocumentPose` 是否在拖动后重跑），与 #49 REVIEW 里的 follow-up 同源。\n\n### 不做什么（已否定的方案）\n- 不先改代码：没有复现断言前不动实现\n- 不把拖动次数写死成固定 N 次（实际不固定）\n- 不假设角色朝向固定（审计里 `Write(\"Direction\",1)` 的写法必须改）\n- 不把「重新导入姿势就恢复」当作修复手段\n\n### 验收标准\n- [ ] 有失败断言：拖动 N 次后中心点不偏离角色（N 不写死，循环到偏移为止，设上限）\n- [ ] 朝向 = -1 与 +1 两种情况都覆盖\n- [ ] 修复后拖骨骼预览实时变化，不需要重新导入姿势\n- [ ] 断言在真实路由下也能跑（非直调 handler）\n\n### Blocked by\n#44（#49 合并后修，因为命中/换算就在那套代码里）。",
+        "createdAt": "2026-11-10T05:46:03Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABk6XL0g",
+        "body": "## AI回复\n\n已由 #83（merge 43e25b3） 完成并合入 ai。human-test3 @f3869da 验收四条全绿（build 0 error / RuntimeTests PASS 61654 / motion-audit `checks=60` 含 `drag=PASS`、`canvas=PASS` / `node Tools/gate.mjs` `GATE PASS steps=4`）。\n\n根因：#49 把命中改为 12px 关节圆盘、未命中无条件转 BeginPan → 视图漂移 + 相机剔除。先红断言后修（部件包围盒回退 + overlay.Size 统一）。\n\n关闭本 issue（后续跟进项见评论正文；如仍有残留请重开或新开 issue）。",
+        "createdAt": "2026-11-10T15:53:47Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
   }
 }

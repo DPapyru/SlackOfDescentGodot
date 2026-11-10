@@ -1,10 +1,10 @@
 {
   "title": "动作编辑器：IK 缺少绑定关节选择，默认手部链应为 HAND1~3 而非躯干+两臂",
   "body": "## AI回复\n\n父 issue：#76；关联：#44（IK 绑定 UI）、#63（链定义）\n\n### 现象\n1) 没有地方选择 IK 绑定关节：现在只能「选中骨骼 → IK 绑定所选末端」，root/mid 由代码按父链自动推导，无法指定三个关节。\n2) 默认链把躯干算进去了：left_hand 预设是 BODY_TOP → HAND1_ABOVE → HAND2_ABOVE，即「躯干 + 两个手节点」。期望手部 IK 绑定手的三个关节 HAND1 → HAND2 → HAND3，不含 BODY_TOP；脚部同理 FOOT1 → FOOT2 → FOOT3，不含 BODY_BOTTOM。\n\n### 期望\n- UI 有明确的三段选择（Root / Mid / End），可从当前片段骨架节点中挑；选后画布立即高亮该链。\n- 默认预设改为 HAND1 → HAND2 → HAND3（左右各一组），脚部 FOOT1 → FOOT2 → FOOT3。\n- 旧 .motion.json 里的显式 IkChains 仍能加载（不改落盘格式）；预设变更只影响没有 IkChains 的文件。\n\n### 现状\n- 预设表：MotionRig.cs:145-155；可选节点：NativeCharacterModel.Names 含 HAND1~3 / FOOT1~3。\n- #73 已把末端从 HAND1/FOOT1 改成 HAND2/FOOT2，但 root 仍是躯干；本 issue 是链定义再修正 + 补选择入口，需在 #73 之后重排。\n\n### 待补充\n维护者补充：左右手脚是否都要三关节链、自定义链是否需要落盘（现有 IkChains 字段）。\n\n",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-10T01:17:12Z",
-  "updatedAt": "2026-11-10T01:17:12Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-10T15:53:38Z",
+  "closedAt": "2026-11-10T15:53:38Z",
   "author": {
     "login": "DPapyru"
   },
@@ -23,6 +23,29 @@
     "nodes": []
   },
   "comments": {
-    "nodes": []
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABku6JzQ",
+        "body": "## AI回复\n\n**Ticket（复用本 issue 追加确认；来源 #34 的 E3 决策）**\n\n### 做什么\n默认 IK 链改为镜像三段：左手 `HAND1_ABOVE → HAND2_ABOVE → HAND3_ABOVE`、右手 `HAND1_BELOW → HAND2_BELOW → HAND3_BELOW`，脚同理（FOOT1→2→3，左右镜像）。补 Root / Mid / End 三段选择入口（现在只能「绑定所选末端」自动推导）。自定义链落盘到 `MotionGraph.IkChains`。\n\n### 不做什么（已否定的方案）\n- 默认链不再以 `BODY_TOP` 为根（躯干 + 两臂那条已否定）\n- 不改 `FormatVersion`；旧 `.motion.json` 里的 `IkChains` 加载时保持原样，只有新建链才用新默认\n- 不删除用户已有的自定义链\n- 不做「只改解算不改预设表」的半截方案（那是 #63 的范围）\n\n### 验收标准\n- [ ] 默认左手/右手/左脚/右脚四条链各三关节，且左右镜像正确\n- [ ] UI 可选 Root/Mid/End 三段并立即生效；选错骨骼（非同一链）有明确拒绝\n- [ ] 自定义链保存后重载保持；旧文件加载后链不变\n- [ ] 拖末端时链长守恒（与 #63 的断言共用）\n\n### Blocked by\n#63（#73 合并后在其链定义上重排，否则两边改同一张预设表会冲突）。",
+        "createdAt": "2026-11-10T05:45:52Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABk6W54A",
+        "body": "## AI回复\n\n已由 #82（merge 490812e） 完成并合入 ai。human-test3 @f3869da 验收四条全绿（build 0 error / RuntimeTests PASS 61654 / motion-audit `checks=60` 含 `drag=PASS`、`canvas=PASS` / `node Tools/gate.mjs` `GATE PASS steps=4`）。\n\n默认 IK 链改为左右镜像三段（HAND1→2→3、FOOT1→2→3），新增 Root/Mid/End 自定义链入口并落盘 IkChains，未改 FormatVersion。\n\n关闭本 issue（后续跟进项见评论正文；如仍有残留请重开或新开 issue）。",
+        "createdAt": "2026-11-10T15:53:36Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
   }
 }

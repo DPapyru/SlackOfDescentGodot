@@ -1,10 +1,10 @@
 {
   "title": "动作编辑器：手动绑定 IK 关节后拖动出现旋转错误（人工测试第三轮）",
   "body": "## AI回复\n\n父 issue：#76；关联：#63（IK 链长与解算，PR #73 已 REVIEW PASS 未合并）、#44（画布拖动）\n\n### 现象\n拖动手动绑定的 IK 关节（编辑 → IK 绑定所选末端 之后），出现旋转问题。\n\n### 期望\n拖动中链长守恒、末端跟随指针、中间关节按 IK 解算旋转正确；一次拖动一条撤销记录。\n\n### 现状与需要的信息\n- 默认预设链（MotionRig.cs:145-155）的解算在 #73 上已有 1e-6 级断言；手动绑定走的是「按所选末端的真实父链取 root/mid/end」（NativeActionEditor.cs:76-86），与预设链的 actor 坐标系可能不同（#73 的 REVIEW 指出 actor-root 链的 IkFrame 边界未被 GUI 审计覆盖）。\n- 复现请附：绑定的末端（如 HAND3_ABOVE）、拖动方向、期望与实际的旋转表现、是手动绑定还是默认预设。\n\n",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-10T01:17:09Z",
-  "updatedAt": "2026-11-10T01:17:09Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-10T15:53:33Z",
+  "closedAt": "2026-11-10T15:53:33Z",
   "author": {
     "login": "DPapyru"
   },
@@ -23,6 +23,29 @@
     "nodes": []
   },
   "comments": {
-    "nodes": []
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABk5iy5w",
+        "body": "## AI回复\n\n### 已修（PR #89，merge f3869da）\n\n根因：`MotionPoseEditor.Drag` 的 IK 回写把「解算段的世界方向」直接当成部位 `Angle`，而部位自己的锚点方向（`anchorDir = atan2(-offsetY, offsetX)`，手臂/腿常见 90°）没参与；同时旧代码把 `mid/end` 的局部偏移强行改写成 `(len,0)`，把这个方向彻底抹掉。表现就是拖动后 IK 链上的部位整体偏 90°（例：`HAND2_BELOW.Angle` 应为 +86 量级、实得 −4 量级），而关节位置是对的。\n\n修法（已由维护者本地验证效果）：\n- `root = -RootAngle - parentAngle - midDir`\n- `mid  = RootAngle - MidAngle + midDir - endDir`\n- 末端 `Angle` 不变；保留 mid/end 原始偏移，不再归零。\n\n验证：维护者手工拖动确认部位朝向正确；自动层面 build 0 / RuntimeTests PASS 61654 / motion-audit `checks=60`（含新增锚点断言）/ gate PASS。human-test3 已重建到 f3869da。\n\n未做：`Bend()` 的 `bendPositive` 符号与叉积符号相反（连续两次拖动可能翻肘），建议另开 follow-up。",
+        "createdAt": "2026-11-10T15:19:55Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABk6Wwlg",
+        "body": "## AI回复\n\n已由 #89（merge f3869da） 完成并合入 ai。human-test3 @f3869da 验收四条全绿（build 0 error / RuntimeTests PASS 61654 / motion-audit `checks=60` 含 `drag=PASS`、`canvas=PASS` / `node Tools/gate.mjs` `GATE PASS steps=4`）。\n\n根因：IK 回写把解算段世界方向直接当部位 Angle，丢失部位锚点方向且把偏移归零 → 部位整体偏 90°。修法：root 减 midDir、mid 加 midDir 减 endDir、末端角度不变、保留原始偏移。\n\n关闭本 issue（后续跟进项见评论正文；如仍有残留请重开或新开 issue）。",
+        "createdAt": "2026-11-10T15:53:30Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
   }
 }

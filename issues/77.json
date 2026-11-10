@@ -1,10 +1,10 @@
 {
   "title": "动作编辑器：vim 模式未生效（人工测试第三轮）",
   "body": "## AI回复\n\n父 issue：#76；关联：#45（键盘模式：默认 / vim 的规格与验收）\n\n### 现象\n编辑器里切不到或切到也无效果：vim 模式没有成功存在。\n\n### 期望\n- 视图菜单或设置里能切「键位：默认 / vim」，切完立即生效且状态可见（菜单勾选或状态栏）。\n- vim 模式下（文本控件无焦点时）：Esc 回普通模式、i 进插入、h / l / j / k、dd 删当前帧键、u 撤销；冒号命令行不做。\n- 文本控件有焦点时 vim 键位不抢输入。\n\n### 现状\n- ai 上还没有 vim 键位（PR #74 feat/45-keyboard-modes 已实现并 REVIEW PASS，未合并）。\n- 若在 #74 分支上复现则是真缺陷；请附「切模式的那一步」（菜单项 / 快捷键 / Editor/action-editor-keys.json 的内容）。\n\n### 待补充\n维护者后续补充：在哪个入口试的、期望哪些键位、是否需要状态提示。\n\n",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-10T01:17:06Z",
-  "updatedAt": "2026-11-10T01:17:06Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-10T15:53:27Z",
+  "closedAt": "2026-11-10T15:53:27Z",
   "author": {
     "login": "DPapyru"
   },
@@ -23,6 +23,29 @@
     "nodes": []
   },
   "comments": {
-    "nodes": []
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABku6QJg",
+        "body": "## AI回复\n\n**Ticket（复用本 issue 追加确认；来源 #34 的 E5/E6 决策）**\n\n### 做什么\n在 `feat/45-keyboard-modes` 上补回「视图 → 键位：默认 / 键位：vim」两个菜单项（含勾选状态），并在布局重排后的菜单结构上重新落位。\n\n### 不做什么（已否定的方案）\n- 不在 human-test2 上修（人测分支只读）\n- 不重写键位逻辑（#74 分支上已实现，缺的只是入口）\n- 不新开 PR / 不新开分支\n- 不靠「审计直接调 `RunAction(\"keyVim\")`」验证通过就认为修好（那正是漏检的原因）\n\n### 验收标准\n- [ ] 人测构建里「视图」菜单可见两项，切换后立即生效且持久化\n- [ ] 菜单勾选状态与当前模式一致\n- [ ] 真实按键路由下按键生效（不靠直调 handler）\n\n### Blocked by\n#51（菜单在布局重排中被整体重写，必须在重写后的结构上补）。",
+        "createdAt": "2026-11-10T05:45:59Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABk6Wl5Q",
+        "body": "## AI回复\n\n已由 #84（merge 8819d28） 完成并合入 ai。human-test3 @f3869da 验收四条全绿（build 0 error / RuntimeTests PASS 61654 / motion-audit `checks=60` 含 `drag=PASS`、`canvas=PASS` / `node Tools/gate.mjs` `GATE PASS steps=4`）。\n\n结论：ai 上「视图 → 键位：默认 / 键位：vim」入口并未丢失（#74 带入、#55 保留），human-test2 上的缺失是那次合并的产物；已在 #55 新菜单结构上补真实菜单路由断言（不得直调 RunAction）防回归。\n\n关闭本 issue（后续跟进项见评论正文；如仍有残留请重开或新开 issue）。",
+        "createdAt": "2026-11-10T15:53:24Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
   }
 }

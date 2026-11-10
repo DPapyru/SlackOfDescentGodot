@@ -185,7 +185,7 @@
     "number": 34,
     "title": "动作编辑器界面优化",
     "state": "OPEN",
-    "updatedAt": "2026-11-09T08:26:48Z",
+    "updatedAt": "2026-11-10T13:27:52Z",
     "file": "issues/34.json"
   },
   {
@@ -199,7 +199,7 @@
     "number": 37,
     "title": "决策索引",
     "state": "OPEN",
-    "updatedAt": "2026-11-09T08:26:50Z",
+    "updatedAt": "2026-11-10T12:59:35Z",
     "file": "issues/37.json"
   },
   {
@@ -212,106 +212,106 @@
   {
     "number": 41,
     "title": "动作编辑器：源码页（TOML 视图与编辑）",
-    "state": "OPEN",
-    "updatedAt": "2026-11-09T14:54:58Z",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-10T15:52:01Z",
     "file": "issues/41.json"
   },
   {
     "number": 42,
     "title": "动作编辑器：导入片段命名与片段重命名",
-    "state": "OPEN",
-    "updatedAt": "2026-11-09T10:34:43Z",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-10T15:52:06Z",
     "file": "issues/42.json"
   },
   {
     "number": 43,
     "title": "动作编辑器：默认 idle 模板与完整参考姿态",
-    "state": "OPEN",
-    "updatedAt": "2026-11-09T08:33:49Z",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-10T15:52:12Z",
     "file": "issues/43.json"
   },
   {
     "number": 44,
     "title": "动作编辑器：旋转球只写角度 + 节点直接拖动",
-    "state": "OPEN",
-    "updatedAt": "2026-11-10T00:01:23Z",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-10T15:52:18Z",
     "file": "issues/44.json"
   },
   {
     "number": 45,
     "title": "动作编辑器：键盘模式（默认 / vim）与帮助手册",
-    "state": "OPEN",
-    "updatedAt": "2026-11-10T00:26:38Z",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-10T15:52:23Z",
     "file": "issues/45.json"
   },
   {
     "number": 46,
     "title": "动作编辑器：动作图来源层标识（origin 字段）",
-    "state": "OPEN",
-    "updatedAt": "2026-11-09T08:33:31Z",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-10T15:52:29Z",
     "file": "issues/46.json"
   },
   {
     "number": 51,
     "title": "动作编辑器：按参考稿重排布局与菜单",
-    "state": "OPEN",
-    "updatedAt": "2026-11-09T10:19:49Z",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-10T15:52:35Z",
     "file": "issues/51.json"
   },
   {
     "number": 52,
     "title": "动作编辑器：底部时间轴与播放对照参考稿",
-    "state": "OPEN",
-    "updatedAt": "2026-11-09T11:13:15Z",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-10T15:52:41Z",
     "file": "issues/52.json"
   },
   {
     "number": 53,
     "title": "动作编辑器：性能探针与预览惰性初始化",
-    "state": "OPEN",
-    "updatedAt": "2026-11-09T10:58:46Z",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-10T15:52:46Z",
     "file": "issues/53.json"
   },
   {
     "number": 54,
     "title": "动作编辑器：真实路由键鼠验收探针",
-    "state": "OPEN",
-    "updatedAt": "2026-11-09T11:13:27Z",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-10T15:52:51Z",
     "file": "issues/54.json"
   },
   {
     "number": 61,
     "title": "圈复杂度门禁工具：--since diff 判定与 CI 接入",
-    "state": "OPEN",
-    "updatedAt": "2026-11-09T22:48:03Z",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-10T15:52:57Z",
     "file": "issues/61.json"
   },
   {
     "number": 62,
     "title": "动作编辑器：源码页可读性与补全（原始数据页 / 分组 / 语义高亮）",
-    "state": "OPEN",
-    "updatedAt": "2026-11-09T22:55:54Z",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-10T15:53:02Z",
     "file": "issues/62.json"
   },
   {
     "number": 63,
     "title": "动作编辑器：IK 末端链长与旋转解算错误",
-    "state": "OPEN",
-    "updatedAt": "2026-11-09T23:04:26Z",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-10T15:53:08Z",
     "file": "issues/63.json"
   },
   {
     "number": 64,
     "title": "动作编辑器：源码页右键菜单中文化与零宽字符清洗",
-    "state": "OPEN",
-    "updatedAt": "2026-11-09T22:30:59Z",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-10T15:53:14Z",
     "file": "issues/64.json"
   },
   {
     "number": 65,
     "title": "[round] 动作编辑器人工测试第二轮：源码页、画布、IK、本地化",
-    "state": "OPEN",
-    "updatedAt": "2026-11-10T00:34:43Z",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-10T15:54:07Z",
     "file": "issues/65.json"
   },
   {
@@ -324,50 +324,71 @@
   {
     "number": 70,
     "title": "动作编辑器：撤销合并窗依赖挂钟，审计在负载下误报并中止",
-    "state": "OPEN",
-    "updatedAt": "2026-11-09T22:10:58Z",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-10T15:53:20Z",
     "file": "issues/70.json"
   },
   {
     "number": 76,
     "title": "[round] 动作编辑器人工测试第三轮：vim、IK 绑定与手部链、补全、节点漂移",
     "state": "OPEN",
-    "updatedAt": "2026-11-10T01:17:28Z",
+    "updatedAt": "2026-11-10T10:05:01Z",
     "file": "issues/76.json"
   },
   {
     "number": 77,
     "title": "动作编辑器：vim 模式未生效（人工测试第三轮）",
-    "state": "OPEN",
-    "updatedAt": "2026-11-10T01:17:06Z",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-10T15:53:27Z",
     "file": "issues/77.json"
   },
   {
     "number": 78,
     "title": "动作编辑器：手动绑定 IK 关节后拖动出现旋转错误（人工测试第三轮）",
-    "state": "OPEN",
-    "updatedAt": "2026-11-10T01:17:09Z",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-10T15:53:33Z",
     "file": "issues/78.json"
   },
   {
     "number": 79,
     "title": "动作编辑器：IK 缺少绑定关节选择，默认手部链应为 HAND1~3 而非躯干+两臂",
-    "state": "OPEN",
-    "updatedAt": "2026-11-10T01:17:12Z",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-10T15:53:38Z",
     "file": "issues/79.json"
   },
   {
     "number": 80,
     "title": "动作编辑器：源码页补全不可用（人工测试第三轮）",
-    "state": "OPEN",
-    "updatedAt": "2026-11-10T01:17:14Z",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-10T15:53:44Z",
     "file": "issues/80.json"
   },
   {
     "number": 81,
     "title": "动作编辑器：多次移动关节后节点与预览角色脱离绑定",
-    "state": "OPEN",
-    "updatedAt": "2026-11-10T01:17:17Z",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-10T15:53:49Z",
     "file": "issues/81.json"
+  },
+  {
+    "number": 85,
+    "title": "动作编辑器：清理 #55/#75 重构带入的 13 条 CS8602（gate 红）",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-10T15:53:55Z",
+    "file": "issues/85.json"
+  },
+  {
+    "number": 86,
+    "title": "动作编辑器：SurfaceButton / PickBoneAt 复杂度超阈值（#85 判空 guard 带入）",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-10T15:53:59Z",
+    "file": "issues/86.json"
+  },
+  {
+    "number": 90,
+    "title": "动作编辑器：Bend() 弯曲侧符号与 Solve 的 bendPositive 相反，连续拖动可能翻肘",
+    "state": "OPEN",
+    "updatedAt": "2026-11-10T15:20:07Z",
+    "file": "issues/90.json"
   }
 ]

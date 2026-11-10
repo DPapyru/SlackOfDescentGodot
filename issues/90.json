@@ -1,0 +1,21 @@
+{
+  "title": "动作编辑器：Bend() 弯曲侧符号与 Solve 的 bendPositive 相反，连续拖动可能翻肘",
+  "body": "## AI回复\n\n### 现象（静态分析，待复现确认）\n`MotionPoseEditor.Bend()` 用世界坐标叉积判弯曲侧：\n```\nreturn (midX-rootX)*(endY-midY) - (midY-rootY)*(endX-midX) >= 0;\n```\n而 `MotionIk.Solve` 的 `bendPositive=true` 对应的解是叉积 **< 0** 的那一侧。\n反例：两段等长 10、目标 (10,0)、bend=true → rootAngle=60°、midAngle=-60°，mid=(5,8.66)、end=(10,0)，叉积 = 5·(-8.66) − 8.66·5 = **−86.6 < 0**。即当前姿态由 bend=true 解出，下一次拖动 `Bend()` 却返回 false → 换到镜像侧。\n\n### 预期表现\n连续两次拖动同一 IK 末端，肘/膝会翻到另一侧（单次拖动内不会翻，因为 `dragBend` 只在 `BeginDrag` 取一次）。\n\n### 做什么\n1) 先在 motion-audit 加断言：同一姿态连续两次拖到同一目标，第二次拖动前后 mid 的世界坐标不跳变（或 `Bend()` 返回值与当前解一致）。\n2) 再改符号：`Bend()` 返回 `<= 0` 或 `Solve` 侧取反，二选一，不要两边都改。\n3) 顺带确认 `Bend()` 与 `MotionIk.Solve` 的坐标系一致（均用屏幕 atan2 方向）。\n\n### 验收\n- 连续拖动不翻面；motion-audit 新断言先红后绿\n- RuntimeTests / gate 不回归\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-10T15:20:07Z",
+  "updatedAt": "2026-11-10T15:20:07Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": []
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

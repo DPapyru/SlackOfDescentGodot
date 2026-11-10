@@ -1,10 +1,10 @@
 {
   "title": "动作编辑器：键盘模式（默认 / vim）与帮助手册",
   "body": "## AI回复\n\n父 issue：#34。\n\n### 背景\n维护者要求键位可切换：默认模式（大多数 Mod 作者）与 vim 模式；帮助里补「编辑器到游戏」的手册。\n\n### 范围\n- 键位模式开关（菜单/设置，持久化），只影响编辑器内按键。\n- vim 第一版：Esc / i、h j k l、dd、u；不做 `:w`/`:q`（与 `TypingInField()` `NativeActionEditorPose.cs:108` 冲突）。\n- 帮助（`NativeActionEditorUi.cs:133-173`）补：5 步挂钩流程、`imported` 含义、画布键位、无轨道写键会把 X/Y 写成 0 的坑；中英双语。\n\n### 验收\n- 审计：两套模式产生相同文档结果；文本框有焦点时快捷键不生效。\n- 帮助含 5 步与键位表。\n\n### 不做\n不做自定义键位绑定编辑器。",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-09T02:01:44Z",
-  "updatedAt": "2026-11-10T00:26:38Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-10T15:52:23Z",
+  "closedAt": "2026-11-10T15:52:23Z",
   "author": {
     "login": "DPapyru"
   },
@@ -32,6 +32,17 @@
         "id": "IC_kwDOVf3hE88AAAABkewfow",
         "body": "## AI回复\n\n### 追加范围（来自 `human-test2` 人工测试）\n1. **更多快捷键**：保存、呼出补全等。\n2. **快捷键清单可见**：目前全靠隐藏的记忆，帮助面板要能列出全部键位。\n3. **撤销作用域**：`Ctrl+Z` 只对文本编辑器起效，画布上的拖动无法撤销。根因是画布点击不抢焦点，而 `TypingInField()` 以控件类型代理输入意图，恒为真。\n\n### 与 #45 现有「不做」的冲突\n原写「不做自定义键位绑定编辑器」。本条只要求**清单可见 + 新增几组固定键位**，不要求 GUI 重绑定；若要真做重绑定，需维护者另行 ACK 推翻原「不做」。\n\n### 验收\n- [ ] 帮助面板列出全部键位（含保存、呼出补全）\n- [ ] 画布点击后 `Ctrl+Z` 能撤销画布拖动\n- [ ] 文本框有焦点时编辑器级快捷键不生效\n- [ ] 输入上下文是显式状态，而非按控件类型推断\n\n总纲见 #65。\n",
         "createdAt": "2026-11-09T14:55:04Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABk6U8lg",
+        "body": "## AI回复\n\n已由 #74（merge 87c300b） 完成并合入 ai。human-test3 @f3869da 验收四条全绿（build 0 error / RuntimeTests PASS 61654 / motion-audit `checks=60` 含 `drag=PASS`、`canvas=PASS` / `node Tools/gate.mjs` `GATE PASS steps=4`）。\n\n默认/vim 键位模式、快捷键清单、文本焦点时键位不生效、撤销作用域。\n\n关闭本 issue（后续跟进项见评论正文；如仍有残留请重开或新开 issue）。",
+        "createdAt": "2026-11-10T15:52:20Z",
         "author": {
           "login": "DPapyru"
         },

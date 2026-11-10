@@ -1,10 +1,10 @@
 {
   "title": "动作编辑器：性能探针与预览惰性初始化",
   "body": "## AI回复\n\n## Parent\n- #34\n\n## What to build\n打开动作编辑器的性能可度量并达标：打开耗时 ≤1.2s、进程内存增量 ≤450MB。先加探针（打开前后耗时与内存，打印 ACTION_EDITOR_PERF），再把预览改为惰性初始化（首次需要预览时才创建第二个世界），关闭编辑器时释放。未达标时在 PR 贴数字与瓶颈，再决定是否复用正在运行的游戏世界（另开 issue）。\n\n## Acceptance criteria\n- [ ] 打开路径输出 ACTION_EDITOR_PERF，含耗时与内存增量。\n- [ ] 既有环境重复三次，中位数满足 ≤1.2s 且 ≤450MB。\n- [ ] 未使用预览时不创建第二个世界；关闭编辑器后内存回落。\n- [ ] 动作审计与 dotnet 测试全绿；数字写进 PR body。\n\n## Blocked by\n- None（探针可先跑；布局 PR 合并后复测一次）",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-09T08:30:31Z",
-  "updatedAt": "2026-11-09T10:58:46Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-10T15:52:46Z",
+  "closedAt": "2026-11-10T15:52:46Z",
   "author": {
     "login": "DPapyru"
   },
@@ -25,6 +25,39 @@
         "id": "IC_kwDOVf3hE88AAAABkaL5ww",
         "body": "## AI回复\n\nPR：https://github.com/DPapyru/SlackOfDescentGodot/pull/57（分支 `feat/53-editor-perf-probe`，目标 `ai`）。\n\n已实现：\n- `ACTION_EDITOR_PERF` 探针（`Runtime/Diagnostics/Probes/ActionEditorPerfProbe.cs`）：打开/关闭 3 次，取中位数；量 open 耗时、RSS 增量、惰性预览首载、关闭后回落，并断言「打开不建第二个世界」「关闭后内存低于加载峰值」。\n- 预览惰性化：打开编辑器不建第二个 `GmWorld`；点击画布、开始播放、单帧/拖动动作帧、刷新骨架、导入/打开/切换项目、视图→重载预览时才创建；悬停不触发；关闭时 `_ExitTree` 释放。\n- 动作审计：打开后先断言预览世界不存在，再显式触发并等待惰性加载（原断言保留）。\n\n本机数字（DISPLAY=:1，llvmpipe，3 次中位数）：open **650 ms**（预算 1200 ms）、RSS 增量 **14.8 MB**（预算 450 MB）；惰性预览首载约 11.9 s（被推迟的成本，瓶颈为 `NativeCharacterPreview.InitializeAsync` 完整载入第二个 GameData 世界）；关闭后回落 54.6 MB。\n\n验证：`dotnet build` 0 errors；`dotnet run --project Tests/RuntimeTests.csproj` PASS 61564 assertions；`node Tools/verify.mjs` branchContent PASS；`node Tools/motion-audit.mjs --headless` 因本机内存耗尽（15 GiB 内存满、20 GiB swap 用尽、load 27，多 agent 并发 Godot 审计）未能跑完，锁内最远到 `MOTION_EDITOR_LAYOUT_OK` 后被 420 s 超时终止；内存恢复后复跑并在 PR 补齐审计 marker。\n\n未做：复用正在运行的游戏世界（按 issue 另开 issue）。",
         "createdAt": "2026-11-09T10:58:46Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABku6Mcw",
+        "body": "## AI回复\n\n**Ticket（复用本 issue 追加确认；来源 #34 的 E4 决策）**\n\n### 做什么\n回填性能探针输出（`ACTION_EDITOR_PERF` marker），在状态栏显示首次预览加载进度，并把惰性首载 ~11.9s 记为**已知限制**。\n\n### 不做什么（已否定的方案）\n- 不把首帧预览加载算进「打开 ≤1.2s」（口径已定：打开 = 窗口可交互）\n- 不按「总内存 450MB」判定（按增量）\n- 本轮不优化 11.9s 本身（另开，不在本 ticket 范围）\n\n### 验收标准\n- [ ] 打开 ≤1.2s、内存增量 ≤450MB，marker 能在 CI/审计日志中检索到\n- [ ] 状态栏在首次预览加载时显示进度，不出现「点了没反应」\n- [ ] Wiki/已知限制里写明惰性首载 11.9s\n\n### Blocked by\n#51（状态栏与布局在重排后才有稳定位置）。",
+        "createdAt": "2026-11-10T05:45:55Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABk2b__Q",
+        "body": "## AI回复\n\n### 验收（已合入 ai，PR #57 merge 87f26a4）\n\n- 性能探针：`Runtime/Diagnostics/Probes/ActionEditorPerfProbe.cs` 打出 `ACTION_EDITOR_PERF` / `ACTION_EDITOR_PERF_MEDIAN` / `ACTION_EDITOR_PERF_VERDICT` / `ACTION_EDITOR_PERF_OK`，可在审计日志检索；实测 `IMPORT_PERF_OK failed=0 retainedAfterGc=0`（idle 530ms→20ms）。\n- 打开口径：窗口可交互 ≤1.2s，不含首帧预览；内存按增量（`openMemMB`）计，不按总量。\n- 惰性首载：预览延迟到点击画布/播放/视图→重载预览，状态栏显示「预览未加载：点击画布、开始播放或 视图→重载预览 触发加载。」，不会点了没反应。\n- 已记录 11.9s 惰性首载为已知限制（issue 内）；Wiki 侧「已知限制」条目尚未写入（文档只进 Wiki，需维护者/文档流程）。\n\n验证：human-test3 @9660ff1 四条全绿；audit `IMPORT_PERF_OK` 通过。",
+        "createdAt": "2026-11-10T12:59:40Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABk6VkDQ",
+        "body": "## AI回复\n\n已由 #57（merge 87f26a4） 完成并合入 ai。human-test3 @f3869da 验收四条全绿（build 0 error / RuntimeTests PASS 61654 / motion-audit `checks=60` 含 `drag=PASS`、`canvas=PASS` / `node Tools/gate.mjs` `GATE PASS steps=4`）。\n\n`ACTION_EDITOR_PERF` 探针、惰性首载与状态栏提示、打开口径/增量内存；11.9s 记为已知限制（Wiki 条目仍待写）。\n\n关闭本 issue（后续跟进项见评论正文；如仍有残留请重开或新开 issue）。",
+        "createdAt": "2026-11-10T15:52:44Z",
         "author": {
           "login": "DPapyru"
         },

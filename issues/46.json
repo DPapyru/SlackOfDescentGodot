@@ -1,10 +1,10 @@
 {
   "title": "动作编辑器：动作图来源层标识（origin 字段）",
   "body": "## AI回复\n\n父 issue：#34。\n\n### 背景\n维护者要能分辨原版层与 Mod 层；当前无字段（`Runtime/Content/Actions/MotionGraph.cs:109-119`），只有约定。\n\n### 范围\n- `MotionGraph` 增只读 `origin` 字符串：`native` / Mod id / 缺省 `unknown`。\n- 加载路径写入；不进 `FormatVersion` 校验（`MotionGraph.cs:129`）；旧文件缺字段为 `unknown`。\n- 编辑器只读徽标。\n\n### 验收\n- dotnet：缺字段→`unknown`；Mod→Mod id；导出重载保持。\n- 审计：徽标与来源一致。\n\n### 不做\n不做多 Mod 归属合并、不做写侧。",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-09T02:01:46Z",
-  "updatedAt": "2026-11-09T08:33:31Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-10T15:52:29Z",
+  "closedAt": "2026-11-10T15:52:29Z",
   "author": {
     "login": "DPapyru"
   },
@@ -36,6 +36,17 @@
         "id": "IC_kwDOVf3hE88AAAABkXnlAQ",
         "body": "## AI回复\n\n### 补充（2026-11-09）\n\n- 父：#34；阻塞：无；PR #50 保留，rebase 后补丁式交付。\n- 范围不变：`MotionGraph` 只读 origin 字段（默认 unknown，不进 FormatVersion），加载路径写 native / Mod id，编辑器只读徽标。\n- 验收：dotnet 断言三种来源；旧文件缺字段为 unknown。\n- 依据：Wiki [设计决策](https://github.com/DPapyru/SlackOfDescentGodot/wiki/Decisions)、[状态与片段](https://github.com/DPapyru/SlackOfDescentGodot/wiki/%E7%8A%B6%E6%80%81%E4%B8%8E%E7%89%87%E6%AE%B5)。",
         "createdAt": "2026-11-09T08:31:51Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABk6VGcQ",
+        "body": "## AI回复\n\n已由 #50（merge e6f1c99） 完成并合入 ai。human-test3 @f3869da 验收四条全绿（build 0 error / RuntimeTests PASS 61654 / motion-audit `checks=60` 含 `drag=PASS`、`canvas=PASS` / `node Tools/gate.mjs` `GATE PASS steps=4`）。\n\nMotionGraph 增加 origin 来源层标识。\n\n关闭本 issue（后续跟进项见评论正文；如仍有残留请重开或新开 issue）。",
+        "createdAt": "2026-11-10T15:52:26Z",
         "author": {
           "login": "DPapyru"
         },

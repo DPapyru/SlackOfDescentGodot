@@ -1,10 +1,10 @@
 {
   "title": "动作编辑器：源码页补全不可用（人工测试第三轮）",
   "body": "## AI回复\n\n父 issue：#76；关联：#62（源码页可读性与补全，PR #72 已 REVIEW PASS 未合并）\n\n### 现象\n编辑器没有补全。\n\n### 期望\n源码页（节点属性修改 / 原始数据）光标处按 Ctrl+Space 弹出候选：骨骼名、字段名（x / y / angle / scaleX / scaleY / picture）、片段 / 状态、帧块模板；选中后正确插入。\n\n### 现状\n- ai 上源码页本身还不存在（#60 / #55 未合并），ai 上必然没有补全。\n- #72 分支上补全已实现并有审计（真实 Ctrl+Space 按键 → 候选中含真实骨骼名）。若在 #72 分支上仍看不到候选，请附：所在页、光标位置、按下后是否出现候选窗、状态栏文案。\n\n### 待补充\n维护者补充：期望触发方式（仅 Ctrl+Space 还是输入即弹）、最希望出现的候选条目。\n\n",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-10T01:17:14Z",
-  "updatedAt": "2026-11-10T01:17:14Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-10T15:53:44Z",
+  "closedAt": "2026-11-10T15:53:44Z",
   "author": {
     "login": "DPapyru"
   },
@@ -23,6 +23,29 @@
     "nodes": []
   },
   "comments": {
-    "nodes": []
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABku6SDg",
+        "body": "## AI回复\n\n**Ticket（复用本 issue 追加确认；来源 #34 的 E5 决策）**\n\n### 做什么\n统一 `Ctrl+Space` 所有权：焦点在源码页文本控件时由 CodeEdit 弹真实候选窗；焦点在画布/其它控件时由键位表处理。审计改为走真实按键路由，不再直接 `EmitSignal(GuiInput)`。\n\n### 不做什么（已否定的方案）\n- 不允许两套同时抢同一个键（现状：#72 的 `NativeActionEditorSource.cs` 与 #74 的 `NativeActionEditorKeys.cs` 各有一套）\n- 不新开独立补全弹窗另起实现\n- 不用「审计绿」代替真实按键验证\n\n### 验收标准\n- [ ] 文本控件有焦点时 Ctrl+Space 出候选窗，可插入骨骼/字段/片段/帧块\n- [ ] 无文本焦点时 Ctrl+Space 不再弹文本说明对话框\n- [ ] 审计在真实路由下断言候选窗出现，且两套实现只剩一套\n\n### Blocked by\n#62、#64（#72/#68 合并）、#45（#74 合并）——冲突只在整合后出现，必须先合再修。",
+        "createdAt": "2026-11-10T05:46:01Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABk6XD3g",
+        "body": "## AI回复\n\n已由 #88 完成并合入 ai。human-test3 @f3869da 验收四条全绿（build 0 error / RuntimeTests PASS 61654 / motion-audit `checks=60` 含 `drag=PASS`、`canvas=PASS` / `node Tools/gate.mjs` `GATE PASS steps=4`）。\n\n删除 #74 重复的 Ctrl+Space 说明对话框，源码页 CodeEdit 成为唯一所有者；补真实路由断言（非 headless 候选窗断言仍受显示环境限制）。\n\n关闭本 issue（后续跟进项见评论正文；如仍有残留请重开或新开 issue）。",
+        "createdAt": "2026-11-10T15:53:42Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
   }
 }

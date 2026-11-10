@@ -1,10 +1,10 @@
 {
   "title": "动作编辑器：IK 末端链长与旋转解算错误",
   "body": "## AI回复\n\n父 issue：#65\n关联：#44（其明确「不改 IK 两端解算」，故单开）\n\n### 背景\n「编辑 → 选择 → 绑定 IK 为末端」后：关节被自由拉长，或长度保持但旋转严重错误；状态栏出现「目标超出链长，已夹到可达范围。」（图4、图5、图8）\n\n### 复现\n1. 编辑器 → 画布 → 选中骨骼 → 选择 → 绑定 IK 为末端\n2. 拖动末端\n\n### 期望\n- 拖动中链长保持不变\n- 末端跟随指针，中间关节按 IK 解算旋转\n- 仅当目标超出可达范围时夹取，且夹取到可达边界\n\n### 实际\n- 图4：关节被拉长（长度不守恒）\n- 图5：长度守恒但旋转错误\n\n### 不做\n- 不改 FK / 旋转球语义（属 #44）\n- 不新增多段求解器，先修现有解算\n\n### 验收\n- [ ] 审计断言：拖动后各段长度误差 < 1e-6\n- [ ] 审计断言：可达范围内拖动不触发夹取文案\n- [ ] 超范围时夹到边界，文案只出现一次\n- [ ] 一次拖动一个撤销步\n\n## Blocked by\n无\n",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-09T14:54:01Z",
-  "updatedAt": "2026-11-09T23:04:26Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-10T15:53:08Z",
+  "closedAt": "2026-11-10T15:53:08Z",
   "author": {
     "login": "DPapyru"
   },
@@ -38,6 +38,18 @@
     ]
   },
   "comments": {
-    "nodes": []
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABk6WG0A",
+        "body": "## AI回复\n\n已由 #73（merge 920d3a7） 完成并合入 ai。human-test3 @f3869da 验收四条全绿（build 0 error / RuntimeTests PASS 61654 / motion-audit `checks=60` 含 `drag=PASS`、`canvas=PASS` / `node Tools/gate.mjs` `GATE PASS steps=4`）。\n\nIK 末端链定义、坐标系与角度回写修正，链长守恒断言。\n\n关闭本 issue（后续跟进项见评论正文；如仍有残留请重开或新开 issue）。",
+        "createdAt": "2026-11-10T15:53:05Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
   }
 }

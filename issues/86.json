@@ -1,0 +1,33 @@
+{
+  "title": "动作编辑器：SurfaceButton / PickBoneAt 复杂度超阈值（#85 判空 guard 带入）",
+  "body": "## AI回复\n\n### 现象\n#85 修复 13 条 CS8602 后，`node Tools/gate.mjs` 的 complexity 步骤红：`NativeActionEditorPose.cs:39 SurfaceButton 17>15`、`Pose.cs:224 PickBoneAt 18>16`（complexity-test 通过）。每处只超 2，根因是新增的 `overlay is not {} overlayView` 判空各 +1。\n\n### 做什么\n把 `SurfaceButton`（17→≤15）与 `PickBoneAt`（18→≤16）的判空/命中分支抽成小 helper 降到阈值内（不改行为、不改 gate 逻辑、不往 complexity-baseline 塞新条目）。完成前可临时登记 baseline，但本 issue 关闭时 gate 必须靠 refactor 通过。\n\n### 验收\n- `node Tools/gate.mjs` exit 0\n- 两个函数复杂度回到阈值内，complexity-test 仍 PASS\n- RuntimeTests / motion-audit 不回归\n",
+  "state": "CLOSED",
+  "createdAt": "2026-11-10T12:29:41Z",
+  "updatedAt": "2026-11-10T15:53:59Z",
+  "closedAt": "2026-11-10T15:54:01Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": []
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABk6Xf6A",
+        "body": "## AI回复\n\n已由 #87（merge 9660ff1）、#89（merge f3869da） 完成并合入 ai。human-test3 @f3869da 验收四条全绿（build 0 error / RuntimeTests PASS 61654 / motion-audit `checks=60` 含 `drag=PASS`、`canvas=PASS` / `node Tools/gate.mjs` `GATE PASS steps=4`）。\n\n复杂度已在后续 PR 中真正降下来：#87 抽出 `SurfaceViewButton` 并改用 `GmBounds.Overlaps`、#89 把 Drag 的 IK 分支抽成 `DragChain`；gate complexity PASS，无需再开 work。\n\n关闭本 issue（后续跟进项见评论正文；如仍有残留请重开或新开 issue）。",
+        "createdAt": "2026-11-10T15:53:59Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

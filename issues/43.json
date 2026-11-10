@@ -1,10 +1,10 @@
 {
   "title": "动作编辑器：默认 idle 模板与完整参考姿态",
   "body": "## AI回复\n\n父 issue：#34。\n\n### 背景\n首次打开是空图（`Runtime/Editors/Actions/NativeActionEditor.cs:45`）；写键时 `ReadKey` 回退 (0,0,0)（`NativeActionEditorTimeline.cs:30`）再整键重建（:43），「生成参考姿态」只写第 0 帧 X/Y（`Runtime/Content/Actions/MotionRig.cs:161-176`），肢体全在 (0,0)。\n\n### 范围\n- 新建/首次打开注入内置 idle 模板（≥2 帧、完整参考姿态含 `LocalX/Y`），不依赖 GameData。\n- 写键区分「字段未改」与「值为 0」。\n\n### 验收\n- 单测：空文档初始化后每骨骼初始姿态非全零；模板可保存/重载。\n- 审计：首次打开角色不在 (0,0)；布局断言不变。\n\n### 不做\n不做模板库、不做非 idle 模板。",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-09T02:01:40Z",
-  "updatedAt": "2026-11-09T08:33:49Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-10T15:52:12Z",
+  "closedAt": "2026-11-10T15:52:12Z",
   "author": {
     "login": "DPapyru"
   },
@@ -36,6 +36,28 @@
         "id": "IC_kwDOVf3hE88AAAABkXnfkg",
         "body": "## AI回复\n\n### 规格修订（2026-11-09）\n\n- 父：#34；阻塞：#42（依赖正确的导入 id）。\n- 取消合成 idle 模板：首次打开直接导入当前目标预设 `motion_list` 的第一个注册动作，失败才退回空文档；状态栏显示导入来源。\n- 切换目标预设后，导入该预设的第一个注册动作。\n- PR #48 同分支改写，不新开 PR。\n- 验收：首次打开肢体姿态与原版默认姿势一致；导入失败有明确提示；dotnet 测试覆盖「第一个注册动作」的选择。\n- 依据：Wiki [设计决策](https://github.com/DPapyru/SlackOfDescentGodot/wiki/Decisions)、[状态与片段](https://github.com/DPapyru/SlackOfDescentGodot/wiki/%E7%8A%B6%E6%80%81%E4%B8%8E%E7%89%87%E6%AE%B5)。",
         "createdAt": "2026-11-09T08:31:46Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABku6HfA",
+        "body": "## AI回复\n\n**Ticket（复用本 issue 追加确认；来源 #34 的 E1/F2/F3 决策）**\n\n### 做什么\n首次打开/新建时导入「当前目标预设 motion_list 的第一个注册动作」，直接取**第 0 帧**作为初始姿态；是哪个动作不用在乎。导入失败退回空文档并在状态栏提示。同时**删除参考姿态相关代码**与「视图 → 生成参考姿态」菜单项。\n\n### 不做什么（已否定的方案，不要再实现）\n- 不做合成 idle 模板（2 帧静态模板，2026-11-09T08:31 已取消）\n- 不做「参考姿态」兜底，也不保留该菜单项（F2：目前没有实际生效）\n- 不做模板库、不做非 idle 模板\n- 不新开 PR：在 `feat/43-default-idle-template` 同分支改写 #48\n\n### 验收标准\n- [ ] 首次打开角色肢体不在 (0,0)，姿态等于该动作第 0 帧（可断言）\n- [ ] 「第一个注册动作」的选择有单测（顺序按 motion_list 注册顺序）\n- [ ] 导入失败：空文档 + 状态栏明确提示，且不抛异常\n- [ ] 参考姿态代码删除后构建、motion audit 仍全绿\n- [ ] 切换目标预设后导入该预设的第一个注册动作\n\n### Blocked by\nNone（可立即开始）。",
+        "createdAt": "2026-11-10T05:45:50Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABk6Up5w",
+        "body": "## AI回复\n\n已由 #48（merge ad2d906） 完成并合入 ai。human-test3 @f3869da 验收四条全绿（build 0 error / RuntimeTests PASS 61654 / motion-audit `checks=60` 含 `drag=PASS`、`canvas=PASS` / `node Tools/gate.mjs` `GATE PASS steps=4`）。\n\n首次打开/新建/切换目标导入目标预设 motion_list 首个注册动作的第 0 帧；导入失败空文档+状态栏；参考姿态代码与菜单项已删除。\n\n关闭本 issue（后续跟进项见评论正文；如仍有残留请重开或新开 issue）。",
+        "createdAt": "2026-11-10T15:52:10Z",
         "author": {
           "login": "DPapyru"
         },

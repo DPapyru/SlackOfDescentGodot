@@ -1,0 +1,33 @@
+{
+  "title": "动作编辑器：清理 #55/#75 重构带入的 13 条 CS8602（gate 红）",
+  "body": "## AI回复\n\n### 现象\n`node Tools/gate.mjs` 在 ai 上红：build 步骤的警告 allow-list 未包含 #55/#75 重构带入的 13 条 `CS8602`（`NativeActionEditor.cs:254/255`、`NativeActionEditorPose.cs:50/67/80/91/142/145/154/215/218/220/240/256`），gate 判 `GATE FAIL failed=build`。tests / verify / complexity 三步均 pass。\n\n### 做什么\n修这 13 处 nullable 警告（真修：补空判断或断言非空），不改 gate 逻辑、不往 allow-list 里塞新条目。修完 `node Tools/gate.mjs` 必须 exit 0。\n\n### 不做什么\n- 不改 `Tools/gate.mjs` 与 `Tools/complexity-baseline.json`\n- 不扩大 allow-list\n- 不顺手改编辑器行为\n\n### 验收\n- `dotnet build` 0 error 且无新增 CS8602\n- `node Tools/gate.mjs` exit 0（build/tests/verify/complexity 全 pass）\n- 不改变运行时行为（单测 + motion audit 全绿）\n",
+  "state": "CLOSED",
+  "createdAt": "2026-11-10T12:13:38Z",
+  "updatedAt": "2026-11-10T15:53:55Z",
+  "closedAt": "2026-11-10T15:53:55Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": []
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABk6XUvw",
+        "body": "## AI回复\n\n已由 #87（merge 9660ff1） 完成并合入 ai。human-test3 @f3869da 验收四条全绿（build 0 error / RuntimeTests PASS 61654 / motion-audit `checks=60` 含 `drag=PASS`、`canvas=PASS` / `node Tools/gate.mjs` `GATE PASS steps=4`）。\n\n13 条 CS8602 清零，`Tools/gate.mjs` 转绿（未改 gate 逻辑/allow-list）。\n\n关闭本 issue（后续跟进项见评论正文；如仍有残留请重开或新开 issue）。",
+        "createdAt": "2026-11-10T15:53:52Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

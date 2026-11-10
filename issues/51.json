@@ -1,10 +1,10 @@
 {
   "title": "动作编辑器：按参考稿重排布局与菜单",
   "body": "## AI回复\n\n## Parent\n- #34\n\n## What to build\n打开动作编辑器时，窗口结构与参考稿一致：左栏只有两页（「节点属性修改」只读显示当前片段当前帧的代码，「原始数据」只读显示整图文本视图），右栏只有「动作设置」（片段下拉、总帧数、循环），底部是时间轴区域（本轮占位），最下方是蓝色状态栏。删除左栏「状态 / 骨架节点 / IK 链 / 原版动作」四页与右栏「轨道 / 状态 / 状态机 / 事件」四页；原入口改由菜单承担：文件「导入原版动作…」、编辑「删除当前帧关键帧 / IK 绑定所选末端 / 解除所选 IK / 姿态根偏移」，视图与帮助保持。界面不再出现「状态」字样。布局审计按新结构更新，断言改动放独立 PR 并说明旧断言失效原因。\n\n## Acceptance criteria\n- [ ] 打开编辑器即见「左两页 / 右一页 / 底部时间轴 / 状态栏」；旧八个页面不可达。\n- [ ] 文件菜单含「导入原版动作…」，导入流程可用。\n- [ ] 编辑菜单的删除关键帧、IK 绑定与解除、姿态根偏移对选中骨骼生效。\n- [ ] 界面文案不出现「状态」，片段/动作用词与 Wiki 术语一致。\n- [ ] 动作审计仍打印 MOTION_AUDIT_OK / MOTION_EDITOR_LAYOUT_OK / MOTION_EDITOR_AUDIT_OK；断言改动在独立 PR 中说明旧断言失效原因。\n- [ ] 对照参考稿截图人工验收，记录分辨率、逐步操作与截图。\n\n## Blocked by\n- None (can start immediately).",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-09T08:30:29Z",
-  "updatedAt": "2026-11-09T10:19:49Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-10T15:52:35Z",
+  "closedAt": "2026-11-10T15:52:35Z",
   "author": {
     "login": "DPapyru"
   },
@@ -25,6 +25,17 @@
         "id": "IC_kwDOVf3hE88AAAABkZeGhg",
         "body": "## AI回复\n\nPR：https://github.com/DPapyru/SlackOfDescentGodot/pull/55\n\n- 分支 feat/51-editor-layout（4 commits：布局/菜单、审计断言重写独立 commit、死字段清理、评审修补），PR 目标 ai。\n- 本地验收：dotnet build 0 errors；RuntimeTests PASS 61564 assertions；motion-audit --headless 打印 MOTION_EDITOR_LAYOUT_OK / MOTION_EDITOR_AUDIT_OK / MOTION_AUDIT_OK checks=59 / IMPORT_PERF_OK；verify PASS。\n- 审计断言改动与原因写在 PR 正文（旧断言绑定已删除控件与页面）。\n- 仍待补：全局锁下的一次完整审计重跑 + 桌面环境参考稿截图人工验收。\n",
         "createdAt": "2026-11-09T10:19:49Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABk6VPhg",
+        "body": "## AI回复\n\n已由 #55（merge 5e66de5） 完成并合入 ai。human-test3 @f3869da 验收四条全绿（build 0 error / RuntimeTests PASS 61654 / motion-audit `checks=60` 含 `drag=PASS`、`canvas=PASS` / `node Tools/gate.mjs` `GATE PASS steps=4`）。\n\n按参考稿重排布局与菜单（左栏两页、右栏动作设置、蓝色状态栏），键位菜单项保留。\n\n关闭本 issue（后续跟进项见评论正文；如仍有残留请重开或新开 issue）。",
+        "createdAt": "2026-11-10T15:52:32Z",
         "author": {
           "login": "DPapyru"
         },

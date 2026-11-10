@@ -1,10 +1,10 @@
 {
   "title": "动作编辑器：源码页（TOML 视图与编辑）",
   "body": "## AI回复\n\n父 issue：#34（决策见 [评论](https://github.com/DPapyru/SlackOfDescentGodot/issues/34#issuecomment-6730332676)）。\n\n### 背景\n左栏除现有 4 页外提供可编辑文本视图：显示/编辑用 TOML，落盘仍写 `.motion.json`，TOML↔JSON 只在编辑器内互换，不把 TOML 加进加载/兼容层。\n\n### 范围\n- 左栏新增「源码」页（追加到左栏末尾，左栏首页仍必须是「状态」）。\n- 显示当前文档的 TOML；可编辑，失焦或 Ctrl+Enter 提交；提交走 `document.Edit`（`Runtime/Editors/Actions/MotionGraphDocument.cs:15`），非法输入拒绝且不动文档。\n- 手写最小 TOML 子集：表、数组、标量、数组表、`#` 注释；不支持即报错。不引第三方依赖（`SlackOfDescent.csproj:16-23`）。\n- 工具栏「重新加载」把文档重新渲染为 TOML。\n\n### 验收\n- 单测：TOML→模型→TOML round-trip 语义相等。\n- 审计：左栏出现第 5 页「源码」；`MOTION_EDITOR_LAYOUT_OK` 仍打印，右栏仍 4 页、左栏首页「状态」不变（`NativeActionEditorMotionAudit.cs:50-59`）。\n- 手工：改一个骨骼 X 提交后画布变化；非法 TOML 报错且文档不变。\n\n### 不做\n不把 TOML 写进 `.motion.json`、不做 TOML 加载路径、不做语法高亮。",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-09T02:01:36Z",
-  "updatedAt": "2026-11-09T14:54:58Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-10T15:52:01Z",
+  "closedAt": "2026-11-10T15:52:01Z",
   "author": {
     "login": "DPapyru"
   },
@@ -58,6 +58,39 @@
         "id": "IC_kwDOVf3hE88AAAABkewWLA",
         "body": "## AI回复\n\n### 追加范围（来自 `human-test2` 人工测试，图6 / 图7）\n1. **`index` 与时间轴双向绑定**：改 `index = N` 等价于把播放头移到第 N 帧；拖动进度条时源码文本实时刷新（当前已能刷新文本）。\n2. **取消严格对齐与提交制**：不再要求 `index` 必须等于当前帧，也不再用 `Ctrl+Enter` / 失焦提交，改为自动热更新（防抖后写入）。\n\n### 与 #60 的冲突\n#60 现在的实现是「`index` 必须等于当前帧」+「失焦或 `Ctrl+Enter` 提交」，与本条相反；需明确以本条为准，或说明保留理由。\n\n### 验收\n- [ ] 输入 `index = 42` 后播放头跳到第 42 帧\n- [ ] 拖动进度条后文本同步，光标不明显跳动\n- [ ] 非法输入不写文档，且不清空用户输入\n- [ ] 撤销一次回到修改前\n\n总纲见 #65。\n",
         "createdAt": "2026-11-09T14:54:58Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABku6ODw",
+        "body": "## AI回复\n\n**Ticket（复用本 issue 追加确认；来源 #34 的 D2/E2 决策）**\n\n### 做什么\n源码页 TOML 帧块的最终语义：`index` 与播放头**双向绑定**；文本改动走 0.4s 防抖热提交；非法输入保留用户文本 + 状态栏报错（不吞输入）；播放头移动时**不重写**正在编辑的帧块、只高亮；一次防抖提交 = 一个 undo。\n\n### 不做什么（已否定的方案）\n- 不做 Ctrl+Enter / 失焦提交（2026-11-09T14:54 已取消）\n- 不放回右栏「轨道」页（已删；编辑能力并入源码页）\n- 不为源码页新增独立持久化设置文件（#72 的 DECISION 仍待 ACK，未 ACK 前不合入）\n- 不把「一次输入」拆成多个撤销步（与 #70 的合并窗共用语义）\n\n### 验收标准\n- [ ] 光标移动/播放头移动不导致正在编辑的文本被覆盖，只高亮对应帧块\n- [ ] 非法 TOML：文本保留 + 状态栏报错，文档不被污染\n- [ ] 连续输入 >0.4s 停顿才提交；一次提交只产生一个撤销步\n- [ ] `index` 改动后播放头跟随，播放头移动后源码页定位到对应帧块\n\n### Blocked by\n#51（#55 布局合并后，#60 → #72 → #75 这条堆叠才能定稿）。",
+        "createdAt": "2026-11-10T05:45:57Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABk2b8iQ",
+        "body": "## AI回复\n\n### 验收（已合入 ai，PR #60 / #72 / #75）\n\n做什么逐条对照：\n- `index` 与播放头双向绑定：`feat/41-index-binding`（#75，merge d9e10be）→ 源码页输入 index 后播放头跟随；播放头移动只高亮对应帧块、不重写正在编辑文本（`NativeActionEditorSource.cs`，audit `canvas=PASS` 段覆盖）。\n- 0.4s 防抖热提交：frame/graph 各自独立 timer（`NativeActionEditorSource.cs`），一次提交 = 一个 undo。\n- 非法 TOML：保留用户文本 + 状态栏报错，文档不被污染（#68 的 CommitGraph/CommitFrame 拒绝路径，audit `an invalid frame text is rejected without an edit` 通过）。\n- 不做的旧方案（Ctrl+Enter 提交、右栏轨道页、独立设置文件、一次输入多 undo）均未复活。\n\n验证：human-test3（@9660ff1）四条全绿 —— build 0 error / RuntimeTests `PASS 61654` / motion-audit `MOTION_AUDIT_OK checks=60`（source 页相关断言在 EDITOR_AUDIT 段）/ gate `GATE PASS steps=4`。\n\n未验证：真实鼠标光标在 CodeEdit 里的手感（需可见窗口，见 #54/#80）。",
+        "createdAt": "2026-11-10T12:59:38Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABk6UUpg",
+        "body": "## AI回复\n\n已由 #60（merge 2dfab2d）、#72（merge fb7cb9e）、#75（merge d9e10be） 完成并合入 ai。human-test3 @f3869da 验收四条全绿（build 0 error / RuntimeTests PASS 61654 / motion-audit `checks=60` 含 `drag=PASS`、`canvas=PASS` / `node Tools/gate.mjs` `GATE PASS steps=4`）。\n\n源码页 TOML 帧块、0.4s 防抖热提交、index 与播放头双向绑定：非法输入保留文本+状态栏报错、播放头移动不重写编辑中帧块、一次防抖提交=一个 undo。\n\n关闭本 issue（后续跟进项见评论正文；如仍有残留请重开或新开 issue）。",
+        "createdAt": "2026-11-10T15:51:57Z",
         "author": {
           "login": "DPapyru"
         },

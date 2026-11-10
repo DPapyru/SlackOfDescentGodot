@@ -1,10 +1,10 @@
 {
   "title": "动作编辑器：旋转球只写角度 + 节点直接拖动",
   "body": "## AI回复\n\n父 issue：#34。\n\n### 背景\n白球拖动走 `forceFk` 会同时改写 X/Y 与 Angle（`Runtime/Editors/Actions/NativeActionEditorPose.cs:133-140` → `Runtime/Content/Actions/MotionRig.cs:229-239`），与「旋转只转节点」的预期不符。\n\n### 范围\n- 白球拖动只写 Angle。\n- 平移改为鼠标直接拖节点（复用命中与 FK 路径 `NativeActionEditorPose.cs:213-228`、`:110-162`）。\n- 绘制在 `NativeMotionOverlay.cs:120-140`，命中在 `:53-63`。\n\n### 验收\n- 审计：拖白球 X/Y 不变、Angle 变；拖节点 X/Y 变、Angle 不变；一次拖拽一个撤销步。\n- 手工：旋转不改变骨骼长度。\n\n### 不做\n不改 IK 两端解算。",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-09T02:01:42Z",
-  "updatedAt": "2026-11-10T00:01:23Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-10T15:52:18Z",
+  "closedAt": "2026-11-10T15:52:18Z",
   "author": {
     "login": "DPapyru"
   },
@@ -43,6 +43,17 @@
         "id": "IC_kwDOVf3hE88AAAABkewTRQ",
         "body": "## AI回复\n\n### 追加范围（来自 `human-test2` 人工测试，图2 / 图3 / 图13）\n1. **点选错位**：点画布上的骨骼节点，命中的是另一个节点，渲染位置与命中位置严重偏移。\n2. **去掉左右两个滑条**：图3 的绿色竖条不再需要；同心环的拖动受同一错位影响。\n3. **拖动无实时预览**：拖动过程中画面不动，松手才更新。\n\n### 期望\n- 命中测试与渲染共用同一套坐标换算（surface 尺寸 / 视口尺寸 / 世界坐标）\n- 去掉 `bar:x` / `bar:y` 两个手柄，保留环与直接拖拽\n- 拖动中实时预览姿态，松手提交一条撤销记录（保持「一次拖动一个撤销步」）\n\n### 验收\n- [ ] 命中点与绘制点误差 ≤2px（窗口缩放后仍成立）\n- [ ] 无双滑条残留\n- [ ] 拖动过程画面跟随；撤销一次回到拖动前\n\n### 说明\n不阻塞 #49；若在 #49 合并前完成，改动并入 #49 的 diff。总纲见 #65。\n",
         "createdAt": "2026-11-09T14:54:56Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABk6Uzzg",
+        "body": "## AI回复\n\n已由 #49（merge 3bf4f89） 完成并合入 ai。human-test3 @f3869da 验收四条全绿（build 0 error / RuntimeTests PASS 61654 / motion-audit `checks=60` 含 `drag=PASS`、`canvas=PASS` / `node Tools/gate.mjs` `GATE PASS steps=4`）。\n\n旋转球只写角度，节点直接拖动走 Translate，拖动生成单条撤销。\n\n关闭本 issue（后续跟进项见评论正文；如仍有残留请重开或新开 issue）。",
+        "createdAt": "2026-11-10T15:52:15Z",
         "author": {
           "login": "DPapyru"
         },

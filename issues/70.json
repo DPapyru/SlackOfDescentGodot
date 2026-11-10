@@ -1,10 +1,10 @@
 {
   "title": "动作编辑器：撤销合并窗依赖挂钟，审计在负载下误报并中止",
   "body": "## AI回复\n\n父 issue：#65（验证 #61–#64 时暴露）\n\n### 背景\n在 origin/ai（7a247e3）上跑 `node Tools/motion-audit.mjs --headless`，在本机（12 核 / 16GB，已用约 15GB）**稳定 FAIL**：\n\n```\nERROR: System.InvalidOperationException: Motion editor: changing one control three times keeps a single undo step\n  at NativeActionEditorMotionAudit.cs:123 (Expect)\n```\n\n### 根因\n`Runtime/Editors/Actions/MotionGraphDocument.cs:18` 的撤销合并窗用挂钟判定：\n`if(coalesce is null||coalesce!=coalesceKey||now-coalesceStamp>=500) undo.Push(before)`\n审计在 123 行附近连续写 `x.Value=7; x.Value=9` 期望只产生一个撤销步；主机负载高 / Godot 首次 import 卡顿时，两次写入间隔超过 500ms，于是变成两个撤销步 → 误报。\n审计 129 行还靠 `await Wait(600)` 反向验证\"超过 500ms 另起一步\"，同样依赖真实时间。\n\n### 影响\n- 审计在慢机器上不稳定，且**遇到第一个 Expect 失败就抛异常中止**，导致它后面的源码页 / 补全 / 菜单断言完全没机会执行 —— 直接阻塞 #62、#63、#64 的验收。\n- 这不是 #64 引入的问题，ai 上就存在。\n\n### 范围\n- 把合并窗的时间源做成可注入的 seam（例如 `internal static Func<long> TickProvider = () => Environment.TickCount64`），生产行为不变。\n- 审计改为推进注入的时钟（3 次连续写 = 同一 tick；再推进 600 tick 验证另起一步），去掉对真实时间与 `Wait(600)` 的依赖。\n- 在 `Tests/Actions/MotionGraphTests.cs` 补一个确定性单测：同 key 连续写只留一个撤销步；clock 推进 ≥500 后另起一步；`Undo/Redo` 与 `Save` 重置合并窗。\n\n### 不做\n- 不改 500ms 的合并策略本身（属 #49 的拖动语义讨论），不合并多个拖动模式的撤销策略。\n- 不重构审计方法（它 cc≈262，已在 #61 基线里；新断言放独立方法）。\n\n### 验收\n- [ ] `node Tools/motion-audit.mjs --headless` 在该审计点上不再依赖真实时间，负载下可稳定通过\n- [ ] 新增单测覆盖三个合并/重置情形\n- [ ] 审计仍能验证\"同一控件三次改动一个撤销步\"\n- [ ] 不新增代码注释、不改文档\n",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-09T22:10:58Z",
-  "updatedAt": "2026-11-09T22:10:58Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-10T15:53:20Z",
+  "closedAt": "2026-11-10T15:53:20Z",
   "author": {
     "login": "DPapyru"
   },
@@ -23,6 +23,18 @@
     "nodes": []
   },
   "comments": {
-    "nodes": []
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABk6Wb0Q",
+        "body": "## AI回复\n\n已由 #71（merge 5ae82a6） 完成并合入 ai。human-test3 @f3869da 验收四条全绿（build 0 error / RuntimeTests PASS 61654 / motion-audit `checks=60` 含 `drag=PASS`、`canvas=PASS` / `node Tools/gate.mjs` `GATE PASS steps=4`）。\n\n撤销合并窗时钟可注入，审计不再依赖真实挂钟。\n\n关闭本 issue（后续跟进项见评论正文；如仍有残留请重开或新开 issue）。",
+        "createdAt": "2026-11-10T15:53:18Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
   }
 }

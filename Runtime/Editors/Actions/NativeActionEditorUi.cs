@@ -15,7 +15,7 @@ public partial class NativeActionEditor
     private TextureRect surface = null!;
     private SubViewport viewport = null!;
     private GmCanvas canvas = null!;
-    private NativeMotionOverlay? overlay;
+    private NativeMotionOverlay overlay = null!;
     private static HBoxContainer Row(Node parent) { var row = new HBoxContainer(); parent.AddChild(row); return row; }
     private static Button Button(Node parent, string text, Action action) { var button = new Button { Text = text }; parent.AddChild(button); button.Pressed += action; return button; }
     private static VBoxContainer Column(Node parent) { var column = new VBoxContainer(); parent.AddChild(column); return column; }
@@ -51,8 +51,8 @@ public partial class NativeActionEditor
             case "quit": RequestClose(); break;
             case "undo": Guard(() => { document.Undo(); Refresh(); ApplyDocumentPose(); }); break;
             case "redo": Guard(() => { document.Redo(); Refresh(); ApplyDocumentPose(); }); break;
-            case "showBones": if (overlay is not null) overlay.ShowBones = !overlay.ShowBones; break;
-            case "showNames": if (overlay is not null) overlay.ShowNames = !overlay.ShowNames; break;
+            case "showBones": overlay.ShowBones = !overlay.ShowBones; break;
+            case "showNames": overlay.ShowNames = !overlay.ShowNames; break;
             case "reloadPreview": InitializePreview(true); break;
             case "fitView": FitView(); break;
             case "applyGame": ApplyToGame(); break;
@@ -98,7 +98,6 @@ public partial class NativeActionEditor
         AddMenu(bar, "文件", menu => { MenuItem(menu, "新建项目…", "new"); MenuItem(menu, "打开…", "open"); MenuItem(menu, "保存", "save"); MenuItem(menu, "另存为…", "saveAs"); MenuItem(menu, "保存到…", "saveTo"); menu.AddSeparator(); MenuItem(menu, "关闭项目", "close"); MenuItem(menu, "退出", "quit"); });
         AddMenu(bar, "编辑", menu => { MenuItem(menu, "撤销", "undo"); MenuItem(menu, "重做", "redo"); });
         AddMenu(bar, "视图", menu => { MenuItem(menu, "显示骨架", "showBones", overlay?.ShowBones ?? true); MenuItem(menu, "显示骨骼名", "showNames", overlay?.ShowNames ?? false); menu.AddSeparator(); MenuItem(menu, "重载预览", "reloadPreview"); menu.AddSeparator(); MenuItem(menu, "应用到游戏角色", "applyGame"); menu.AddSeparator(); MenuItem(menu, "键位：默认", "keyDefault", keyMode == KeyMode.Default); MenuItem(menu, "键位：vim", "keyVim", keyMode == KeyMode.Vim); });
-
         AddMenu(bar, "帮助", menu => MenuItem(menu, "状态机说明…", "help"));
         var brand = new Label { Text = "骨架动作与状态图", HorizontalAlignment = HorizontalAlignment.Right, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; bar.AddChild(brand);
     }

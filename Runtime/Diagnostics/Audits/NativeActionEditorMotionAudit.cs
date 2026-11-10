@@ -505,6 +505,7 @@ public partial class NativeActionEditor
         Expect(!dragging&&Serialized()==cancelBefore,"Escape cancels the drag without editing");
         await Shot("motion-drag");
         await CanvasAudit(Expect);
+        await DragBindingAudit(Expect);
         Change(g=>{g.States.Add(new(){Id="next",Clip=Clip.Id});g.States[0].Transitions.Add(new(){Target="next",Conditions=[new(){Kind=MotionConditionKind.Timer,Comparison=MotionComparison.GreaterOrEqual,Value=4}]});});
         Expect(document.Graph.States[0].Transitions.Count==1,"the transition stays in the document");
         Change(_=>Clip.Events.Add(new(){Start=2,Kind=MotionEventKind.SdkEvent,Value="editor.frame"}));
@@ -705,7 +706,7 @@ public partial class NativeActionEditor
         await AuditKeyboardAsync(output);
         AuditSourceMenu();
         await InputRouteAuditAsync();
-        GD.Print("MOTION_EDITOR_AUDIT_OK import=PASS edit=PASS undo=PASS save=PASS reload=PASS preview=PASS game=PASS studio=PASS immediate=PASS state=PASS events=PASS ring=PASS canvas=PASS");
+        GD.Print("MOTION_EDITOR_AUDIT_OK import=PASS edit=PASS undo=PASS save=PASS reload=PASS preview=PASS game=PASS studio=PASS immediate=PASS state=PASS events=PASS ring=PASS canvas=PASS drag=PASS");
     }
 
     private async Task CanvasAudit(Action<bool,string> expect)
@@ -760,6 +761,68 @@ public partial class NativeActionEditor
         expect(Serialized()!=before,"releasing the drag writes the document");
         document.Undo();ApplyDocumentPose();
         expect(Serialized()==before,"one undo returns to the pose before the drag");
+    }
+    private Task DragBindingAudit(Action<bool,string> expect)
+    {
+        var actor=PreviewActor!;
+        Vector2 Rendered(double x,double y)
+        {
+            var view=preview!.World.View(0);
+            var (surfaceX,surfaceY)=MotionViewport.ToSurface(x,y,surface.Size.X,surface.Size.Y,new(view.X,view.Y,view.Width,view.Height,(int)view.PortWidth,(int)view.PortHeight));
+            return new((float)surfaceX,(float)surfaceY);
+        }
+        NativeBone[] Bones()=>actor.Services.Motions.Skeleton(actor).ToArray();
+        ActorContext Part(string name)=>actor.Part(name)!;
+        string Serialized()=>System.Text.Json.JsonSerializer.Serialize(document.Graph,NativeContentStore.Json);
+        string DrawnPart()
+        {
+            string best="";double bestDistance=-1;
+            foreach(var node in Bones())
+            {
+                if(node.Name=="root"||IsIkEnd(node.Name))continue;
+                var bounds=actor.World.Bounds(Part(node.Name).Instance);
+                if(bounds.Empty)continue;
+                var center=overlay.SurfacePoint((bounds.Left+bounds.Right)/2,(bounds.Top+bounds.Bottom)/2);
+                double distance=Bones().Min(other=>overlay.SurfacePoint(other.X,other.Y).DistanceTo(center));
+                if(distance>bestDistance){best=node.Name;bestDistance=distance;}
+            }
+            return best;
+        }
+        string name=DrawnPart();
+        expect(name.Length>0,"a drawn part exposes a press point between joints");
+        foreach(int direction in new[]{1,-1})
+        {
+            actor.Write("Direction",direction);ApplyDocumentPose();ClearBoneSelection();
+            for(int gesture=0;gesture<32;gesture++)
+            {
+                var bounds=actor.World.Bounds(Part(name).Instance);
+                var start=Rendered((bounds.Left+bounds.Right)/2,(bounds.Top+bounds.Bottom)/2);
+                expect(overlay.RingHit(start) is null,"the "+name+" press point clears the rotation ball");
+                string beforeDocument=Serialized();int beforeUndo=document.UndoDepth;
+                var view=PreviewView;double centreX=view.ViewX+view.ViewWidth/2,centreY=view.ViewY+view.ViewHeight/2;
+                SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=start});
+                expect(dragging&&dragMode==DragMode.Translate&&!panning,"pressing the drawn "+name+" starts a translate drag instead of a view pan (direction="+direction+")");
+                var part=Part(draggedBone!);double partX=part.X,partY=part.Y;
+                var moved=start+new Vector2(24,-8);
+                SurfaceInput(new InputEventMouseMotion{Position=moved});
+                expect(Math.Abs(part.X-partX)+Math.Abs(part.Y-partY)>.5,"the live drag preview follows the pointer for "+name);
+                expect(Serialized()==beforeDocument&&document.UndoDepth==beforeUndo,"the live drag preview leaves the document untouched");
+                SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=moved});
+                expect(document.UndoDepth==beforeUndo+1,"releasing the "+name+" drag writes exactly one undo step");
+                expect(Serialized()!=beforeDocument,"releasing the "+name+" drag writes the document");
+                var after=PreviewView;
+                expect(Math.Abs(after.ViewX+after.ViewWidth/2-centreX)<.5&&Math.Abs(after.ViewY+after.ViewHeight/2-centreY)<.5,"the "+name+" drag keeps the view centre on the character: "+(after.ViewX+after.ViewWidth/2-centreX).ToString("F2")+","+(after.ViewY+after.ViewHeight/2-centreY).ToString("F2"));
+                var (overlayX,overlayY)=overlay.SurfacePoint(part.X,part.Y);
+                var rendered=Rendered(part.X,part.Y);
+                expect(Math.Abs(overlayX-rendered.X)<=2&&Math.Abs(overlayY-rendered.Y)<=2,"the overlay joint of "+name+" stays on its rendered part: overlay="+overlayX.ToString("F2")+","+overlayY.ToString("F2")+" rendered="+rendered.X.ToString("F2")+","+rendered.Y.ToString("F2"));
+                preview.Graphics.SpriteGeometryAudit=new();preview.Graphics.Build();
+                var position=new Vector2((float)part.X,(float)part.Y);
+                expect(preview.Graphics.SpriteGeometryAudit.Any(draw=>(draw.Position-position).Length()<=.01f),"the dragged "+name+" is still rendered inside the camera");
+                document.Undo();ApplyDocumentPose();
+                expect(Serialized()==beforeDocument,"one undo restores the pose before the "+name+" drag");
+            }
+        }
+        return Task.CompletedTask;
     }
     private void Expect(bool ok,string message){if(!ok)throw new InvalidOperationException("Motion editor: "+message);}
     private async Task Wait(int milliseconds){long start=System.Diagnostics.Stopwatch.GetTimestamp();while(System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds<milliseconds)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);}

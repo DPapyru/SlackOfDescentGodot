@@ -203,7 +203,7 @@ public partial class NativeActionEditor
     private void BeginPan(Vector2 position){panning=true;panOrigin=position;var view=PreviewView;panCenterX=view.ViewX+view.ViewWidth/2;panCenterY=view.ViewY+view.ViewHeight/2;}
     private void UpdatePan(Vector2 position)
     {
-        double worldPerPixel=MotionViewport.WorldPerPixel(surface.Size.X,surface.Size.Y,PreviewView);
+        double worldPerPixel=MotionViewport.WorldPerPixel(overlay.Size.X,overlay.Size.Y,PreviewView);
         viewCenterX=panCenterX-(position.X-panOrigin.X)*worldPerPixel;
         viewCenterY=panCenterY-(position.Y-panOrigin.Y)*worldPerPixel;
         ApplyView();
@@ -215,7 +215,23 @@ public partial class NativeActionEditor
         dragging=false;draggedBone=null;overlay.SetRingAngle(null);status.Text="已取消拖动，文档未修改。";ApplyDocumentPose();
     }
 
-    internal string? PickBoneAt(Vector2 position)=>overlay.PickBone(position);
+    internal string? PickBoneAt(Vector2 position)
+    {
+        if(overlay.PickBone(position)is {} joint)return joint;
+        if(PreviewActor is not {} actor||overlay.Size.X<=0||overlay.Size.Y<=0)return null;
+        var (X,Y)=CanvasPosition(position);var instances=actor.World.Instances;
+        string? best=null;double bestDepth=double.MaxValue;int bestOrder=-1;
+        foreach(var node in actor.Services.Motions.Skeleton(actor))
+        {
+            var part=instances.FirstOrDefault(item=>item.Id==node.Instance);
+            if(part is null||part.Destroyed||!part.Active||!part.Scope.ReadOr("visible").Truth)continue;
+            var bounds=actor.World.Bounds(part);
+            if(bounds.Empty||X<bounds.Left||X>bounds.Right||Y<bounds.Top||Y>bounds.Bottom)continue;
+            double depth=part.Scope.ReadOr("depth").Number;int order=instances.IndexOf(part);
+            if(depth<bestDepth||(depth==bestDepth&&order>bestOrder)){best=node.Name;bestDepth=depth;bestOrder=order;}
+        }
+        return best;
+    }
 
     private (double X,double Y) CanvasPosition(Vector2 position)=>overlay.WorldPoint(position);
 

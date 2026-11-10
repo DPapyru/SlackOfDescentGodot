@@ -61,7 +61,7 @@ public partial class NativeActionEditor : Window
     private MotionClip Clip => document.Graph.Clips[(int)Math.Max(0, clipChoice.Selected)];
     private ActorContext? PreviewActor => preview is null ? null : targetPreview is { Destroyed: false } target ? new(preview.World, target) : preview.Player is { } player ? new(preview.World, player) : null;
     public override void _Ready() => BuildEditor();
-    public override void _Process(double delta) => TickPlayback(delta);
+    public override void _Process(double delta) { TickPlayback(delta); TickSourceUpdates(delta); }
     private void Refresh()
     {
         refreshing = true;

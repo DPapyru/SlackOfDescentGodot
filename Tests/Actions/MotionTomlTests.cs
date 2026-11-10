@@ -15,10 +15,10 @@ public static class MotionTomlTests
             try { MotionToml.Parse(text); throw new Exception("Motion TOML: invalid text was accepted: " + text); }
             catch (InvalidDataException error) { if (!error.Message.Contains(fragment, StringComparison.Ordinal)) throw new Exception("Motion TOML: wrong rejection for " + text + ": " + error.Message); }
         }
-        void ThrowsFrame(string text, string clipId, double frame, string fragment)
+        void ThrowsFrame(string text, string clipId, string fragment)
         {
             checks++;
-            try { MotionToml.ParseFrame(text, clipId, frame); throw new Exception("Motion TOML: invalid frame text was accepted: " + text); }
+            try { MotionToml.ParseFrame(text, clipId); throw new Exception("Motion TOML: invalid frame text was accepted: " + text); }
             catch (InvalidDataException error) { if (!error.Message.Contains(fragment, StringComparison.Ordinal)) throw new Exception("Motion TOML: wrong frame rejection for " + text + ": " + error.Message); }
         }
         JsonNode Normal(MotionGraph graph)
@@ -78,23 +78,26 @@ public static class MotionTomlTests
         var posedClip = posed.Clips[0];
         string frameText = MotionToml.RenderFrame(posedClip, 5);
         Check(frameText.StartsWith("[[frame]]") && frameText.Contains("index = 5") && frameText.Contains("HEAD.x = 3"), "current frame renders the sampled sparse pose");
-        Check(!MotionToml.FrameChanged(posedClip, MotionToml.ParseFrame(frameText, "idle", 5)), "rendered current frame is unchanged");
-        var changed = MotionToml.ParseFrame("[[frame]]\nindex = 5\nHEAD.x = 9\n", "idle", 5);
+        Check(!MotionToml.FrameChanged(posedClip, MotionToml.ParseFrame(frameText, "idle")), "rendered current frame is unchanged");
+        var changed = MotionToml.ParseFrame("[[frame]]\nindex = 5\nHEAD.x = 9\n", "idle");
         Check(MotionToml.FrameChanged(posedClip, changed), "edited current frame reports a change");
         MotionToml.ApplyFrame(posed, "idle", changed);
         Check(posedClip.Tracks[0].Keys.Single(key => key.Frame == 5).X == 9 && posedClip.Sample(5)["HEAD"].X == 9, "current frame commit writes the key and re-renders the pose");
         var grouped = new MotionGraph { Id = "grouped", Clips = [new() { Id = "idle", Duration = 10, Tracks = [new() { Bone = "HEAD", Keys = [new() { Frame = 0, X = 2, Y = 3, Angle = 5, ScaleX = 2, ScaleY = 3, Picture = 1 }] }, new() { Bone = "BODY_TOP", Keys = [new() { Frame = 0, X = -1, Angle = 90 }] }] }], States = [new() { Id = "idle", Clip = "idle" }] };
         string groupedText = MotionToml.RenderFrame(grouped.Clips[0], 0);
         Check(groupedText == "[[frame]]\nindex = 0\n\n# BODY_TOP\nBODY_TOP.x = -1\nBODY_TOP.angle = 90\n\n# HEAD\nHEAD.x = 2\nHEAD.y = 3\nHEAD.angle = 5\nHEAD.scaleX = 2\nHEAD.scaleY = 3\nHEAD.picture = 1\n", "frame text groups the pose by bone with comment headers and keeps the field order");
-        Check(!MotionToml.FrameChanged(grouped.Clips[0], MotionToml.ParseFrame(groupedText, "idle", 0)), "grouped frame text parses back to the same pose");
+        Check(!MotionToml.FrameChanged(grouped.Clips[0], MotionToml.ParseFrame(groupedText, "idle")), "grouped frame text parses back to the same pose");
         Check(MotionToml.RenderFrame(MotionToml.Parse(MotionToml.Render(grouped)).Clips[0], 0) == groupedText, "grouped frame text round-trips through the whole graph");
         var groupedDefault = new MotionGraph { Id = "grouped.default", Clips = [new() { Id = "idle", Duration = 10, Tracks = [new() { Bone = "HEAD", Keys = [new() { Frame = 0 }] }] }], States = [new() { Id = "idle", Clip = "idle" }] };
         Check(!MotionToml.RenderFrame(groupedDefault.Clips[0], 0).Contains("# HEAD"), "an all-default bone renders no empty group");
-        ThrowsFrame("[[frame]]\nindex = 6\nHEAD.x = 1\n", "idle", 5, "index 必须");
-        ThrowsFrame("[[frame]]\nindex = 5\nHEAD.nope = 1\n", "idle", 5, "未知骨骼字段");
-        ThrowsFrame("[[frame]]\nindex = 5\nNO.x = 1\n", "idle", 5, "未知骨骼");
-        ThrowsFrame("[[frame]]\nindex = 5\nclip = \"walk\"\nHEAD.x = 1\n", "idle", 5, "clip 必须");
-        ThrowsFrame("[[frame]]\nindex = 5\n[[frame]]\nindex = 6\n", "idle", 5, "只接受一个");
+        var retargeted = MotionToml.ParseFrame("[[frame]]\nindex = 6\nHEAD.x = 1\n", "idle");
+        Check(retargeted.Index == 6, "the frame index no longer has to match the playhead");
+        MotionToml.ApplyFrame(posed, "idle", retargeted);
+        Check(posedClip.Tracks[0].Keys.Any(key => key.Frame == 6 && key.X == 1) && posedClip.Sample(6)["HEAD"].X == 1, "a frame block at another index writes that index");
+        ThrowsFrame("[[frame]]\nindex = 5\nHEAD.nope = 1\n", "idle", "未知骨骼字段");
+        ThrowsFrame("[[frame]]\nindex = 5\nNO.x = 1\n", "idle", "未知骨骼");
+        ThrowsFrame("[[frame]]\nindex = 5\nclip = \"walk\"\nHEAD.x = 1\n", "idle", "clip 必须");
+        ThrowsFrame("[[frame]]\nindex = 5\n[[frame]]\nindex = 6\n", "idle", "只接受一个");
 
         string template = "id = \"t\"\nskeleton = \"Nana\"\nentry = \"idle\"\n[[clip]]\nid = \"idle\"\nduration = 10\n[[state]]\nid = \"idle\"\nclip = \"idle\"\n";
         Throws(template + "unknown = 1\n", "未知字段");

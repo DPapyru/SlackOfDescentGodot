@@ -10,6 +10,9 @@ public partial class NativeActionEditor
     private string sourceSnapshot = "", rawSnapshot = "";
     private MotionGraphDocument? renderedDocument;
     private bool showRawPage;
+    private readonly MotionSourceDebounce frameDebounce = new(.4), graphDebounce = new(.4);
+    private MotionGraphDocument? frameArmedDocument, graphArmedDocument;
+    private int frameArmedRevision, graphArmedRevision;
     private string SettingsPath => Path.Combine(store.Root, "Editor", "action-editor.json");
     private sealed class ActionEditorSettings
     {
@@ -31,14 +34,14 @@ public partial class NativeActionEditor
 
     private void BuildSourcePages(TabContainer pages)
     {
-        sourceView = SourcePage(pages, "节点属性修改", "SourceView", CommitFrame, true);
+        sourceView = SourcePage(pages, "节点属性修改", "SourceView", true);
         if (showRawPage) AddRawPage();
     }
 
     private void AddRawPage()
     {
         if (rawView is not null) return;
-        rawView = SourcePage(leftPages, "原始数据", "RawView", CommitGraph, false);
+        rawView = SourcePage(leftPages, "原始数据", "RawView", false);
     }
 
     private void RemoveRawPage()
@@ -57,17 +60,15 @@ public partial class NativeActionEditor
         RefreshCodeViews();
     }
 
-    private CodeEdit SourcePage(TabContainer pages, string title, string name, Action commit, bool framePage)
+    private CodeEdit SourcePage(TabContainer pages, string title, string name, bool framePage)
     {
         var page = new VBoxContainer { Name = title }; pages.AddChild(page);
         var edit = CodeEditView(name); page.AddChild(edit); ConfigureSourceMenu(edit);
-        edit.FocusExited += commit;
+        edit.TextChanged += framePage ? ArmFrameSource : ArmGraphSource;
         edit.GuiInput += input =>
         {
-            if (input is not InputEventKey { Pressed: true, Echo: false, CtrlPressed: true } key) return;
-            if (key.Keycode == Key.Space) { edit.RequestCodeCompletion(true); edit.AcceptEvent(); return; }
-            if (key.Keycode != Key.Enter) return;
-            commit(); edit.AcceptEvent();
+            if (input is not InputEventKey { Pressed: true, Echo: false, CtrlPressed: true, Keycode: Key.Space }) return;
+            edit.RequestCodeCompletion(true); edit.AcceptEvent();
         };
         edit.CodeCompletionRequested += () => FillCompletion(edit, framePage);
         return edit;
@@ -104,16 +105,48 @@ public partial class NativeActionEditor
         Guard(() =>
         {
             bool replaced = renderedDocument != document;
-            if (!sourceView.HasFocus() && (replaced || sourceView.Text == sourceSnapshot)) sourceView.Text = sourceSnapshot = MotionToml.RenderFrame(Clip, frame.Value);
-            if (rawView is not null && !rawView.HasFocus() && (replaced || rawView.Text == rawSnapshot)) rawView.Text = rawSnapshot = MotionToml.Render(document.Graph);
+            if (!sourceView.HasFocus() && (replaced || sourceView.Text == sourceSnapshot)) ReplaceSourceText(sourceView, MotionToml.RenderFrame(Clip, frame.Value), ref sourceSnapshot);
+            if (rawView is not null && !rawView.HasFocus() && (replaced || rawView.Text == rawSnapshot)) ReplaceSourceText(rawView, MotionToml.Render(document.Graph), ref rawSnapshot);
             renderedDocument = document;
             HighlightSourceBone();
         });
     }
 
+    private void ArmFrameSource() { frameDebounce.Restart(); frameArmedDocument = document; frameArmedRevision = document.Revision; }
+    private void ArmGraphSource() { graphDebounce.Restart(); graphArmedDocument = document; graphArmedRevision = document.Revision; }
+    private bool SourceStale(MotionGraphDocument? armed, int revision) => armed is not null && (!ReferenceEquals(armed, document) || armed.Revision != revision);
+    private void DiscardSource(bool framePage)
+    {
+        if (framePage) { frameArmedDocument = null; if (!sourceView.HasFocus()) ReplaceSourceText(sourceView, MotionToml.RenderFrame(Clip, frame.Value), ref sourceSnapshot); }
+        else { graphArmedDocument = null; if (rawView is not null && !rawView.HasFocus()) ReplaceSourceText(rawView, MotionToml.Render(document.Graph), ref rawSnapshot); }
+        status.Text = "文档已更新，源码未应用。";
+    }
+
+    private static void ReplaceSourceText(CodeEdit edit, string text, ref string snapshot)
+    {
+        snapshot = text;
+        if (edit.Text == text) return;
+        int line = edit.GetCaretLine(), column = edit.GetCaretColumn(), horizontal = edit.ScrollHorizontal;
+        double vertical = edit.ScrollVertical;
+        edit.Text = text;
+        int lines = edit.GetLineCount(), target = lines == 0 ? 0 : Math.Clamp(line, 0, lines - 1);
+        edit.SetCaretLine(target);
+        edit.SetCaretColumn(lines == 0 ? 0 : Math.Min(column, edit.GetLine(target).Length));
+        edit.ScrollVertical = vertical;
+        edit.ScrollHorizontal = horizontal;
+    }
+
+    private void TickSourceUpdates(double delta)
+    {
+        if (frameDebounce.Tick(delta)) CommitFrame();
+        if (graphDebounce.Tick(delta)) CommitGraph();
+    }
+
     private void CommitFrame()
     {
+        frameDebounce.Cancel();
         if (sourceView is null || refreshing || sourceView.Text == sourceSnapshot) return;
+        if (SourceStale(frameArmedDocument, frameArmedRevision)) { DiscardSource(true); return; }
         Guard(() =>
         {
             var edit = MotionToml.ParseFrame(sourceView.Text, Clip.Id);
@@ -128,7 +161,9 @@ public partial class NativeActionEditor
 
     private void CommitGraph()
     {
+        graphDebounce.Cancel();
         if (rawView is null || refreshing || rawView.Text == rawSnapshot) return;
+        if (SourceStale(graphArmedDocument, graphArmedRevision)) { DiscardSource(false); return; }
         Guard(() =>
         {
             var parsed = MotionToml.Parse(MotionToml.Clean(rawView.Text));

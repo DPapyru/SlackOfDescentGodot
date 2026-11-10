@@ -6,7 +6,6 @@ public partial class NativeActionEditor
 {
     public async Task AuditAsync(string output)
     {
-        void Expect(bool ok,string message){if(!ok)throw new InvalidOperationException("Motion editor: "+message);}
         async Task Ready()
         {
             long start=System.Diagnostics.Stopwatch.GetTimestamp();
@@ -23,7 +22,6 @@ public partial class NativeActionEditor
             using var image=GetTexture().GetImage();string file=Path.Combine(directory,name+".png");image.SavePng(file);GD.Print("MOTION_EDITOR_SHOT ",file);
             Hide();
         }
-        async Task Wait(int milliseconds){long start=System.Diagnostics.Stopwatch.GetTimestamp();while(System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds<milliseconds)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);}
         IEnumerable<string> MenuLabels(string label)
         {
             var button=Descendants(this).OfType<MenuButton>().FirstOrDefault(item=>item.Text==label);
@@ -116,18 +114,7 @@ public partial class NativeActionEditor
         document=new(new MotionGraph{Id="audit.live",Clips=[new(){Id="idle",Duration=20}],States=[new(){Id="idle",Clip="idle"}]});
         Refresh();SelectBone("HEAD");frame.Value=3;
         int liveUndo=document.UndoDepth;
-        x.Value=5;
-        Expect(Clip.Tracks.Any(track=>track.Bone=="HEAD"&&track.Keys.Any(key=>key.Frame==3&&Math.Abs(key.X-5)<.001)),"editing X writes the current frame key without a button");
-        Expect(document.UndoDepth==liveUndo+1,"the first immediate write adds one undo step");
-        x.Value=7;x.Value=9;
-        Expect(document.UndoDepth==liveUndo+1,"changing one control three times keeps a single undo step");
-        Expect(Math.Abs(Clip.Sample(3)["HEAD"].X-9)<.001,"the control keeps writing the latest value");
-        await Wait(600);
-        x.Value=11;
-        Expect(document.UndoDepth==liveUndo+2,"edits more than 500ms apart start a new undo step");
-        path=Path.Combine(output,"editor.coalesce.motion.json");Save();
-        x.Value=13;
-        Expect(document.UndoDepth==liveUndo+3,"saving resets the coalescing window");
+        AuditUndoWindows(liveUndo,output);
         double liveAngle=Clip.Sample(3)["HEAD"].Angle;
         angle.Value=30;
         Expect(Math.Abs(Clip.Sample(3)["HEAD"].Angle-30)<.001,"editing the angle writes the key immediately");
@@ -170,10 +157,13 @@ public partial class NativeActionEditor
         Expect(stateChoice.Selected==1,"selecting a graph node selects the state list");
         transitionTarget.Select(0);transitionPriority.Value=3;AddTransition();
         Expect(document.Graph.States[1].Transitions.Count==1&&graphView.GetConnectionList().Count==1,"adding a transition writes the document and the graph");
-        transitionList.Select(0);ReadTransition();int priorityUndo=document.UndoDepth;transitionPriority.Value=5;
-        Expect(document.Graph.States[1].Transitions[0].Priority==5,"editing the priority writes the transition");
-        transitionPriority.Value=6;transitionPriority.Value=7;
-        Expect(document.UndoDepth==priorityUndo+1&&document.Graph.States[1].Transitions[0].Priority==7,"consecutive priority edits keep a single undo step");
+        transitionList.Select(0);ReadTransition();int priorityUndo=document.UndoDepth;
+        WithFrozenClock(()=>{
+            transitionPriority.Value=5;
+            Expect(document.Graph.States[1].Transitions[0].Priority==5,"editing the priority writes the transition");
+            transitionPriority.Value=6;transitionPriority.Value=7;
+            Expect(document.UndoDepth==priorityUndo+1&&document.Graph.States[1].Transitions[0].Priority==7,"consecutive priority edits keep a single undo step");
+        });
         conditionKind.Select(0);AddCondition();
         Expect(document.Graph.States[1].Transitions[0].Conditions.Count==1&&conditionList.ItemCount==1,"adding a condition writes the transition");
         conditionList.Select(0);ReadCondition();conditionValue.Value=7;
@@ -202,10 +192,13 @@ public partial class NativeActionEditor
         string eventId=Clip.Events[^1].Id;
         EditEventCell(eventId,0,"12");
         Expect(Math.Abs(Clip.Events.Single(item=>item.Id==eventId).Start-12)<.001,"editing the start frame cell writes the event");
-        int valueUndo=document.UndoDepth;EditEventCell(eventId,3,"jump");
-        Expect(Clip.Events.Single(item=>item.Id==eventId).Value=="jump","editing the value cell writes the event");
-        EditEventCell(eventId,3,"jump2");EditEventCell(eventId,3,"jump3");
-        Expect(document.UndoDepth==valueUndo+1&&Clip.Events.Single(item=>item.Id==eventId).Value=="jump3","consecutive cell edits keep a single undo step");
+        int valueUndo=document.UndoDepth;
+        WithFrozenClock(()=>{
+            EditEventCell(eventId,3,"jump");
+            Expect(Clip.Events.Single(item=>item.Id==eventId).Value=="jump","editing the value cell writes the event");
+            EditEventCell(eventId,3,"jump2");EditEventCell(eventId,3,"jump3");
+            Expect(document.UndoDepth==valueUndo+1&&Clip.Events.Single(item=>item.Id==eventId).Value=="jump3","consecutive cell edits keep a single undo step");
+        });
         eventKind.Select((int)MotionEventKind.Damage);eventKind.EmitSignal(OptionButton.SignalName.ItemSelected,(long)MotionEventKind.Damage);
         Expect(Clip.Events.Single(item=>item.Id==eventId).Kind==MotionEventKind.Damage,"the type dropdown writes the selected event");
         eventContact.ButtonPressed=true;
@@ -784,5 +777,31 @@ public partial class NativeActionEditor
         Expect(world.NativeServices!.Motions.State(new(world,player)) is not null,"edited graph applies to the game actor");
         await AuditKeyboardAsync(output);
         GD.Print("MOTION_EDITOR_AUDIT_OK import=PASS edit=PASS undo=PASS save=PASS reload=PASS preview=PASS game=PASS studio=PASS immediate=PASS state=PASS events=PASS ring=PASS");
+    }
+    private void Expect(bool ok,string message){if(!ok)throw new InvalidOperationException("Motion editor: "+message);}
+    private void WithFrozenClock(Action body)
+    {
+        long clock=0;MotionGraphDocument.TickProvider=()=>clock;
+        try{body();}
+        finally{MotionGraphDocument.TickProvider=()=>System.Environment.TickCount64;}
+    }
+    private void AuditUndoWindows(int baseDepth,string output)
+    {
+        long clock=0;MotionGraphDocument.TickProvider=()=>clock;
+        try
+        {
+            x.Value=5;
+            Expect(Clip.Tracks.Any(track=>track.Bone=="HEAD"&&track.Keys.Any(key=>key.Frame==3&&Math.Abs(key.X-5)<.001)),"editing X writes the current frame key without a button");
+            Expect(document.UndoDepth==baseDepth+1,"the first immediate write adds one undo step");
+            x.Value=7;x.Value=9;
+            Expect(document.UndoDepth==baseDepth+1,"changing one control three times keeps a single undo step");
+            Expect(Math.Abs(Clip.Sample(3)["HEAD"].X-9)<.001,"the control keeps writing the latest value");
+            clock+=600;x.Value=11;
+            Expect(document.UndoDepth==baseDepth+2,"edits more than 500ms apart start a new undo step");
+            path=Path.Combine(output,"editor.coalesce.motion.json");Save();
+            x.Value=13;
+            Expect(document.UndoDepth==baseDepth+3,"saving resets the coalescing window");
+        }
+        finally{MotionGraphDocument.TickProvider=()=>System.Environment.TickCount64;}
     }
 }

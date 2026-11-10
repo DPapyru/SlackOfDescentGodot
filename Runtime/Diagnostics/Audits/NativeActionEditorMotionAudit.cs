@@ -692,6 +692,7 @@ public partial class NativeActionEditor
         Expect(world.NativeServices!.Motions.State(new(world,player)) is not null,"edited graph applies to the game actor");
         await AuditKeyboardAsync(output);
         AuditSourceMenu();
+        await InputRouteAuditAsync();
         GD.Print("MOTION_EDITOR_AUDIT_OK import=PASS edit=PASS undo=PASS save=PASS reload=PASS preview=PASS game=PASS studio=PASS immediate=PASS state=PASS events=PASS ring=PASS canvas=PASS");
     }
 

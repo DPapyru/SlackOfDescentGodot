@@ -1,0 +1,28 @@
+{
+  "title": "动作编辑器：vim 模式未生效（人工测试第三轮）",
+  "body": "## AI回复\n\n父 issue：#76；关联：#45（键盘模式：默认 / vim 的规格与验收）\n\n### 现象\n编辑器里切不到或切到也无效果：vim 模式没有成功存在。\n\n### 期望\n- 视图菜单或设置里能切「键位：默认 / vim」，切完立即生效且状态可见（菜单勾选或状态栏）。\n- vim 模式下（文本控件无焦点时）：Esc 回普通模式、i 进插入、h / l / j / k、dd 删当前帧键、u 撤销；冒号命令行不做。\n- 文本控件有焦点时 vim 键位不抢输入。\n\n### 现状\n- ai 上还没有 vim 键位（PR #74 feat/45-keyboard-modes 已实现并 REVIEW PASS，未合并）。\n- 若在 #74 分支上复现则是真缺陷；请附「切模式的那一步」（菜单项 / 快捷键 / Editor/action-editor-keys.json 的内容）。\n\n### 待补充\n维护者后续补充：在哪个入口试的、期望哪些键位、是否需要状态提示。\n\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-10T01:17:06Z",
+  "updatedAt": "2026-11-10T01:17:06Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "bug"
+      },
+      {
+        "name": "area:editor"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

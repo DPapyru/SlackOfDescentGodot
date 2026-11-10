@@ -1,0 +1,28 @@
+{
+  "title": "动作编辑器：多次移动关节后节点与预览角色脱离绑定",
+  "body": "## AI回复\n\n父 issue：#76；关联：#44（画布命中与拖动，PR #49 已 REVIEW PASS 未合并）、#63（IK 解算）\n\n### 现象\n移动一定次数的关节节点之后，节点会和预览角色「脱离绑定」：画布上的节点位置不再和角色部件对得上。\n\n### 期望\n无论拖动多少次，节点与部件始终贴合；命中点、绘制点与写入的局部坐标使用同一套换算。\n\n### 现状与怀疑方向（待复现确认）\n- ai 上命中 / 绘制 / 拖拽各有一套坐标换算，每次写入可能累积一点偏差；#49 已收敛为 overlay.SurfacePoint / WorldPoint / PickBone 并加 ≤2px 断言（含窗口缩放），但 pan/zoom 仍走另一处 WorldPerPixel（#49 的 REVIEW 已标为 follow-up）。\n- 另一条线索：重复写入按「当前父链姿态 + 参考偏移」推导局部坐标，浮点累积或符号错误会让位移逐次放大。\n\n### 复现请附\n- 拖的是哪个节点、连续拖几次后开始偏（第 1 次就偏还是第 N 次）、偏移方向是否固定、重新加载文件后是否恢复。\n\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-10T01:17:17Z",
+  "updatedAt": "2026-11-10T01:17:17Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "bug"
+      },
+      {
+        "name": "area:editor"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

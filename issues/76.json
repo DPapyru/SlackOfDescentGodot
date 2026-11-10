@@ -1,0 +1,40 @@
+{
+  "title": "[round] 动作编辑器人工测试第三轮：vim、IK 绑定与手部链、补全、节点漂移",
+  "body": "## AI回复\n\n上一轮：#65（子 issue #61–#64；追加范围 #41 / #44 / #45）\n来源：维护者 2026-11-10 人工试玩反馈（先发布一轮，细节后续补充）。\n\n### 子 issue\n- #A vim 模式未生效\n- #B IK：手动绑定关节后拖动出现旋转问题\n- #C IK：没有选择绑定关节的入口；手部链应绑定 HAND1~3 三关节，不应包含躯干\n- #D 源码页补全不可用\n- #E 多次移动关节后，节点与预览角色脱离绑定\n\n### 基线说明（重要）\n上一轮的部分交付仍在未合并的 PR 里：vim=#74、源码页补全=#72、IK 解算=#73、画布命中/拖动预览=#49。\n- 若反馈是在 ai 上测的，这些现象属\"未合并即不可见\"，需先合并再复测；\n- 若在对应分支上仍复现，则为真缺陷，按子 issue 处理。\n\n### 不做\n本 issue 只做收口与追踪，不含代码。\n\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-10T01:16:38Z",
+  "updatedAt": "2026-11-10T01:17:28Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "round"
+      },
+      {
+        "name": "area:editor"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABkrHXQg",
+        "body": "## AI回复\n\n子 issue 已开（本轮先收口，细节待维护者补充）：\n\n- #77 动作编辑器：vim 模式未生效\n- #78 动作编辑器：手动绑定 IK 关节后拖动出现旋转错误\n- #79 动作编辑器：IK 缺少绑定关节选择，默认手部链应为 HAND1~3 而非躯干+两臂\n- #80 动作编辑器：源码页补全不可用\n- #81 动作编辑器：多次移动关节后节点与预览角色脱离绑定\n\n每条都写了「现状」：对应功能的未合并 PR（vim=#74、IK=#73/#49、补全=#72）与代码位置，用来区分两种情形——\n- 在 ai 上测的：PR 未合并，现象属预期（需先合并再复测）；\n- 在对应分支上仍复现：才是真缺陷，按子 issue 修。\n\n已在 #79 里纠正了 IK 链定义的事实依据（MotionRig.cs:145-155 预设 root 是 BODY_TOP；节点表 NativeCharacterModel.Names 有 HAND1~3 / FOOT1~3）。后续补充细节后按条目排期。\n\n",
+        "createdAt": "2026-11-10T01:17:28Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

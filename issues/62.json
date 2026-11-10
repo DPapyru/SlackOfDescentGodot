@@ -1,0 +1,43 @@
+{
+  "title": "动作编辑器：源码页可读性与补全（原始数据页 / 分组 / 语义高亮）",
+  "body": "## AI回复\n\n父 issue：#65\n关联：#41（源码页规格）、#60（实现 PR，Godot 审计当前 FAIL）\n\n### 背景\n`human-test2` 人工测试发现源码页可读性差、补全不可用；`NativeActionEditorMotionAudit` 在 #60 上已 FAIL：`节点属性修改 offers TOML completion`。\n\n### 范围\n- 「原始数据」页默认隐藏，设置里打勾恢复；开关持久化（跟随编辑器现有设置落盘方式）。\n- 「节点属性修改」帧文本按骨骼分组：组间空行 + 注释头（如 `# BODY_TOP`），不改字段顺序、不改 round-trip。\n- 语义高亮五类色：坐标 / 角度 / 图片 / 枚举 / 注释；`.angle` 与 `.picture` 必须一眼可分。\n- `Ctrl+Space` 真正弹出补全（骨骼、字段、片段/状态、帧块模板）。\n\n### 复现（补全）\n1. 打开动作编辑器 → 左栏「节点属性修改」\n2. 光标置于行尾，按 `Ctrl+Space`\n3. 期望：弹出候选；实际：无候选（Godot 审计断言同样失败）\n\n### 不做\n- 不改 TOML 语法、不改 `.motion.json` 落盘\n- 不做输入即弹补全\n- 不做用户自定义配色\n\n### 验收\n- [ ] `node Tools/motion-audit.mjs --headless` 的补全断言转 PASS\n- [ ] 分组后 round-trip 语义不变（单测）\n- [ ] `.angle` 与 `.picture` 颜色可辨（人工确认）\n- [ ] 原始数据页开关重启后保持\n\n## Blocked by\n无（实现）；审查通过前需 T1 落地\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-09T14:53:59Z",
+  "updatedAt": "2026-11-09T22:55:54Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "enhancement"
+      },
+      {
+        "name": "area:editor"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": [
+      {
+        "editedAt": "2026-11-09T14:54:49Z",
+        "diff": "## AI回复\n\n父 issue：#65\n关联：#41（源码页规格）、#60（实现 PR，Godot 审计当前 FAIL）\n\n### 背景\n`human-test2` 人工测试发现源码页可读性差、补全不可用；`NativeActionEditorMotionAudit` 在 #60 上已 FAIL：`节点属性修改 offers TOML completion`。\n\n### 范围\n- 「原始数据」页默认隐藏，设置里打勾恢复；开关持久化（跟随编辑器现有设置落盘方式）。\n- 「节点属性修改」帧文本按骨骼分组：组间空行 + 注释头（如 `# BODY_TOP`），不改字段顺序、不改 round-trip。\n- 语义高亮五类色：坐标 / 角度 / 图片 / 枚举 / 注释；`.angle` 与 `.picture` 必须一眼可分。\n- `Ctrl+Space` 真正弹出补全（骨骼、字段、片段/状态、帧块模板）。\n\n### 复现（补全）\n1. 打开动作编辑器 → 左栏「节点属性修改」\n2. 光标置于行尾，按 `Ctrl+Space`\n3. 期望：弹出候选；实际：无候选（Godot 审计断言同样失败）\n\n### 不做\n- 不改 TOML 语法、不改 `.motion.json` 落盘\n- 不做输入即弹补全\n- 不做用户自定义配色\n\n### 验收\n- [ ] `node Tools/motion-audit.mjs --headless` 的补全断言转 PASS\n- [ ] 分组后 round-trip 语义不变（单测）\n- [ ] `.angle` 与 `.picture` 颜色可辨（人工确认）\n- [ ] 原始数据页开关重启后保持\n\n## Blocked by\n无（实现）；审查通过前需 T1 落地\n",
+        "editor": {
+          "login": "DPapyru"
+        }
+      },
+      {
+        "editedAt": "2026-11-09T14:53:59Z",
+        "diff": "## AI回复\n\n父 issue：#R\n关联：#41（源码页规格）、#60（实现 PR，Godot 审计当前 FAIL）\n\n### 背景\n`human-test2` 人工测试发现源码页可读性差、补全不可用；`NativeActionEditorMotionAudit` 在 #60 上已 FAIL：`节点属性修改 offers TOML completion`。\n\n### 范围\n- 「原始数据」页默认隐藏，设置里打勾恢复；开关持久化（跟随编辑器现有设置落盘方式）。\n- 「节点属性修改」帧文本按骨骼分组：组间空行 + 注释头（如 `# BODY_TOP`），不改字段顺序、不改 round-trip。\n- 语义高亮五类色：坐标 / 角度 / 图片 / 枚举 / 注释；`.angle` 与 `.picture` 必须一眼可分。\n- `Ctrl+Space` 真正弹出补全（骨骼、字段、片段/状态、帧块模板）。\n\n### 复现（补全）\n1. 打开动作编辑器 → 左栏「节点属性修改」\n2. 光标置于行尾，按 `Ctrl+Space`\n3. 期望：弹出候选；实际：无候选（Godot 审计断言同样失败）\n\n### 不做\n- 不改 TOML 语法、不改 `.motion.json` 落盘\n- 不做输入即弹补全\n- 不做用户自定义配色\n\n### 验收\n- [ ] `node Tools/motion-audit.mjs --headless` 的补全断言转 PASS\n- [ ] 分组后 round-trip 语义不变（单测）\n- [ ] `.angle` 与 `.picture` 颜色可辨（人工确认）\n- [ ] 原始数据页开关重启后保持\n\n## Blocked by\n无（实现）；审查通过前需 T1 落地\n",
+        "editor": {
+          "login": "DPapyru"
+        }
+      }
+    ]
+  },
+  "comments": {
+    "nodes": []
+  }
+}

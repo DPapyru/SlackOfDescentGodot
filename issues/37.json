@@ -3,7 +3,7 @@
   "body": "## AI回复\n\n决策索引。每条决策只在此登记，正文与理由见链接 issue。\n\n| 日期 | 决策 | 链接 | 状态 |\n| :-: | :-: | :-: | :-: |\n| 2026-11-08 | 分支模型：main 稳定、ai 集成，feature PR -> ai，release PR ai -> main | #35 | 已定 |\n| 2026-11-08 | 评论不可变、issue body 仅维护者编辑、title 改动需 TITLE EDIT | #35 | 已定 |\n| 2026-11-08 | AI 标记 ## AI回复；DECISION/SPEC/ACK/VETO 协议 | #35 | 已定 |\n| 2026-11-08 | issue 每晚快照到 issue-archive；issue 永不删除 | #35 | 已定 |\n| 2026-11-08 | 文档迁移到 GitHub Wiki，仓库只留 README/AGENTS | #35 | 已定 |\n| 2026-11-08 | 动作编辑器大优化轮 | #34 | 进行中 |\n| 2026-11-08 | 圈复杂度治理 5 项 | #33 | 待办 |\n| 2026-11-08 | sink mud 动作链 #11-#14 | #11 | 待办 |",
   "state": "OPEN",
   "createdAt": "2026-11-08T10:13:11Z",
-  "updatedAt": "2026-11-08T10:13:11Z",
+  "updatedAt": "2026-11-09T08:26:50Z",
   "closedAt": null,
   "author": {
     "login": "DPapyru"
@@ -16,6 +16,18 @@
     "nodes": []
   },
   "comments": {
-    "nodes": []
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABkXij4g",
+        "body": "## AI回复\n\n#34 本轮确认的决策已同步到 [设计决策](https://github.com/DPapyru/SlackOfDescentGodot/wiki/Decisions)，摘要如下：\n\n| 决策 | 依据 |\n| --- | --- |\n| 动作编辑器布局按参考稿重排：左两页（节点属性修改 / 原始数据）、右一页（动作设置）、底部时间轴、状态栏；删除左 4 页与右 4 页 | [#34 08:14Z](https://github.com/DPapyru/SlackOfDescentGodot/issues/34#issuecomment-6735361853) |\n| 源码视图 TOML，落盘 `.motion.json`；帧块 `[[frame]]` + `index` + `骨骼.字段`，稀疏不补 0 | 同上 |\n| 源码编辑器 CodeEdit + 自研高亮 + 补全，不引第三方 | 同上 |\n| 时间轴与播放 1:1 参考稿，30 Hz 显示 | 同上 |\n| 性能预算：打开 ≤1.2s、内存增量 ≤450MB，先探针后改 | 同上 |\n| 首次打开导入当前目标预设的第一个注册动作 | 同上 |\n| 四个 PR：布局 PR → #47 重写 → #48 改写 → #49 / #50 补丁式 | [#34 08:21Z](https://github.com/DPapyru/SlackOfDescentGodot/issues/34#issuecomment-6735475074) |\n| 菜单归属：导入原版动作 → 文件；删除关键帧 / IK 绑定与解除 / 姿态根偏移 → 编辑 | 同上 |\n| 状态机移出编辑器界面，数据保留走 TOML，运行时不变；可视化等官方 MotionGraph 示例后评估 | [#34 08:14Z](https://github.com/DPapyru/SlackOfDescentGodot/issues/34#issuecomment-6735361853)、[08:24Z](https://github.com/DPapyru/SlackOfDescentGodot/issues/34#issuecomment-6735527644) |\n| 术语：状态与片段分列，界面只出现「片段 / 动作」 | [#34 08:24Z](https://github.com/DPapyru/SlackOfDescentGodot/issues/34#issuecomment-6735527644)、[状态与片段](https://github.com/DPapyru/SlackOfDescentGodot/wiki/%E7%8A%B6%E6%80%81%E4%B8%8E%E7%89%87%E6%AE%B5) |",
+        "createdAt": "2026-11-09T08:26:50Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
   }
 }

@@ -1,0 +1,37 @@
+{
+  "title": "动作编辑器：性能探针与预览惰性初始化",
+  "body": "## AI回复\n\n## Parent\n- #34\n\n## What to build\n打开动作编辑器的性能可度量并达标：打开耗时 ≤1.2s、进程内存增量 ≤450MB。先加探针（打开前后耗时与内存，打印 ACTION_EDITOR_PERF），再把预览改为惰性初始化（首次需要预览时才创建第二个世界），关闭编辑器时释放。未达标时在 PR 贴数字与瓶颈，再决定是否复用正在运行的游戏世界（另开 issue）。\n\n## Acceptance criteria\n- [ ] 打开路径输出 ACTION_EDITOR_PERF，含耗时与内存增量。\n- [ ] 既有环境重复三次，中位数满足 ≤1.2s 且 ≤450MB。\n- [ ] 未使用预览时不创建第二个世界；关闭编辑器后内存回落。\n- [ ] 动作审计与 dotnet 测试全绿；数字写进 PR body。\n\n## Blocked by\n- None（探针可先跑；布局 PR 合并后复测一次）",
+  "state": "OPEN",
+  "createdAt": "2026-11-09T08:30:31Z",
+  "updatedAt": "2026-11-09T10:58:46Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABkaL5ww",
+        "body": "## AI回复\n\nPR：https://github.com/DPapyru/SlackOfDescentGodot/pull/57（分支 `feat/53-editor-perf-probe`，目标 `ai`）。\n\n已实现：\n- `ACTION_EDITOR_PERF` 探针（`Runtime/Diagnostics/Probes/ActionEditorPerfProbe.cs`）：打开/关闭 3 次，取中位数；量 open 耗时、RSS 增量、惰性预览首载、关闭后回落，并断言「打开不建第二个世界」「关闭后内存低于加载峰值」。\n- 预览惰性化：打开编辑器不建第二个 `GmWorld`；点击画布、开始播放、单帧/拖动动作帧、刷新骨架、导入/打开/切换项目、视图→重载预览时才创建；悬停不触发；关闭时 `_ExitTree` 释放。\n- 动作审计：打开后先断言预览世界不存在，再显式触发并等待惰性加载（原断言保留）。\n\n本机数字（DISPLAY=:1，llvmpipe，3 次中位数）：open **650 ms**（预算 1200 ms）、RSS 增量 **14.8 MB**（预算 450 MB）；惰性预览首载约 11.9 s（被推迟的成本，瓶颈为 `NativeCharacterPreview.InitializeAsync` 完整载入第二个 GameData 世界）；关闭后回落 54.6 MB。\n\n验证：`dotnet build` 0 errors；`dotnet run --project Tests/RuntimeTests.csproj` PASS 61564 assertions；`node Tools/verify.mjs` branchContent PASS；`node Tools/motion-audit.mjs --headless` 因本机内存耗尽（15 GiB 内存满、20 GiB swap 用尽、load 27，多 agent 并发 Godot 审计）未能跑完，锁内最远到 `MOTION_EDITOR_LAYOUT_OK` 后被 420 s 超时终止；内存恢复后复跑并在 PR 补齐审计 marker。\n\n未做：复用正在运行的游戏世界（按 issue 另开 issue）。",
+        "createdAt": "2026-11-09T10:58:46Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

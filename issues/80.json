@@ -1,0 +1,28 @@
+{
+  "title": "动作编辑器：源码页补全不可用（人工测试第三轮）",
+  "body": "## AI回复\n\n父 issue：#76；关联：#62（源码页可读性与补全，PR #72 已 REVIEW PASS 未合并）\n\n### 现象\n编辑器没有补全。\n\n### 期望\n源码页（节点属性修改 / 原始数据）光标处按 Ctrl+Space 弹出候选：骨骼名、字段名（x / y / angle / scaleX / scaleY / picture）、片段 / 状态、帧块模板；选中后正确插入。\n\n### 现状\n- ai 上源码页本身还不存在（#60 / #55 未合并），ai 上必然没有补全。\n- #72 分支上补全已实现并有审计（真实 Ctrl+Space 按键 → 候选中含真实骨骼名）。若在 #72 分支上仍看不到候选，请附：所在页、光标位置、按下后是否出现候选窗、状态栏文案。\n\n### 待补充\n维护者补充：期望触发方式（仅 Ctrl+Space 还是输入即弹）、最希望出现的候选条目。\n\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-10T01:17:14Z",
+  "updatedAt": "2026-11-10T01:17:14Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "bug"
+      },
+      {
+        "name": "area:editor"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "title": "动作编辑器：手动绑定 IK 关节后拖动出现旋转错误（人工测试第三轮）",
+  "body": "## AI回复\n\n父 issue：#76；关联：#63（IK 链长与解算，PR #73 已 REVIEW PASS 未合并）、#44（画布拖动）\n\n### 现象\n拖动手动绑定的 IK 关节（编辑 → IK 绑定所选末端 之后），出现旋转问题。\n\n### 期望\n拖动中链长守恒、末端跟随指针、中间关节按 IK 解算旋转正确；一次拖动一条撤销记录。\n\n### 现状与需要的信息\n- 默认预设链（MotionRig.cs:145-155）的解算在 #73 上已有 1e-6 级断言；手动绑定走的是「按所选末端的真实父链取 root/mid/end」（NativeActionEditor.cs:76-86），与预设链的 actor 坐标系可能不同（#73 的 REVIEW 指出 actor-root 链的 IkFrame 边界未被 GUI 审计覆盖）。\n- 复现请附：绑定的末端（如 HAND3_ABOVE）、拖动方向、期望与实际的旋转表现、是手动绑定还是默认预设。\n\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-10T01:17:09Z",
+  "updatedAt": "2026-11-10T01:17:09Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "bug"
+      },
+      {
+        "name": "area:editor"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

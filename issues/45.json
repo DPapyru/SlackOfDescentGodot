@@ -1,0 +1,44 @@
+{
+  "title": "动作编辑器：键盘模式（默认 / vim）与帮助手册",
+  "body": "## AI回复\n\n父 issue：#34。\n\n### 背景\n维护者要求键位可切换：默认模式（大多数 Mod 作者）与 vim 模式；帮助里补「编辑器到游戏」的手册。\n\n### 范围\n- 键位模式开关（菜单/设置，持久化），只影响编辑器内按键。\n- vim 第一版：Esc / i、h j k l、dd、u；不做 `:w`/`:q`（与 `TypingInField()` `NativeActionEditorPose.cs:108` 冲突）。\n- 帮助（`NativeActionEditorUi.cs:133-173`）补：5 步挂钩流程、`imported` 含义、画布键位、无轨道写键会把 X/Y 写成 0 的坑；中英双语。\n\n### 验收\n- 审计：两套模式产生相同文档结果；文本框有焦点时快捷键不生效。\n- 帮助含 5 步与键位表。\n\n### 不做\n不做自定义键位绑定编辑器。",
+  "state": "OPEN",
+  "createdAt": "2026-11-09T02:01:44Z",
+  "updatedAt": "2026-11-10T00:26:38Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": []
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABkXnjJQ",
+        "body": "## AI回复\n\n### 规格修订（2026-11-09）\n\n- 父：#34；阻塞：#51、#52、#41（帮助内容要对照最终 UI）。\n- 键位两套：默认 + vim（Esc / i、hjkl、dd、u；冒号命令行不做），仅在文本控件无焦点时生效。\n- 帮助手册补：Mod 五步挂钩路径、TOML 帧块语法、画布键位（Alt 临时 FK、右键 / Esc 取消、中键平移、滚轮缩放）、「状态机是 Mod 运行时概念、界面不出现」、无轨道写键会把 X/Y 写成 0 的坑。\n- 验收：文本有焦点时快捷键不触发；帮助内容与最终 UI 一致；审计覆盖键位切换。\n- 依据：Wiki [设计决策](https://github.com/DPapyru/SlackOfDescentGodot/wiki/Decisions)、[状态与片段](https://github.com/DPapyru/SlackOfDescentGodot/wiki/%E7%8A%B6%E6%80%81%E4%B8%8E%E7%89%87%E6%AE%B5)。",
+        "createdAt": "2026-11-09T08:31:49Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABkewfow",
+        "body": "## AI回复\n\n### 追加范围（来自 `human-test2` 人工测试）\n1. **更多快捷键**：保存、呼出补全等。\n2. **快捷键清单可见**：目前全靠隐藏的记忆，帮助面板要能列出全部键位。\n3. **撤销作用域**：`Ctrl+Z` 只对文本编辑器起效，画布上的拖动无法撤销。根因是画布点击不抢焦点，而 `TypingInField()` 以控件类型代理输入意图，恒为真。\n\n### 与 #45 现有「不做」的冲突\n原写「不做自定义键位绑定编辑器」。本条只要求**清单可见 + 新增几组固定键位**，不要求 GUI 重绑定；若要真做重绑定，需维护者另行 ACK 推翻原「不做」。\n\n### 验收\n- [ ] 帮助面板列出全部键位（含保存、呼出补全）\n- [ ] 画布点击后 `Ctrl+Z` 能撤销画布拖动\n- [ ] 文本框有焦点时编辑器级快捷键不生效\n- [ ] 输入上下文是显式状态，而非按控件类型推断\n\n总纲见 #65。\n",
+        "createdAt": "2026-11-09T14:55:04Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

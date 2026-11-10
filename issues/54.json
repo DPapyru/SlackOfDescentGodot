@@ -1,0 +1,37 @@
+{
+  "title": "动作编辑器：真实路由键鼠验收探针",
+  "body": "## AI回复\n\n## Parent\n- #34\n\n## What to build\n用显示环境下的真实输入投递驱动动作编辑器，证明四条键鼠验收可自动断言：键盘输入文本、输入后预览响应、鼠标选中骨骼、选中后拖动。先做探针证明投递可用，再把断言接进审计；不可用时明确降级为直调，并在 PR 注明「未覆盖真实路由」。\n\n## Acceptance criteria\n- [ ] 显示环境下真实投递键盘/鼠标事件到编辑器窗口，探针结果写进 PR。\n- [ ] 四条交互各有一条断言可运行（文本输入、输入后姿态变化、选中骨骼、拖动写键）。\n- [ ] 无显示环境时跳过并打印原因，不假绿。\n- [ ] headless 回归不受影响。\n\n## Blocked by\n- None（探针）；最终断言在源码页 ticket 与时间轴 ticket 之后补齐。",
+  "state": "OPEN",
+  "createdAt": "2026-11-09T08:30:32Z",
+  "updatedAt": "2026-11-09T11:13:27Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABkadj0g",
+        "body": "## AI回复\n\nPR：https://github.com/DPapyru/SlackOfDescentGodot/pull/59（分支 `feat/54-input-probe`，目标 `ai`）。\n\n实现：\n- 真实路由：用 `Window.PushInput(event, true)` 把 `InputEventKey` / `InputEventMouseButton` / `InputEventMouseMotion` 投递进编辑器窗口，不直调方法。\n- 四条断言：键盘文本进入「新片段标识」输入框；输入 40 到根偏移 X 后关键帧写入且预览姿态/画布响应；路由鼠标点击选中 HEAD（`highlightedBone` + 骨骼列表）；选中后拖动只产生一次撤销步并写入 HEAD 关键帧。\n- headless：探针场景和动作审计挂接都打印 `INPUT_PROBE_SKIP reason=headless` 并返回，动作审计其它断言不变（不假绿）。\n- 通过时打印 `INPUT_ROUTE_OK text=PASS pose=PASS select=PASS drag=PASS route=push_input`。\n\n验证：`dotnet build` 0 errors（diagnostics 构建亦 0）；`dotnet run --project Tests/RuntimeTests.csproj` PASS 61564 assertions；`node Tools/verify.mjs` branchContent PASS。display-mode real-route run pending independent verification (verifier)（主机重启后 Godot 冻结，由独立 verifier 执行）。\n\n后续：本分支基于 `ai@9ff05a1`；#51（布局重排）与 #53（预览惰性化）合并后需 rebase，并把输入审计开头的等待预览改为显式触发惰性预览。",
+        "createdAt": "2026-11-09T11:13:27Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "title": "圈复杂度门禁工具：--since diff 判定与 CI 接入",
+  "body": "## AI回复\n\n父 issue：#65\n\n### 目标\n让「圈复杂度」变成可执行的硬门禁：审查者不必肉眼数分支，`gate.mjs` 和 CI 都能拦住超标改动。\n\n### 范围\n- 新增 `node Tools/complexity.mjs --since ai`：Roslyn 解析 `.cs`，对 diff 触及的方法计圈复杂度（`if`/`else if`/`for`/`foreach`/`while`/`case`/`catch`/`&&`/`||`/`??`/`?:`），输出「文件:行 方法 复杂度」。\n- 阈值按 diff 规模：≤2 文件且 ≤60 行 → 8；≤6 文件且 ≤400 行 → 20；任何情况硬顶 25。\n- 既有代码生成基线快照，只判罚新增/改动的方法。\n- 接进 `gate.mjs` 与 `.github/workflows/ci.yml`；CI 同时补跑 `Tests/RuntimeTests.csproj`（现在 CI 只跑 ArchitectureTests）。\n\n### 不做\n- 不为过门禁重构既有代码；不引入第三方依赖。\n- 不做认知复杂度的自动度量（只统计嵌套深度，判断仍归审查者）。\n\n### 验收\n- [ ] `node Tools/complexity.mjs --since origin/ai` 在干净分支退出码 0\n- [ ] 故意加一个复杂度 9 的小改 → 退出码非 0 并指出方法与行号\n- [ ] 基线快照入库，既有超标方法不阻断\n- [ ] `node Tools/gate.mjs` 含该检查；CI 跑 RuntimeTests\n- [ ] 工具自身有测试（阈值边界 + 基线命中）\n\n## Blocked by\n无（可直接实现；T2/T3/T4 的审查通过依赖本票落地）\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-09T14:53:50Z",
+  "updatedAt": "2026-11-09T22:48:03Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "enhancement"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": [
+      {
+        "editedAt": "2026-11-09T14:54:46Z",
+        "diff": "## AI回复\n\n父 issue：#65\n\n### 目标\n让「圈复杂度」变成可执行的硬门禁：审查者不必肉眼数分支，`gate.mjs` 和 CI 都能拦住超标改动。\n\n### 范围\n- 新增 `node Tools/complexity.mjs --since ai`：Roslyn 解析 `.cs`，对 diff 触及的方法计圈复杂度（`if`/`else if`/`for`/`foreach`/`while`/`case`/`catch`/`&&`/`||`/`??`/`?:`），输出「文件:行 方法 复杂度」。\n- 阈值按 diff 规模：≤2 文件且 ≤60 行 → 8；≤6 文件且 ≤400 行 → 20；任何情况硬顶 25。\n- 既有代码生成基线快照，只判罚新增/改动的方法。\n- 接进 `gate.mjs` 与 `.github/workflows/ci.yml`；CI 同时补跑 `Tests/RuntimeTests.csproj`（现在 CI 只跑 ArchitectureTests）。\n\n### 不做\n- 不为过门禁重构既有代码；不引入第三方依赖。\n- 不做认知复杂度的自动度量（只统计嵌套深度，判断仍归审查者）。\n\n### 验收\n- [ ] `node Tools/complexity.mjs --since origin/ai` 在干净分支退出码 0\n- [ ] 故意加一个复杂度 9 的小改 → 退出码非 0 并指出方法与行号\n- [ ] 基线快照入库，既有超标方法不阻断\n- [ ] `node Tools/gate.mjs` 含该检查；CI 跑 RuntimeTests\n- [ ] 工具自身有测试（阈值边界 + 基线命中）\n\n## Blocked by\n无（可直接实现；T2/T3/T4 的审查通过依赖本票落地）\n",
+        "editor": {
+          "login": "DPapyru"
+        }
+      },
+      {
+        "editedAt": "2026-11-09T14:53:50Z",
+        "diff": "## AI回复\n\n父 issue：#R\n\n### 目标\n让「圈复杂度」变成可执行的硬门禁：审查者不必肉眼数分支，`gate.mjs` 和 CI 都能拦住超标改动。\n\n### 范围\n- 新增 `node Tools/complexity.mjs --since ai`：Roslyn 解析 `.cs`，对 diff 触及的方法计圈复杂度（`if`/`else if`/`for`/`foreach`/`while`/`case`/`catch`/`&&`/`||`/`??`/`?:`），输出「文件:行 方法 复杂度」。\n- 阈值按 diff 规模：≤2 文件且 ≤60 行 → 8；≤6 文件且 ≤400 行 → 20；任何情况硬顶 25。\n- 既有代码生成基线快照，只判罚新增/改动的方法。\n- 接进 `gate.mjs` 与 `.github/workflows/ci.yml`；CI 同时补跑 `Tests/RuntimeTests.csproj`（现在 CI 只跑 ArchitectureTests）。\n\n### 不做\n- 不为过门禁重构既有代码；不引入第三方依赖。\n- 不做认知复杂度的自动度量（只统计嵌套深度，判断仍归审查者）。\n\n### 验收\n- [ ] `node Tools/complexity.mjs --since origin/ai` 在干净分支退出码 0\n- [ ] 故意加一个复杂度 9 的小改 → 退出码非 0 并指出方法与行号\n- [ ] 基线快照入库，既有超标方法不阻断\n- [ ] `node Tools/gate.mjs` 含该检查；CI 跑 RuntimeTests\n- [ ] 工具自身有测试（阈值边界 + 基线命中）\n\n## Blocked by\n无（可直接实现；T2/T3/T4 的审查通过依赖本票落地）\n",
+        "editor": {
+          "login": "DPapyru"
+        }
+      }
+    ]
+  },
+  "comments": {
+    "nodes": []
+  }
+}

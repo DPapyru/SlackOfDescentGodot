@@ -1,0 +1,37 @@
+{
+  "title": "动作编辑器：底部时间轴与播放对照参考稿",
+  "body": "## AI回复\n\n## Parent\n- #34\n\n## What to build\n底部时间轴与播放对照参考稿：工具栏显示当前片段名、「新片段标识」输入、播放/暂停、时间 x/总长；120px 轨道头列；刻度尺；红色 playhead；每块骨骼一行轨道，关键帧为白色菱形、选中为蓝色；点关键帧同步画布高亮，点画布骨骼同步轨道头高亮；播放按 30Hz 推进，画布叠加显示「状态 / 帧 / FPS 30」。速度、单帧、滑块与关键帧列表移入菜单或右键，不占工具栏。\n\n## Acceptance criteria\n- [ ] 结构对照参考稿：工具栏四件、120px 轨道头、刻度尺、playhead、逐骨轨道行与菱形关键帧。\n- [ ] 切换片段时轨道内容随之刷新。\n- [ ] 点关键帧 → 骨骼在画布与时间轴同时高亮；画布选骨骼 → 对应轨道头高亮。\n- [ ] 播放/暂停与时间显示正确，30Hz；播放时 playhead 不漂移。\n- [ ] 关键帧可新增/删除，删除后画布同步；一次拖动一个撤销步。\n- [ ] headless 覆盖结构与切换；真实键鼠验收记录另附。\n\n## Blocked by\n- 布局 ticket（左两页 / 右一页 / 底部时间轴结构）",
+  "state": "OPEN",
+  "createdAt": "2026-11-09T08:30:30Z",
+  "updatedAt": "2026-11-09T11:13:15Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABkadUVA",
+        "body": "## AI回复\n\nPR：https://github.com/DPapyru/SlackOfDescentGodot/pull/58\n\n- 分支 feat/52-editor-timeline（基于 #51 分支 feat/51-editor-layout，2 commits：时间轴实现 6b066ff、审计断言 76e69d5）。\n- 结构：工具栏四件（片段名 / 新片段标识 / 播放 / 帧 x/总帧数）、120px 轨道头、刻度尺、红色 playhead、逐骨轨道行与菱形关键帧、选中与画布双向同步、30Hz 播放与浮层 FPS 30；速度与单帧移入视图菜单，加/删关键帧在编辑菜单与时间轴右键。\n- 本地：dotnet build 0 errors；RuntimeTests PASS 61564 assertions；verify PASS。\n- motion audit pending independent verification：本 agent 已被冻结 Godot，由 verifier 单次运行后回报 MOTION_* 四行。\n- 合并顺序：先 #55（#51），再本 PR，diff 才会收敛到时间轴两个 commit。",
+        "createdAt": "2026-11-09T11:13:15Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

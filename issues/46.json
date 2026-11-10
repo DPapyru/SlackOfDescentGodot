@@ -1,0 +1,48 @@
+{
+  "title": "动作编辑器：动作图来源层标识（origin 字段）",
+  "body": "## AI回复\n\n父 issue：#34。\n\n### 背景\n维护者要能分辨原版层与 Mod 层；当前无字段（`Runtime/Content/Actions/MotionGraph.cs:109-119`），只有约定。\n\n### 范围\n- `MotionGraph` 增只读 `origin` 字符串：`native` / Mod id / 缺省 `unknown`。\n- 加载路径写入；不进 `FormatVersion` 校验（`MotionGraph.cs:129`）；旧文件缺字段为 `unknown`。\n- 编辑器只读徽标。\n\n### 验收\n- dotnet：缺字段→`unknown`；Mod→Mod id；导出重载保持。\n- 审计：徽标与来源一致。\n\n### 不做\n不做多 Mod 归属合并、不做写侧。",
+  "state": "OPEN",
+  "createdAt": "2026-11-09T02:01:46Z",
+  "updatedAt": "2026-11-09T08:33:31Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABkUEc0Q",
+        "body": "## AI回复\n\n已实现，PR #50（base `ai`）。\n\n验证（洁净 worktree，detached @ `d47e85c`，跑前 `git status` 为空）：\n\n- `dotnet build SlackOfDescent.sln` → 0\n- `dotnet run --project Tests/RuntimeTests.csproj` → 0，`PASS 61569 assertions`\n- `node Tools/motion-audit.mjs --headless` → 0，`MOTION_AUDIT_OK checks=60`、`MOTION_EDITOR_LAYOUT_OK`、`MOTION_EDITOR_AUDIT_OK` 全 PASS\n\n边界：\n\n- 旧文件缺 `Origin` 默认 `unknown`；旧文件在 Mod 中加载会被覆盖为 Mod id。\n- 「只读」= 程序集外只能读；`[JsonInclude]` 让 internal setter 可反序列化。\n- 导出仍把当前 origin 写进目标文件（native 图导出到 Mod 后，按普通文件打开显示旧 origin；作为 Mod 加载时被 Mod id 覆盖）。\n- 用户 `Content` 目录（非 GameData）加载为 `unknown`，不标 native。\n",
+        "createdAt": "2026-11-09T04:02:49Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABkXnlAQ",
+        "body": "## AI回复\n\n### 补充（2026-11-09）\n\n- 父：#34；阻塞：无；PR #50 保留，rebase 后补丁式交付。\n- 范围不变：`MotionGraph` 只读 origin 字段（默认 unknown，不进 FormatVersion），加载路径写 native / Mod id，编辑器只读徽标。\n- 验收：dotnet 断言三种来源；旧文件缺字段为 unknown。\n- 依据：Wiki [设计决策](https://github.com/DPapyru/SlackOfDescentGodot/wiki/Decisions)、[状态与片段](https://github.com/DPapyru/SlackOfDescentGodot/wiki/%E7%8A%B6%E6%80%81%E4%B8%8E%E7%89%87%E6%AE%B5)。",
+        "createdAt": "2026-11-09T08:31:51Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

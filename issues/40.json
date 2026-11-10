@@ -1,0 +1,25 @@
+{
+  "title": "动作编辑器：原版生物用玩家式骨骼（legacy part → 具名骨骼映射）",
+  "body": "## AI回复\n\n来源：#34 评论（2026-11-09T00:28:37Z）确认 Q4 单独开 issue，等 #34 的编辑器优化结束后再执行。\n\n### 现状（取证）\n\n- 原版非玩家生物没有具名骨骼：动作是 GML 的 part 索引数组（`Runtime/Gml/GmMotion.cs:5-101`），具名骨骼（HEAD/BODY_TOP/…）只对 `objPlayerDoll` 解析（`Runtime/Content/Actions/MotionRig.cs:46-52,294`）。\n- 非玩家只能走 `process:N` 伪骨架，骨架 id 必须等于 `legacy:<ObjectName>`（`MotionRig.cs:53-67,303`；运行时强校验 `Runtime/Host/Adapters/NativeMotionService.cs:66-67`）。\n- 没有自动绑定：生产代码只有玩家的绑定路径（`Runtime/Host/Adapters/NativeCharacterRuntime.cs:7-23`），非玩家只能被显式 `Play`。\n- 新动作图与原版 `MotionNum` 没有数据桥，两套状态机并存：唯一桥是导入时的 part→Track 映射（`Runtime/Content/Actions/MotionImport.cs:36-108`）。\n\n### 目标（待讨论）\n\n让非玩家实体也能使用与玩家相似的具名骨骼/动作管线。最小可行形态是新增「legacy part 索引 → 具名骨骼」映射层，而不是改原版 GML。\n\n### 验收（待 #34 结束后细化）\n\n- [ ] 指定映射配置的承载位置（数据文件或代码常量）\n- [ ] 至少一个原版生物能用玩家式骨骼播放自定义动作\n- [ ] 原版 GML 行为不被改写（不回写 MotionNum）\n- [ ] 有自动化断言，且不依赖 GameData 出厂内容\n\n### 不做什么\n\n- 不改原版 `objController` Step 结构\n- 不并入 #34\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-09T00:40:38Z",
+  "updatedAt": "2026-11-09T08:34:21Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "enhancement"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

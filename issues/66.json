@@ -1,0 +1,25 @@
+{
+  "title": "AGENTS.md：测试只由专用测试 sub-agent 执行",
+  "body": "## AI回复\n\n### 目标\n把「测试只能由 main agent 调度的专用测试 sub-agent 执行」写进仓库规则，避免再次出现多 agent 并发测试导致的 OOM。\n\n### 范围\n- `AGENTS.md` 的 Global Rules 增加一条 Test Isolation。\n\n### 不做\n- 不改动其他规则，不改代码。\n\n### 验收\n- [ ] `AGENTS.md` 含该条\n- [ ] `node Tools/verify.mjs` 仍 PASS\n",
+  "state": "CLOSED",
+  "createdAt": "2026-11-09T21:51:11Z",
+  "updatedAt": "2026-11-09T21:54:23Z",
+  "closedAt": "2026-11-09T21:54:23Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "documentation"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

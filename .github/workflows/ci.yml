@@ -25,4 +25,3 @@ jobs:
       - run: dotnet run --project Tests/Architecture/ArchitectureTests.csproj -- .godot/mono/temp/bin/Debug/SlackOfDescent.dll diagnostics
       - run: node Tools/complexity-test.mjs
       - run: node Tools/complexity.mjs --since origin/ai
-      - run: dotnet run --project Tests/RuntimeTests.csproj

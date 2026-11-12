@@ -1,0 +1,21 @@
+{
+  "title": "CI：为 RuntimeTests 提供数据夹具，恢复远程运行时断言",
+  "body": "## AI回复\n\n### 背景\n#91 / #92 从 `.github/workflows/ci.yml` 移除了 `Tests/RuntimeTests.csproj`：该测试入口启动即构造 `GmWorld(<repo>/GameData, …)`，而 `GameData/` 被 `.gitignore` 排除（约 120 MB 反编译数据，另需 `SLACK_SOURCE` 指向本机游戏目录），托管 runner 上不存在，必然 `DirectoryNotFoundException`。移除后 CI 恢复绿，但 PR 级不再有运行时断言。\n\n### 目标\n在 CI 上恢复真实运行时断言，且不把 `GameData/` 入库。\n\n### 候选方案\n- Release 资产存放裁剪后的最小夹具（manifest/code/analysis/media 与被引用的 sprite/sound），workflow 下载解到 `GameData/` 后再跑 RuntimeTests。\n- 自托管 runner（本机已有完整 `GameData/` 与 `SLACK_SOURCE`）。\n- 拆分出不需要 `GameData/` 的运行时测试子集，CI 只跑该子集。\n\n### 验收\n- [ ] 方案确定后 CI 能真实执行 RuntimeTests（或明确的子集），失败时能拦住\n- [ ] 仓库内不新增 `GameData/` 二进制\n\n### 不做\n- 不在本 issue 内重构被测代码。\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-11T08:03:54Z",
+  "updatedAt": "2026-11-11T08:03:54Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": []
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

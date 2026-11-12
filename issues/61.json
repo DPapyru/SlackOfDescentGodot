@@ -3,7 +3,7 @@
   "body": "## AI回复\n\n父 issue：#65\n\n### 目标\n让「圈复杂度」变成可执行的硬门禁：审查者不必肉眼数分支，`gate.mjs` 和 CI 都能拦住超标改动。\n\n### 范围\n- 新增 `node Tools/complexity.mjs --since ai`：Roslyn 解析 `.cs`，对 diff 触及的方法计圈复杂度（`if`/`else if`/`for`/`foreach`/`while`/`case`/`catch`/`&&`/`||`/`??`/`?:`），输出「文件:行 方法 复杂度」。\n- 阈值按 diff 规模：≤2 文件且 ≤60 行 → 8；≤6 文件且 ≤400 行 → 20；任何情况硬顶 25。\n- 既有代码生成基线快照，只判罚新增/改动的方法。\n- 接进 `gate.mjs` 与 `.github/workflows/ci.yml`；CI 同时补跑 `Tests/RuntimeTests.csproj`（现在 CI 只跑 ArchitectureTests）。\n\n### 不做\n- 不为过门禁重构既有代码；不引入第三方依赖。\n- 不做认知复杂度的自动度量（只统计嵌套深度，判断仍归审查者）。\n\n### 验收\n- [ ] `node Tools/complexity.mjs --since origin/ai` 在干净分支退出码 0\n- [ ] 故意加一个复杂度 9 的小改 → 退出码非 0 并指出方法与行号\n- [ ] 基线快照入库，既有超标方法不阻断\n- [ ] `node Tools/gate.mjs` 含该检查；CI 跑 RuntimeTests\n- [ ] 工具自身有测试（阈值边界 + 基线命中）\n\n## Blocked by\n无（可直接实现；T2/T3/T4 的审查通过依赖本票落地）\n",
   "state": "CLOSED",
   "createdAt": "2026-11-09T14:53:50Z",
-  "updatedAt": "2026-11-10T15:52:57Z",
+  "updatedAt": "2026-11-11T08:04:06Z",
   "closedAt": "2026-11-10T15:52:57Z",
   "author": {
     "login": "DPapyru"
@@ -40,6 +40,17 @@
         "id": "IC_kwDOVf3hE88AAAABk6V2HA",
         "body": "## AI回复\n\n已由 #69（merge 1300629） 完成并合入 ai。human-test3 @f3869da 验收四条全绿（build 0 error / RuntimeTests PASS 61654 / motion-audit `checks=60` 含 `drag=PASS`、`canvas=PASS` / `node Tools/gate.mjs` `GATE PASS steps=4`）。\n\n复杂度门禁 `--since diff` 判定与 CI 接入；gate 已绿。\n\n关闭本 issue（后续跟进项见评论正文；如仍有残留请重开或新开 issue）。",
         "createdAt": "2026-11-10T15:52:55Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABlL-Zyw",
+        "body": "## AI回复\n\n撤回本 issue 验收项「CI 跑 RuntimeTests」：该步骤（`5662c5f` 引入）在远程恒红，因为 RuntimeTests 入口依赖被 `.gitignore` 排除的 `GameData/`（约 120 MB 反编译数据），托管 runner 上不存在，抛 `DirectoryNotFoundException` → exit 134，之后所有 PR 与 ai push 的 `ci` 都卡在这一步。\n\n- 已由 #91 移除、PR #92 处理，本 PR 的 `ci` 与 `pr-body` 均绿。\n- 复杂度门禁与 ArchitectureTests 接入不受影响，保持原样。\n- RuntimeTests 仍由本地 `node Tools/gate.mjs` 覆盖。\n- 恢复 CI 级运行的夹具方案见跟进 issue #93。\n",
+        "createdAt": "2026-11-11T08:04:06Z",
         "author": {
           "login": "DPapyru"
         },

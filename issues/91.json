@@ -1,0 +1,21 @@
+{
+  "title": "CI：RuntimeTests 依赖本地 GameData 夹具，远程 CI 恒红",
+  "body": "## AI回复\n\n### 现象\n远程 `ci` workflow 自 #69（提交 `5662c5f`）起在最后一步 `dotnet run --project Tests/RuntimeTests.csproj` 恒红，任何 pull_request 与 ai push 都会失败。\n\n### 根因\n`Tests/Program.cs:5` 启动即构造 `GmWorld(<repo>/GameData, …)`，而 `GameData/` 被 `.gitignore` 排除（约 120 MB 反编译数据），托管 runner 上不存在，抛 `DirectoryNotFoundException: .../GameData/manifest.json`，exit 134。该步骤之前的 7 步全部通过（run 42843249915 / 42812010055；引入前最后一次全绿 42811257779）。\n\n### 范围\n- 从 `.github/workflows/ci.yml` 移除 RuntimeTests 步骤；CI 保持 build + ArchitectureTests(production/diagnostics) + complexity。\n- RuntimeTests 继续只作本地门禁（`Tools/gate.mjs` 的 `tests` 步，依赖本地 `GameData/` 与 `SLACK_SOURCE`）。\n\n### 不做\n- 不在本 issue 内为 CI 准备 GameData 夹具；夹具方案另开跟进 issue。\n\n### 验收\n- [ ] 本 PR 的 `ci` 与 `pr-body` 两个 workflow 全绿\n- [ ] 合并后 ai push 的 `ci` 全绿\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-11T08:01:18Z",
+  "updatedAt": "2026-11-11T08:01:18Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": []
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

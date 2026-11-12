@@ -283,7 +283,7 @@
     "number": 61,
     "title": "圈复杂度门禁工具：--since diff 判定与 CI 接入",
     "state": "CLOSED",
-    "updatedAt": "2026-11-10T15:52:57Z",
+    "updatedAt": "2026-11-11T08:04:06Z",
     "file": "issues/61.json"
   },
   {
@@ -390,5 +390,19 @@
     "state": "OPEN",
     "updatedAt": "2026-11-10T15:20:07Z",
     "file": "issues/90.json"
+  },
+  {
+    "number": 91,
+    "title": "CI：RuntimeTests 依赖本地 GameData 夹具，远程 CI 恒红",
+    "state": "OPEN",
+    "updatedAt": "2026-11-11T08:01:18Z",
+    "file": "issues/91.json"
+  },
+  {
+    "number": 93,
+    "title": "CI：为 RuntimeTests 提供数据夹具，恢复远程运行时断言",
+    "state": "OPEN",
+    "updatedAt": "2026-11-11T08:03:54Z",
+    "file": "issues/93.json"
   }
 ]

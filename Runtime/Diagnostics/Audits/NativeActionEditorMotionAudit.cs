@@ -6,7 +6,6 @@ public partial class NativeActionEditor
 {
     public async Task AuditAsync(string output)
     {
-        void Expect(bool ok,string message){if(!ok)throw new InvalidOperationException("Motion editor: "+message);}
         async Task Ready()
         {
             long start=System.Diagnostics.Stopwatch.GetTimestamp();
@@ -23,7 +22,6 @@ public partial class NativeActionEditor
             using var image=GetTexture().GetImage();string file=Path.Combine(directory,name+".png");image.SavePng(file);GD.Print("MOTION_EDITOR_SHOT ",file);
             Hide();
         }
-        async Task Wait(int milliseconds){long start=System.Diagnostics.Stopwatch.GetTimestamp();while(System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds<milliseconds)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);}
         IEnumerable<string> MenuLabels(string label)
         {
             var button=Descendants(this).OfType<MenuButton>().FirstOrDefault(item=>item.Text==label);
@@ -33,8 +31,8 @@ public partial class NativeActionEditor
         }
         int Count<T>()=>Descendants(this).Count(node=>node is T);
         bool ButtonText(string text)=>Descendants(this).OfType<Button>().Any(button=>button.Text==text);
-        bool ParamVisible(string name)=>Enumerable.Range(0,parameterView.ItemCount).Any(index=>parameterView.GetItemText(index)==name);
         Vector2 SurfacePoint(double x,double y){var (surfaceX,surfaceY)=MotionViewport.ToSurface(x,y,surface.Size.X,surface.Size.Y,PreviewView);return new((float)surfaceX,(float)surfaceY);}
+        double Wrap(double angle){angle%=360;return angle<=-180?angle+360:angle>180?angle-360:angle;}
         (double X,double Y) RenderedPoint(double x,double y)
         {
             var view=preview!.World.View(0);
@@ -45,31 +43,66 @@ public partial class NativeActionEditor
         {
             Expect(tabs is TabBar&&tabs.TabCount==projects.Count,"the character bar lists one tab per project");
             Expect(tabs.TabCount>0&&tabs.CurrentTab==activeProject,"the active tab is the active project");
-            Expect(boneList is ItemList&&ikList is ItemList,"the left dock lists bones and IK chains");
+            Expect(MenuLabels("编辑").Contains("自定义 IK 链…"),"the edit menu offers an explicit Root/Mid/End binding");
             Expect(surface is TextureRect&&overlay is not null,"the center stage keeps the single motion surface");
             Expect(Count<TextureRect>()==1&&overlay.GetParent()==surface&&Descendants(this).OfType<SubViewport>().Count(node=>node.GetParent()==this)==1&&Descendants(this).OfType<GmCanvas>().Count(node=>node.GetParent()==viewport)==1,"the studio owns one surface, overlay, viewport and canvas");
-            Expect(inspector is TabContainer&&inspector.GetTabCount()==4,"the right dock keeps four inspectors");
-            Expect(inspector.GetTabTitle(0).Contains("轨道")&&inspector.GetTabTitle(1).Contains("状态")&&inspector.GetTabTitle(2).Contains("状态机")&&inspector.GetTabTitle(3).Contains("事件"),"the inspector pages are 轨道/状态/状态机/事件");
-            Expect(timelineSlider is HSlider&&keyList is ItemList&&frame is SpinBox,"the bottom dock keeps the timeline");
+            Expect(leftPages is TabContainer&&leftPages.GetTabCount()==1&&leftPages.GetTabTitle(0)=="节点属性修改","the left dock opens on the single pose page");
+            Expect(leftPages.GetParent() is VBoxContainer leftDock&&Math.Abs(leftDock.CustomMinimumSize.X-350)<.001,"the left sidebar is 350 pixels wide");
+            Expect(leftPages.CurrentTab==0&&sourceView.GetParent()==leftPages.GetTabControl(0),"the left page owns the code view");
+            Expect(Descendants(this).OfType<TabContainer>().All(page=>page==leftPages),"the deleted dock pages are gone");
+            Expect(sourceView is CodeEdit{Editable:true},"the left page is editable code");
+            var settings=Descendants(this).FirstOrDefault(node=>node.Name=="ActionSettings");
+            Expect(settings is VBoxContainer{ CustomMinimumSize.X: 280 }&&Descendants(settings).OfType<TabContainer>().Count()==0,"the right dock is a single 280 pixel 动作设置 page");
+            Expect(settings is not null&&Descendants(settings).Contains(clipChoice)&&Descendants(settings).Contains(duration)&&Descendants(settings).Contains(loop)&&Descendants(settings).Contains(frame)&&loop.Text=="循环","动作设置 holds the clip dropdown, 总帧数, 循环 and the current frame");
             var transport=Descendants(this).FirstOrDefault(node=>node.Name=="TimelineDock");
-            Expect(transport is not null&&Descendants(transport).OfType<CheckButton>().Any(button=>button.Text is "▶" or "⏸"),"the transport dock owns the play toggle");
-            Expect(transport is not null&&Descendants(transport).OfType<Button>().Any(button=>button.Text=="单帧"),"the transport dock owns single step");
+            var toolbar=Descendants(this).FirstOrDefault(node=>node.Name=="TimelineToolbar");
+            Expect(transport is not null&&toolbar is HBoxContainer toolbarRow&&toolbarRow.GetChildCount()==4&&toolbarRow.GetChild(0)==clipName&&toolbarRow.GetChild(1)==clipId&&toolbarRow.GetChild(2)==playing&&toolbarRow.GetChild(3)==timeLabel,"the timeline toolbar is exactly clip name, new clip id, play toggle and frame time");
+            Expect(timeLabel.Text==frame.Value.ToString("F0")+" / "+Clip.Duration.ToString("F0"),"the time display counts frames against the clip total");
+            Expect(Descendants(transport).OfType<HSlider>().Count()==0&&Descendants(transport).OfType<OptionButton>().Count()==0&&!Descendants(transport).OfType<Button>().Any(button=>button.Text=="单帧"),"speed, step and the frame slider left the timeline toolbar");
+            Expect(timelineTracks is Control tracks&&Math.Abs(tracks.CustomMinimumSize.Y-(TimelineTracks.RulerHeight+MotionSkeleton.Bones.Length*TimelineTracks.RowHeight))<.001,"the bottom dock scrolls one timeline row per skeleton bone");
+            Expect(TimelineTracks.HeaderWidth==120&&TimelineTracks.RulerHeight==25&&TimelineTracks.RowHeight==35&&timelineTracks.RowCount==MotionSkeleton.Bones.Length,"the track header column is 120 pixels wide and lists every skeleton bone");
             Expect(Descendants(this).OfType<VSplitContainer>().Any(split=>Descendants(split).Contains(transport)),"the bottom dock is resizable through a split container");
-            Expect(transport is not null&&Descendants(transport).OfType<OptionButton>().Any(button=>button.ItemCount==3&&Enumerable.Range(0,3).Select(index=>button.GetItemText(index)).SequenceEqual(new[]{"0.5x","1x","2x"})),"the transport dock owns the speed chooser");
-            Expect(stateList is ItemList&&stateList.GetParent()?.GetParent() is TabContainer dockPages&&dockPages.GetTabTitle(0)=="状态","the left dock starts with the state list");
-            Expect(MenuLabels("视图").Contains("重载预览"),"the view menu keeps the reload preview fallback");
+            var statusBar=Descendants(this).FirstOrDefault(node=>node.Name=="StatusBar");
+            Expect(statusBar is PanelContainer panel&&panel.GetThemeStylebox("panel") is StyleBoxFlat bar&&bar.BgColor==new Color("#007acc")&&status.GetThemeColor("font_color")==Colors.White,"the blue status bar carries white text");
+            var fileMenu=MenuLabels("文件").ToList();
+            Expect(fileMenu.Contains("导入原版动作…"),"the file menu imports an original motion");
+            var editMenu=MenuLabels("编辑").ToList();
+            Expect(editMenu.Contains("添加当前帧关键帧")&&editMenu.Contains("删除当前帧关键帧")&&editMenu.Contains("IK 绑定所选末端")&&editMenu.Contains("解除所选 IK")&&editMenu.Contains("姿态根偏移"),"the edit menu owns key add/delete and the IK entries");
+            var viewMenu=MenuLabels("视图").ToList();
+            Expect(viewMenu.Contains("单帧前进")&&viewMenu.Contains("播放速度 0.5x")&&viewMenu.Contains("播放速度 1x")&&viewMenu.Contains("播放速度 2x")&&viewMenu.Contains("重载预览")&&MenuLabels("帮助").Contains("说明手册…"),"single step and speed moved into the view menu");
+            Expect(!viewMenu.Contains("生成参考姿态"),"the reference pose menu entry is gone");
+            Expect(!fileMenu.Concat(editMenu).Concat(MenuLabels("视图")).Concat(MenuLabels("帮助")).Any(label=>label.Contains("状态")),"no menu label mentions 状态");
+            Expect(!Descendants(this).OfType<TabContainer>().SelectMany(page=>Enumerable.Range(0,page.GetTabCount()).Select(page.GetTabTitle)).Any(title=>title.Contains("状态")),"no tab title mentions 状态");
+            Expect(!Descendants(this).OfType<ItemList>().Any(),"the deleted list panels are gone");
             Expect(!ButtonText("取景")&&!ButtonText("读取运行帧")&&!ButtonText("预览当前帧"),"the removed toolbar entries are gone");
             Expect(status is Label&&playState is Label&&targetLabel.Text.Length>0,"the status bar reports playback and the target");
             string[] legacy=["动作列表","动作参数","动作预览","动作参数工作区","动作图工作区","工作区"];
             Expect(!Descendants(this).Any(node=>legacy.Contains(node.Name.ToString())),"the old action workspace nodes are gone");
-            var legacyMethods=new[]{"ImportAction","ExportAction","CheckCompile","SelectAction"};
-            Expect(legacyMethods.All(name=>GetType().GetMethod(name,System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.Public|System.Reflection.BindingFlags.NonPublic) is null),"the .action.json editor entry points are gone");
+            var legacyMethods=new[]{"ImportAction","ExportAction","CheckCompile","SelectAction","AddMachineState","RefreshStateInspector","AddTransition","AddCondition","RemoveCondition","AddEvent","EditEventCell","RemoveEvent","RenameSelectedState","RemoveSelectedState","SyncIkSelection"};
+            Expect(legacyMethods.All(name=>GetType().GetMethod(name,System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.Public|System.Reflection.BindingFlags.NonPublic) is null),"the removed page entry points are gone");
         }
         Layout();
+        AuditLeftPages();
         GD.Print("MOTION_EDITOR_LAYOUT_OK");
+        Expect(preview is null&&!busy,"the editor opens without creating the preview world");
+        InitializePreview();
         await Ready();
         Expect(preview!.Bridge.BoundCharacter(preview.Player!.Id) is not null,"the preview keeps the character binding");
         Expect(Math.Abs(frame.Value)<.001,"the preview opens on frame 0");
+        var defaultRegistered=MotionImport.Registered(world.Code,"Nana");
+        var defaultExpected=MotionImport.FromAst(world.Code["external/Chara/Motion/"+defaultRegistered[0].Resource+".txt"],document.Graph.Id,document.Graph.Skeleton);
+        var defaultPose=document.Graph.Clips[0].Sample(0);var expectedPose=defaultExpected.Clips[0].Sample(0);
+        Expect(defaultPose.Count>0&&defaultPose.Values.Any(pose=>pose.X!=0||pose.Y!=0),"the default document pose is not collapsed to the origin");
+        Expect(defaultPose.Count==expectedPose.Count&&defaultPose.All(pair=>expectedPose[pair.Key]==pair.Value),"the default document pose equals frame zero of the first registered original motion");
+        Expect(status.Text.Contains("已导入初始姿态"),"the status bar names the imported initial pose: "+status.Text);
+        var savedList=world.Code["external/Chara/Nana/motion_list.txt"];
+        try
+        {
+            world.Code.Remove("external/Chara/Nana/motion_list.txt");
+            var fallback=InitialDocument(new(MotionTargetKind.PlayerPreset,"Nana"),"audit.fallback");
+            Expect(fallback.Graph.Clips.Count==1&&fallback.Graph.Clips[0].Tracks.Count==0&&initialNotice.Contains("导入失败"),"a failed initial import falls back to an empty document with a status message: "+initialNotice);
+        }
+        finally{world.Code["external/Chara/Nana/motion_list.txt"]=savedList;initialNotice="";}
         _UnhandledKeyInput(new InputEventKey{Keycode=Key.Q,Pressed=true,Echo=false});
         Expect(!GetViewport().IsInputHandled(),"an unbound key bubbles past the editor");
         _UnhandledKeyInput(new InputEventKey{Keycode=Key.Escape,Pressed=true,Echo=false});
@@ -94,55 +127,86 @@ public partial class NativeActionEditor
         Expect(loadedLimbs>0&&loadedWorst<=.5,"the loaded skeleton lands on the drawn limbs: draws="+loadedLimbs+" worst="+loadedWorst.ToString("F3"));
         PopupCentered();
         for(int i=0;i<3;i++)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
-        var statePage=inspector.GetTabControl(1);
-        Expect(!Descendants(statePage).OfType<ScrollContainer>().Any(),"the state page has no scroll container");
-        Expect(statePage.GetCombinedMinimumSize().Y<=inspector.Size.Y,"the state page fits the inspector without scrolling");
-        inspector.CurrentTab=1;
-        await Shot("motion-state-page");
-        inspector.CurrentTab=0;
+        Expect(sourceView is CodeEdit{Editable:true}&&rawView is CodeEdit{Editable:true}&&sourceView.SyntaxHighlighter is TomlSyntaxHighlighter&&rawView.SyntaxHighlighter is TomlSyntaxHighlighter,"the left pages highlight TOML while editing");
+        Expect(sourceView.CodeCompletionEnabled&&rawView.CodeCompletionEnabled,"the left pages complete TOML");
+        Expect(sourceView.Text.StartsWith("[[frame]]")&&sourceView.Text.Contains("index = "+frame.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)),"节点属性修改 renders the current frame block");
+        Expect(rawView.Text.Contains("[[clip]]")&&rawView.Text.Contains("[[state]]")&&rawView.Text.Contains("[state.movement]"),"原始数据 renders the whole graph as TOML tables");
+        AuditCompletion();
+        var extendedDuration=Clip.Duration*2;
+        string currentDuration="duration = "+Clip.Duration.ToString("R",System.Globalization.CultureInfo.InvariantCulture);
+        string extendedText="duration = "+extendedDuration.ToString("R",System.Globalization.CultureInfo.InvariantCulture);
+        TypeSource(rawView,rawView.Text.Replace(currentDuration,extendedText));
+        CommitGraph();
+        TypeSource(sourceView,"[[frame]]\nindex = 0\nHEAD.x = 2.5\n");
+        CommitFrame();
+        Expect(Math.Abs(Clip.Sample(0).GetValueOrDefault("HEAD").X-2.5)<1e-9&&sourceView.Text.Contains("HEAD.x = 2.5"),"committing the frame text writes the pose and re-renders the block");
+        TypeSource(sourceView,"[[frame]]\nindex = 0\nHEAD.y = 1.5\n");
+        await Wait(800);
+        Expect(Math.Abs(Clip.Sample(0).GetValueOrDefault("HEAD").Y-1.5)<1e-9,"a paused edit hot-updates the frame text");
+        int frameUndo=document.UndoDepth;
+        TypeSource(sourceView,"[[frame]]\nindex = 0\nHEAD.nope = 1\n");
+        CommitFrame();
+        Expect(sourceView.Text.Contains("HEAD.nope")&&document.UndoDepth==frameUndo,"invalid frame text is rejected without an edit");
+        Expect(rawView.Text.Contains(extendedText),"an unfocused graph edit survives refreshes from the frame page");
+        CommitGraph();
+        Expect(Math.Abs(Clip.Duration-extendedDuration)<1e-9,"committing the graph text applies the whole document");
+        TypeSource(rawView,rawView.Text.Replace("loop = true","loop = false"));
+        await Wait(800);
+        Expect(!Clip.Loop,"a paused edit hot-updates the graph text");
+        frame.Value=100000;
+        TypeSource(sourceView,"[[frame]]\nindex = 100000\nHEAD.x = 4\n");
+        int rangeUndo=document.UndoDepth;
+        CommitFrame();
+        Expect(document.UndoDepth==rangeUndo&&status.Text.Contains("帧号超出片段长度"),"an out of range frame text is rejected without an edit");
+        frame.Value=0;
+        int graphUndo=document.UndoDepth;
+        TypeSource(rawView,"id = \"broken\"\nskeleton = \"Nana\"\nentry = \"idle\"\n[[clip]]\nid = \"idle\"\nduration = 10\n[[state]]\nid = \"idle\"\nclip = \"idle\"\nunknown = 1\n");
+        CommitGraph();
+        Expect(document.Graph.Id!="broken"&&document.UndoDepth==graphUndo&&rawView.Text.Contains("unknown = 1"),"invalid graph text is rejected without an edit");
+        AuditHighlighter();
+        await AuditSourceHotUpdate();
+        await Shot("motion-left-pages");
         var studio=preview!;var studioWorld=studio.World;
         var skeleton=studio.Bridge.Services.Motions.Skeleton(new(studio.World,studio.Player!));
         Expect(skeleton.Count==15,"preview exposes the 15 part skeleton");
-        document=new(new MotionGraph{Id="audit.ik",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_TOP",Keys=[new(){Frame=0}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=3}]},new(){Bone="HAND1_BELOW",Keys=[new(){Frame=0,X=3}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND1_BELOW"}]});
+        document=new(new MotionGraph{Id="audit.ik",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_TOP",Keys=[new(){Frame=0}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=3}]},new(){Bone="HAND2_ABOVE",Keys=[new(){Frame=0,X=3}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND2_ABOVE"}]});
         Refresh();
-        var ikDragged=document.Drag("idle","HAND1_BELOW",0,4,2);
+        var ikDragged=document.Drag("idle","HAND2_ABOVE",0,4,2);
         Expect(ikDragged.Success,"IK drag applies from the editor document");
         Expect(Clip.Tracks.Single(t=>t.Bone=="BODY_TOP").Keys.Single().Angle!=0,"IK drag writes the chain root angle");
-        document.Undo();Expect(Clip.Tracks.Single(t=>t.Bone=="BODY_TOP").Keys.Single().Angle==0,"IK drag undo restores the chain root");
-        Expect(graphView.GetChildren().OfType<GraphNode>().Count()==1,"entry state has a graph node");
+        Refresh();Expect(sourceView.Text.Contains("BODY_TOP.angle"),"a canvas drag re-renders the frame text");
+        document.Undo();Refresh();Expect(Clip.Tracks.Single(t=>t.Bone=="BODY_TOP").Keys.Single().Angle==0&&!sourceView.Text.Contains("BODY_TOP.angle"),"IK drag undo restores the chain root and the text");
         await Shot("motion-studio");
         await Shot("motion-transport");
         Project.ClipIndex=0;
         document=new(new MotionGraph{Id="audit.live",Clips=[new(){Id="idle",Duration=20}],States=[new(){Id="idle",Clip="idle"}]});
-        Refresh();SelectBone("HEAD");frame.Value=3;
+        Refresh();frame.Value=3;
         int liveUndo=document.UndoDepth;
-        x.Value=5;
-        Expect(Clip.Tracks.Any(track=>track.Bone=="HEAD"&&track.Keys.Any(key=>key.Frame==3&&Math.Abs(key.X-5)<.001)),"editing X writes the current frame key without a button");
-        Expect(document.UndoDepth==liveUndo+1,"the first immediate write adds one undo step");
-        x.Value=7;x.Value=9;
-        Expect(document.UndoDepth==liveUndo+1,"changing one control three times keeps a single undo step");
-        Expect(Math.Abs(Clip.Sample(3)["HEAD"].X-9)<.001,"the control keeps writing the latest value");
-        await Wait(600);
-        x.Value=11;
-        Expect(document.UndoDepth==liveUndo+2,"edits more than 500ms apart start a new undo step");
-        path=Path.Combine(output,"editor.coalesce.motion.json");Save();
-        x.Value=13;
-        Expect(document.UndoDepth==liveUndo+3,"saving resets the coalescing window");
-        double liveAngle=Clip.Sample(3)["HEAD"].Angle;
-        angle.Value=30;
-        Expect(Math.Abs(Clip.Sample(3)["HEAD"].Angle-30)<.001,"editing the angle writes the key immediately");
-        RunAction("undo");Expect(Math.Abs(Clip.Sample(3)["HEAD"].Angle-liveAngle)<.001,"undo covers immediate writes");
-        RunAction("redo");Expect(Math.Abs(Clip.Sample(3)["HEAD"].Angle-30)<.001,"redo covers immediate writes");
+        long liveClock=0;MotionGraphDocument.TickProvider=()=>liveClock;
+        try
+        {
+            duration.Value=21;
+            Expect(Clip.Duration==21,"the clip duration is written immediately");
+            Expect(document.UndoDepth==liveUndo+1,"the first immediate write adds one undo step");
+            duration.Value=22;duration.Value=23;
+            Expect(document.UndoDepth==liveUndo+1,"changing one control three times keeps a single undo step");
+            Expect(Clip.Duration==23,"the control keeps writing the latest value");
+            liveClock+=600;duration.Value=24;
+            Expect(document.UndoDepth==liveUndo+2,"edits more than 500ms apart start a new undo step");
+            path=Path.Combine(output,"editor.coalesce.motion.json");Save();
+            duration.Value=25;
+            Expect(document.UndoDepth==liveUndo+3,"saving resets the coalescing window");
+        }
+        finally{MotionGraphDocument.TickProvider=()=>System.Environment.TickCount64;}
         _UnhandledKeyInput(new InputEventKey{Keycode=Key.Z,CtrlPressed=true,Pressed=true});
-        Expect(Math.Abs(Clip.Sample(3)["HEAD"].Angle-liveAngle)<.001,"ctrl+z undoes the last edit");
+        Expect(Clip.Duration==24,"ctrl+z undoes the last edit");
         _UnhandledKeyInput(new InputEventKey{Keycode=Key.Z,CtrlPressed=true,ShiftPressed=true,Pressed=true});
-        Expect(Math.Abs(Clip.Sample(3)["HEAD"].Angle-30)<.001,"ctrl+shift+z redoes the last edit");
-        angle.Value=35;int echoUndo=document.UndoDepth;double echoAngle=Clip.Sample(3)["HEAD"].Angle;
+        Expect(Clip.Duration==25,"ctrl+shift+z redoes the last edit");
+        duration.Value=26;int echoUndo=document.UndoDepth;double echoDuration=Clip.Duration;
         _UnhandledKeyInput(new InputEventKey{Keycode=Key.Z,CtrlPressed=true,Pressed=true,Echo=true});
-        Expect(document.UndoDepth==echoUndo&&Math.Abs(Clip.Sample(3)["HEAD"].Angle-echoAngle)<.001,"a held ctrl+z echo neither undoes nor writes: depth="+document.UndoDepth+" angle="+Clip.Sample(3)["HEAD"].Angle.ToString("F2"));
+        Expect(document.UndoDepth==echoUndo&&Clip.Duration==echoDuration,"a held ctrl+z echo neither undoes nor writes: depth="+document.UndoDepth+" duration="+Clip.Duration);
         _UnhandledKeyInput(new InputEventKey{Keycode=Key.Z,CtrlPressed=true,Pressed=true});
-        Expect(document.UndoDepth==echoUndo-1&&Math.Abs(Clip.Sample(3)["HEAD"].Angle-30)<.001,"ctrl+z without echo undoes the last angle edit: depth="+document.UndoDepth+" angle="+Clip.Sample(3)["HEAD"].Angle.ToString("F2"));
-        duration.Value=25;Expect(Clip.Duration==25,"the clip duration is written immediately");
+        Expect(document.UndoDepth==echoUndo-1&&Clip.Duration==25,"ctrl+z without echo undoes the last duration edit: depth="+document.UndoDepth+" duration="+Clip.Duration);
         loop.ButtonPressed=false;Expect(!Clip.Loop,"the clip loop flag is written immediately");
         Expect(!ButtonText("写入关键帧")&&!ButtonText("更新片段")&&!ButtonText("写入参数")&&!ButtonText("写入事件"),"the submit buttons are gone");
         var fileMenu=MenuLabels("文件").ToList();
@@ -152,100 +216,7 @@ public partial class NativeActionEditor
         foreach(var menu in Descendants(this).OfType<MenuButton>()){var popup=menu.GetPopup();popup.EmitSignal(PopupMenu.SignalName.AboutToPopup);for(int i=0;i<popup.ItemCount;i++)if(popup.GetItemText(i)=="应用到游戏角色")applyCount++;}
         Expect(applyCount==1,"applying to the game is offered exactly once");
         Project.ClipIndex=0;
-        document=new(new MotionGraph{Id="audit.machine",Clips=[new(){Id="idle"}],States=[new(){Id="idle",Clip="idle"}]});
-        Refresh();
-        Expect(Descendants(inspector.GetTabControl(2)).OfType<GraphEdit>().Any(),"the state machine page owns a graph");
-        Expect(graphView.GetChildren().OfType<GraphNode>().Count()==1,"the entry state has a graph node");
-        machineStateId.Text="walk";AddMachineState();
-        Expect(document.Graph.States.Count==2&&graphView.GetChildren().OfType<GraphNode>().Count()==2,"adding a state updates the document and the graph");
-        Expect(stateList.ItemCount==2&&stateList.GetItemText(1)=="walk","the left dock lists every state");
-        stateList.Select(0);stateList.EmitSignal(ItemList.SignalName.ItemSelected,(long)0);
-        Expect(stateChoice.Selected==0,"clicking the left state list selects the state");
-        stateChoice.Select(1);RefreshStateInspector();
-        Expect(graphView.GetChildren().OfType<GraphNode>().Any(node=>node.Name==NodeName("walk")&&node.Selected),"selecting a state selects its graph node");
-        Expect(stateList.GetSelectedItems().Length==1&&stateList.GetSelectedItems()[0]==1,"selecting a state highlights the left list");
-        stateChoice.Select(0);RefreshStateInspector();
-        var walkNode=graphView.GetChildren().OfType<GraphNode>().First(node=>node.Name==NodeName("walk"));
-        graphView.SetSelected(walkNode);graphView.EmitSignal(GraphEdit.SignalName.NodeSelected,walkNode);
-        Expect(stateChoice.Selected==1,"selecting a graph node selects the state list");
-        transitionTarget.Select(0);transitionPriority.Value=3;AddTransition();
-        Expect(document.Graph.States[1].Transitions.Count==1&&graphView.GetConnectionList().Count==1,"adding a transition writes the document and the graph");
-        transitionList.Select(0);ReadTransition();int priorityUndo=document.UndoDepth;transitionPriority.Value=5;
-        Expect(document.Graph.States[1].Transitions[0].Priority==5,"editing the priority writes the transition");
-        transitionPriority.Value=6;transitionPriority.Value=7;
-        Expect(document.UndoDepth==priorityUndo+1&&document.Graph.States[1].Transitions[0].Priority==7,"consecutive priority edits keep a single undo step");
-        conditionKind.Select(0);AddCondition();
-        Expect(document.Graph.States[1].Transitions[0].Conditions.Count==1&&conditionList.ItemCount==1,"adding a condition writes the transition");
-        conditionList.Select(0);ReadCondition();conditionValue.Value=7;
-        Expect(Math.Abs(document.Graph.States[1].Transitions[0].Conditions[0].Value-7)<.001,"editing a condition writes the transition");
-        RemoveCondition();
-        Expect(document.Graph.States[1].Transitions[0].Conditions.Count==0,"removing a condition writes the transition");
-        transitionList.Select(0);ReadTransition();RemoveTransition();
-        Expect(document.Graph.States[1].Transitions.Count==0&&graphView.GetConnectionList().Count==0,"removing a transition drops the graph edge");
-        stateChoice.Select(1);RefreshStateInspector();transitionTarget.Select(0);AddTransition();
-        stateRename.Text="walk2";RenameSelectedState();
-        Expect(document.Graph.States[1].Id=="walk2"&&graphView.GetConnectionList().Count==1,"renaming a state rebuilds its graph edge");
-        Expect(graphView.GetChildren().OfType<GraphNode>().All(node=>node.Name!=NodeName("walk")),"the renamed state node is rebuilt");
-        Expect(stateList.GetItemText(1)=="walk2","the left state list shows the renamed state");
-        RemoveSelectedState();
-        Expect(document.Graph.States.Count==1&&graphView.GetChildren().OfType<GraphNode>().Count()==1&&graphView.GetConnectionList().Count==0,"removing a state drops its nodes and connections");
-        Expect(stateList.ItemCount==1,"removing a state updates the left list");
-        inspector.CurrentTab=2;
-        await Shot("motion-state-machine");
-        Project.ClipIndex=0;
-        document=new(new MotionGraph{Id="audit.events",Clips=[new(){Id="idle"}],States=[new(){Id="idle",Clip="idle"}],Parameters=new(StringComparer.Ordinal){{"jump",1}}});
-        Refresh();
-        Expect(Descendants(inspector.GetTabControl(3)).OfType<Tree>().Any(tree=>tree.Columns==5),"the events page is a five column table");
-        int eventRows=eventTable.GetRoot()?.GetChildCount()??0;int eventCount=Clip.Events.Count;
-        AddEvent();
-        Expect(Clip.Events.Count==eventCount+1&&(eventTable.GetRoot()?.GetChildCount()??0)==eventRows+1,"adding an event adds a row and a document entry");
-        string eventId=Clip.Events[^1].Id;
-        EditEventCell(eventId,0,"12");
-        Expect(Math.Abs(Clip.Events.Single(item=>item.Id==eventId).Start-12)<.001,"editing the start frame cell writes the event");
-        int valueUndo=document.UndoDepth;EditEventCell(eventId,3,"jump");
-        Expect(Clip.Events.Single(item=>item.Id==eventId).Value=="jump","editing the value cell writes the event");
-        EditEventCell(eventId,3,"jump2");EditEventCell(eventId,3,"jump3");
-        Expect(document.UndoDepth==valueUndo+1&&Clip.Events.Single(item=>item.Id==eventId).Value=="jump3","consecutive cell edits keep a single undo step");
-        eventKind.Select((int)MotionEventKind.Damage);eventKind.EmitSignal(OptionButton.SignalName.ItemSelected,(long)MotionEventKind.Damage);
-        Expect(Clip.Events.Single(item=>item.Id==eventId).Kind==MotionEventKind.Damage,"the type dropdown writes the selected event");
-        eventContact.ButtonPressed=true;
-        Expect(Clip.Events.Single(item=>item.Id==eventId).Contact,"the contact toggle writes the selected event");
-        RemoveEvent();
-        Expect(Clip.Events.Count==eventCount&&(eventTable.GetRoot()?.GetChildCount()??0)==eventRows,"removing the event removes its row");
-        Change(g=>{g.Parameters["boost"]=2.5;g.States[0].Transitions.Add(new(){Target="idle",Conditions=[new(){Kind=MotionConditionKind.Parameter,Comparison=MotionComparison.Greater,Value=1,Parameter="boost"}]});});
-        Refresh();
-        Expect(ParamVisible("boost"),"the graph parameter view derives condition parameters");
-        AddEvent();string jumpId=Clip.Events[^1].Id;EditEventCell(jumpId,3,"jump");
-        Expect(ParamVisible("jump"),"the graph parameter view derives parameters used by events");
-        stateChoice.Select(0);RefreshStateInspector();transitionList.Select(0);ReadTransition();conditionList.Select(0);ReadCondition();RemoveCondition();
-        Expect(!ParamVisible("boost")&&document.Graph.Parameters.ContainsKey("boost"),"the parameter view is a read-only derivation");
-        conditionKind.Select((int)MotionConditionKind.Parameter);conditionKind.EmitSignal(OptionButton.SignalName.ItemSelected,(long)MotionConditionKind.Parameter);
-        conditionParameter.Text="charge";conditionParameter.EmitSignal(LineEdit.SignalName.TextChanged,"charge");
-        int parameterCount=document.Graph.Parameters.Count;
-        AddCondition();
-        var charge=document.Graph.States[0].Transitions[0].Conditions[0];
-        Expect(document.Graph.States[0].Transitions[0].Conditions.Count==1&&charge.Kind==MotionConditionKind.Parameter&&charge.Parameter=="charge","a parameter condition can be added directly");
-        Expect(document.Graph.Parameters.Count==parameterCount+1&&document.Graph.Parameters.ContainsKey("charge")&&!document.Graph.Parameters.ContainsKey("c")&&!document.Graph.Parameters.ContainsKey("charge2"),"adding a parameter condition adds exactly one default parameter");
-        Expect(ParamVisible("charge"),"the derived parameter view shows the added parameter");
-        conditionList.Select(0);ReadCondition();
-        foreach(string typed in new[]{"c","ch","cha","char","charg","charge2"}){conditionParameter.Text=typed;conditionParameter.EmitSignal(LineEdit.SignalName.TextChanged,typed);}
-        Expect(document.Graph.Parameters.ContainsKey("charge2")&&!document.Graph.Parameters.ContainsKey("c")&&!document.Graph.Parameters.ContainsKey("charg")&&!document.Graph.Parameters.ContainsKey("charge"),"typing a parameter name prunes the intermediate default parameters");
-        Expect(ParamVisible("charge2")&&!ParamVisible("charge"),"the derived view follows the retyped parameter name");
-        inspector.CurrentTab=3;
-        await Shot("motion-parameters");
-        string legacyJson="{\"FormatVersion\":1,\"Id\":\"audit.legacy\",\"Skeleton\":\"Nana\",\"Entry\":\"idle\",\"Clips\":[{\"Id\":\"idle\",\"Duration\":60,\"Loop\":true,\"Tracks\":[],\"Root\":[],\"Events\":[]}],\"States\":[{\"Id\":\"idle\",\"Clip\":\"idle\",\"Movement\":{},\"Transitions\":[{\"Target\":\"idle\",\"Priority\":0,\"Conditions\":[{\"Kind\":\"Parameter\",\"Comparison\":\"Equal\",\"Key\":0,\"Value\":1,\"Parameter\":\"p\"}]}]}],\"Parameters\":{\"p\":2.5}}";
-        string legacyPath=Path.Combine(output,"legacy.motion.json");File.WriteAllText(legacyPath,legacyJson);
-        var legacy=MotionGraph.Load(legacyPath);
-        Expect(legacy.Parameters.Count==1&&Math.Abs(legacy.Parameters["p"]-2.5)<.001&&legacy.States[0].Transitions[0].Conditions[0].Parameter=="p","the old JSON keeps its parameters");
-        string roundTripPath=Path.Combine(output,"legacy.roundtrip.motion.json");legacy.Save(roundTripPath);
-        var roundTrip=MotionGraph.Load(roundTripPath);
-        Expect(roundTrip.Parameters.Count==1&&Math.Abs(roundTrip.Parameters["p"]-2.5)<.001&&roundTrip.States[0].Transitions[0].Conditions[0].Kind==MotionConditionKind.Parameter,"the old JSON round-trips losslessly");
-        document=new(MotionGraph.Load(legacyPath));Refresh();
-        Expect(document.Graph.Parameters.ContainsKey("p"),"loading a legacy graph into the editor keeps its parameters");
-        inspector.CurrentTab=3;
-        await Shot("motion-events");
-        Project.ClipIndex=0;
-        document=new(new MotionGraph{Id="audit.ring",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_BOTTOM",Keys=[new(){Frame=0,X=0,Y=0,Angle=0}]},new(){Bone="BODY_TOP",Keys=[new(){Frame=0,X=0,Y=0,Angle=0}]},new(){Bone="HEAD",Keys=[new(){Frame=0,X=4,Y=-16,Angle=0}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=10,Y=0,Angle=0}]},new(){Bone="HAND1_BELOW",Keys=[new(){Frame=0,X=10,Y=0,Angle=0}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND1_BELOW"}]});
+        document=new(new MotionGraph{Id="audit.ring",Clips=[new(){Id="idle",Duration=20,Tracks=[new(){Bone="BODY_BOTTOM",Keys=[new(){Frame=0,X=0,Y=0,Angle=0}]},new(){Bone="BODY_TOP",Keys=[new(){Frame=0,X=0,Y=0,Angle=0}]},new(){Bone="HEAD",Keys=[new(){Frame=0,X=4,Y=-16,Angle=0}]},new(){Bone="HAND1_ABOVE",Keys=[new(){Frame=0,X=10,Y=0,Angle=0}]},new(){Bone="HAND2_ABOVE",Keys=[new(){Frame=0,X=10,Y=0,Angle=0}]}]}],States=[new(){Id="idle",Clip="idle"}],IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND2_ABOVE"}]});
         Refresh();frame.Value=0;
         var ringActor=PreviewActor!;ringActor.Write("Direction",1);ringActor.Write("image_angle",0);
         ApplyDocumentPose();
@@ -265,14 +236,7 @@ public partial class NativeActionEditor
         Expect(overlay!.RingVisible,"selecting a bone shows the ring");
         Expect(Math.Abs(overlay.RingPixelRadius-72)<.001,"the ring keeps a fixed 72 pixel radius");
         Expect(Math.Abs((overlay.BallAngle??double.NaN)-headNode.Angle)<.001,"the ball angle equals the selected bone world angle");
-        var bars=overlay.BarPoints;
-        Expect(bars.Count==2&&bars[0]!=Vector2.Zero&&bars[1]!=Vector2.Zero&&overlay.RingHit(bars[0])=="bar:x"&&overlay.RingHit(bars[1])=="bar:y","the ring draws an X bar and a Y bar that are hittable");
-        var xBarRect=overlay.BarRect(0);var yBarRect=overlay.BarRect(1);
-        Expect(xBarRect is not null&&yBarRect is not null&&xBarRect.Value.GetCenter().DistanceTo(bars[0])<.001f&&yBarRect.Value.GetCenter().DistanceTo(bars[1])<.001f,"the drawn bar rects are centered on the bar points: x="+xBarRect?.GetCenter()+" y="+yBarRect?.GetCenter());
-        Expect(xBarRect is not null&&yBarRect is not null&&Math.Abs(xBarRect.Value.Size.X-144)<.001f&&Math.Abs(xBarRect.Value.Size.Y-8)<.001f&&Math.Abs(yBarRect.Value.Size.X-8)<.001f&&Math.Abs(yBarRect.Value.Size.Y-144)<.001f,"the X bar is 144x8 and the Y bar is 8x144");
-        Expect(xBarRect is not null&&yBarRect is not null&&overlay.RingHit(xBarRect.Value.GetCenter())=="bar:x"&&overlay.RingHit(yBarRect.Value.GetCenter())=="bar:y","the bar rect centers hit their own bars");
-        Expect(overlay.BarAxis(0).DistanceTo(new Vector2(1,0))<.001f&&overlay.BarAxis(1).DistanceTo(new Vector2(0,1))<.001f,"a level parent keeps the X bar horizontal and the Y bar vertical: "+overlay.BarAxis(0)+","+overlay.BarAxis(1));
-        int ballUndo=document.UndoDepth;
+        int ballUndo=document.UndoDepth;var ballBefore=Clip.Sample(0)["HEAD"];
         var ball=overlay.BallPoint;Expect(ball is not null,"the ring shows a ball");
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=ball!.Value});
         Expect(dragging&&dragMode==DragMode.Ball,"pressing the ball starts an absolute angle drag");
@@ -282,33 +246,9 @@ public partial class NativeActionEditor
         SurfaceInput(new InputEventMouseMotion{Position=ballTarget});
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=ballTarget});
         Expect(Math.Abs(Clip.Sample(0)["HEAD"].Angle-desired)<.1,"dragging the ball writes the absolute angle");
+        Expect(Math.Abs(Clip.Sample(0)["HEAD"].X-ballBefore.X)<.001&&Math.Abs(Clip.Sample(0)["HEAD"].Y-ballBefore.Y)<.001,"the ball drag leaves local X/Y untouched");
         Expect(document.UndoDepth==ballUndo+1,"the ball drag is one undo step");
         Expect(Math.Abs(ringActor.Services.Motions.Skeleton(ringActor).Single(node=>node.Name=="HEAD").Angle-desired)<.1,"the bone world angle follows the dragged absolute angle");
-        SelectBone("HEAD");
-        var barBefore=Clip.Sample(0)["HEAD"];int barUndo=document.UndoDepth;
-        var xBar=overlay.BarPoints[0];
-        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=xBar});
-        Expect(dragging&&dragMode==DragMode.BarX,"pressing the X bar starts a local X drag");
-        Expect(Math.Abs(Clip.Sample(0)["HEAD"].X-barBefore.X)<.001&&Math.Abs(Clip.Sample(0)["HEAD"].Y-barBefore.Y)<.001,"pressing the X bar writes nothing before release");
-        Expect(document.UndoDepth==barUndo,"pressing the X bar adds no undo step");
-        SurfaceInput(new InputEventMouseMotion{Position=xBar+new Vector2(24,0)});
-        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=xBar+new Vector2(24,0)});
-        var barAfter=Clip.Sample(0)["HEAD"];
-        Expect(barAfter.X>barBefore.X+.01,"dragging the X bar right increases local X");
-        Expect(Math.Abs(barAfter.Y-barBefore.Y)<.01,"the X bar leaves local Y alone");
-        Expect(document.UndoDepth==barUndo+1,"the X bar drag is one undo step");
-        SelectBone("HEAD");
-        var yBefore=Clip.Sample(0)["HEAD"];int yUndo=document.UndoDepth;
-        var yBar=overlay.BarPoints[1];
-        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=yBar});
-        Expect(dragging&&dragMode==DragMode.BarY,"pressing the Y bar starts a local Y drag");
-        Expect(Math.Abs(Clip.Sample(0)["HEAD"].X-yBefore.X)<.001&&Math.Abs(Clip.Sample(0)["HEAD"].Y-yBefore.Y)<.001,"pressing the Y bar writes nothing before release");
-        Expect(document.UndoDepth==yUndo,"pressing the Y bar adds no undo step");
-        SurfaceInput(new InputEventMouseMotion{Position=yBar+new Vector2(0,-24)});
-        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=yBar+new Vector2(0,-24)});
-        var yAfter=Clip.Sample(0)["HEAD"];
-        Expect(yAfter.Y<yBefore.Y-.01,"dragging the Y bar up moves the bone up");
-        Expect(document.UndoDepth==yUndo+1,"the Y bar drag is one undo step");
         SelectBone("HEAD");
         var arrowZoom=SurfacePoint(ringActor.X,ringActor.Y);
         bool OldArrowsBlank()=>Enumerable.Range(0,8).All(index=>{var node=ringActor.Services.Motions.Skeleton(ringActor).Single(item=>item.Name=="HEAD");double radians=(90-index*45)*Math.PI/180;var point=SurfacePoint(node.X,node.Y)+new Vector2((float)(Math.Cos(radians)*76),(float)(-Math.Sin(radians)*76));return PickBoneAt(point) is null&&overlay.RingHit(point) is null;});
@@ -335,86 +275,25 @@ public partial class NativeActionEditor
                 Expect(document.UndoDepth==arrowUndo,"dragging from an old arrow position adds no undo step");
                 Expect(Math.Abs(releasedNode.X-arrowNode.X)<.001&&Math.Abs(releasedNode.Y-arrowNode.Y)<.001,"dragging from an old arrow position moves no bone");
             }
-        SelectBone("HEAD");
-        string parentName=parentNode?.Name??"BODY_TOP";
-        document.Edit(g=>{var track=g.Clips[0].Tracks.FirstOrDefault(item=>item.Bone==parentName);if(track is null){track=new(){Bone=parentName};g.Clips[0].Tracks.Add(track);}track.Keys.RemoveAll(key=>key.Frame==0);track.Keys.Add(new(){Frame=0,Angle=30});});
-        Refresh();ApplyDocumentPose();SelectBone("HEAD");
-        var rotatedBefore=Clip.Sample(0)["HEAD"];int rotatedUndo=document.UndoDepth;
-        var rotatedBar=overlay.BarPoints[0];
-        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=rotatedBar});
-        SurfaceInput(new InputEventMouseMotion{Position=rotatedBar+new Vector2(24,0)});
-        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=rotatedBar+new Vector2(24,0)});
-        var rotatedAfter=Clip.Sample(0)["HEAD"];
-        Expect(Math.Abs(rotatedAfter.X-rotatedBefore.X)>.01,"the X bar under a rotated parent changes local X");
-        Expect(Math.Abs(rotatedAfter.Y-rotatedBefore.Y)<.01,"the X bar under a rotated parent leaves local Y alone");
-        Expect(document.UndoDepth==rotatedUndo+1,"the rotated parent X drag is one undo step");
-        document.Edit(g=>{var track=g.Clips[0].Tracks.FirstOrDefault(item=>item.Bone==parentName);if(track is null){track=new(){Bone=parentName};g.Clips[0].Tracks.Add(track);}track.Keys.RemoveAll(key=>key.Frame==0);track.Keys.Add(new(){Frame=0,Angle=0});});
-        Refresh();ApplyDocumentPose();SelectBone("HEAD");
-        ringActor.Write("Direction",-1);ApplyDocumentPose();SelectBone("HEAD");
-        var mirrorBefore=Clip.Sample(0)["HEAD"];int mirrorUndo=document.UndoDepth;
-        var mirrorBar=overlay.BarPoints[0];
-        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=mirrorBar});
-        SurfaceInput(new InputEventMouseMotion{Position=mirrorBar+new Vector2(24,0)});
-        Expect(overlay.BarKnob(0) is { } mirrorKnob&&mirrorKnob.X-mirrorBar.X>20,"the mirrored bar knob follows the pointer to the right: "+overlay.BarKnob(0));
-        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=mirrorBar+new Vector2(24,0)});
-        var mirrorAfter=Clip.Sample(0)["HEAD"];
-        Expect(Math.Abs(mirrorAfter.X-mirrorBefore.X)>.01,"the mirrored X bar still changes local X");
-        Expect(Math.Abs(mirrorAfter.Y-mirrorBefore.Y)<.01,"the mirrored X bar leaves local Y alone");
-        Expect(document.UndoDepth==mirrorUndo+1,"the mirrored X drag is one undo step");
-        ringActor.Write("Direction",1);ApplyDocumentPose();SelectBone("HEAD");
-        document.Edit(g=>{var track=g.Clips[0].Tracks.FirstOrDefault(item=>item.Bone==parentName);if(track is null){track=new(){Bone=parentName};g.Clips[0].Tracks.Add(track);}track.Keys.RemoveAll(key=>key.Frame==0);track.Keys.Add(new(){Frame=0,Angle=90});});
-        Refresh();ApplyDocumentPose();SelectBone("HEAD");
-        var uprightXRect=overlay.BarRect(0);var uprightYRect=overlay.BarRect(1);
-        Expect(overlay.BarAxis(0).DistanceTo(new Vector2(0,-1))<.001f&&uprightXRect is not null&&Math.Abs(uprightXRect.Value.Size.X-8)<.001f&&Math.Abs(uprightXRect.Value.Size.Y-144)<.001f,"the X bar stands upright under a 90 degree parent: axis="+overlay.BarAxis(0)+" size="+uprightXRect?.Size);
-        Expect(uprightYRect is not null&&Math.Abs(uprightYRect.Value.Size.X-144)<.001f&&Math.Abs(uprightYRect.Value.Size.Y-8)<.001f,"the Y bar lies flat under a 90 degree parent: size="+uprightYRect?.Size);
-        var uprightBefore=Clip.Sample(0)["HEAD"];int uprightUndo=document.UndoDepth;
-        var uprightBar=overlay.BarPoints[0];
-        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=uprightBar});
-        SurfaceInput(new InputEventMouseMotion{Position=uprightBar+new Vector2(24,0)});
-        Expect(overlay.BarKnob(0) is { } uprightKnob&&uprightKnob.DistanceTo(uprightBar)<.5f,"a perpendicular drag leaves the upright X bar knob still: "+overlay.BarKnob(0));
-        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=uprightBar+new Vector2(24,0)});
-        var uprightAfter=Clip.Sample(0)["HEAD"];
-        Expect(Math.Abs(uprightAfter.X-uprightBefore.X)<.01&&Math.Abs(uprightAfter.Y-uprightBefore.Y)<.01,"a perpendicular drag on the upright X bar writes no local X/Y: "+uprightAfter.X.ToString("F3")+","+uprightAfter.Y.ToString("F3"));
-        Expect(document.UndoDepth==uprightUndo,"a perpendicular drag on the upright X bar adds no undo step");
-        Expect(status.Text.Contains("未移动"),"a perpendicular drag on the upright X bar reports no movement: "+status.Text);
-        SelectBone("HEAD");
-        var alongBefore=Clip.Sample(0)["HEAD"];int alongUndo=document.UndoDepth;
-        var alongBar=overlay.BarPoints[0];
-        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=alongBar});
-        SurfaceInput(new InputEventMouseMotion{Position=alongBar+new Vector2(0,-24)});
-        Expect(overlay.BarKnob(0) is { } alongKnob&&Math.Abs((alongBar.Y-alongKnob.Y)-24)<.5f,"the upright X bar knob follows the pointer up: "+overlay.BarKnob(0));
-        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=alongBar+new Vector2(0,-24)});
-        var alongAfter=Clip.Sample(0)["HEAD"];
-        Expect(alongAfter.X-alongBefore.X>.01&&Math.Abs(alongAfter.Y-alongBefore.Y)<.01,"dragging the upright X bar up changes local X only: "+alongAfter.X.ToString("F3")+","+alongAfter.Y.ToString("F3"));
-        Expect(document.UndoDepth==alongUndo+1,"the upright X bar drag is one undo step");
-        document.Edit(g=>{var track=g.Clips[0].Tracks.FirstOrDefault(item=>item.Bone==parentName);if(track is null){track=new(){Bone=parentName};g.Clips[0].Tracks.Add(track);}track.Keys.RemoveAll(key=>key.Frame==0);track.Keys.Add(new(){Frame=0,Angle=0});});
-        Refresh();ApplyDocumentPose();SelectBone("HEAD");
-        var flatRect=overlay.BarRect(0);
-        Expect(overlay.BarAxis(0).DistanceTo(new Vector2(1,0))<.001f&&flatRect is not null&&Math.Abs(flatRect.Value.Size.X-144)<.001f&&Math.Abs(flatRect.Value.Size.Y-8)<.001f,"a level parent lays the X bar flat again: axis="+overlay.BarAxis(0)+" size="+flatRect?.Size);
         SelectBone("HAND1_ABOVE");
         Expect(overlay.ChainFocusIndex>=0,"selecting an IK chain bone focuses the chain");
         var chainBones=overlay.FocusChainBones;
-        Expect(chainBones.Length==3&&chainBones.Contains("BODY_TOP")&&chainBones.Contains("HAND1_ABOVE")&&chainBones.Contains("HAND1_BELOW"),"the overlay highlights all three chain bones");
+        Expect(chainBones.Length==3&&chainBones.Contains("BODY_TOP")&&chainBones.Contains("HAND1_ABOVE")&&chainBones.Contains("HAND2_ABOVE"),"the overlay highlights all three chain bones");
         Expect(overlay.EndHandleVisible,"the chain end has a handle");
-        var ikRows=ikList.GetSelectedItems();
-        Expect(ikRows.Length==1&&ikList.GetItemText(ikRows[0]).Contains("HAND1_BELOW"),"the left dock selects the chain");
-        inspector.CurrentTab=0;
         await Shot("motion-ring");
         SelectBone("HEAD");
         Expect(overlay.RingVisible,"selecting a bone shows the ring again");
-        rootTrack.ButtonPressed=true;
+        rootTrackMode=true;
         int rootUndo=document.UndoDepth;
         var blank=SurfacePoint(ringActor.X+400,ringActor.Y+400);
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=blank});
         Expect(!overlay.RingVisible&&highlightedBone is null,"clicking empty canvas hides the ring");
         Expect(Clip.Root.Count==0&&document.UndoDepth==rootUndo,"clearing the selection never writes a root key");
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=blank});
-        rootTrack.ButtonPressed=false;
+        rootTrackMode=false;
         SelectBone("HEAD");
         Expect(overlay.ChainFocusIndex<0,"a non-chain bone clears the chain highlight");
         Change(g=>{g.States.Add(new(){Id="next",Clip=g.Clips[0].Id});g.Clips.Add(new(){Id="next",Duration=20});});
-        stateChoice.Select(1);RefreshStateInspector();
-        Expect(ReferenceEquals(preview,studio)&&ReferenceEquals(preview.World,studioWorld),"switching states keeps the single preview world");
         clipChoice.Select(1);RefreshTimeline();
         Expect(ReferenceEquals(preview,studio)&&ReferenceEquals(preview.World,studioWorld),"switching clips keeps the single preview world");
         document.Undo();
@@ -422,6 +301,7 @@ public partial class NativeActionEditor
         int projectIndex=activeProject;
         NewProject(new(MotionTargetKind.PlayerPreset,"Ryoko"),"audit.project",false);
         Expect(projects.Count==projectIndex+2&&document.Graph.Skeleton=="Ryoko"&&Project.Target.Kind==MotionTargetKind.PlayerPreset,"new project targets the preset skeleton");
+        Expect(document.Graph.Clips[0].Sample(0).Values.Any(pose=>pose.X!=0||pose.Y!=0),"a new project imports its target preset's first original motion at frame 0");
         Expect(tabs.TabCount==projects.Count,"the character bar lists one tab per project");
         int tabCount=tabs.TabCount;
         NewProject(new(MotionTargetKind.PlayerPreset,"Nana"),"audit.duplicate",false);
@@ -440,7 +320,7 @@ public partial class NativeActionEditor
         SwitchProject(projectIndex+1);
         await Ready();
         Expect(ReferenceEquals(preview,studio)&&ReferenceEquals(preview.World,studioWorld),"switching projects keeps the single preview world");
-        Change(g=>g.Clips[0].Tracks.Add(new(){Bone="HEAD",Keys=[new(){Frame=0}]}));
+        Change(g=>g.Clips[0].Duration+=10);
         Expect(Project.Dirty,"editing a project marks it dirty");
         CloseProject(projects.Count-1);
         Expect(pendingConfirmation is not null&&confirmation.DialogText.Contains("未保存"),"closing a dirty project asks for confirmation");
@@ -451,17 +331,10 @@ public partial class NativeActionEditor
         Expect(projects.Count==projectIndex+1&&activeProject==projectIndex,"closing the extra project keeps the active one");
         NewProject(new(MotionTargetKind.Entity,"objEnemyDoll"),"audit.entity",false);
         Expect(document.Graph.Skeleton=="legacy:objEnemyDoll"&&targetLabel.Text.Contains("临时骨架"),"entity project uses a labelled legacy skeleton");
-        Change(g=>{g.States.Add(new(){Id="next",Clip=g.Clips[0].Id});g.States[0].Transitions.Add(new(){Target="next"});});
-        stateChoice.Select(1);RefreshStateInspector();
-        stateRename.Text="walk";RenameSelectedState();
-        Expect(document.Graph.States[1].Id=="walk"&&document.Graph.States[0].Transitions[0].Target=="walk","structured rename rewrites transitions");
-        RemoveSelectedState();
-        Expect(document.Graph.States.Count==1&&document.Graph.States[0].Transitions.Count==0,"structured delete drops transitions");
-        velocityXOn.ButtonPressed=true;velocityX.Value=3;
-        Expect(document.Graph.States[0].Movement.VelocityX==3,"structured movement writes the state");
+        Change(g=>g.Clips[0].Duration=42);
         string projectFile=Path.Combine(output,"editor.project.motion.json");path=projectFile;Save();
         document=new(MotionGraph.Load(projectFile));Refresh();
-        Expect(document.Graph.States[0].Movement.VelocityX==3,"structured state survives reload");
+        Expect(Clip.Duration==42,"the saved clip survives reload");
         Change(g=>g.Id="audit.export");
         string package=Path.Combine(store.Projects,"audit-motion-project");Directory.CreateDirectory(package);
         NativeContentStore.Save(Path.Combine(package,"mod.json"),new NativeModManifest{FormatVersion=2,Id="audit.motion.project",Name="Audit project",Version="1.0.0",Content=new()});
@@ -515,56 +388,25 @@ public partial class NativeActionEditor
         Expect(ReferenceEquals(preview,previewBefore),"undo and redo do not rebuild the preview");
         await Shot("motion-follow");
         document=new(MotionImport.FromAst(world.Code["external/Chara/Motion/PlayerNana/Stand0_Damage.txt"],"audit.editor","Nana"));Refresh();
-        SelectBone("HEAD");frame.Value=2;angle.Value=17;
-        Expect(Clip.Tracks.Single(t=>t.Bone=="HEAD").Keys.Any(k=>k.Frame==2&&k.Angle==17),"the timeline controls write a real bone key");
-        document.Undo();Expect(!Clip.Tracks.Single(t=>t.Bone=="HEAD").Keys.Any(k=>k.Frame==2),"undo removes the timeline key");document.Redo();
-        document.Edit(g=>g.IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND1_BELOW"}]);
+        Expect(document.Graph.Origin=="native"&&(targetLabel.Text.Contains("原版层")||targetLabel.Text.Contains("Native")),"an imported original action is labelled as the native layer");
+        frame.Value=2;
+        document.Edit(g=>g.IkChains=[new(){Root="FOOT1_ABOVE",Mid="FOOT2_ABOVE",End="FOOT3_ABOVE"}]);
         Refresh();var canvasActor=PreviewActor!;canvasActor.Write("Direction",1);ApplyDocumentPose();
-        var canvasNodes=canvasActor.Services.Motions.Skeleton(canvasActor);
-        string? Topmost(double x,double y)
-        {
-            string? best=null;double bestDepth=double.MaxValue;int bestOrder=-1;
-            foreach(var node in canvasNodes)
-            {
-                var part=canvasActor.World.Instances.FirstOrDefault(item=>item.Id==node.Instance);
-                if(part is null||part.Destroyed||!part.Active||!part.Scope.ReadOr("visible").Truth)continue;
-                var bounds=canvasActor.World.Bounds(part);
-                if(bounds.Empty||x<bounds.Left||x>bounds.Right||y<bounds.Top||y>bounds.Bottom)continue;
-                double depth=part.Scope.ReadOr("depth").Number;int order=canvasActor.World.Instances.IndexOf(part);
-                if(depth<bestDepth||(depth==bestDepth&&order>bestOrder)){best=node.Name;bestDepth=depth;bestOrder=order;}
-            }
-            return best;
-        }
         Vector2 PointFor(string name)
         {
-            var node=canvasNodes.Single(item=>item.Name==name);var bounds=canvasActor.World.Bounds(canvasActor.World.Instances.First(item=>item.Id==node.Instance));
-            for(double y=bounds.Top+2;y<=bounds.Bottom-2;y+=2)for(double x=bounds.Left+2;x<=bounds.Right-2;x+=2)if(Topmost(x,y)==name&&Topmost(x+1,y)==name&&Topmost(x-1,y)==name&&Topmost(x,y+1)==name&&Topmost(x,y-1)==name)return SurfacePoint(x,y);
-            throw new InvalidOperationException("No unoccluded canvas point for "+name);
+            var node=PreviewActor!.Services.Motions.Skeleton(PreviewActor).Single(item=>item.Name==name);var point=overlay.SurfacePoint(node.X,node.Y);
+            Expect(PickBoneAt(point)==name,"the drawn joint of "+name+" picks its own bone: "+PickBoneAt(point));
+            return point;
         }
-        int pickable=0;
-        foreach(var node in canvasNodes){var expectedName=Topmost(node.X,node.Y);if(expectedName is null)continue;pickable++;Expect(PickBoneAt(SurfacePoint(node.X,node.Y))==expectedName,"part rect hit picks the topmost bone at "+node.Name);}
-        Expect(pickable>0,"visible part rects are pickable");
-        bool overlaps=false;
-        for(int a=0;a<canvasNodes.Count&&!overlaps;a++)for(int b=a+1;b<canvasNodes.Count&&!overlaps;b++)
-        {
-            var first=canvasActor.World.Bounds(canvasActor.World.Instances.First(item=>item.Id==canvasNodes[a].Instance));
-            var second=canvasActor.World.Bounds(canvasActor.World.Instances.First(item=>item.Id==canvasNodes[b].Instance));
-            double left=Math.Max(first.Left,second.Left),right=Math.Min(first.Right,second.Right),top=Math.Max(first.Top,second.Top),bottom=Math.Min(first.Bottom,second.Bottom);
-            if(right<left||bottom<top)continue;
-            double x=(left+right)/2,y=(top+bottom)/2;
-            var expectedName=Topmost(x,y);Expect(expectedName is not null&&expectedName==PickBoneAt(SurfacePoint(x,y)),"overlapping part rects pick the topmost bone");
-            overlaps=true;
-        }
-        Expect(overlaps,"character part rects overlap somewhere");
         string Serialized()=>System.Text.Json.JsonSerializer.Serialize(document.Graph,NativeContentStore.Json);
         var emptyBefore=Serialized();var blankPoint=SurfacePoint(canvasActor.X+400,canvasActor.Y+400);
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=blankPoint});
-        Expect(!dragging&&highlightedBone is null&&boneList.GetSelectedItems().Length==0&&bone.Selected<0,"clicking empty canvas clears the selection");
+        Expect(!dragging&&highlightedBone is null&&!overlay.RingVisible,"clicking empty canvas clears the selection");
         Expect(Serialized()==emptyBefore,"clicking empty canvas leaves the document untouched");
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=blankPoint});
         var headPoint=PointFor("HEAD");
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=headPoint});
-        Expect(dragging&&highlightedBone is not null&&boneList.GetSelectedItems().Length==1,"clicking a part selects and highlights the bone");
+        Expect(dragging&&highlightedBone is not null&&overlay.RingVisible,"clicking a part selects and highlights the bone");
         int clickUndo=document.UndoDepth;
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=headPoint});
         Expect(!dragging&&Serialized()==emptyBefore&&document.UndoDepth==clickUndo,"a click without movement writes no key and no undo step");
@@ -573,60 +415,100 @@ public partial class NativeActionEditor
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Right,Pressed=true,Position=headPoint});
         Expect(!dragging&&Serialized()==emptyBefore,"right click cancels the drag without editing");
         var fkBefore=Clip.Sample(frame.Value)["HEAD"];int fkUndo=document.UndoDepth;
-        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=headPoint});
-        Expect(dragging&&Math.Abs(Clip.Sample(frame.Value)["HEAD"].Angle-fkBefore.Angle)<.001,"pressing an FK bone does not jump");
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,AltPressed=true,Position=headPoint});
+        Expect(dragging&&dragMode==DragMode.Fk&&Math.Abs(Clip.Sample(frame.Value)["HEAD"].Angle-fkBefore.Angle)<.001,"alt pressing an FK bone rotates without jumping");
         var fkTarget=SurfacePoint(CanvasPosition(headPoint).X+24,CanvasPosition(headPoint).Y-8);
         SurfaceInput(new InputEventMouseMotion{Position=fkTarget});
-        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=fkTarget});
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,AltPressed=true,Position=fkTarget});
         var fkPose=Clip.Sample(frame.Value)["HEAD"];double fkLength=Math.Sqrt(fkBefore.X*fkBefore.X+fkBefore.Y*fkBefore.Y);
         Expect(Math.Abs(Math.Sqrt(fkPose.X*fkPose.X+fkPose.Y*fkPose.Y)-fkLength)<.001,"FK drag keeps the bone length");
+        Expect(Math.Abs(fkPose.Angle-fkBefore.Angle)>.001,"FK drag changes the angle");
         Expect(Clip.Tracks.Single(item=>item.Bone=="HEAD").Keys.Any(key=>key.Frame==frame.Value),"FK drag writes the current frame key");
         Expect(document.UndoDepth==fkUndo+1,"FK drag adds exactly one undo step");
         RunAction("undo");Expect(Math.Abs(Clip.Sample(frame.Value)["HEAD"].Angle-fkBefore.Angle)<.001,"FK drag is one undo step");RunAction("redo");
-        var shiftBefore=Clip.Sample(frame.Value)["HEAD"];
-        var shiftStart=PointFor("HEAD");
-        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,ShiftPressed=true,Position=shiftStart});
-        var shiftTarget=SurfacePoint(CanvasPosition(shiftStart).X-12,CanvasPosition(shiftStart).Y+10);
-        SurfaceInput(new InputEventMouseMotion{Position=shiftTarget});
-        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,ShiftPressed=true,Position=shiftTarget});
-        var shiftPose=Clip.Sample(frame.Value)["HEAD"];
-        Expect(Math.Abs(Math.Sqrt(shiftPose.X*shiftPose.X+shiftPose.Y*shiftPose.Y)-fkLength)<.001,"Shift drag keeps the FK bone length");
-        Expect(Math.Abs(shiftPose.Angle-shiftBefore.Angle)>.001,"Shift drag rotates instead of translating");
-        RunAction("undo");Expect(Math.Abs(Clip.Sample(frame.Value)["HEAD"].Angle-shiftBefore.Angle)<.001,"Shift drag is one undo step");RunAction("redo");
+        var moveBefore=Clip.Sample(frame.Value)["HEAD"];int moveUndo=document.UndoDepth;
+        var moveStart=PointFor("HEAD");
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=moveStart});
+        Expect(dragging&&dragMode==DragMode.Translate,"dragging a node without alt translates it");
+        var moveTarget=SurfacePoint(CanvasPosition(moveStart).X+24,CanvasPosition(moveStart).Y-8);
+        SurfaceInput(new InputEventMouseMotion{Position=moveTarget});
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=moveTarget});
+        var movePose=Clip.Sample(frame.Value)["HEAD"];
+        Expect(Math.Abs(movePose.X-moveBefore.X)+Math.Abs(movePose.Y-moveBefore.Y)>.01,"node drag changes local X/Y");
+        Expect(Math.Abs(movePose.Angle-moveBefore.Angle)<.001,"node drag leaves the angle untouched");
+        Expect(document.UndoDepth==moveUndo+1,"node drag adds exactly one undo step");
+        RunAction("undo");Expect(Math.Abs(Clip.Sample(frame.Value)["HEAD"].X-moveBefore.X)<.001&&Math.Abs(Clip.Sample(frame.Value)["HEAD"].Y-moveBefore.Y)<.001,"node drag is one undo step");RunAction("redo");
         var chainBefore=Clip.Sample(frame.Value);
-        double midLength=Math.Sqrt(chainBefore["HAND1_ABOVE"].X*chainBefore["HAND1_ABOVE"].X+chainBefore["HAND1_ABOVE"].Y*chainBefore["HAND1_ABOVE"].Y);
-        double endLength=Math.Sqrt(chainBefore["HAND1_BELOW"].X*chainBefore["HAND1_BELOW"].X+chainBefore["HAND1_BELOW"].Y*chainBefore["HAND1_BELOW"].Y);
-        var endPoint=PointFor("HAND1_BELOW");int ikGestureUndo=document.UndoDepth;
+        double midLength=Math.Sqrt(chainBefore["FOOT2_ABOVE"].X*chainBefore["FOOT2_ABOVE"].X+chainBefore["FOOT2_ABOVE"].Y*chainBefore["FOOT2_ABOVE"].Y);
+        double endLength=Math.Sqrt(chainBefore["FOOT3_ABOVE"].X*chainBefore["FOOT3_ABOVE"].X+chainBefore["FOOT3_ABOVE"].Y*chainBefore["FOOT3_ABOVE"].Y);
+        double reach=midLength+endLength;
+        var endPoint=PointFor("FOOT3_ABOVE");int ikGestureUndo=document.UndoDepth;
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=endPoint});
         Expect(dragging&&dragMode==DragMode.Ik,"dragging an IK chain end uses IK by default");
+        var startNodes=canvasActor.Services.Motions.Skeleton(canvasActor);
+        var startRoot=startNodes.Single(item=>item.Name=="FOOT1_ABOVE");
+        double nearWorldX=startRoot.X+reach*.8,nearWorldY=startRoot.Y;
+        var nearPoint=SurfacePoint(nearWorldX,nearWorldY);
+        SurfaceInput(new InputEventMouseMotion{Position=nearPoint});
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=nearPoint});
+        Expect(document.UndoDepth==ikGestureUndo+1,"the IK gesture is exactly one undo step");
+        var nearTarget=CanvasPosition(nearPoint);
+        var chainPose=Clip.Sample(frame.Value);
+        var nearNodes=canvasActor.Services.Motions.Skeleton(canvasActor);
+        var nearRoot=nearNodes.Single(item=>item.Name=="FOOT1_ABOVE");
+        var nearMid=nearNodes.Single(item=>item.Name=="FOOT2_ABOVE");
+        var nearEnd=nearNodes.Single(item=>item.Name=="FOOT3_ABOVE");
+        double nearMidLength=Math.Sqrt((nearMid.X-nearRoot.X)*(nearMid.X-nearRoot.X)+(nearMid.Y-nearRoot.Y)*(nearMid.Y-nearRoot.Y));
+        double nearEndLength=Math.Sqrt((nearEnd.X-nearMid.X)*(nearEnd.X-nearMid.X)+(nearEnd.Y-nearMid.Y)*(nearEnd.Y-nearMid.Y));
+        Expect(Math.Abs(nearMidLength-midLength)<1e-6,"reachable IK drag keeps the root segment length: expected="+midLength.ToString("F9")+" actual="+nearMidLength.ToString("F9"));
+        Expect(Math.Abs(nearEndLength-endLength)<1e-6,"reachable IK drag keeps the mid segment length: expected="+endLength.ToString("F9")+" actual="+nearEndLength.ToString("F9"));
+        Expect(Math.Abs(nearEnd.X-nearTarget.X)<1e-6&&Math.Abs(nearEnd.Y-nearTarget.Y)<1e-6,"reachable IK drag lands the end on the pointer: expected="+nearTarget.X.ToString("F9")+","+nearTarget.Y.ToString("F9")+" actual="+nearEnd.X.ToString("F9")+","+nearEnd.Y.ToString("F9"));
+        Expect(!status.Text.Contains("夹"),"a reachable IK drag does not clamp: "+status.Text);
+        double midDir=Math.Atan2(-chainPose["FOOT2_ABOVE"].Y,chainPose["FOOT2_ABOVE"].X)*180/Math.PI,endDir=Math.Atan2(-chainPose["FOOT3_ABOVE"].Y,chainPose["FOOT3_ABOVE"].X)*180/Math.PI;
+        Expect(Math.Abs(Wrap(nearRoot.Angle+Math.Atan2(nearMid.Y-nearRoot.Y,nearMid.X-nearRoot.X)*180/Math.PI+midDir))<1e-6,"IK writeback keeps the chain root rotation on the solved segment: angle="+nearRoot.Angle.ToString("F9")+" direction="+Math.Atan2(nearMid.Y-nearRoot.Y,nearMid.X-nearRoot.X).ToString("F9")+" midDir="+midDir.ToString("F9"));
+        Expect(Math.Abs(Wrap(nearMid.Angle+Math.Atan2(nearEnd.Y-nearMid.Y,nearEnd.X-nearMid.X)*180/Math.PI+endDir))<1e-6,"IK writeback keeps the chain mid rotation on the solved segment: angle="+nearMid.Angle.ToString("F9")+" direction="+Math.Atan2(nearEnd.Y-nearMid.Y,nearEnd.X-nearMid.X).ToString("F9")+" endDir="+endDir.ToString("F9"));
         var farPoint=SurfacePoint(canvasActor.X+120,canvasActor.Y-60);
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=PointFor("FOOT3_ABOVE")});
         SurfaceInput(new InputEventMouseMotion{Position=farPoint});
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=farPoint});
-        Expect(document.UndoDepth==ikGestureUndo+1,"the IK gesture is exactly one undo step");
-        var chainPose=Clip.Sample(frame.Value);
-        Expect(Math.Abs(Math.Sqrt(chainPose["HAND1_ABOVE"].X*chainPose["HAND1_ABOVE"].X+chainPose["HAND1_ABOVE"].Y*chainPose["HAND1_ABOVE"].Y)-midLength)<.001&&Math.Abs(Math.Sqrt(chainPose["HAND1_BELOW"].X*chainPose["HAND1_BELOW"].X+chainPose["HAND1_BELOW"].Y*chainPose["HAND1_BELOW"].Y)-endLength)<.001,"IK drag keeps both segment lengths");
-        Expect(status.Text.Contains("夹"),"unreachable IK target is clamped to the chain reach");
-        Expect(Math.Abs(chainPose["BODY_TOP"].Angle-chainBefore["BODY_TOP"].Angle)>.001,"IK drag rotates the chain root");
-        var altBefore=Clip.Sample(frame.Value)["BODY_TOP"].Angle;var altPoint=PointFor("HAND1_BELOW");
+        var farWorld=CanvasPosition(farPoint);
+        var clampedNodes=canvasActor.Services.Motions.Skeleton(canvasActor);
+        var clampedRoot=clampedNodes.Single(item=>item.Name=="FOOT1_ABOVE");
+        var clampedEnd=clampedNodes.Single(item=>item.Name=="FOOT3_ABOVE");
+        double farDx=farWorld.X-clampedRoot.X,farDy=farWorld.Y-clampedRoot.Y,farDistance=Math.Sqrt(farDx*farDx+farDy*farDy);
+        Expect(farDistance>reach+1e-3,"the clamped target starts beyond the chain reach: distance="+farDistance.ToString("F9")+" reach="+reach.ToString("F9"));
+        double clampedX=clampedRoot.X+farDx/farDistance*reach,clampedY=clampedRoot.Y+farDy/farDistance*reach;
+        Expect(Math.Abs(clampedEnd.X-clampedX)<1e-6&&Math.Abs(clampedEnd.Y-clampedY)<1e-6,"unreachable IK target clamps to the reachable boundary: expected="+clampedX.ToString("F9")+","+clampedY.ToString("F9")+" actual="+clampedEnd.X.ToString("F9")+","+clampedEnd.Y.ToString("F9"));
+        Expect(status.Text.Split("夹到可达范围").Length-1==1,"the clamp message appears exactly once: "+status.Text);
+        var clearPoint=SurfacePoint(clampedRoot.X+(clampedEnd.X-clampedRoot.X)*.75,clampedRoot.Y+(clampedEnd.Y-clampedRoot.Y)*.75);
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=PointFor("FOOT3_ABOVE")});
+        SurfaceInput(new InputEventMouseMotion{Position=clearPoint});
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=clearPoint});
+        chainPose=Clip.Sample(frame.Value);
+        Expect(!status.Text.Contains("夹"),"a follow-up reachable IK drag clears the clamp message: "+status.Text);
+        var altBefore=Clip.Sample(frame.Value)["FOOT1_ABOVE"].Angle;var altPoint=PointFor("FOOT3_ABOVE");
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,AltPressed=true,Position=altPoint});
         Expect(dragging&&dragMode==DragMode.Fk,"alt switches an IK end to temporary FK");
         var altTarget=SurfacePoint(CanvasPosition(altPoint).X+14,CanvasPosition(altPoint).Y-14);
         SurfaceInput(new InputEventMouseMotion{Position=altTarget});
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,AltPressed=true,Position=altTarget});
-        var altPose=Clip.Sample(frame.Value)["HAND1_BELOW"];
-        Expect(Math.Abs(Clip.Sample(frame.Value)["BODY_TOP"].Angle-altBefore)<.001,"temporary FK leaves the IK chain root untouched");
+        var altPose=Clip.Sample(frame.Value)["FOOT3_ABOVE"];
+        Expect(Math.Abs(Clip.Sample(frame.Value)["FOOT1_ABOVE"].Angle-altBefore)<.001,"temporary FK leaves the IK chain root untouched");
         Expect(Math.Abs(Math.Sqrt(altPose.X*altPose.X+altPose.Y*altPose.Y)-endLength)<.001,"temporary FK keeps the end length");
-        RunAction("undo");Expect(Math.Abs(Clip.Sample(frame.Value)["HAND1_BELOW"].X-chainPose["HAND1_BELOW"].X)<.001,"FK override is one undo step");RunAction("redo");
+        RunAction("undo");Expect(Math.Abs(Clip.Sample(frame.Value)["FOOT3_ABOVE"].X-chainPose["FOOT3_ABOVE"].X)<.001,"FK override is one undo step");RunAction("redo");
+        document.Edit(g=>g.IkChains=[new(){Root="BODY_TOP",Mid="HAND1_ABOVE",End="HAND2_ABOVE"}]);
         SelectBone("HAND1_ABOVE");
-        Expect(highlightedBone=="HAND1_ABOVE"&&bone.GetItemText((int)bone.Selected)=="HAND1_ABOVE"&&boneList.GetSelectedItems().Length==1&&boneList.GetItemText(boneList.GetSelectedItems()[0])=="HAND1_ABOVE","bone selection highlights the canvas and the left list");
+        Expect(highlightedBone=="HAND1_ABOVE"&&overlay.ChainFocusIndex>=0&&overlay.EndHandleVisible,"bone selection highlights the canvas and its IK chain");
         var cancelBefore=Serialized();var cancelStart=PointFor("HEAD");
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=cancelStart});
         SurfaceInput(new InputEventMouseMotion{Position=SurfacePoint(CanvasPosition(cancelStart).X+30,CanvasPosition(cancelStart).Y-30)});
         SurfaceInput(new InputEventKey{Keycode=Key.Escape,Pressed=true});
         Expect(!dragging&&Serialized()==cancelBefore,"Escape cancels the drag without editing");
         await Shot("motion-drag");
+        await CanvasAudit(Expect);
+        await DragBindingAudit(Expect);
         Change(g=>{g.States.Add(new(){Id="next",Clip=Clip.Id});g.States[0].Transitions.Add(new(){Target="next",Conditions=[new(){Kind=MotionConditionKind.Timer,Comparison=MotionComparison.GreaterOrEqual,Value=4}]});});
-        Expect(graphView.GetChildren().OfType<GraphNode>().Count()==2&&graphView.GetConnectionList().Count==1,"state nodes and transition edge are visible");
+        Expect(document.Graph.States[0].Transitions.Count==1,"the transition stays in the document");
         Change(_=>Clip.Events.Add(new(){Start=2,Kind=MotionEventKind.SdkEvent,Value="editor.frame"}));
         path=Path.Combine(output,"editor.motion.json");Save();Expect(File.Exists(path),"motion file saved");
         document=new(MotionGraph.Load(path));Refresh();Expect(Clip.Events.Single().Value=="editor.frame","event configuration survives reload");
@@ -637,8 +519,27 @@ public partial class NativeActionEditor
         document=new(new MotionGraph{Id="audit.clean",Clips=[new(){Id="idle"}],States=[new(){Id="idle",Clip="idle"}]});
         path=cleanFile;Refresh();InitializePreview();await Ready();
         Expect(!document.Dirty&&document.Graph.IkChains is null&&document.Graph.Clips[0].Tracks.Count==0,"preview load neither dirties nor writes the document");
-        Expect(IsIkEnd("HAND1_BELOW"),"default IK chains stay implicit");
+        Expect(IsIkEnd("HAND3_ABOVE"),"default IK chains stay implicit");
+        var defaultChains=MotionIkPresets.For(new MotionGraph{Clips=[new(){Id="idle"}],States=[new(){Id="idle",Clip="idle"}]});
+        Expect(defaultChains.Select(chain=>chain.Root+"→"+chain.Mid+"→"+chain.End).SequenceEqual(new[]{"HAND1_ABOVE→HAND2_ABOVE→HAND3_ABOVE","HAND1_BELOW→HAND2_BELOW→HAND3_BELOW","FOOT1_ABOVE→FOOT2_ABOVE→FOOT3_ABOVE","FOOT1_BELOW→FOOT2_BELOW→FOOT3_BELOW"}),"default IK chains mirror three bone limbs");
         var fallbackActor=PreviewActor!;
+        var presetNodes=fallbackActor.Services.Motions.Skeleton(fallbackActor);
+        foreach(var chain in MotionIkPresets.For(new MotionGraph{Clips=[new(){Id="idle"}],States=[new(){Id="idle",Clip="idle"}]}))
+        {
+            var presetEnd=presetNodes.Single(node=>node.Name==chain.End);
+            var presetMid=presetNodes.Single(node=>node.Instance==presetEnd.Parent);
+            var presetRoot=presetNodes.Single(node=>node.Instance==presetMid.Parent);
+            Expect(presetRoot.Name==chain.Root&&presetMid.Name==chain.Mid,"IK preset "+chain.End+" follows the skeleton parents: expected "+chain.Root+"→"+chain.Mid+"→"+chain.End+" actual "+presetRoot.Name+"→"+presetMid.Name+"→"+presetEnd.Name);
+        }
+        BindIkChain("HAND1_ABOVE","HAND2_ABOVE","HAND3_ABOVE");
+        Expect(document.Graph.IkChains is {Count:4}&&document.Graph.IkChains!.Any(chain=>chain.Root=="HAND1_ABOVE"&&chain.Mid=="HAND2_ABOVE"&&chain.End=="HAND3_ABOVE"),"the explicit Root/Mid/End binding writes the chain");
+        Expect(IsIkEnd("HAND3_ABOVE")&&!IsIkEnd("HAND2_ABOVE"),"the explicit chain takes effect immediately");
+        int chainCount=document.Graph.IkChains!.Count;
+        BindIkChain("HAND1_ABOVE","HAND2_ABOVE","FOOT3_ABOVE");
+        Expect(document.Graph.IkChains!.Count==chainCount&&status.Text.Contains("父链"),"a non-chain bone selection is rejected: "+status.Text);
+        string chainFile=Path.Combine(output,"editor.chain.motion.json");document.Save(chainFile);
+        document=new(MotionGraph.Load(chainFile));Refresh();
+        Expect(document.Graph.IkChains is {Count:4}&&document.Graph.IkChains!.Any(chain=>chain.Root=="HAND1_ABOVE"&&chain.Mid=="HAND2_ABOVE"&&chain.End=="HAND3_ABOVE"),"a custom chain survives save and reload");
         var fallbackBone=fallbackActor.Services.Motions.Skeleton(fallbackActor).First(node=>node.Parent==fallbackActor.Id);
         var fallbackPart=fallbackActor.World.Instances.First(item=>item.Id==fallbackBone.Instance);
         double fallbackDirection=fallbackActor.Instance.Scope.ReadOr("Direction",1).Number,fallbackRadians=fallbackActor.Read("image_angle")*Math.PI/180;
@@ -659,13 +560,6 @@ public partial class NativeActionEditor
         double movedX=fallbackActor.X+movedRoot.X*movedDirection+(movedPose.X*Math.Cos(movedRadians)+movedPose.Y*Math.Sin(movedRadians))*movedDirection;
         double movedY=fallbackActor.Y+movedRoot.Y-movedPose.X*Math.Sin(movedRadians)+movedPose.Y*Math.Cos(movedRadians);
         Expect(Math.Abs(fallbackPart.Scope.ReadOr("x").Number-movedX)<.001&&Math.Abs(fallbackPart.Scope.ReadOr("y").Number-movedY)<.001,"changing the timeline frame resamples the preview pose");
-        string beforeGenerate=Serialized();
-        RunAction("referencePose");
-        var descriptor=MotionSkeletonDescriptor.FromActor(fallbackActor.World,fallbackActor.Instance,document.Graph.Skeleton);
-        Expect(document.Dirty,"generating the reference pose dirties the document");
-        Expect(descriptor.Nodes.All(node=>document.Graph.Clips[0].Tracks.Any(track=>track.Bone==node.Name&&track.Keys.Any(key=>key.Frame==0&&Math.Abs(key.X-node.LocalX)<.001&&Math.Abs(key.Y-node.LocalY)<.001))),"generated reference pose writes every part");
-        RunAction("undo");
-        Expect(Serialized()==beforeGenerate,"generating the reference pose is one undo step");
         string openFile=Path.Combine(output,"editor.open.motion.json");document.Save(openFile);
         document=new(MotionGraph.Load(openFile));Refresh();viewWidth=1280;ApplyView();InitializePreview();await Ready();
         Expect(!document.Dirty,"reopening a saved project leaves the document clean");
@@ -701,6 +595,31 @@ public partial class NativeActionEditor
         SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=blankAt+new Vector2(0,30)});
         Expect(viewCenterY<centerBeforeBlankPan,"dragging empty canvas pans the viewport");
         await Shot("motion-viewport");
+        document=new(new MotionGraph{Id="audit.timeline",Clips=[new(){Id="idle",Duration=24,Tracks=[new(){Bone="HEAD",Keys=[new(){Frame=0},new(){Frame=12}]},new(){Bone="BODY_TOP",Keys=[new(){Frame=4}]}]},new(){Id="run",Duration=16,Tracks=[new(){Bone="BODY_BOTTOM",Keys=[new(){Frame=2}]}]}],States=[new(){Id="idle",Clip="idle"},new(){Id="run",Clip="run"}]});
+        Project.ClipIndex=0;Refresh();frame.Value=0;ApplyDocumentPose();
+        var keyPoint=timelineTracks.KeyPoint("HEAD",0);
+        timelineTracks._GuiInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=keyPoint});
+        Expect(highlightedBone=="HEAD"&&Math.Abs(frame.Value)<.001&&timelineTracks.SelectedKey is { } selectedKey&&selectedKey.Bone=="HEAD"&&Math.Abs(selectedKey.Frame)<.001,"clicking a diamond selects the key and highlights its bone");
+        Expect(timelineTracks.RowHighlighted("HEAD"),"selecting a keyframe highlights its track header row");
+        SelectBone("BODY_TOP");
+        Expect(timelineTracks.RowHighlighted("BODY_TOP")&&!timelineTracks.RowHighlighted("HEAD"),"selecting a bone on the canvas highlights its track header row");
+        float playheadAtZero=timelineTracks.PlayheadX;
+        frame.Value=12;
+        Expect(timelineTracks.PlayheadX>playheadAtZero+.01,"the red playhead follows the current frame");
+        SelectBone("HEAD");frame.Value=6;
+        Expect(timelineTracks.KeyFrames("HEAD").SequenceEqual(new[]{0d,12d}),"the track draws one diamond per key");
+        int keyUndo=document.UndoDepth;
+        RunAction("addKey");
+        Expect(Clip.Tracks.Single(track=>track.Bone=="HEAD").Keys.Any(key=>key.Frame==6),"the edit menu adds a keyframe at the current frame");
+        Expect(document.UndoDepth==keyUndo+1,"adding a keyframe is one undo step");
+        long canvasBuilds=preview!.Graphics.Builds;
+        RunAction("deleteKey");
+        Expect(!Clip.Tracks.Single(track=>track.Bone=="HEAD").Keys.Any(key=>key.Frame==6),"the edit menu deletes the selected keyframe");
+        Expect(document.UndoDepth==keyUndo+2,"deleting a keyframe is one undo step");
+        Expect(preview.Graphics.Builds>canvasBuilds,"deleting a keyframe resamples the canvas");
+        clipChoice.Select(1);
+        clipChoice.EmitSignal(OptionButton.SignalName.ItemSelected,1L);
+        Expect(timelineTracks.KeyFrames("BODY_BOTTOM").SequenceEqual(new[]{2d})&&timelineTracks.KeyFrames("HEAD").Count==0,"switching clips refreshes the timeline tracks");
         document=new(new MotionGraph{Id="audit.playback",Clips=[new(){Id="idle",Duration=100,Loop=true}],States=[new(){Id="idle",Clip="idle"}]});
         Refresh();var playActor=PreviewActor!;playActor.World.Engine.Write("room_speed",60);
         frame.Value=0;ApplyDocumentPose();UpdatePlaybackOverlay();
@@ -716,8 +635,11 @@ public partial class NativeActionEditor
         playing.ButtonPressed=true;frame.Value=0;RestartPlayback();
         double playBefore=playActor.Services.Motions.State(playActor)!.Frame;
         TickPlayback(FrameContext.FixedDelta);await Ready();
-        Expect(playActor.Services.Motions.State(playActor)!.Frame==playBefore+1,"play advances one fixed frame "+playBefore+"->"+playActor.Services.Motions.State(playActor)!.Frame);
-        Expect(Math.Abs(timelineSlider.Value-(playBefore+1))<.001,"the progress bar follows playback");
+        Expect(playActor.Services.Motions.State(playActor)!.Frame==playBefore,"one 60Hz engine step does not advance a 30Hz timeline frame");
+        TickPlayback(FrameContext.FixedDelta);await Ready();
+        Expect(playActor.Services.Motions.State(playActor)!.Frame==playBefore+1,"play advances one 30Hz frame every two engine steps "+playBefore+"->"+playActor.Services.Motions.State(playActor)!.Frame);
+        Expect(Math.Abs(frame.Value-(playBefore+1))<.001,"the playhead follows playback at 30Hz");
+        Expect(overlay.Playback.Contains("FPS 30"),"the canvas overlay reports 30 FPS");
         playing.ButtonPressed=false;
         double pausedFrame=playActor.Services.Motions.State(playActor)!.Frame;
         TickPlayback(FrameContext.FixedDelta);await Ready();
@@ -727,17 +649,17 @@ public partial class NativeActionEditor
         Expect(playActor.Services.Motions.State(playActor)!.Frame==1,"a paused edit syncs before a single frame step");
         playbackSpeed=2;playing.ButtonPressed=true;frame.Value=0;RestartPlayback();
         TickPlayback(FrameContext.FixedDelta);await Ready();
-        Expect(playActor.Services.Motions.State(playActor)!.Frame==2,"double speed advances two frames per tick");
+        Expect(playActor.Services.Motions.State(playActor)!.Frame==1,"double speed advances one 30Hz frame per engine tick");
         playbackSpeed=1;frame.Value=0;RestartPlayback();
         TickPlayback(.25);await Ready();
-        Expect(playActor.Services.Motions.State(playActor)!.Frame==15,"a long frame catches up without dropping steps");
+        Expect(playActor.Services.Motions.State(playActor)!.Frame==7,"a quarter second catches up seven 30Hz frames");
         Change(g=>g.Clips[0].Events.Add(new(){Id="audit.beat",Start=1,Kind=MotionEventKind.SdkEvent,Value="audit.beat"}));
         frame.Value=0;RestartPlayback();playing.ButtonPressed=true;
-        TickPlayback(FrameContext.FixedDelta);await Ready();
+        TickPlayback(FrameContext.FixedDelta*2);await Ready();
         Expect(overlay.Playback.Contains("audit.beat"),"playback overlay lists triggered events");
         Change(g=>g.Clips[0].Events.Add(new(){Id="audit.beat2",Start=10,Kind=MotionEventKind.SdkEvent,Value="audit.beat2"}));
         frame.Value=0;RestartPlayback();playing.ButtonPressed=true;
-        TickPlayback(FrameContext.FixedDelta*10);await Ready();
+        TickPlayback(FrameContext.FixedDelta*22);await Ready();
         Expect(overlay.Playback.Contains("audit.beat")&&overlay.Playback.Contains("audit.beat2"),"batched steps accumulate every triggered event");
         var playbackEngine=preview!.World.View(0);SyncOverlay();
         Expect(overlay.View.ViewX==playbackEngine.X&&overlay.View.ViewY==playbackEngine.Y&&overlay.View.ViewWidth==playbackEngine.Width&&overlay.View.ViewHeight==playbackEngine.Height,"the overlay camera mirrors the engine view after playback");
@@ -767,13 +689,13 @@ public partial class NativeActionEditor
         Expect(Math.Abs(panAfter.ViewY-panBefore.ViewY)<1,"a horizontal pan keeps the vertical camera: "+panBefore.ViewY.ToString("F2")+"->"+panAfter.ViewY.ToString("F2"));
         Change(g=>{g.States.Add(new(){Id="next",Clip="idle"});g.States[0].Transitions.Add(new(){Target="next",Conditions=[new(){Kind=MotionConditionKind.Timer,Comparison=MotionComparison.GreaterOrEqual,Value=2}]});});
         frame.Value=0;RestartPlayback();playing.ButtonPressed=true;
-        TickPlayback(FrameContext.FixedDelta*3);await Ready();
+        TickPlayback(FrameContext.FixedDelta*6);await Ready();
         Expect(overlay.Playback.Contains("转换"),"playback overlay shows the active transition");
         frame.Value=7;RestartPlayback();
         Change(g=>g.Clips[0].Duration=101);
         var resumed=playActor.Services.Motions.State(playActor);
         Expect(resumed is not null&&Math.Abs(resumed.Frame-7)<.001,"editing while playing resumes from the current frame");
-        Expect(overlay.Playback.Contains("状态")&&overlay.Playback.Contains("帧"),"playback overlay shows state and frame");
+        Expect(overlay.Playback.Contains("运行")&&overlay.Playback.Contains("帧")&&overlay.Playback.Contains("FPS 30"),"playback overlay shows the clip, frame and 30 FPS without 状态");
         playing.ButtonPressed=false;
         await Shot("motion-playback");
         var help=HelpText();
@@ -782,6 +704,225 @@ public partial class NativeActionEditor
         Expect(registered.Count>0&&help.Contains(registered[0].Name+" → "+registered[0].Resource),"help lists registered original motions");
         ApplyToGame();var player=world.Instances.First(i=>!i.Destroyed&&world.IsObject(i.Object,world.Constants["objPlayerDoll"].Int));
         Expect(world.NativeServices!.Motions.State(new(world,player)) is not null,"edited graph applies to the game actor");
-        GD.Print("MOTION_EDITOR_AUDIT_OK import=PASS edit=PASS undo=PASS save=PASS reload=PASS preview=PASS game=PASS studio=PASS immediate=PASS state=PASS events=PASS ring=PASS");
+        await AuditKeyboardAsync(output);
+        AuditSourceMenu();
+        await InputRouteAuditAsync();
+        GD.Print("MOTION_EDITOR_AUDIT_OK import=PASS edit=PASS undo=PASS save=PASS reload=PASS preview=PASS game=PASS studio=PASS immediate=PASS state=PASS events=PASS ring=PASS canvas=PASS drag=PASS");
+    }
+
+    private async Task CanvasAudit(Action<bool,string> expect)
+    {
+        string Serialized()=>System.Text.Json.JsonSerializer.Serialize(document.Graph,NativeContentStore.Json);
+        var actor=PreviewActor!;
+        Vector2 Joint(string name)
+        {
+            var node=actor.Services.Motions.Skeleton(actor).Single(item=>item.Name==name);
+            return overlay.SurfacePoint(node.X,node.Y);
+        }
+        (string Name,double Error) PickAt(Vector2 point)
+        {
+            var picked=PickBoneAt(point);
+            if(picked is null)return("",double.MaxValue);
+            var node=actor.Services.Motions.Skeleton(actor).Single(item=>item.Name==picked);
+            return(picked,overlay.SurfacePoint(node.X,node.Y).DistanceTo(point));
+        }
+        double WorstPickError()
+        {
+            double worst=0;
+            foreach(var node in actor.Services.Motions.Skeleton(actor))worst=Math.Max(worst,PickAt(overlay.SurfacePoint(node.X,node.Y)).Error);
+            return worst;
+        }
+        SelectBone("HEAD");frame.Value=0;ApplyDocumentPose();
+        expect(Math.Abs(overlay.Size.X-surface.Size.X)<.01&&Math.Abs(overlay.Size.Y-surface.Size.Y)<.01,"the overlay draws and picks on the same rect: overlay="+overlay.Size+" surface="+surface.Size);
+        expect(WorstPickError()<=2,"a click on a drawn joint picks a joint drawn within 2px: worst="+WorstPickError().ToString("F2"));
+        expect(PickAt(Joint("HEAD")).Name=="HEAD","clicking the drawn HEAD joint picks HEAD: "+PickAt(Joint("HEAD")).Name);
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.WheelUp,Pressed=true,Position=Joint("HEAD")});
+        expect(WorstPickError()<=2,"the 2px pick tolerance survives a viewport zoom: worst="+WorstPickError().ToString("F2"));
+        expect(PickAt(Joint("HEAD")+new Vector2(2,0)).Error<=2,"a click 2px off the drawn HEAD joint still picks a joint drawn within 2px: "+PickAt(Joint("HEAD")+new Vector2(2,0)).Error.ToString("F2"));
+        var windowSize=Size;Size=new(windowSize.X+120,windowSize.Y+90);
+        for(int i=0;i<3;i++)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
+        expect(WorstPickError()<=2,"the 2px pick tolerance survives a window resize: surface="+surface.Size+" worst="+WorstPickError().ToString("F2"));
+        Size=windowSize;
+        for(int i=0;i<3;i++)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
+        expect(typeof(NativeMotionOverlay).GetMembers(System.Reflection.BindingFlags.Public|System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.DeclaredOnly).All(member=>!member.Name.Contains("Bar")),"the overlay keeps no bar handle state");
+        expect(typeof(NativeActionEditor).GetNestedType("DragMode",System.Reflection.BindingFlags.NonPublic) is {} dragModes&&dragModes.GetEnumNames().All(name=>!name.StartsWith("Bar",StringComparison.Ordinal)),"no bar drag modes remain");
+        expect(new Vector2[]{new(0,-96),new(0,96),new(-96,0),new(96,0)}.All(offset=>overlay.RingHit(Joint("HEAD")+offset) is null),"the ring keeps no side handles");
+        SelectBone("HEAD");ApplyDocumentPose();
+        var before=Serialized();int undoBefore=document.UndoDepth;
+        var start=Joint("HEAD");
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=start});
+        var pressed=actor.Part("HEAD")!;double pressedX=pressed.X,pressedY=pressed.Y;
+        var moved=start+new Vector2(24,-8);
+        SurfaceInput(new InputEventMouseMotion{Position=moved});
+        expect(dragging,"the drag stays open until the button is released");
+        expect(Serialized()==before&&document.UndoDepth==undoBefore,"a live drag preview leaves the document untouched");
+        expect(Math.Abs(actor.Part("HEAD")!.X-pressedX)+Math.Abs(actor.Part("HEAD")!.Y-pressedY)>.5,"a live drag preview moves the viewport pose: "+pressedX.ToString("F2")+"->"+actor.Part("HEAD")!.X.ToString("F2"));
+        SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=moved});
+        expect(document.UndoDepth==undoBefore+1,"releasing the drag writes exactly one undo step");
+        expect(Serialized()!=before,"releasing the drag writes the document");
+        document.Undo();ApplyDocumentPose();
+        expect(Serialized()==before,"one undo returns to the pose before the drag");
+    }
+    private Task DragBindingAudit(Action<bool,string> expect)
+    {
+        var actor=PreviewActor!;
+        Vector2 Rendered(double x,double y)
+        {
+            var view=preview!.World.View(0);
+            var (surfaceX,surfaceY)=MotionViewport.ToSurface(x,y,surface.Size.X,surface.Size.Y,new(view.X,view.Y,view.Width,view.Height,(int)view.PortWidth,(int)view.PortHeight));
+            return new((float)surfaceX,(float)surfaceY);
+        }
+        NativeBone[] Bones()=>actor.Services.Motions.Skeleton(actor).ToArray();
+        ActorContext Part(string name)=>actor.Part(name)!;
+        string Serialized()=>System.Text.Json.JsonSerializer.Serialize(document.Graph,NativeContentStore.Json);
+        string DrawnPart()
+        {
+            string best="";double bestDistance=-1;
+            foreach(var node in Bones())
+            {
+                if(node.Name=="root"||IsIkEnd(node.Name))continue;
+                var bounds=actor.World.Bounds(Part(node.Name).Instance);
+                if(bounds.Empty)continue;
+                var center=overlay.SurfacePoint((bounds.Left+bounds.Right)/2,(bounds.Top+bounds.Bottom)/2);
+                double distance=Bones().Min(other=>overlay.SurfacePoint(other.X,other.Y).DistanceTo(center));
+                if(distance>bestDistance){best=node.Name;bestDistance=distance;}
+            }
+            return best;
+        }
+        string name=DrawnPart();
+        expect(name.Length>0,"a drawn part exposes a press point between joints");
+        foreach(int direction in new[]{1,-1})
+        {
+            actor.Write("Direction",direction);ApplyDocumentPose();ClearBoneSelection();
+            for(int gesture=0;gesture<32;gesture++)
+            {
+                var bounds=actor.World.Bounds(Part(name).Instance);
+                var start=Rendered((bounds.Left+bounds.Right)/2,(bounds.Top+bounds.Bottom)/2);
+                expect(overlay.RingHit(start) is null,"the "+name+" press point clears the rotation ball");
+                string beforeDocument=Serialized();int beforeUndo=document.UndoDepth;
+                var view=PreviewView;double centreX=view.ViewX+view.ViewWidth/2,centreY=view.ViewY+view.ViewHeight/2;
+                SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=true,Position=start});
+                expect(dragging&&dragMode==DragMode.Translate&&!panning,"pressing the drawn "+name+" starts a translate drag instead of a view pan (direction="+direction+")");
+                var part=Part(draggedBone!);double partX=part.X,partY=part.Y;
+                var moved=start+new Vector2(24,-8);
+                SurfaceInput(new InputEventMouseMotion{Position=moved});
+                expect(Math.Abs(part.X-partX)+Math.Abs(part.Y-partY)>.5,"the live drag preview follows the pointer for "+name);
+                expect(Serialized()==beforeDocument&&document.UndoDepth==beforeUndo,"the live drag preview leaves the document untouched");
+                SurfaceInput(new InputEventMouseButton{ButtonIndex=MouseButton.Left,Pressed=false,Position=moved});
+                expect(document.UndoDepth==beforeUndo+1,"releasing the "+name+" drag writes exactly one undo step");
+                expect(Serialized()!=beforeDocument,"releasing the "+name+" drag writes the document");
+                var after=PreviewView;
+                expect(Math.Abs(after.ViewX+after.ViewWidth/2-centreX)<.5&&Math.Abs(after.ViewY+after.ViewHeight/2-centreY)<.5,"the "+name+" drag keeps the view centre on the character: "+(after.ViewX+after.ViewWidth/2-centreX).ToString("F2")+","+(after.ViewY+after.ViewHeight/2-centreY).ToString("F2"));
+                var (overlayX,overlayY)=overlay.SurfacePoint(part.X,part.Y);
+                var rendered=Rendered(part.X,part.Y);
+                expect(Math.Abs(overlayX-rendered.X)<=2&&Math.Abs(overlayY-rendered.Y)<=2,"the overlay joint of "+name+" stays on its rendered part: overlay="+overlayX.ToString("F2")+","+overlayY.ToString("F2")+" rendered="+rendered.X.ToString("F2")+","+rendered.Y.ToString("F2"));
+                preview.Graphics.SpriteGeometryAudit=new();preview.Graphics.Build();
+                var position=new Vector2((float)part.X,(float)part.Y);
+                expect(preview.Graphics.SpriteGeometryAudit.Any(draw=>(draw.Position-position).Length()<=.01f),"the dragged "+name+" is still rendered inside the camera");
+                document.Undo();ApplyDocumentPose();
+                expect(Serialized()==beforeDocument,"one undo restores the pose before the "+name+" drag");
+            }
+        }
+        return Task.CompletedTask;
+    }
+    private void Expect(bool ok,string message){if(!ok)throw new InvalidOperationException("Motion editor: "+message);}
+    private async Task Wait(int milliseconds){long start=System.Diagnostics.Stopwatch.GetTimestamp();while(System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds<milliseconds)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);}
+    private void WithFrozenClock(Action body)
+    {
+        long clock=0;MotionGraphDocument.TickProvider=()=>clock;
+        try{body();}
+        finally{MotionGraphDocument.TickProvider=()=>System.Environment.TickCount64;}
+    }
+    private void AuditSourceMenu()
+    {
+        void Expect(bool ok,string message){if(!ok)throw new InvalidOperationException("Motion editor: "+message);}
+        var sourceMenu=sourceView.GetMenu();
+        int MenuId(int id)=>sourceMenu.GetItemIndex(id);
+        Expect(new (int Id,string Text)[]{((int)TextEdit.MenuItems.Cut,"剪切"),((int)TextEdit.MenuItems.Copy,"复制"),((int)TextEdit.MenuItems.Paste,"粘贴"),((int)TextEdit.MenuItems.SelectAll,"全选"),((int)TextEdit.MenuItems.Clear,"清除"),((int)TextEdit.MenuItems.Undo,"撤销"),((int)TextEdit.MenuItems.Redo,"重做"),((int)TextEdit.MenuItems.DisplayUcc,"显示控制字符")}.All(item=>MenuId(item.Id)>=0&&sourceMenu.GetItemText(MenuId(item.Id))==item.Text),"the source context menu speaks Chinese");
+        Expect(MenuId((int)TextEdit.MenuItems.SubmenuInsertUcc)<0&&MenuId((int)TextEdit.MenuItems.SubmenuTextDir)<0,"the source context menu hides control-character insertion and writing direction");
+        Expect(sourceView.TextDirection==Control.TextDirection.Ltr&&rawView.TextDirection==Control.TextDirection.Ltr,"both source pages are fixed left to right");
+    }
+
+    private static void AuditSourceExpect(bool ok,string message){if(!ok)throw new InvalidOperationException("Motion editor: "+message);}
+
+    private static void TypeSource(CodeEdit edit,string text)
+    {
+        edit.SelectAll();
+        edit.InsertTextAtCaret(text);
+        edit.EmitSignal(TextEdit.SignalName.TextChanged);
+    }
+
+    private void AuditCompletion()
+    {
+        (bool Ok,string Detail) source=Completion(sourceView);
+        AuditSourceExpect(source.Ok,"节点属性修改 offers TOML completion on Ctrl+Space: "+source.Detail);
+        (bool Ok,string Detail) raw=Completion(rawView);
+        AuditSourceExpect(raw.Ok,"原始数据 offers TOML completion on Ctrl+Space: "+raw.Detail);
+    }
+
+    private static (bool Ok,string Detail) Completion(CodeEdit edit)
+    {
+        string text=edit.Text;
+        edit.Text="HEA";edit.SetCaretLine(0);edit.SetCaretColumn(3);
+        edit.EmitSignal(Control.SignalName.GuiInput,new InputEventKey{Keycode=Key.Space,CtrlPressed=true,Pressed=true,Echo=false});
+        int count=edit.GetCodeCompletionOptions().Count,bones=0;
+        for(int i=0;i<count;i++) if(MotionSkeleton.Bones.Contains(edit.GetCodeCompletionOption(i)["display_text"].AsString())) bones++;
+        edit.CancelCodeCompletion();
+        edit.Text=text;
+        return (count>0&&bones>0,"options="+count+" boneCandidates="+bones+" expects at least one real bone name such as HEAD or BODY_TOP");
+    }
+
+    private void AuditHighlighter()
+    {
+        string text=sourceView.Text;
+        sourceView.Text="[[frame]]\nindex = 0\nHEAD.x = 1\nHEAD.angle = 2\nHEAD.picture = 3\nkind = \"Damage\"\n# 注释\n";
+        var highlighter=(TomlSyntaxHighlighter)sourceView.SyntaxHighlighter;
+        Color LineColor(int line)
+        {
+            int column=-1;Color color=Colors.White;
+            foreach(var pair in highlighter._GetLineSyntaxHighlighting(line)){int start=pair.Key.AsInt32();if(start<=column)continue;column=start;color=pair.Value.AsGodotDictionary()["color"].AsColor();}
+            return color;
+        }
+        AuditSourceExpect(new[]{LineColor(2),LineColor(3),LineColor(4),LineColor(5),LineColor(6)}.Distinct().Count()==5,"the highlighter gives coordinates, angles, pictures, enums and comments five distinct colors");
+        sourceView.Text=text;
+    }
+
+    private void AuditLeftPages()
+    {
+        AuditSourceExpect(leftPages is TabContainer&&leftPages.GetTabCount()==1,"the left dock opens on the single pose page");
+        AuditSourceExpect(leftPages.GetTabTitle(0)=="节点属性修改"&&sourceView is CodeEdit{Editable:true},"the pose page is the editable code view");
+        AuditSourceExpect(rawView is null&&showRawData is CheckButton{ButtonPressed:false},"the raw data page is hidden by default");
+        showRawData.ButtonPressed=true;
+        AuditSourceExpect(leftPages.GetTabCount()==2&&leftPages.GetTabTitle(1)=="原始数据"&&rawView is CodeEdit{Editable:true},"the settings checkbox restores the raw data page");
+        string settingsFile=Path.Combine(store.Root,"Editor","action-editor.json");
+        AuditSourceExpect(File.Exists(settingsFile)&&File.ReadAllText(settingsFile).Contains("\"ShowRawData\": true",StringComparison.Ordinal),"the raw data toggle persists to the editor settings file");
+    }
+
+    private async Task AuditSourceHotUpdate()
+    {
+        async Task Wait(int milliseconds){long start=System.Diagnostics.Stopwatch.GetTimestamp();while(System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds<milliseconds)await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);}
+        document=new(new MotionGraph{Id="audit.hot",Clips=[new(){Id="idle",Duration=60,Tracks=[new(){Bone="HEAD",Keys=[new(){Frame=0,X=1},new(){Frame=42,X=4}]},new(){Bone="BODY_TOP",Keys=[new(){Frame=0}]}]}],States=[new(){Id="idle",Clip="idle"}]});
+        Refresh();frame.Value=0;GetViewport().GuiReleaseFocus();
+        frameDebounce.Cancel();graphDebounce.Cancel();
+        TypeSource(sourceView,"[[frame]]\nindex = 42\nHEAD.y = 7\n");
+        await Wait(800);
+        AuditSourceExpect(Math.Abs(frame.Value-42)<1e-9,"typing index 42 moves the playhead to frame 42");
+        AuditSourceExpect(Math.Abs(Clip.Sample(42)["HEAD"].Y-7)<1e-9&&Math.Abs(Clip.Sample(42)["HEAD"].X-4)<1e-9,"the hot update writes the edited key at its own index");
+        int undo=document.UndoDepth;
+        sourceView.SetCaretLine(3);sourceView.SetCaretColumn(2);sourceView.ScrollVertical=0;
+        frame.Value=10;
+        AuditSourceExpect(sourceView.Text.Contains("index = 10")&&sourceView.GetCaretLine()==3&&sourceView.GetCaretColumn()==2,"dragging the timeline refreshes the text and keeps the caret");
+        string invalid="[[frame]]\nindex = 10\nHEAD.nope = 1\n";
+        TypeSource(sourceView,invalid);
+        await Wait(800);
+        AuditSourceExpect(sourceView.Text==invalid&&status.Text.Contains("未知骨骼")&&document.UndoDepth==undo,"invalid input keeps the user text, reports Chinese and does not edit");
+        TypeSource(sourceView,"[[frame]]\nindex = 10\nHEAD.y = 7\n");
+        await Wait(800);
+        int depth=document.UndoDepth;
+        AuditSourceExpect(Math.Abs(Clip.Sample(10)["HEAD"].Y-7)<1e-9&&depth==undo+1,"a valid hot update writes one undo step");
+        GetViewport().GuiReleaseFocus();
+        _UnhandledKeyInput(new InputEventKey{Keycode=Key.Z,CtrlPressed=true,Pressed=true});
+        AuditSourceExpect(document.UndoDepth==depth-1&&Math.Abs(Clip.Sample(10)["HEAD"].Y-7)>1e-9,"one ctrl+z undoes the hot update");
+        frame.Value=0;
     }
 }

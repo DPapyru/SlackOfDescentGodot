@@ -205,7 +205,7 @@ public sealed class NativeModManager : IDisposable
         AddFiles(directory, manifest.Content!.Resources, declared.Resources);
         foreach(var item in manifest.Content.Motions)
         {
-            var graph=MotionGraph.Load(ResolvePackageFile(directory,item.Value));
+            var graph=MotionGraph.Load(ResolvePackageFile(directory,item.Value),manifest.Id);
             if(graph.Id!=item.Key)throw new InvalidDataException("Motion id differs from manifest: "+item.Key);
             declared.MotionGraphs.Add(item.Key,graph);
         }

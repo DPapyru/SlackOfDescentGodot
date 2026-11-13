@@ -4,73 +4,246 @@ namespace SlackOfDescent;
 
 public partial class NativeActionEditor
 {
-    private OptionButton clipChoice = null!, bone = null!;
+    private const int TimelineFps = 30;
+    private const int EngineStepsPerTimelineFrame = 2;
+    private OptionButton clipChoice = null!;
     private LineEdit clipId = null!;
-    private SpinBox frame = null!, duration = null!, x = null!, y = null!, angle = null!, sx = null!, sy = null!, picture = null!;
-    private CheckButton loop = null!, rootTrack = null!;
-    private HSlider timelineSlider = null!;
-    private ItemList keyList = null!;
-    private bool syncingTimeline, readingKey;
-    private static HSlider Slider(Node parent, double max, Action<double> changed) { var slider = new HSlider { MinValue = 0, MaxValue = max, Step = .25, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; parent.AddChild(slider); slider.ValueChanged += value => changed(value); return slider; }
-    private List<MotionKey> Keys()
+    private SpinBox frame = null!, duration = null!;
+    private CheckButton loop = null!, playing = null!;
+    private Label playState = null!, timeLabel = null!, clipName = null!;
+    private PopupMenu timelineMenu = null!;
+    private TimelineTracks timelineTracks = null!;
+    private string? selectedKeyBone;
+    private double selectedKeyFrame = -1;
+    private bool syncingTimeline, syncingPlayhead;
+    private void ChangeKey(Action<MotionGraph> action, string coalesce) { if (refreshing) return; Guard(() => { document.Edit(action, coalesce); Refresh(); ApplyDocumentPose(); if (playing.ButtonPressed) RestartPlayback(); status.Text = "已编辑。"; }); }
+    private void AddClip(string text) => Guard(() =>
     {
-        string name = SelectedBone ?? "root";
-        if (rootTrack.ButtonPressed || name == "root") return Clip.Root;
-        var track = Clip.Tracks.SingleOrDefault(t => t.Bone == name);
-        if (track is null) { track = new() { Bone = name }; Clip.Tracks.Add(track); } return track.Keys;
+        string id = text.Trim();
+        if (id.Length == 0) { status.Text = "片段标识不能为空。"; return; }
+        document.Edit(graph => graph.Clips.Add(new() { Id = id }));
+        Project.ClipIndex = document.Graph.Clips.Count - 1;
+        clipId.Clear(); Refresh(); ApplyDocumentPose(); status.Text = "已新增片段：" + id;
+    });
+    private void AddSelectedKey() => Guard(() =>
+    {
+        string name = selectedKeyBone ?? (rootTrackMode || highlightedBone is null ? "root" : highlightedBone);
+        double at = selectedKeyBone is not null ? selectedKeyFrame : frame.Value;
+        if (name != "root" && !MotionSkeleton.IsNodeName(name)) throw new InvalidOperationException("请先选中骨骼。");
+        Change(graph =>
+        {
+            var clip = graph.Clips[(int)Math.Max(0, clipChoice.Selected)];
+            List<MotionKey> keys;
+            if (name == "root") keys = clip.Root;
+            else
+            {
+                var track = clip.Tracks.FirstOrDefault(item => item.Bone == name);
+                if (track is null) { track = new() { Bone = name }; clip.Tracks.Add(track); }
+                keys = track.Keys;
+            }
+            if (keys.Any(key => key.Frame == at)) return;
+            var pose = name == "root" ? clip.RootPose(at) : clip.Sample(at).GetValueOrDefault(name);
+            keys.Add(new() { Frame = at, X = pose.X, Y = pose.Y, Angle = pose.Angle, ScaleX = pose.ScaleX, ScaleY = pose.ScaleY, Picture = pose.Picture });
+            keys.Sort((a, b) => a.Frame.CompareTo(b.Frame));
+        });
+        selectedKeyBone = name; selectedKeyFrame = at;
+        status.Text = "已添加关键帧：" + name + " 帧 " + at.ToString("F0");
+        timelineTracks.QueueRedraw();
+    });
+    private void DeleteSelectedKey() => Guard(() =>
+    {
+        string name = selectedKeyBone ?? (rootTrackMode || highlightedBone is null ? "root" : highlightedBone);
+        double at = selectedKeyBone is not null ? selectedKeyFrame : frame.Value;
+        if (name != "root" && !MotionSkeleton.IsNodeName(name)) throw new InvalidOperationException("请先选中骨骼。");
+        var clip = Clip;
+        var keys = name == "root" ? clip.Root : clip.Tracks.FirstOrDefault(track => track.Bone == name)?.Keys;
+        if (keys is null || !keys.Any(key => key.Frame == at)) { status.Text = "当前帧没有关键帧。"; return; }
+        Change(_ => keys.RemoveAll(key => key.Frame == at));
+        selectedKeyBone = null; selectedKeyFrame = -1;
+        status.Text = "已删除关键帧：" + name + " 帧 " + at.ToString("F0");
+    });
+    private void SelectKeyframe(string bone, double at)
+    {
+        frame.Value = Math.Clamp(at, 0, Clip.Duration);
+        selectedKeyBone = bone; selectedKeyFrame = at;
+        SelectBone(bone);
+        status.Text = "已选中关键帧：" + bone + " 帧 " + at.ToString("F0");
+        timelineTracks.QueueRedraw();
     }
-    private void ReadKey()
+    private void ClearSelectedKey()
     {
-        if (refreshing || x is null) return;
-        string? selected = SelectedBone;
-        if (!rootTrack.ButtonPressed && selected is null) { x.Value = 0; y.Value = 0; angle.Value = 0; sx.Value = 1; sy.Value = 1; picture.Value = 0; if (keyList is not null) keyList.Clear(); return; }
-        readingKey = true;
+        selectedKeyBone = null; selectedKeyFrame = -1;
+    }
+    private void SetTimelineFrame(double value)
+    {
+        if (playing.ButtonPressed) playing.ButtonPressed = false;
+        frame.Value = Math.Clamp(Math.Round(value), 0, Clip.Duration);
+    }
+    private void RefreshTimeline()
+    {
+        syncingTimeline = true;
         try
         {
-            var key = rootTrack.ButtonPressed || selected == "root" ? new MotionTrack { Keys = Clip.Root }.Sample(frame.Value) : Clip.Tracks.SingleOrDefault(t => t.Bone == selected)?.Sample(frame.Value) ?? new(0, 0, 0, 1, 1);
-            x.Value = key.X; y.Value = key.Y; angle.Value = key.Angle; sx.Value = key.ScaleX; sy.Value = key.ScaleY; picture.Value = key.Picture;
-            if (timelineSlider is not null) { timelineSlider.SetValueNoSignal(frame.Value); keyList.Clear(); var keys = rootTrack.ButtonPressed || selected == "root" ? Clip.Root : Clip.Tracks.SingleOrDefault(t => t.Bone == selected)?.Keys ?? new(); foreach (var k in keys) { keyList.AddItem($"{k.Frame:F2}  ({k.X:F1}, {k.Y:F1})  {k.Angle:F1}°  picture={k.Picture}"); keyList.SetItemMetadata(keyList.ItemCount - 1, k.Frame); } }
+            duration.Value = Clip.Duration;
+            loop.ButtonPressed = Clip.Loop;
+            frame.MaxValue = Math.Max(1, Clip.Duration);
+            if (frame.Value > Clip.Duration) frame.Value = Clip.Duration;
+            if (clipName is not null) clipName.Text = Clip.Id;
+            UpdateTimeLabel();
         }
-        finally { readingKey = false; }
+        finally { syncingTimeline = false; }
+        timelineTracks?.QueueRedraw();
     }
-    private void ChangeKey(Action<MotionGraph> action, string coalesce) { if (refreshing) return; Guard(() => { document.Edit(action, coalesce); Refresh(); ApplyDocumentPose(); if (playing.ButtonPressed) RestartPlayback(); status.Text = "已编辑。"; }); }
-    private void BindKey(SpinBox number, string field) => number.ValueChanged += _ => { if (!readingKey && !syncingTimeline && !refreshing && (rootTrack.ButtonPressed || SelectedBone is not null)) WriteKey(field); };
-    private void WriteKey(string field)
+    private void UpdateTimeLabel()
     {
-        if (refreshing || (!rootTrack.ButtonPressed && SelectedBone is null)) return;
-        string name = rootTrack.ButtonPressed ? "root" : SelectedBone!;
-        double at = frame.Value;
-        ChangeKey(_ => { var keys = Keys(); keys.RemoveAll(k => k.Frame == at); keys.Add(new() { Frame = at, X = x.Value, Y = y.Value, Angle = angle.Value, ScaleX = sx.Value, ScaleY = sy.Value, Picture = (int)picture.Value }); keys.Sort((a, b) => a.Frame.CompareTo(b.Frame)); }, $"key:{Clip.Id}:{name}:{at}:{field}");
-    }
-    private void RefreshTimeline() { syncingTimeline = true; try { timelineSlider.MaxValue = Clip.Duration; duration.Value = Clip.Duration; loop.ButtonPressed = Clip.Loop; ReadKey(); } finally { syncingTimeline = false; } }
-    private void BuildTrackPage(TabContainer tabs)
-    {
-        var page = Page(tabs, "轨道");
-        var track = Row(page); track.AddChild(new Label { Text = "骨骼" }); bone = new OptionButton { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; track.AddChild(bone); bone.ItemSelected += _ => { if (!syncingBone) SelectBone(bone.GetItemText((int)bone.Selected)); };
-        rootTrack = new CheckButton { Text = "姿态根偏移" }; track.AddChild(rootTrack); rootTrack.Toggled += _ => ReadKey();
-        var translate = Row(page); x = Number(translate, "X"); y = Number(translate, "Y"); angle = Number(translate, "角度", -36000, 36000);
-        var scale = Row(page); sx = Number(scale, "缩放X", -100, 100, 1); sy = Number(scale, "缩放Y", -100, 100, 1); picture = Number(scale, "贴图帧", 0, 10000); picture.Step = 1;
-        BindKey(x, "x"); BindKey(y, "y"); BindKey(angle, "angle"); BindKey(sx, "sx"); BindKey(sy, "sy"); BindKey(picture, "picture");
-        var keys = Row(page); Button(keys, "删除关键帧", () => Change(_ => Keys().RemoveAll(k => k.Frame == frame.Value)));
-        var ik = Row(page); Button(ik, "绑定所选末端", BindSelectedIk); Button(ik, "解除所选 IK", UnbindSelectedIk);
-        page.AddChild(new Label { Text = "位移与缩放线性插值；旋转取最短角度；贴图帧阶梯切换。根偏移只改变姿态，不移动实体。", AutowrapMode = TextServer.AutowrapMode.WordSmart });
+        if (timeLabel is null) return;
+        timeLabel.Text = frame.Value.ToString("F0") + " / " + Clip.Duration.ToString("F0");
     }
     private void BuildTimeline(Node root)
     {
-        var dock = new VBoxContainer { Name = "TimelineDock", CustomMinimumSize = new(0, 150) }; root.AddChild(dock);
-        var header = Row(dock);
-        clipChoice = new OptionButton { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; header.AddChild(clipChoice); clipChoice.ItemSelected += _ => RefreshTimeline();
-        clipId = new LineEdit { PlaceholderText = "新片段标识", CustomMinimumSize = new(120, 0) }; header.AddChild(clipId);
-        Button(header, "新增片段", () => Change(g => g.Clips.Add(new() { Id = clipId.Text })));
-        duration = Number(header, "长度（60Hz）", 1, 100000, 60); duration.ValueChanged += value => { if (!syncingTimeline && !refreshing) ChangeKey(_ => Clip.Duration = value, "duration:" + Clip.Id); };
-        loop = new CheckButton { Text = "循环", ButtonPressed = true }; header.AddChild(loop); loop.Toggled += on => { if (!syncingTimeline && !refreshing) ChangeKey(_ => Clip.Loop = on, "loop:" + Clip.Id); };
-        playing = new CheckButton { Text = "▶" }; header.AddChild(playing); playing.Toggled += on => { playing.Text = on ? "⏸" : "▶"; if (on) RestartPlayback(); else UpdatePlaybackOverlay(); };
-        Button(header, "单帧", Step);
-        speedChoice = new OptionButton(); foreach (string speed in new[] { "0.5x", "1x", "2x" }) speedChoice.AddItem(speed); speedChoice.Select(1); header.AddChild(speedChoice);
-        speedChoice.ItemSelected += index => playbackSpeed = index switch { 0 => .5, 2 => 2, _ => 1 };
-        frame = Number(header, "动作帧", 0, 100000); frame.ValueChanged += _ => { ReadKey(); if (!refreshing) ApplyDocumentPose(); };
-        playState = new Label { Name = "PlayState", AutowrapMode = TextServer.AutowrapMode.WordSmart, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; header.AddChild(playState);
-        timelineSlider = Slider(dock, 60, value => frame.Value = value);
-        keyList = new ItemList { CustomMinimumSize = new(0, 90) }; dock.AddChild(keyList); keyList.ItemSelected += index => frame.Value = keyList.GetItemMetadata((int)index).AsDouble();
+        var dock = new VBoxContainer { Name = "TimelineDock", CustomMinimumSize = new(0, 280) }; root.AddChild(dock);
+        var header = Row(dock); header.Name = "TimelineToolbar";
+        clipName = new Label { Name = "ClipName", CustomMinimumSize = new(120, 0) }; header.AddChild(clipName);
+        clipId = new LineEdit { Name = "NewClipId", PlaceholderText = "新片段标识", CustomMinimumSize = new(120, 0) }; header.AddChild(clipId);
+        clipId.TextSubmitted += AddClip;
+        playing = new CheckButton { Name = "PlayToggle", Text = "▶" }; header.AddChild(playing);
+        playing.Toggled += on => { playing.Text = on ? "⏸" : "▶"; if (on) RestartPlayback(); else UpdatePlaybackOverlay(); };
+        timeLabel = new Label { Name = "TimeLabel", Text = "0 / 0" }; header.AddChild(timeLabel);
+        timelineMenu = new PopupMenu { Name = "TimelineMenu" }; dock.AddChild(timelineMenu);
+        timelineMenu.AddItem("添加关键帧", 0); timelineMenu.AddItem("删除关键帧", 1);
+        timelineMenu.IdPressed += id => { if (id == 0) AddSelectedKey(); else DeleteSelectedKey(); };
+        var scroll = new ScrollContainer { Name = "TimelineScroll", SizeFlagsVertical = Control.SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        dock.AddChild(scroll);
+        timelineTracks = new TimelineTracks(this); scroll.AddChild(timelineTracks);
+    }
+    private sealed partial class TimelineTracks : Control
+    {
+        internal const int HeaderWidth = 120, RulerHeight = 25, RowHeight = 35;
+        private const int LeftPad = 10, RightPad = 10, DiamondRadius = 6, KeyHit = 8;
+        private static readonly Color HeaderBg = new("#252526"), RulerBg = new("#2d2d2d"), TrackBg = new("#1e1e1e"), RowLine = new("#333333"), TickLine = new("#2a2a2a"), LabelColor = new("#999999"), HeaderColor = new("#aaaaaa"), SelectedColor = new("#007acc"), KeyColor = new("#e0e0e0"), PlayheadColor = new("#ff4444");
+        private readonly NativeActionEditor editor;
+        private bool scrubbing;
+        internal TimelineTracks(NativeActionEditor editor)
+        {
+            this.editor = editor;
+            Name = "TimelineTracks";
+            CustomMinimumSize = new(0, RulerHeight + MotionSkeleton.Bones.Length * RowHeight);
+            SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            MouseFilter = MouseFilterEnum.Stop;
+            ClipContents = true;
+        }
+        private MotionClip Clip => editor.Clip;
+        private float TrackLeft => HeaderWidth + LeftPad;
+        private float TrackWidth => Math.Max(1, Size.X - TrackLeft - RightPad);
+        private double Duration => Math.Max(1, Clip.Duration);
+        private float XForFrame(double frame) => TrackLeft + (float)(Math.Clamp(frame, 0, Duration) / Duration) * TrackWidth;
+        private float RowCenter(int row) => RulerHeight + row * RowHeight + RowHeight / 2f;
+        internal int RowCount => MotionSkeleton.Bones.Length;
+        internal float PlayheadX => XForFrame(editor.frame.Value);
+        internal (string Bone, double Frame)? SelectedKey => editor.selectedKeyBone is { } bone ? (bone, editor.selectedKeyFrame) : null;
+        internal bool RowHighlighted(string bone) => editor.highlightedBone == bone;
+        internal Vector2 KeyPoint(string bone, double keyFrame) => new(XForFrame(keyFrame), RowCenter(Math.Max(0, Array.IndexOf(MotionSkeleton.Bones, bone))));
+        internal IReadOnlyList<double> KeyFrames(string bone) => Clip.Tracks.FirstOrDefault(track => track.Bone == bone)?.Keys.Select(key => key.Frame).ToArray() ?? Array.Empty<double>();
+        public override void _Draw()
+        {
+            var size = Size;
+            DrawRect(new Rect2(0, 0, size.X, size.Y), TrackBg);
+            DrawRect(new Rect2(0, 0, HeaderWidth, size.Y), HeaderBg);
+            DrawRect(new Rect2(0, 0, size.X, RulerHeight), RulerBg);
+            var font = GetThemeDefaultFont();
+            int step = TickStep();
+            for (int value = 0; value <= Duration; value += step)
+            {
+                float x = XForFrame(value);
+                DrawLine(new(x, RulerHeight), new(x, size.Y), TickLine);
+                DrawLine(new(x, RulerHeight - 5), new(x, RulerHeight), TickLine);
+                DrawString(font, new(x + 3, 16), value.ToString(), HorizontalAlignment.Left, -1, 10, LabelColor);
+            }
+            for (int row = 0; row < MotionSkeleton.Bones.Length; row++)
+            {
+                string bone = MotionSkeleton.Bones[row];
+                float top = RulerHeight + row * RowHeight;
+                DrawLine(new(0, top + RowHeight), new(size.X, top + RowHeight), RowLine);
+                bool highlighted = RowHighlighted(bone);
+                DrawString(font, new(10, top + RowHeight / 2f + 4), bone, HorizontalAlignment.Left, HeaderWidth - 14, 12, highlighted ? SelectedColor : HeaderColor);
+                var track = Clip.Tracks.FirstOrDefault(item => item.Bone == bone);
+                if (track is null) continue;
+                foreach (var key in track.Keys)
+                {
+                    bool selected = editor.selectedKeyBone == bone && Math.Abs(editor.selectedKeyFrame - key.Frame) < .001;
+                    Diamond(XForFrame(key.Frame), RowCenter(row), selected);
+                }
+            }
+            float playhead = PlayheadX;
+            DrawLine(new(playhead, 0), new(playhead, size.Y), PlayheadColor);
+            DrawColoredPolygon([new(playhead - 5, 0), new(playhead + 5, 0), new(playhead, 8)], PlayheadColor);
+        }
+        private int TickStep()
+        {
+            double perFrame = TrackWidth / Duration;
+            foreach (int step in new[] { 1, 2, 5, 10, 15, 30, 60, 120, 300 }) if (step * perFrame >= 60) return step;
+            return 300;
+        }
+        private void Diamond(float x, float y, bool selected)
+        {
+            Vector2[] points = [new(x, y - DiamondRadius), new(x + DiamondRadius, y), new(x, y + DiamondRadius), new(x - DiamondRadius, y)];
+            DrawColoredPolygon(points, selected ? SelectedColor : KeyColor);
+            DrawPolyline([points[0], points[1], points[2], points[3], points[0]], selected ? Colors.White : Colors.Black);
+        }
+        public override void _GuiInput(InputEvent input)
+        {
+            if (input is InputEventMouseButton button)
+            {
+                if (button.ButtonIndex == MouseButton.Left)
+                {
+                    if (button.Pressed) Press(button.Position);
+                    else scrubbing = false;
+                    AcceptEvent();
+                }
+                else if (button.ButtonIndex == MouseButton.Right && button.Pressed)
+                {
+                    Context(button.Position);
+                    AcceptEvent();
+                }
+                return;
+            }
+            if (input is InputEventMouseMotion motion && scrubbing) editor.SetTimelineFrame(FrameAt(motion.Position.X));
+        }
+        private void Press(Vector2 position)
+        {
+            if (position.X < HeaderWidth)
+            {
+                int row = (int)((position.Y - RulerHeight) / RowHeight);
+                if (row >= 0 && row < MotionSkeleton.Bones.Length) editor.SelectBone(MotionSkeleton.Bones[row]);
+                return;
+            }
+            if (position.Y < RulerHeight) { scrubbing = true; editor.SetTimelineFrame(FrameAt(position.X)); return; }
+            if (HitKey(position) is { } key) { editor.SelectKeyframe(key.Bone, key.Frame); return; }
+            int index = (int)((position.Y - RulerHeight) / RowHeight);
+            if (index >= 0 && index < MotionSkeleton.Bones.Length) editor.SelectBone(MotionSkeleton.Bones[index]);
+            scrubbing = true; editor.SetTimelineFrame(FrameAt(position.X));
+        }
+        private void Context(Vector2 position)
+        {
+            scrubbing = false;
+            Press(position);
+            scrubbing = false;
+            if (HitKey(position) is { } key) editor.SelectKeyframe(key.Bone, key.Frame);
+            editor.timelineMenu.Position = (Vector2I)(GetScreenPosition() + position);
+            editor.timelineMenu.Popup();
+        }
+        private (string Bone, double Frame)? HitKey(Vector2 position)
+        {
+            for (int row = 0; row < MotionSkeleton.Bones.Length; row++)
+            {
+                string bone = MotionSkeleton.Bones[row];
+                var track = Clip.Tracks.FirstOrDefault(item => item.Bone == bone);
+                if (track is null) continue;
+                float y = RowCenter(row);
+                foreach (var key in track.Keys) if (Math.Abs(position.X - XForFrame(key.Frame)) <= KeyHit && Math.Abs(position.Y - y) <= KeyHit) return (bone, key.Frame);
+            }
+            return null;
+        }
+        private double FrameAt(float x) => Math.Clamp((x - TrackLeft) / TrackWidth * Duration, 0, Duration);
     }
 }

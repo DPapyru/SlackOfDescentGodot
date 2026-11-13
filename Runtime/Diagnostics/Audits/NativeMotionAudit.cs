@@ -102,6 +102,7 @@ public partial class NativeMotionAudit : Node
                 NativeContentStore.Save(Path.Combine(package,"mod.json"),new NativeModManifest{FormatVersion=2,Id="audit.motion.package",Name="Motion package",Version="1.0.0",Content=new(){Motions={{packaged.Id,"player.motion.json"}}}});
                 using var manager=new NativeModManager(game.Registry);
                 var loaded=manager.Reload(package);Expect(loaded.Success,"motion package registers: "+loaded.Diagnostics);
+                Expect(game.Registry.MotionGraphs[packaged.Id].Origin=="audit.motion.package","a mod motion graph records its mod origin");
                 var owner=new ActorContext(game.World,game.Player!);game.Bridge.Services.Motions.Play(owner,packaged.Id);
                 var reloaded=manager.Reload(package);Expect(reloaded.Success&&game.Bridge.Services.Motions.State(owner) is null,"hot reload stops old owned graph playback");
                 game.Bridge.Services.Motions.Play(owner,packaged.Id);var unloaded=manager.Unload("audit.motion.package");

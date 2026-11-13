@@ -4,8 +4,10 @@ namespace SlackOfDescent;
 
 public sealed class MotionGraphDocument(MotionGraph graph)
 {
+    internal static Func<long> TickProvider=()=>Environment.TickCount64;
     public MotionGraph Graph { get; private set; } = graph;
     public bool Dirty { get; private set; }
+    internal int Revision { get; private set; }
     private readonly Stack<byte[]> undo=new();
     private readonly Stack<byte[]> redo=new();
     private string? coalesceKey;
@@ -15,19 +17,19 @@ public sealed class MotionGraphDocument(MotionGraph graph)
     public void Edit(Action<MotionGraph> change,string? coalesce=null)
     {
         var before=Snapshot();
-        try{change(Graph);Graph.Validate();long now=Environment.TickCount64;if(coalesce is null||coalesce!=coalesceKey||now-coalesceStamp>=500)undo.Push(before);coalesceKey=coalesce;coalesceStamp=now;redo.Clear();Dirty=true;}catch{Restore(before);throw;}
+        try{change(Graph);Graph.Validate();long now=TickProvider();if(coalesce is null||coalesce!=coalesceKey||now-coalesceStamp>=500)undo.Push(before);coalesceKey=coalesce;coalesceStamp=now;redo.Clear();Dirty=true;Revision++;}catch{Restore(before);throw;}
     }
-    public bool Undo(){coalesceKey=null;if(!undo.TryPop(out var data))return false;redo.Push(Snapshot());Restore(data);Dirty=true;return true;}
-    public bool Redo(){coalesceKey=null;if(!redo.TryPop(out var data))return false;undo.Push(Snapshot());Restore(data);Dirty=true;return true;}
-    public MotionIkResult Drag(string clipId,string bone,double frame,double targetX,double targetY,bool? bendPositive=null,bool forceFk=false)
+    public bool Undo(){coalesceKey=null;if(!undo.TryPop(out var data))return false;redo.Push(Snapshot());Restore(data);Dirty=true;Revision++;return true;}
+    public bool Redo(){coalesceKey=null;if(!redo.TryPop(out var data))return false;undo.Push(Snapshot());Restore(data);Dirty=true;Revision++;return true;}
+    public MotionIkResult Drag(string clipId,string bone,double frame,double targetX,double targetY,bool? bendPositive=null,bool forceFk=false,MotionIkFrame? ikFrame=null)
     {
         MotionIkResult result=MotionIkResult.Invalid("拖动未应用。");
         var before=Snapshot();
         try
         {
-            result=MotionPoseEditor.Drag(Graph,clipId,bone,frame,targetX,targetY,bendPositive,forceFk);
+            result=MotionPoseEditor.Drag(Graph,clipId,bone,frame,targetX,targetY,bendPositive,forceFk,ikFrame);
             if(!result.Success){Restore(before);return result;}
-            Graph.Validate();undo.Push(before);redo.Clear();Dirty=true;coalesceKey=null;return result;
+            Graph.Validate();undo.Push(before);redo.Clear();Dirty=true;coalesceKey=null;Revision++;return result;
         }
         catch{Restore(before);throw;}
     }
@@ -37,11 +39,37 @@ public sealed class MotionGraphDocument(MotionGraph graph)
         try
         {
             MotionPoseEditor.Translate(Graph,clipId,bone,frame,x,y);
-            Graph.Validate();undo.Push(before);redo.Clear();Dirty=true;coalesceKey=null;
+            Graph.Validate();undo.Push(before);redo.Clear();Dirty=true;coalesceKey=null;Revision++;
         }
         catch{Restore(before);throw;}
+    }
+    public void Rotate(string clipId,string bone,double frame,double angle)=>Edit(graph=>MotionPoseEditor.Rotate(graph,clipId,bone,frame,angle));
+    public MotionGraph? Preview(Action<MotionGraph> change)
+    {
+        try
+        {
+            var copy=JsonSerializer.Deserialize<MotionGraph>(Snapshot(),NativeContentStore.Json)!;
+            change(copy);copy.Validate();return copy;
+        }
+        catch(InvalidDataException){return null;}
     }
     public void Save(string path){Graph.Save(path);Dirty=false;coalesceKey=null;}
     internal int UndoDepth=>undo.Count;
     internal void RestoreDirty(bool value)=>Dirty=value;
+}
+
+internal sealed class MotionSourceDebounce(double delay)
+{
+    private double remaining;
+    public bool Pending { get; private set; }
+    public void Restart() { remaining = delay; Pending = true; }
+    public void Cancel() { remaining = 0; Pending = false; }
+    public bool Tick(double delta)
+    {
+        if (!Pending) return false;
+        remaining -= delta;
+        if (remaining > 0) return false;
+        Pending = false;
+        return true;
+    }
 }

@@ -33,7 +33,32 @@ public static class MotionImport
         static string Text(JsonElement argument)=>argument.ValueKind==JsonValueKind.Array&&argument.GetArrayLength()>=2&&argument[0].GetString()=="str"?argument[1].GetString()??"":"";
     }
 
-    public static MotionGraph FromAst(JsonElement ast,string id,string skeleton,double sourceHz=30)
+    public static IReadOnlyList<MotionRegistered> Registered(IReadOnlyDictionary<string,JsonElement> code,string preset)
+    {
+        if(code.TryGetValue("external/Chara/"+preset+"/motion_list.txt",out var list))return Registered(list);
+        return code.TryGetValue("external/Chara/Nana/motion_list.txt",out var fallback)?Registered(fallback):[];
+    }
+
+    public static bool TryFirstRegistered(IReadOnlyDictionary<string,JsonElement> code,string preset,string id,string skeleton,out MotionGraph? graph,out string source,out string error)
+    {
+        graph=null;source="";error="";
+        MotionRegistered first;
+        try
+        {
+            var registered=Registered(code,preset);
+            if(registered.Count==0){error="没有可用的原版动作清单："+preset;return false;}
+            first=registered[0];
+        }
+        catch(Exception exception){error="读取原版动作清单失败："+exception.GetBaseException().Message;return false;}
+        string path="external/Chara/Motion/"+first.Resource+".txt";
+        if(!code.TryGetValue(path,out var ast)){error="找不到原版动作："+path;return false;}
+        try{graph=FromAst(ast,id,skeleton);}
+        catch(Exception exception){error="导入原版动作 "+first.Name+" 失败："+exception.GetBaseException().Message;return false;}
+        source=first.Name+" → "+first.Resource;
+        return true;
+    }
+
+    public static MotionGraph FromAst(JsonElement ast,string id,string skeleton,double sourceHz=30,string? clipId=null)
     {
         if(!double.IsFinite(sourceHz)||sourceHz<=0)throw new InvalidDataException("Invalid source clock.");
         var scalar=new Dictionary<string,double>(StringComparer.Ordinal);
@@ -91,7 +116,7 @@ public static class MotionImport
         if(steps.Length==0)throw new InvalidDataException("Motion has no frame times.");
         if(steps.Any(s=>s.Value<0)||steps.Zip(steps.Skip(1)).Any(p=>p.First.Value>=p.Second.Value))throw new InvalidDataException("Motion frame times are not strictly increasing.");
         double Get(int bone,string field,int index,double fallback=0)=>values.GetValueOrDefault((bone,field,index),fallback);
-        var clip=new MotionClip{Id="imported",Duration=Math.Max(1,Math.Max(scalar.GetValueOrDefault("data_motLong",steps[^1].Value),steps[^1].Value)*factor)};
+        var clip=new MotionClip{Id=clipId??id,Duration=Math.Max(1,Math.Max(scalar.GetValueOrDefault("data_motLong",steps[^1].Value),steps[^1].Value)*factor)};
         foreach(var step in steps)clip.Root.Add(new(){Frame=step.Value*factor,X=Get(-1,"data_motPosX",step.Key.Index),Y=Get(-1,"data_motPosY",step.Key.Index)});
         foreach(int bone in values.Keys.Where(k=>k.Part>=0).Select(k=>k.Part).Distinct().Order())
         {
@@ -105,6 +130,6 @@ public static class MotionImport
             }
             clip.Tracks.Add(track);
         }
-        var graph=new MotionGraph{Id=id,Skeleton=skeleton,Clips=[clip],States=[new(){Clip=clip.Id}]};graph.Validate();return graph;
+        var graph=new MotionGraph{Id=id,Skeleton=skeleton,Origin="native",Clips=[clip],States=[new(){Clip=clip.Id}]};graph.Validate();return graph;
     }
 }

@@ -18,7 +18,6 @@ public sealed class MotionProject(MotionProjectTarget target, MotionGraphDocumen
     public MotionGraphDocument Document { get; set; } = document;
     public string? Path { get; set; }
     public int ClipIndex { get; set; }
-    public int BoneIndex { get; set; }
     public double Frame { get; set; }
     public bool Dirty => Document.Dirty;
 }

@@ -1,0 +1,31 @@
+{
+  "title": "Bug/优化: 部分场景下的帧率下降问题",
+  "body": "此处环境触发为: playground\n据反馈还有多处地方有问题\n\n观察到:\n- 在playground，地图最右侧，三个藤壶怪物的场景，fps只有28, 进入胶水池，来到26fps，让角色触发胶水池的藤壶怪物qte判定后，帧率持续下降，最终在22~25fps之间浮动\n\n推测:\n一些粒子/实体的过多更新\n\n需要一轮更详细的待定策略,检测环境信息,同时检查代码环境",
+  "state": "CLOSED",
+  "createdAt": "2026-11-14T06:47:06Z",
+  "updatedAt": "2026-11-14T09:07:48Z",
+  "closedAt": "2026-11-14T09:07:48Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "bug"
+      },
+      {
+        "name": "question"
+      },
+      {
+        "name": "area:perf"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

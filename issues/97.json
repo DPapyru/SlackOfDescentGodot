@@ -1,0 +1,51 @@
+{
+  "title": "动作 mod：捆绑状态固定身体部位（状态约束层）",
+  "body": "## AI回复\n\n### 背景\n\n捆绑现在只是一串姿势/动作。进入捆绑状态后角色仍能被摆成任意姿态，退出时也没有「进入前」这个还原点。要的是「状态固定身体部位」，不是每帧再摆一次骨骼。\n\n### 现状\n\n- `MotionState`（`Runtime/Content/Actions/MotionGraph.cs:102`）只有 id 与 transition，没有「哪些骨骼被锁」的表达。\n- 动作串只描述骨骼写什么，没有「不许写」的语义；`MotionGraph.CopyFrom`（同文件 166 行）按可写属性反射复制，新增字段要确认一并被复制。\n\n### 做什么\n\n1) `MotionState` 增加可选字段：被约束骨骼 id 列表。落盘格式同步加键——`MotionToml` 用 Strict 反序列化，未知成员会直接报错，两边必须同时改。\n2) 进入状态时快照这些骨骼的局部变换；状态期间动作对它们的写入被跳过。\n3) 退出状态按快照还原，不在动作串里写还原帧。\n4) 动作编辑器在约束态把这些骨骼置灰，禁止拖动。\n\n### 验收\n\n- [ ] 捆绑状态中拖被约束骨骼无变化，退出后回到进入前姿态\n- [ ] 动作串不新增关键帧\n- [ ] 旧文件没有 constraints 字段仍能正常加载\n- [ ] RuntimeTests / gate 不回归\n\n### 不做\n\n- 不做绳索物理与绳索贴图\n- 不做判定与触发逻辑（谁进入捆绑状态由上层决定）\n\n### 待补充\n\n约束是全局生效还是每个状态各配一份？跨状态续约束要不要继承？\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-14T12:13:39Z",
+  "updatedAt": "2026-11-14T22:44:27Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "mod"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABmmXzLg",
+        "body": "## 人为补充内容\n\n### 物理绳\n\n至少我的角度来说,物理绳索是很有必要的,而且实现本身不复杂,在各种游戏里面最常见Verlet积分可以实现\n\n### 绳子贴图\n\n我提供一个,可以试试:\n\n<img width=\"4\" height=\"4\" alt=\"image\" src=\"https://github.com/user-attachments/assets/cad06429-ec4f-4ced-bb3b-ffa92b0b9784\" />\n(上面是绳子头部)\n\n<img width=\"11\" height=\"4\" alt=\"image\" src=\"https://github.com/user-attachments/assets/c133c1b2-f7fa-4023-a7b7-01c075b33e93\" />\n(上面是绳子身体)\n\n### 要求AI实现\n\n#### 动作\n\n是的,这是一个很核心的问题,原版目前有太多的动作,我不可能逐一去做动画\n为了验证并且总结AI如何摆动作,我决定让AI完成\n\n**为了准确性,可以使用数学工具,代码计算,而不是思维链里面完成计算**\n\n需要有的动作如下(替换原版类似的动作,不要替换旧的,是游戏本身可以触发的,读取代码验证):\n- 陷入quicksand的动作\n- vore系列动作\n- 有qte交互的动作\n- 奔跑,跳跃等基础动作\n\n根据状态有:\n- 双手绳子束缚\n- 双脚绳子束缚\n- 身体绳子束缚\n- 以上三个可以同时出现\n\n这是一个工程量很大的活,需要逐个完成\n\n## 纠正认知\n\n**这里是一个单独的mod**\n我看这个issue的内容,是想修改动作编辑器本身\n不是这样,动作编辑器已经暂时结束了",
+        "createdAt": "2026-11-14T22:41:20Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABmmaDMw",
+        "body": "## AI回复\n\n### 已核对的事实（读代码，不转述正文）\n\n- `Runtime/Content/Actions/MotionGraph.cs:102` 的 `MotionState` 只有 `Id/Clip/Movement/Transitions`；`MotionToml` 是 Strict，落盘加键必须两边同时改。\n- 动作挂在角色定义上：`Runtime/Host/Adapters/GmMotionBinding.cs:8`；播放器是 `Runtime/Host/Adapters/NativeMotionService.cs`——内建逐骨骼写入，**SDK 目前没有「跳过某骨骼」的门控**。\n- 原版动作注册表：`Runtime/Mods/NativeActionRegistry.cs`（`ContentRegistry.Actions / ActionFactories / ActionSettings`）。\n- mod 形态：`Examples/Mods/<id>/`（`mod.json` + `csproj` + C#，`Tools/ModCompiler` 编译），`Mods/` 是安装目录；全仓 grep 无任何绳索/约束代码。\n- 你的评论推翻正文两处：①「不要改动作编辑器」→ 正文「做什么-4」作废；②「物理绳必要 + 贴图」→ 正文「不做」作废。正文我改不了（只有维护者能编辑），以你的评论为准。\n\n### 问题：一轮问完（Q1–Q7 涉及范围/架构/验收，按 AGENTS.md 需要你 ACK 或直接回答）\n\n❓ **Q1** - **载体与仓库**：`Mods/` 是安装目录、`Examples/Mods/` 是示例源码。这个「单独的 mod」源码放哪——独立仓库，还是本仓库开一个目录（比如 `ModsSrc/<id>/`）？manifest 的 id 叫什么？\n\n➡️ 建议：独立仓库（你原话就是「单独的 mod」），本仓库不留源码；id 用 `ropebond`。如果你想让我就在这里直接开发，请指定目录，并允许我动 `Tools/verify.mjs` 的白名单。\n\n---\n\n❓ **Q2** - **正文四件事是否整段作废**：① `MotionState.constraints` 新字段；② `MotionToml` 加键；③ 引擎进出状态快照还原；④ 编辑器置灰。这四件都是引擎/编辑器改动，与「单独的 mod」冲突。\n\n➡️ 建议：①②③ 全部移出本 issue（约束在 mod 侧实现），④ 按你的话直接删。本 issue 只剩 mod 交付物。请 ACK，或让维护者改正文。\n\n---\n\n❓ **Q3** - **约束语义**（正文的「待补充」就在这里定）：约束是全局一份，还是每个状态各配一份？双手/双脚/身体三种束缚可同时出现，是三个集合叠加还是互斥？跨状态（双手束缚 → 双手+双脚）是继承还是替换？\n\n➡️ 建议：mod 配置里**每个状态一份**，三种束缚各一个骨骼集合，同时生效取并集；跨状态**不继承**，进入即替换；还原点只记最深一层的进入前姿态，退出该层整体还原。\n\n---\n\n❓ **Q4** - **约束怎么落地**（关键架构，必须你选）：SDK 没有逐骨骼写入门控，两条路——(a) mod 每帧在播放器写完骨骼后，把被约束骨骼的局部变换覆盖回快照（mod 侧，零引擎改动）；(b) 给 SDK 加最小 API `NativeMotion.Constrain(actor, bones)`，播放器直接跳过写入（一行门控，语义干净，但要动本仓库）。\n\n➡️ 建议：(b) 语义正确、不走样，但那已经是引擎改动；若坚持「只是一个 mod」，先用 (a)，把 (b) 记成后续 SDK issue。\n\n---\n\n❓ **Q5** - **绳索与贴图**：你给的头 4×4、身 11×4 太小，我需要确认意图——是「一段身体」平铺，还是单张贴图拉伸？另外：三种束缚同时 = 最多几条绳？每条绳锚点是世界（墙/地面）还是角色骨骼？碰撞范围（只撞角色胶囊和地面 / 是否自碰撞）？渲染走 mod 自绘 Godot Node2D，还是 SDK 的 `NativeModAnimation`/资源槽？\n\n➡️ 建议：每条绳 2 锚点（场景锚点 + 角色骨骼），11×4 身体按段平铺、4×4 头贴在锚点；Verlet 20~30 段，只撞角色胶囊 + 地面，不做自碰撞；渲染走 mod 资源 + `_Draw`。像素比例请按这两张贴图确认。\n\n---\n\n❓ **Q6** - **原版动作清单 / 触发 / 分批 / 验收**：你说「替换原版类似的动作…是游戏本身可以触发的，读取代码验证」。我会先读 `NativeActionRegistry` 和 GML 里 quicksand/vore/QTE 的触发点，产出「原版动作 → 触发点 → mod 对应动作」清单给你确认，**先不写实现**。触发路径你希望走哪条：房间对象（GML）、角色配置，还是 mod 自带测试场景？\n\n➡️ 建议：先出清单；按 奔跑/跳跃 → 流沙 → QTE → vore 分四批，每批一个子 issue + 一个 PR（AGENTS.md：大工程量拆子 issue）；触发走房间对象，mod 附可复现测试场景；验收 = mod 内最小自检 + 本仓库 `node Tools/gate.mjs` 与 `Tools/motion-audit.mjs` 不回归。\n\n---\n\n❓ **Q7** - **「替换原版类似的动作，不要替换旧的」精确含义**：是「同 id 覆盖原版动作」，还是「新 id 并存、原版照样能触发」？两种读法结果完全不同（覆盖会静默改掉全局行为）。\n\n➡️ 建议：新 id 并存，**绝不覆盖原版 id**；原版动作保持可触发，mod 动作统一前缀 id。\n\n---\n\n这 7 条答完我回 `DECISION:` + 分批计划；在你 ACK 范围/架构/验收之前不动工。\n",
+        "createdAt": "2026-11-14T22:44:27Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

@@ -404,5 +404,26 @@
     "state": "OPEN",
     "updatedAt": "2026-11-11T08:03:54Z",
     "file": "issues/93.json"
+  },
+  {
+    "number": 95,
+    "title": "Bug/优化: 部分场景下的帧率下降问题",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-14T09:07:48Z",
+    "file": "issues/95.json"
+  },
+  {
+    "number": 97,
+    "title": "动作 mod：捆绑状态固定身体部位（状态约束层）",
+    "state": "OPEN",
+    "updatedAt": "2026-11-14T22:44:27Z",
+    "file": "issues/97.json"
+  },
+  {
+    "number": 98,
+    "title": "动作 mod：消化用参数曲线，复用现有 clip 不新增关键帧",
+    "state": "OPEN",
+    "updatedAt": "2026-11-14T12:13:41Z",
+    "file": "issues/98.json"
   }
 ]

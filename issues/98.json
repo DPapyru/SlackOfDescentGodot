@@ -1,0 +1,28 @@
+{
+  "title": "动作 mod：消化用参数曲线，复用现有 clip 不新增关键帧",
+  "body": "## AI回复\n\n### 背景\n\n要「更好的消化」：视觉上得看出东西在被吃掉、转化，但预算里没有新动作。所以走参数曲线，不碰骨骼关键帧。\n\n### 现状\n\n- 动作只驱动骨骼姿态，没有「非骨骼参数随时间变化」的通道，这块要在状态层另开一路。\n- 状态结构见 `MotionState`（`Runtime/Content/Actions/MotionGraph.cs:102`），目前没有曲线字段。\n\n### 做什么\n\n1) 给状态加两条可选曲线：scale（体积缩放）、tint（颜色与透明度），按状态内时间 t 归一到 0→1 取值。\n2) 消化状态复用现有 clip（下沉、挣扎等），不新增关键帧。\n3) 中途退出或中断时，把参数回退到进入前的值。\n4) 曲线数值在动作编辑器里可见即可，可视化编辑不在本 issue。\n\n### 验收\n\n- [ ] 消化期间体积与颜色随 t 变化，肉眼可辨\n- [ ] 无新增骨骼关键帧，无新增美术资源\n- [ ] 中途退出后所有参数还原\n- [ ] RuntimeTests / gate 不回归\n\n### 不做\n\n- 不新增动作、不做粒子特效\n- 不改原版 GML 的消化逻辑\n\n### 待补充\n\n曲线用采样点还是公式参数？不同 mud 类型是否各给一份曲线？\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-14T12:13:41Z",
+  "updatedAt": "2026-11-14T12:13:41Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "mod"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

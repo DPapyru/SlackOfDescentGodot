@@ -79,6 +79,8 @@ public static class GmSlotLayoutTests
             scope.Write("dynamic_array", 3, 2);
             Check(scope.Read("dynamic_array", 2).Number == 3, "domains outside the layout keep the dictionary path");
 
+            assertions += CharacterSlotChecks(world);
+
             scope.UseLayout(null);
             Check(scope.Layout is null && scope.ArrayLayout is null, "layout can be dropped");
             Check(scope.ReadOr("x").Number == 3, "dropping the layout keeps slot values");
@@ -89,6 +91,33 @@ public static class GmSlotLayoutTests
         {
             GmWorld.SlotExperiment = false;
         }
+        return assertions;
+    }
+
+    private static int CharacterSlotChecks(GmWorld world)
+    {
+        int assertions = 0;
+        void Check(bool condition, string name) { if (!condition) throw new Exception(name); assertions++; }
+        int part = world.Constants["objNana_Foot_Below"].Int;
+        var partPlan = world.SlotLayout(part);
+        Check(partPlan is not null && partPlan.Scalars.ContainsKey("Socks0"), "character parts yield a slot layout with their event variables");
+        foreach (string inherited in new[] { "objRyoko_Foot_Below", "objYuki_Foot_Below", "objPlayerParts", "objEnemyParts" })
+        {
+            var inheritedPlan = world.SlotLayout(world.Constants[inherited].Int);
+            Check(inheritedPlan is not null && inheritedPlan.Scalars.Count > 0, inherited + " inherits a slot layout from its character ancestry");
+        }
+        var partInstance = world.Create(part, 0, 0, run: false);
+        Check(ReferenceEquals(partInstance.Scope.Layout, partPlan!.Scalars), "character part instances share their layout");
+        partInstance.Scope.Write("Socks0", 7);
+        Check(partInstance.Scope.Read("Socks0").Number == 7, "character part slot writes round-trip");
+        var partContext = new GmContext(partInstance);
+        string partRead = world.Compile("part_probe = Socks0 + 1");
+        world.Evaluator.Run(partRead, partContext);
+        Check(partInstance.Scope.Read("part_probe").Number == 8, "compiled character code reads slots");
+        var inheritedInstance = world.Create(world.Constants["objRyoko_Foot_Below"].Int, 0, 0, run: false);
+        Check(inheritedInstance.Scope.Layout is not null, "instances of inherited character parts use the slot layout");
+        int outside = world.Constants["objTarString"].Int;
+        Check(world.SlotLayout(outside) is null, "objects outside the slot families keep the dictionary path");
         return assertions;
     }
 }

@@ -1,0 +1,31 @@
+{
+  "formatVersion": 2,
+  "id": "example.ropebonds",
+  "name": "RopeBonds",
+  "author": "RopeBonds",
+  "description": "绳索生物与手部姿态约束示例。",
+  "version": "0.1.0",
+  "content": {
+    "resources": {},
+    "maps": {},
+    "characters": {},
+    "languages": {},
+    "motions": {},
+    "code": {
+      "entryType": "RopeBonds.RopeBondsMod",
+      "sources": [
+        "RopeBondsMod.cs",
+        "SelfCheck.cs",
+        "Bind/BindPose.cs",
+        "Bind/BoneSets.cs",
+        "Bind/ConstraintService.cs",
+        "Creature/VerletChain.cs",
+        "Creature/RopeCreature.cs",
+        "motions/RopeBondsMotions.cs",
+        "Actions/RopeBondsActions.cs",
+        "Maps/RopeBondsMaps.cs"
+      ],
+      "managedDependencies": []
+    }
+  }
+}

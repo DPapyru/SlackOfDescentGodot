@@ -79,6 +79,10 @@ public partial class NativeModsAudit : Node
             Expect(moveUnload.Success && moveUnload.Diagnostics.Contains("observer-failed"), "unload releases resources even when a registry observer throws");
             await Frames(3);
             Expect(NativeModManager.VerifyUnloaded(moveUnload.PreviousContext!), "movement context releases bound action references");
+            System.Environment.SetEnvironmentVariable("ROPEBONDS_SELFCHECK", "1");
+            var ropebonds = manager.Reload(CopyExample(root, temporary, "ropebonds"));
+            System.Environment.SetEnvironmentVariable("ROPEBONDS_SELFCHECK", null);
+            Expect(ropebonds.Success, "ropebonds example compiles and self-checks: " + ropebonds.Diagnostics);
             GD.Print("NATIVE_MOD_AUDIT_OK assertions=", assertions, " reloads=20 collected=20 tracked_nodes=0 tracked_tasks=0");
             GetTree().Quit();
         }

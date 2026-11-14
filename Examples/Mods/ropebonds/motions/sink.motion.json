@@ -1,0 +1,4438 @@
+{
+  "FormatVersion": 1,
+  "Id": "ropebonds.sink",
+  "Skeleton": "Nana",
+  "Entry": "sink",
+  "Origin": "unknown",
+  "Clips": [
+    {
+      "Id": "sink",
+      "Duration": 702,
+      "Loop": true,
+      "Tracks": [
+        {
+          "Bone": "BODY_BOTTOM",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 0,
+              "Y": 0,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 30,
+              "X": 0,
+              "Y": 0,
+              "Angle": -11,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 60,
+              "X": 0,
+              "Y": 0,
+              "Angle": -14,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 90,
+              "X": 0,
+              "Y": 0,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 92,
+              "X": 0,
+              "Y": 0,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 122,
+              "X": 0,
+              "Y": 0,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 152,
+              "X": 0,
+              "Y": 0,
+              "Angle": -11,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 182,
+              "X": 0,
+              "Y": 0,
+              "Angle": -14,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 212,
+              "X": 0,
+              "Y": 0,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 214,
+              "X": 0,
+              "Y": 0,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 244,
+              "X": 0,
+              "Y": 0,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 274,
+              "X": 0,
+              "Y": 0,
+              "Angle": -11,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 304,
+              "X": 0,
+              "Y": 0,
+              "Angle": -14,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 334,
+              "X": 0,
+              "Y": 0,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 336,
+              "X": 0,
+              "Y": 0,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 366,
+              "X": 0,
+              "Y": 0,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 396,
+              "X": 0,
+              "Y": 0,
+              "Angle": -11,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 426,
+              "X": 0,
+              "Y": 0,
+              "Angle": -14,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 456,
+              "X": 0,
+              "Y": 0,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 458,
+              "X": 0,
+              "Y": 0,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 488,
+              "X": 0,
+              "Y": 0,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 518,
+              "X": 0,
+              "Y": 0,
+              "Angle": -11,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 548,
+              "X": 0,
+              "Y": 0,
+              "Angle": -14,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 578,
+              "X": 0,
+              "Y": 0,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 580,
+              "X": 0,
+              "Y": 0,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 610,
+              "X": 0,
+              "Y": 0,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 640,
+              "X": 0,
+              "Y": 0,
+              "Angle": -11,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 670,
+              "X": 0,
+              "Y": 0,
+              "Angle": -14,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 700,
+              "X": 0,
+              "Y": 0,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 702,
+              "X": 0,
+              "Y": 0,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "BODY_TOP",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 0,
+              "Y": 0,
+              "Angle": 8,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 30,
+              "X": 0,
+              "Y": 0,
+              "Angle": 14,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 60,
+              "X": 0,
+              "Y": 0,
+              "Angle": 16,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 90,
+              "X": 0,
+              "Y": 0,
+              "Angle": 8,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 92,
+              "X": 0,
+              "Y": 0,
+              "Angle": 8,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 122,
+              "X": 0,
+              "Y": 0,
+              "Angle": 9,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 152,
+              "X": 0,
+              "Y": 0,
+              "Angle": 15,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 182,
+              "X": 0,
+              "Y": 0,
+              "Angle": 18,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 212,
+              "X": 0,
+              "Y": 0,
+              "Angle": 9,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 214,
+              "X": 0,
+              "Y": 0,
+              "Angle": 9,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 244,
+              "X": 0,
+              "Y": 0,
+              "Angle": -3,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 274,
+              "X": 0,
+              "Y": 0,
+              "Angle": 3,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 304,
+              "X": 0,
+              "Y": 0,
+              "Angle": 4,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 334,
+              "X": 0,
+              "Y": 0,
+              "Angle": -3,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 336,
+              "X": 0,
+              "Y": 0,
+              "Angle": -3,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 366,
+              "X": 0,
+              "Y": 0,
+              "Angle": -3,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 396,
+              "X": 0,
+              "Y": 0,
+              "Angle": 3,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 426,
+              "X": 0,
+              "Y": 0,
+              "Angle": 4,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 456,
+              "X": 0,
+              "Y": 0,
+              "Angle": -3,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 458,
+              "X": 0,
+              "Y": 0,
+              "Angle": -3,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 488,
+              "X": 0,
+              "Y": 0,
+              "Angle": -15,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 518,
+              "X": 0,
+              "Y": 0,
+              "Angle": -8,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 548,
+              "X": 0,
+              "Y": 0,
+              "Angle": -3,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 578,
+              "X": 0,
+              "Y": 0,
+              "Angle": -15,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 580,
+              "X": 0,
+              "Y": 0,
+              "Angle": -15,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 610,
+              "X": 0,
+              "Y": 0,
+              "Angle": -15,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 640,
+              "X": 0,
+              "Y": 0,
+              "Angle": -16,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 670,
+              "X": 0,
+              "Y": 0,
+              "Angle": -11,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 700,
+              "X": 0,
+              "Y": 0,
+              "Angle": -15,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 702,
+              "X": 0,
+              "Y": 0,
+              "Angle": -15,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "HEAD",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 19,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 30,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 16,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 60,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 18,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 90,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 19,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 92,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 19,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 122,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 19,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 152,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 16,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 182,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 18,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 212,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 19,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 214,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 19,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 244,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 34,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 274,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 35,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 304,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 37,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 334,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 34,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 336,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 34,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 366,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 34,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 396,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 35,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 426,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 37,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 456,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 34,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 458,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 34,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 488,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 44,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 518,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 36,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 548,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 37,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 578,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 44,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 580,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 44,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 610,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 6,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 640,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 13,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 670,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 10,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 700,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 6,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 702,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 6,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "HAND1_ABOVE",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 16,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 30,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 17,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 60,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 15,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 90,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 16,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 92,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 16,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 122,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 16,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 152,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 17,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 182,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 15,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 212,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 16,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 214,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 16,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 244,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 37,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 274,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 32,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 304,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 35,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 334,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 37,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 336,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 37,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 366,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 67,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 396,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 62,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 426,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 65,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 456,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 67,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 458,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 67,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 488,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 68,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 518,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 65,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 548,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 64,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 578,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 68,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 580,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 68,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 610,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 202,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 640,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 206,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 670,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 201,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 700,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 202,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 702,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 202,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "HAND2_ABOVE",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 30,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 8,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 60,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 90,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 92,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 122,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 28,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 152,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 32,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 182,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 30,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 212,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 28,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 214,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 28,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 244,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 34,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 274,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 44,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 304,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 41,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 334,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 34,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 336,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 34,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 366,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 34,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 396,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 44,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 426,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 41,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 456,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 34,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 458,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 34,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 488,
+              "X": 2.3489937210499727,
+              "Y": 12.419815960732583,
+              "Angle": 131,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 518,
+              "X": 2.3489937210499727,
+              "Y": 12.419815960732583,
+              "Angle": 127,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 548,
+              "X": 2.3489937210499727,
+              "Y": 12.419815960732583,
+              "Angle": 125,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 578,
+              "X": 2.3489937210499727,
+              "Y": 12.419815960732583,
+              "Angle": 131,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 580,
+              "X": 2.3489937210499727,
+              "Y": 12.419815960732583,
+              "Angle": 131,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 610,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 640,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 6,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 670,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 9,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 700,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 702,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "HAND3_ABOVE",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 28,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 14
+            },
+            {
+              "Frame": 30,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 15,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 14
+            },
+            {
+              "Frame": 60,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 23,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 14
+            },
+            {
+              "Frame": 90,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 28,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 14
+            },
+            {
+              "Frame": 92,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 28,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 14
+            },
+            {
+              "Frame": 122,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 28,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 14
+            },
+            {
+              "Frame": 152,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 15,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 14
+            },
+            {
+              "Frame": 182,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 23,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 14
+            },
+            {
+              "Frame": 212,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 28,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 14
+            },
+            {
+              "Frame": 214,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 28,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 14
+            },
+            {
+              "Frame": 244,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 18,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 14
+            },
+            {
+              "Frame": 274,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 14
+            },
+            {
+              "Frame": 304,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 13,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 14
+            },
+            {
+              "Frame": 334,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 18,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 14
+            },
+            {
+              "Frame": 336,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 18,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 14
+            },
+            {
+              "Frame": 366,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 18,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 14
+            },
+            {
+              "Frame": 396,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 14
+            },
+            {
+              "Frame": 426,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 13,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 14
+            },
+            {
+              "Frame": 456,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 18,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 14
+            },
+            {
+              "Frame": 458,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 18,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 14
+            },
+            {
+              "Frame": 488,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -2,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 13
+            },
+            {
+              "Frame": 518,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 13
+            },
+            {
+              "Frame": 548,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 13
+            },
+            {
+              "Frame": 578,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -2,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 13
+            },
+            {
+              "Frame": 580,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -2,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 13
+            },
+            {
+              "Frame": 610,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -2,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 13
+            },
+            {
+              "Frame": 640,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -4,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 13
+            },
+            {
+              "Frame": 670,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -3,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 13
+            },
+            {
+              "Frame": 700,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -2,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 13
+            },
+            {
+              "Frame": 702,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -2,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 13
+            }
+          ]
+        },
+        {
+          "Bone": "HAND1_BELOW",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -4,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 30,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -11,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 60,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 90,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -4,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 92,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -4,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 122,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -4,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 152,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -11,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 182,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 212,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -4,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 214,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -4,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 244,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 12,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 274,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 13,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 304,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 15,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 334,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 12,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 336,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 12,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 366,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -48,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 396,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -47,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 426,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -45,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 456,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -48,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 458,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -48,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 488,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -38,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 518,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -39,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 548,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -36,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 578,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -38,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 580,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -38,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 610,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -146,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 640,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -144,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 670,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -145,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 700,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -146,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 702,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -146,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "HAND2_BELOW",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -17,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 30,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -4,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 60,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -13,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 90,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -17,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 92,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -17,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 122,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -50,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 152,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -38,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 182,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -44,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 212,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -50,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 214,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -50,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 244,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -90,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 274,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -91,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 304,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -94,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 334,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -90,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 336,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -90,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 366,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -45,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 396,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -46,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 426,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -49,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 456,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -45,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 458,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -45,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 488,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -134,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 518,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -137,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 548,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -136,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 578,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -134,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 580,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -134,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 610,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -9,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 640,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -10,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 670,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -12,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 700,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -9,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 702,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -9,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "HAND3_BELOW",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -28,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 30,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -42,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 60,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -35,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 90,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -28,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 92,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -28,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 122,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -18,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 152,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -32,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 182,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -25,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 212,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -18,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 214,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -18,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 244,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 14,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 274,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 304,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 8,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 334,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 14,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 336,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 14,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 366,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -6,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 396,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -15,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 426,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 456,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -6,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 458,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -6,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 488,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -10,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 518,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -9,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 548,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -8,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 578,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -10,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 580,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -10,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 610,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -13,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 640,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 670,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 3,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 700,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -13,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            },
+            {
+              "Frame": 702,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -13,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 15
+            }
+          ]
+        },
+        {
+          "Bone": "FOOT1_ABOVE",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 30,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -9,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 60,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -6,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 90,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 92,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 122,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 152,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -9,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 182,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -6,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 212,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 214,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 244,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 274,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -9,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 304,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -6,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 334,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 336,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 366,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 396,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -9,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 426,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -6,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 456,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 458,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 488,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 518,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -9,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 548,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -6,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 578,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 580,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 610,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 640,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -9,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 670,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -6,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 700,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 702,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "FOOT2_ABOVE",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 37,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 30,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 50,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 60,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 53,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 90,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 37,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 92,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 37,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 122,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 37,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 152,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 50,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 182,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 53,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 212,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 37,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 214,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 37,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 244,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 37,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 274,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 50,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 304,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 53,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 334,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 37,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 336,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 37,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 366,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 37,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 396,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 50,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 426,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 53,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 456,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 37,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 458,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 37,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 488,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 37,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 518,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 50,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 548,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 53,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 578,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 37,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 580,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 37,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 610,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 37,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 640,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 50,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 670,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 53,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 700,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 37,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 702,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 37,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "FOOT3_ABOVE",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -12,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 30,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 60,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 90,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -12,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 92,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -12,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 122,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -12,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 152,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 182,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 212,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -12,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 214,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -12,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 244,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -12,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 274,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 304,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 334,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -12,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 336,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -12,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 366,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -12,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 396,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 426,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 456,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -12,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 458,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -12,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 488,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -12,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 518,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 548,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 578,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -12,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 580,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -12,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 610,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -12,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 640,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 670,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 700,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -12,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 702,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -12,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "FOOT1_BELOW",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 30,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 11,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 60,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 14,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 90,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 92,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 122,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 152,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 11,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 182,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 14,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 212,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 214,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 244,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 274,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 11,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 304,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 14,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 334,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 336,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 366,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 396,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 11,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 426,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 14,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 456,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 458,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 488,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 518,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 11,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 548,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 14,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 578,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 580,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 610,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 640,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 11,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 670,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 14,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 700,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 702,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "FOOT2_BELOW",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 30,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 2,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 60,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 2,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 90,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 92,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 122,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 152,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 2,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 182,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 2,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 212,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 214,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 244,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 274,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 2,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 304,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 2,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 334,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 336,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 366,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 396,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 2,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 426,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 2,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 456,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 458,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 488,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 518,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 2,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 548,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 2,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 578,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 580,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 610,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 640,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 2,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 670,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 2,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 700,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 702,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "FOOT3_BELOW",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 30,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 60,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 90,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 92,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 122,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 152,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 182,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 212,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 214,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 244,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 274,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 304,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 334,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 336,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 366,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 396,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 426,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 456,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 458,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 488,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 518,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 548,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 578,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 580,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 610,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 640,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 670,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 700,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 702,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        }
+      ],
+      "Root": [
+        {
+          "Frame": 0,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 30,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 60,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 90,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 92,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 122,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 152,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 182,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 212,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 214,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 244,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 274,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 304,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 334,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 336,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 366,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 396,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 426,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 456,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 458,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 488,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 518,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 548,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 578,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 580,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 610,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 640,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 670,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 700,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        },
+        {
+          "Frame": 702,
+          "X": 0,
+          "Y": 1,
+          "Angle": 0,
+          "ScaleX": 1,
+          "ScaleY": 1,
+          "Picture": 0
+        }
+      ],
+      "Phases": [],
+      "Events": []
+    }
+  ],
+  "States": [
+    {
+      "Id": "sink",
+      "Clip": "sink",
+      "Movement": {
+        "VelocityX": null,
+        "VelocityY": null,
+        "Gravity": 0,
+        "MaxFall": 24,
+        "LeftKey": 37,
+        "RightKey": 39,
+        "InputSpeed": null,
+        "JumpSpeed": null,
+        "JumpKey": 32,
+        "DisplaceX": 0,
+        "DisplaceY": 0
+      },
+      "Transitions": []
+    }
+  ],
+  "Parameters": {},
+  "IkChains": null,
+  "EntitySlots": {}
+}

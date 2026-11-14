@@ -1125,8 +1125,26 @@ public sealed partial class GmWorld
         if (!Objects.TryGetValue(obj, out var definition))
             return false;
         var name = definition.GetProperty("name").GetString()!;
-        return name is "objMud" or "objSwampSurface" or "objSwampSurface2"
-            || name.StartsWith("objQuicksand", StringComparison.Ordinal);
+        if (
+            name is "objMud" or "objSwampSurface" or "objSwampSurface2"
+            || name.StartsWith("objQuicksand", StringComparison.Ordinal)
+        )
+            return true;
+        for (
+            int current = obj, depth = 0;
+            current >= 0 && depth < 64;
+            current = parents.GetValueOrDefault(current, -1), depth++
+        )
+        {
+            if (!Objects.TryGetValue(current, out var ancestor))
+                break;
+            if (
+                ancestor.GetProperty("name").GetString()!
+                is "objDoll" or "objControllableDoll" or "objExtParts" or "objParts"
+            )
+                return true;
+        }
+        return false;
     }
 
     internal SlotPlan? SlotLayout(int obj)
@@ -1279,8 +1297,9 @@ public sealed partial class GmWorld
         foreach (var instance in Instances)
             if (slotLayouts.TryGetValue(instance.Object, out var plan) && plan is not null)
                 instance.Scope.UseLayout(plan.Scalars, plan.Arrays);
+        var live = new HashSet<int>(Instances.Select(instance => instance.Object));
         foreach (var pair in slotLayouts)
-            if (pair.Value is { } plan)
+            if (pair.Value is { } plan && live.Contains(pair.Key))
                 PrewarmLayout(pair.Key, plan);
     }
 

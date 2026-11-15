@@ -40,6 +40,7 @@ public sealed class ConstraintService
         BindPart.Feet => Feet,
         _ => Body
     };
+    internal static double BoundAngle(double angle, double offset) => angle + offset;
     internal static void Validate()
     {
         foreach (string name in HandAbove.Concat(HandBelow).Concat(Feet).Concat(Body))
@@ -68,7 +69,7 @@ public sealed class ConstraintService
         }
         return removed.ToArray();
     }
-    private readonly Dictionary<int, (ActorContext Actor, List<(string Name, GmInstance Bone, GmInstance? Parent)> Parts, Dictionary<string, BoneLocal> Pose)> entries = new();
+    private readonly Dictionary<int, (ActorContext Actor, List<(string Name, GmInstance Bone, GmInstance? Parent)> Parts, Dictionary<string, BoneLocal> Pose, double Offset)> entries = new();
     public void Attach(ModContext context)
     {
         Validate();
@@ -82,7 +83,7 @@ public sealed class ConstraintService
         var byId = Instances(actor);
         if (!entries.TryGetValue(actor.Id, out var entry))
         {
-            entry = (actor, new List<(string Name, GmInstance Bone, GmInstance? Parent)>(), new Dictionary<string, BoneLocal>(StringComparer.Ordinal));
+            entry = (actor, new List<(string Name, GmInstance Bone, GmInstance? Parent)>(), new Dictionary<string, BoneLocal>(StringComparer.Ordinal), 0);
             entries[actor.Id] = entry;
         }
         double direction = Direction(actor);
@@ -115,7 +116,7 @@ public sealed class ConstraintService
     public bool Release(ActorContext actor)
     {
         if (!entries.Remove(actor.Id, out var entry)) return false;
-        Restore(entry, Direction(actor));
+        Restore(entry, Direction(actor), 0);
         return true;
     }
     public bool Release(ActorContext actor, params BindPart[] parts)
@@ -129,7 +130,7 @@ public sealed class ConstraintService
             if (part.Parent is null || part.Parent.Destroyed)
                 Console.Error.WriteLine("ROPEBONDS parent missing, bone released without restore: " + part.Name);
             else
-                Apply(part.Bone, part.Parent, local, entry.Actor, direction);
+                Apply(part.Bone, part.Parent, local, entry.Actor, direction, 0);
         }
         entry.Parts.RemoveAll(part => released.Contains(part.Name));
         foreach (string name in released) entry.Pose.Remove(name);
@@ -138,10 +139,15 @@ public sealed class ConstraintService
     }
     public void ReleaseAll()
     {
-        foreach (var entry in entries.Values.ToArray()) Restore(entry, Direction(entry.Actor));
+        foreach (var entry in entries.Values.ToArray()) Restore(entry, Direction(entry.Actor), 0);
         entries.Clear();
     }
     public bool IsBound(int actorId) => entries.ContainsKey(actorId);
+    internal void Offset(ActorContext actor, double degrees)
+    {
+        if (!entries.TryGetValue(actor.Id, out var entry)) return;
+        entries[actor.Id] = (entry.Actor, entry.Parts, entry.Pose, degrees);
+    }
     private void Tick()
     {
         if (entries.Count == 0) return;
@@ -149,11 +155,11 @@ public sealed class ConstraintService
         {
             var entry = entries[id];
             if (entry.Actor.Instance.Destroyed) { entries.Remove(id); continue; }
-            Restore(entry, Direction(entry.Actor));
+            Restore(entry, Direction(entry.Actor), entry.Offset);
             if (entry.Parts.Count == 0) entries.Remove(id);
         }
     }
-    private static void Restore((ActorContext Actor, List<(string Name, GmInstance Bone, GmInstance? Parent)> Parts, Dictionary<string, BoneLocal> Pose) entry, double direction)
+    private static void Restore((ActorContext Actor, List<(string Name, GmInstance Bone, GmInstance? Parent)> Parts, Dictionary<string, BoneLocal> Pose, double Offset) entry, double direction, double offset)
     {
         List<string>? stale = null;
         foreach (var part in entry.Parts.ToArray())
@@ -164,21 +170,23 @@ public sealed class ConstraintService
                 (stale ??= new List<string>()).Add(part.Name);
                 continue;
             }
-            if (entry.Pose.TryGetValue(part.Name, out var local)) Apply(part.Bone, part.Parent, local, entry.Actor, direction);
+            if (entry.Pose.TryGetValue(part.Name, out var local)) Apply(part.Bone, part.Parent, local, entry.Actor, direction, offset);
         }
         if (stale is null) return;
         entry.Parts.RemoveAll(part => stale.Contains(part.Name));
         foreach (string name in stale) entry.Pose.Remove(name);
     }
-    private static void Apply(GmInstance bone, GmInstance parent, BoneLocal local, ActorContext actor, double direction)
+    private static void Apply(GmInstance bone, GmInstance parent, BoneLocal local, ActorContext actor, double direction, double offset)
     {
         double parentX = ParentX(actor, parent), parentY = ParentY(actor, parent), parentAngle = ParentAngle(actor, parent);
         double radians = parentAngle * Math.PI / 180, cos = Math.Cos(radians), sin = Math.Sin(radians);
         local.Write(bone);
+        double angle = BoundAngle(local.Angle, offset);
+        bone.Scope.Write("Angle", angle);
         bone.Scope.Write("x", parentX + (local.PX * cos + local.PY * sin) * direction);
         bone.Scope.Write("y", parentY - local.PX * sin + local.PY * cos);
         bone.Scope.Write("Direction", direction);
-        bone.Scope.Write("image_angle", local.Angle + parentAngle);
+        bone.Scope.Write("image_angle", angle + parentAngle);
     }
     private static Dictionary<int, GmInstance> Instances(ActorContext actor)
     {

@@ -23,6 +23,7 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
     private const int Segments = 8;
     private const double SegmentLength = 11;
     private const double RopeDepth = -100000;
+    private const double BoundAngle = 35;
     private const double ExtendSpeed = .5;
     private const double JumpStep = .8;
     private const double DetectRange = 96;
@@ -34,14 +35,13 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
     private const int JumpTimeout = 90;
     private readonly VerletChain chain = new(SegmentLength, .35);
     private readonly List<GmBounds> solids = new();
-    private Random random = new();
     private ActorContext? victim;
-    private BindPart hand;
     private int direction = 1, phaseFrame, jumpFrame;
     private double headVelocity;
     private bool jumping;
     private bool render = true;
     private bool reported;
+    private bool skipped;
 
     public string Id => "ropebonds.creature";
 
@@ -54,7 +54,11 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
     public void RoomEntered(ActorContext entity) => Reset(entity);
     public void RoomExited(ActorContext entity) => Release();
     public void Detach(ActorContext entity) => Release();
-    public void Destroyed(ActorContext entity) => Release();
+    public void Destroyed(ActorContext entity)
+    {
+        Console.WriteLine("ropebonds.creature destroyed id=" + entity.Id);
+        Release();
+    }
 
     public void Update(ActorContext entity, FrameContext frame)
     {
@@ -63,6 +67,11 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
         var player = Player(entity);
         CollectSolids(entity);
         bool grounded = Solid(entity.X, entity.Y + 1);
+        if (frame.Tick % 30 == 0 && player is not null)
+        {
+            double dx = player.X - entity.X, dy = player.Y - entity.Y, distance = Math.Sqrt(dx * dx + dy * dy);
+            if (distance <= 200) Console.WriteLine("ropebonds.creature near player d=" + dx + "," + dy + " dist=" + distance + " bind=" + (victim is not null) + " jump=" + jumping + " ground=" + grounded);
+        }
         double headX = entity.X, headY = entity.Y;
         if (player is not null) ApplyFacing(entity, player);
         if (player is not null && ShouldJump(entity, player, grounded)) JumpMotion(player, ref headX, ref headY);
@@ -73,28 +82,38 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
 
     private void Render(ActorContext entity)
     {
-        if (chain.Count < 2) return;
+        if (chain.Count < 2) { Skip("chain"); return; }
+        if (!render) { Skip("disabled"); return; }
+        if (!chain.IsFinite) { Skip("not-finite"); return; }
         try
         {
             var presentation = entity.Services.Presentation;
-            if (!render) return;
-            presentation.Sprite(entity.Id, "rope.head", "ropebonds.rope_head", chain[0].X, chain[0].Y, Angle(chain[1], chain[0]), 2, 2, 2, 2, RopeDepth);
+            presentation.Sprite(entity.Id, "rope.head", "ropebonds.rope_head", chain[0].X, chain[0].Y - 6, Angle(chain[0], chain[1]), 2, 2, 4, 2, RopeDepth);
+            int tail = chain.Count - 1;
+            presentation.Sprite(entity.Id, "rope.head.tail", "ropebonds.rope_head", chain[tail].X, chain[tail].Y - 6, Angle(chain[tail], chain[tail - 1]), 2, 2, 4, 2, RopeDepth);
             for (int index = 1; index < chain.Count; index++)
             {
                 var from = chain[index - 1]; var to = chain[index];
-                presentation.Sprite(entity.Id, "rope.body." + (index - 1), "ropebonds.rope_body", (from.X + to.X) / 2, (from.Y + to.Y) / 2, Angle(from, to), chain.Spacing(index) / 11, 2, 5.5, 2, RopeDepth);
+                presentation.Sprite(entity.Id, "rope.body." + (index - 1), "ropebonds.rope_body", (from.X + to.X) / 2, (from.Y + to.Y) / 2 - 6, Angle(from, to), chain.Spacing(index) / 9, 2, 5.5, 2, RopeDepth);
             }
             if (reported) return;
             reported = true;
             Console.WriteLine("ropebonds.creature render id=" + entity.Id + " chain=" + chain.Count);
             int count = presentation.Sprites.Count(sprite => sprite.Owner == entity.Id);
-            if (count != chain.Count) Console.Error.WriteLine("ROPEBONDS sprite count " + count + " expected " + chain.Count);
+            if (count != chain.Count + 1) Console.Error.WriteLine("ROPEBONDS sprite count " + count + " expected " + (chain.Count + 1));
         }
         catch (Exception error)
         {
             render = false;
             Console.Error.WriteLine("ROPEBONDS render failed: " + error.Message);
         }
+    }
+
+    private void Skip(string reason)
+    {
+        if (skipped) return;
+        skipped = true;
+        Console.WriteLine("ropebonds.creature render skipped reason=" + reason);
     }
 
     private static double Angle((double X, double Y) from, (double X, double Y) to) => Math.Atan2(-(to.Y - from.Y), to.X - from.X) * 180 / Math.PI;
@@ -176,15 +195,18 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
 
     private void Reset(ActorContext entity)
     {
-        random = new Random(entity.Id);
         jumping = false; phaseFrame = 0; headVelocity = 0;
         chain.Reset(Segments, entity.X, entity.Y);
     }
 
     private bool Bind(ActorContext player)
     {
-        hand = random.Next(2) == 0 ? BindPart.HandAbove : BindPart.HandBelow;
-        if (!constraints.Bind(player, hand)) return false;
+        if (!constraints.Bind(player, BindPart.Hands))
+        {
+            Console.WriteLine("ropebonds.creature bind failed id=" + player.Id + " destroyed=" + player.Instance.Destroyed);
+            return false;
+        }
+        constraints.Offset(player, BoundAngle);
         victim = player;
         player.Write("ropeBound", 1);
         return true;
@@ -193,7 +215,7 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
     private void Release()
     {
         if (victim is null) return;
-        constraints.Release(victim, hand);
+        constraints.Release(victim);
         if (!victim.Instance.Destroyed && !constraints.IsBound(victim.Id)) victim.Write("ropeBound", 0);
         victim = null;
     }

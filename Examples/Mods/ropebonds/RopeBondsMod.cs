@@ -52,6 +52,7 @@ public sealed partial class RopeBondsMod : IMod
         Expect(ConstraintService.Hands.All(union.Contains) && ConstraintService.Feet.All(union.Contains), "union contains every hand and foot bone");
         Expect(!ConstraintService.Body.Any(union.Contains), "union excludes the body set");
         Expect(ConstraintService.Union(ConstraintService.HandAbove, ConstraintService.HandBelow).Length == ConstraintService.Hands.Length, "hands are the union of both sides");
+        Expect(ConstraintService.BoundAngle(10, 35) - 10 == ConstraintService.BoundAngle(70, 35) - 70, "both hands share one bound angle delta");
         var bones = new HashSet<string>(ConstraintService.Union(ConstraintService.Of(BindPart.HandAbove), ConstraintService.Of(BindPart.HandBelow)), StringComparer.Ordinal);
         var snapshots = ConstraintService.Snapshot(bones.Select(name => (name, bone)));
         var released = ConstraintService.RemoveParts(bones, snapshots, ConstraintService.Union(ConstraintService.Of(BindPart.HandBelow)));

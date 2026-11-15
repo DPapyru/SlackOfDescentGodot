@@ -15,11 +15,11 @@ public sealed class RopeBondsMod : IMod
         {
             Id = "ropebonds.creature",
             Name = "RopeBonds creature",
-            Description = "Rope creature placeholder.",
+            Description = "Rope creature.",
             BehaviorId = "ropebonds.creature",
             Width = 10,
             Height = 10
-        }, () => new RopeCreaturePlaceholder());
+        }, () => new RopeCreature(Constraints));
         Constraints.Attach(context);
         bind = new BindProbe(Constraints);
         bind.Attach(context);
@@ -35,10 +35,4 @@ public sealed class RopeBondsMod : IMod
         bind = null;
         Constraints.ReleaseAll();
     }
-}
-
-public sealed class RopeCreaturePlaceholder : IEntityBehavior
-{
-    public string Id => "ropebonds.creature";
-    public void Update(ActorContext entity, FrameContext frame) { }
 }

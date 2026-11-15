@@ -1,0 +1,134 @@
+using System;
+using SlackOfDescent;
+
+namespace RopeBonds;
+
+public sealed class RopeCreature : IEntityBehavior
+{
+    private const int Segments = 8;
+    private const double SegmentLength = 9;
+    private const double Speed = .6;
+    private const double DetectRange = 160;
+    private const double AttachRange = 18;
+    private const double PatrolRange = 64;
+    private const double RopeDepth = -100000;
+    private readonly HandConstraint constraints;
+    private readonly VerletChain chain = new(SegmentLength, .2);
+    private ActorContext? victim;
+    private double startX, startY, direction = 1;
+
+    public RopeCreature(HandConstraint constraints) => this.constraints = constraints;
+    public string Id => "ropebonds.creature";
+
+    public void Created(ActorContext entity) { entity.Write("HP", 10000); Reset(entity); }
+    public void RoomEntered(ActorContext entity) => Reset(entity);
+    public void RoomExited(ActorContext entity) => Release(entity);
+    public void Destroyed(ActorContext entity) => Release(entity);
+    public void Detach(ActorContext entity) => Release(entity);
+
+    public void Update(ActorContext entity, FrameContext frame)
+    {
+        if (chain.Count == 0) Reset(entity);
+        if (victim is not null && (victim.Instance.Destroyed || !victim.Instance.Active)) Release(entity);
+        if (victim is not null && !constraints.IsBound(victim.Id)) Release(entity);
+        if (victim is not null) { Follow(entity); return; }
+        ActorContext? player = Player(entity);
+        if (player is not null && Math.Abs(player.X - entity.X) < DetectRange && Math.Abs(player.Y - entity.Y) < 140)
+        {
+            int toward = Math.Sign(player.X - entity.X);
+            if (toward != 0) direction = toward;
+            if (Math.Abs(player.X - entity.X) <= AttachRange) { Attach(entity, player); return; }
+            entity.X += direction * Speed;
+        }
+        else
+        {
+            entity.X += direction * Speed * .5;
+            if (entity.X < startX - PatrolRange || entity.X > startX + PatrolRange) direction = -direction;
+        }
+        entity.Y = startY;
+        chain.Step(entity.X, entity.Y);
+        chain.Clamp(entity.X, entity.Y, 256, entity.World.Engine.Read("room_width").Number, entity.World.Engine.Read("room_height").Number);
+        Render(entity);
+    }
+
+    private void Attach(ActorContext entity, ActorContext player)
+    {
+        if (!constraints.Bind(player)) return;
+        victim = player;
+        entity.X = player.X;
+        entity.Y = player.Y;
+        chain.Reset(Segments, entity.X, entity.Y);
+        Console.WriteLine("ROPE_ATTACH actor=" + player.Id + " x=" + entity.X + " y=" + entity.Y);
+    }
+
+    private void Follow(ActorContext entity)
+    {
+        ActorContext player = victim!;
+        ActorContext? left = player.Part("HAND3_ABOVE");
+        ActorContext? right = player.Part("HAND3_BELOW");
+        if (left is not null && right is not null) { entity.X = (left.X + right.X) / 2; entity.Y = (left.Y + right.Y) / 2; }
+        else if (left is not null) { entity.X = left.X; entity.Y = left.Y; }
+        chain.Step(entity.X, entity.Y);
+        Render(entity);
+    }
+
+    private void Release(ActorContext entity)
+    {
+        if (victim is { } player)
+        {
+            if (!player.Instance.Destroyed) constraints.Release(player);
+            victim = null;
+        }
+        if (!entity.Instance.Destroyed)
+        {
+            RemoveSprites(entity);
+            entity.X = startX;
+            entity.Y = startY;
+        }
+        chain.Reset(Segments, startX, startY);
+    }
+
+    private void Reset(ActorContext entity)
+    {
+        startX = entity.X;
+        startY = entity.Y;
+        victim = null;
+        direction = 1;
+        chain.Reset(Segments, startX, startY);
+    }
+
+    private void Render(ActorContext entity)
+    {
+        if (chain.Count < 2) return;
+        var presentation = entity.Services.Presentation;
+        presentation.Sprite(entity.Id, "rope.head", "ropebonds.rope_head", chain[0].X, chain[0].Y, Angle(chain[0], chain[1]), 2, 2, 2, 2, RopeDepth);
+        int tail = chain.Count - 1;
+        presentation.Sprite(entity.Id, "rope.head.tail", "ropebonds.rope_head", chain[tail].X, chain[tail].Y, Angle(chain[tail], chain[tail - 1]), 2, 2, 2, 2, RopeDepth);
+        for (int index = 1; index < chain.Count; index++)
+        {
+            var from = chain[index - 1];
+            var to = chain[index];
+            double distance = Math.Sqrt((to.X - from.X) * (to.X - from.X) + (to.Y - from.Y) * (to.Y - from.Y));
+            presentation.Sprite(entity.Id, "rope.body." + (index - 1), "ropebonds.rope_body",
+                (from.X + to.X) / 2, (from.Y + to.Y) / 2, Angle(from, to), Math.Max(.4, distance / 9), 2, 4.5, 2, RopeDepth);
+        }
+    }
+
+    private void RemoveSprites(ActorContext entity)
+    {
+        var presentation = entity.Services.Presentation;
+        presentation.Remove(entity.Id, "rope.head");
+        presentation.Remove(entity.Id, "rope.head.tail");
+        for (int index = 0; index < Segments; index++) presentation.Remove(entity.Id, "rope.body." + index);
+    }
+
+    private static double Angle((double X, double Y) from, (double X, double Y) to) => Math.Atan2(-(to.Y - from.Y), to.X - from.X) * 180 / Math.PI;
+
+    private static ActorContext? Player(ActorContext entity)
+    {
+        if (!entity.World.Constants.TryGetValue("objPlayerDoll", out var kind)) return null;
+        foreach (var instance in entity.World.Instances)
+            if (!instance.Destroyed && instance.Active && entity.World.IsObject(instance.Object, kind.Int)) return new(entity.World, instance);
+        return null;
+    }
+}

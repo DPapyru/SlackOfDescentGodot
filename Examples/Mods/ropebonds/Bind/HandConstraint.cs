@@ -7,7 +7,7 @@ namespace RopeBonds;
 
 public sealed class HandConstraint : IDisposable
 {
-    private const string Handler = "ropebonds.hand.constraint", VerifyHandler = "ropebonds.hand.verify";
+    private const string Handler = "ropebonds.hand.constraint", VerifyHandler = "ropebonds.hand.verify", PrepareHandler = "ropebonds.hand.prepare";
     public static readonly string[] Hands =
     [
         "HAND1_ABOVE", "HAND2_ABOVE", "HAND3_ABOVE",
@@ -24,6 +24,7 @@ public sealed class HandConstraint : IDisposable
     {
         context.Subscribe(Handler, NativeEventNames.StepEnd, NativeEventPhase.After, _ => Tick());
         context.Subscribe(VerifyHandler, NativeEventNames.StepBegin, NativeEventPhase.Before, _ => Verify());
+        context.Subscribe(PrepareHandler, NativeEventNames.FramePrepare, NativeEventPhase.After, _ => Tick());
     }
 
     public bool Bind(ActorContext actor, IEnumerable<string>? names = null)

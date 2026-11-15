@@ -85,6 +85,7 @@ public partial class NativeModsAudit : Node
             System.Environment.SetEnvironmentVariable("ROPEBONDS_SELFCHECK", null);
             Expect(ropebonds.Success, "ropebonds example compiles and self-checks: " + ropebonds.Diagnostics);
             VerifyRopeBondsBinding(root, temporary, manager, content);
+            VerifyRopeBondsMap(root, world, content);
             GD.Print("NATIVE_MOD_AUDIT_OK assertions=", assertions, " reloads=20 collected=20 tracked_nodes=0 tracked_tasks=0");
             GetTree().Quit();
         }
@@ -170,6 +171,16 @@ public partial class NativeModsAudit : Node
         live.Step();
         Expect(hands.Select((hand, index) => Math.Abs(Distance(hand, ParentOf(live, player, hand)) - offsets[index]) < 1e-9).All(value => value), "frozen hands keep parent-relative offset under rotation");
         Expect(hands.All(hand => Math.Abs(hand.Scope.ReadOr("image_angle").Number - (hand.Scope.ReadOr("Angle").Number + ParentOf(live, player, hand).Scope.ReadOr("image_angle").Number)) < 1e-9), "frozen image_angle follows parent rotation");
+    }
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void VerifyRopeBondsMap(string root, GmWorld world, ContentRegistry content)
+    {
+        var service = new NativeMapService(world, content);
+        var loaded = service.Load(Path.Combine(root, "Examples", "Mods", "ropebonds", "maps", "demo.map.json"));
+        service.InstallForPlay(loaded.Document);
+        Expect(service.Attachments.Count(attachment => attachment.EntityType == "ropebonds.creature") == 3, "ropebonds map attaches three creature entities");
+        Expect(!loaded.Warnings.Any(warning => warning.Contains("缺少扩展实体") || warning.Contains("缺少依赖")), "ropebonds map has no missing creature dependency");
+        service.RestoreAfterPlaytest();
     }
     private static IMod FindLoadedMod(NativeModManager manager, string id)
     {

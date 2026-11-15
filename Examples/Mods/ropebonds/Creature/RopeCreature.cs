@@ -7,7 +7,10 @@ namespace RopeBonds;
 
 public sealed partial class RopeBondsMod
 {
-    partial void RegisterCreatures(ModContext context) => context.Content.RegisterEntity(new NativeEntityDefinition
+    partial void RegisterCreatures(ModContext context)
+    {
+        context.Subscribe("ropebonds.qte", NativeEventNames.KeyDown, NativeEventPhase.After, value => { if (value.Arguments.TryGetValue("key", out var key) && key.Int == 90) RopeCreature.Key(); });
+        context.Content.RegisterEntity(new NativeEntityDefinition
     {
         Id = "ropebonds.creature",
         Name = "RopeBonds creature",
@@ -15,7 +18,8 @@ public sealed partial class RopeBondsMod
         BehaviorId = "ropebonds.creature",
         Width = 10,
         Height = 10
-    }, () => new RopeCreature(Constraints));
+        }, () => new RopeCreature(Constraints));
+    }
 }
 
 public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavior
@@ -41,24 +45,23 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
     private bool jumping;
     private bool render = true;
     private bool reported;
-    private bool skipped;
+    private bool qte;
+    private int qteHits;
+    private double qteTime;
+    private double qteCooldown;
+    private static RopeCreature? active;
 
     public string Id => "ropebonds.creature";
 
     public void Created(ActorContext entity)
     {
         entity.Write("HP", 10000);
-        Console.WriteLine("ropebonds.creature spawn x=" + entity.X + " y=" + entity.Y + " id=" + entity.Id);
         Reset(entity);
     }
     public void RoomEntered(ActorContext entity) => Reset(entity);
     public void RoomExited(ActorContext entity) => Release();
     public void Detach(ActorContext entity) => Release();
-    public void Destroyed(ActorContext entity)
-    {
-        Console.WriteLine("ropebonds.creature destroyed id=" + entity.Id);
-        Release();
-    }
+    public void Destroyed(ActorContext entity) => Release();
 
     public void Update(ActorContext entity, FrameContext frame)
     {
@@ -67,10 +70,17 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
         var player = Player(entity);
         CollectSolids(entity);
         bool grounded = Solid(entity.X, entity.Y + 1);
-        if (frame.Tick % 30 == 0 && player is not null)
+        qteCooldown = Math.Max(0, qteCooldown - frame.Delta);
+        if (qte)
         {
-            double dx = player.X - entity.X, dy = player.Y - entity.Y, distance = Math.Sqrt(dx * dx + dy * dy);
-            if (distance <= 200) Console.WriteLine("ropebonds.creature near player d=" + dx + "," + dy + " dist=" + distance + " bind=" + (victim is not null) + " jump=" + jumping + " ground=" + grounded);
+            qteTime += frame.Delta;
+            entity.Services.Presentation.Text(entity.Id, "qte", "Z x" + (8 - qteHits), 12, 96);
+            if (qteTime < 2.5) return;
+            qte = false; active = null;
+            entity.Services.Presentation.Remove(entity.Id, "qte");
+            if (qteHits >= 8) qteCooldown = 3;
+            else if (player is not null) Bind(player);
+            return;
         }
         double headX = entity.X, headY = entity.Y;
         if (player is not null) ApplyFacing(entity, player);
@@ -82,9 +92,7 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
 
     private void Render(ActorContext entity)
     {
-        if (chain.Count < 2) { Skip("chain"); return; }
-        if (!render) { Skip("disabled"); return; }
-        if (!chain.IsFinite) { Skip("not-finite"); return; }
+        if (chain.Count < 2 || !render || !chain.IsFinite) return;
         try
         {
             var presentation = entity.Services.Presentation;
@@ -98,7 +106,6 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
             }
             if (reported) return;
             reported = true;
-            Console.WriteLine("ropebonds.creature render id=" + entity.Id + " chain=" + chain.Count);
             int count = presentation.Sprites.Count(sprite => sprite.Owner == entity.Id);
             if (count != chain.Count + 1) Console.Error.WriteLine("ROPEBONDS sprite count " + count + " expected " + (chain.Count + 1));
         }
@@ -109,11 +116,9 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
         }
     }
 
-    private void Skip(string reason)
+    internal static void Key()
     {
-        if (skipped) return;
-        skipped = true;
-        Console.WriteLine("ropebonds.creature render skipped reason=" + reason);
+        if (active is { qte: true } creature) creature.qteHits++;
     }
 
     private static double Angle((double X, double Y) from, (double X, double Y) to) => Math.Atan2(-(to.Y - from.Y), to.X - from.X) * 180 / Math.PI;
@@ -135,7 +140,7 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
     private bool ShouldJump(ActorContext entity, ActorContext player, bool grounded)
     {
         if (jumping) return true;
-        if (!grounded || Math.Abs(player.X - entity.X) > JumpRange) return false;
+        if (qteCooldown > 0 || !grounded || Math.Abs(player.X - entity.X) > JumpRange) return false;
         jumping = true; jumpFrame = 0; headVelocity = JumpVelocity;
         return true;
     }
@@ -150,7 +155,7 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
         double nextY = headY + headVelocity;
         if (!Solid(headX, nextY + 2)) headY = nextY;
         else { headVelocity = 0; jumping = false; }
-        if (Math.Abs(player.X - headX) <= BindRange && Bind(player)) jumping = false;
+        if (Math.Abs(player.X - headX) <= BindRange) { qte = true; qteHits = 0; qteTime = 0; active = this; jumping = false; }
         else if (jumpFrame > JumpTimeout) jumping = false;
     }
 
@@ -173,6 +178,7 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
         entity.X = headX; entity.Y = headY;
         chain.Step(headX, headY);
         chain.Collide((x, y) => Solid(x, y));
+        chain.Clamp(headX, headY, 512);
     }
 
     private void CollectSolids(ActorContext entity)
@@ -201,11 +207,7 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
 
     private bool Bind(ActorContext player)
     {
-        if (!constraints.Bind(player, BindPart.Hands))
-        {
-            Console.WriteLine("ropebonds.creature bind failed id=" + player.Id + " destroyed=" + player.Instance.Destroyed);
-            return false;
-        }
+        if (!constraints.Bind(player, BindPart.Hands)) return false;
         constraints.Offset(player, BoundAngle);
         victim = player;
         player.Write("ropeBound", 1);

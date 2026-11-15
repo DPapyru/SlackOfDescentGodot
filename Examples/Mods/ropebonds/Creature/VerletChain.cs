@@ -6,7 +6,7 @@ namespace RopeBonds;
 public sealed class VerletChain
 {
     public const double Damping = .98;
-    public const double MaxVelocity = 6;
+    public const double MaxVelocity = 9;
     private sealed class Point
     {
         public double X, Y, PreviousX, PreviousY;

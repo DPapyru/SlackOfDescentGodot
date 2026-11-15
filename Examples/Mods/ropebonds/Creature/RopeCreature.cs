@@ -14,11 +14,11 @@ public sealed class RopeCreature : IEntityBehavior
     private const double PatrolRange = 64;
     private const double HalfThickness = 2;
     private const double HeadRadius = 4;
-    private const double HeadGravity = .5;
-    private const double MaxFall = 8;
+    private const double HeadGravity = 1.5;
+    private const double MaxFall = 12;
     private const double RopeDepth = -100000;
     private readonly HandConstraint constraints;
-    private readonly VerletChain chain = new(SegmentLength, .6);
+    private readonly VerletChain chain = new(SegmentLength, 2);
     private readonly List<GmBounds> solids = [];
     private ActorContext? victim;
     private double startX, startY, direction = 1, headVelocity;

@@ -36,14 +36,15 @@ public sealed class HandConstraint : IDisposable
         List<Bone> bones = [];
         Dictionary<string, Snapshot> pose = new(StringComparer.Ordinal);
         double direction = Direction(actor);
+        MotionSkeletonDescriptor skeleton = MotionSkeletonDescriptor.FromActor(actor.World, actor.Instance);
         foreach (string name in (names ?? Hands).Distinct(StringComparer.Ordinal))
         {
-            if (actor.Part(name) is not { } part) continue;
-            GmInstance instance = part.Instance;
-            int parentId = instance.Scope.ReadOr("parent", actor.Id).Int;
-            GmInstance? parent = parentId == actor.Id
+            if (!skeleton.ByName.TryGetValue(name, out var node)) continue;
+            GmInstance? instance = actor.World.Instances.FirstOrDefault(candidate => candidate.Id == node.Instance && !candidate.Destroyed);
+            if (instance is null) continue;
+            GmInstance? parent = node.Parent == actor.Id
                 ? actor.Instance
-                : actor.World.Instances.FirstOrDefault(candidate => candidate.Id == parentId && !candidate.Destroyed);
+                : actor.World.Instances.FirstOrDefault(candidate => candidate.Id == node.Parent && !candidate.Destroyed);
             if (parent is null || parent.Destroyed) continue;
             bones.Add(new Bone(name, instance, parent));
             pose[name] = SnapshotOf(instance, parent, actor, direction);

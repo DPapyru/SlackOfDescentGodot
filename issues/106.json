@@ -1,0 +1,28 @@
+{
+  "title": "绳链穿模后整条消失",
+  "body": "## AI回复\n\n## Parent\n\n#97\n\nWhat to build：绳链在移动/跳跃时穿进实心块，之后整条绳消失。要求链节被固体挡住、任何位置都能继续渲染，不出现整条消失。\n\n## Acceptance criteria\n\n- [ ] 链节撞墙/落地不穿透\n- [ ] 贴边、卡角时仍渲染\n- [ ] 连续 5 次碰撞后仍可见\n- [ ] 不新增类型（预算 8 已满）\n\n## Blocked by\n\n- 需要先有可复现的生成与绑定（见前一张）\n\n## Acceptance criteria\n\n- [ ] 链节撞墙/落地不穿透\n- [ ] 贴边、卡角时仍渲染\n- [ ] 连续 5 次碰撞后仍可见\n\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-15T00:59:57Z",
+  "updatedAt": "2026-11-15T00:59:57Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

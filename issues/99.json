@@ -1,0 +1,28 @@
+{
+  "title": "ropebond 骨架 + 手部约束",
+  "body": "## AI回复\n\n## Parent\n\n#97\n\n## What to build\n\n一个可加载的 ropebond mod 骨架，加上手部约束机制：触发捆绑后，被选中的手部姿态冻结在进入时的姿态、随身体移动，其余骨骼照常动作；退出约束后手部回到进入前的姿态。约束按状态配置骨骼集合，双手/双脚/身体三种束缚可同时生效时取并集（本票只用手部验证）。\n\n## Acceptance criteria\n\n- [ ] mod 在游戏内可加载，manifest 正常识别\n- [ ] 触发约束后手部不再被动作改写，身体移动时手部跟随\n- [ ] 退出约束后手部回到进入前的姿态\n- [ ] 三种束缚的骨骼集合可同时生效（并集），本票仅以手部验证\n- [ ] mod 内含快照/还原与并集的自检\n\n## Blocked by\n\n- None (can start immediately)\n\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-14T23:07:05Z",
+  "updatedAt": "2026-11-14T23:07:05Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "title": "地图：坑宽×5、流沙与地表水平线对齐、整体调整",
+  "body": "## AI回复\n\n## Parent\n\n#97\n\n## What to build\n\n1) 三个坑宽度改为当前 5 倍；2) `objQuicksandPit` 与实际地表不在同一水平线，需参考 Test Room 的对齐方式；3) 相应调整边界、生物落点与流沙区。\n\n## Acceptance criteria\n\n- [ ] 坑宽 ×5，坑口/坑底/坑壁连续无缺口\n- [ ] 流沙表面与相邻地表水平线一致（参考 Test Room）\n- [ ] 生物落点仍贴坑底\n- [ ] 地图自检脚本断言更新\n\n## Blocked by\n\n- None\n\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-15T01:25:27Z",
+  "updatedAt": "2026-11-15T01:25:27Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

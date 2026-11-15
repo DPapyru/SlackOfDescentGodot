@@ -1,0 +1,51 @@
+{
+  "title": "缠绕式捆绑：爬到部位后缠绕，接触后继续更新",
+  "body": "## AI回复\n\n## Parent\n\n#97\n\n## What to build\n\n当前碰到玩家后生物停止更新、直接进入约束。改为：爬到需要捆绑的部位 → 缠绕（链节贴合该部位）→ 再进入被捆绑状态；缠绕期间与绑定后仍持续更新。\n\n## Acceptance criteria\n\n- [ ] 接触玩家后生物继续移动/缠绕，不停滞\n- [ ] 缠绕贴合目标部位（手/脚/躯干）\n- [ ] 进入捆绑状态后可正常维持\n- [ ] 释放后恢复自由移动\n\n## Blocked by\n\n- 依赖「绳生物物理」\n\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-15T01:25:25Z",
+  "updatedAt": "2026-11-15T04:48:15Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABmpAjxg",
+        "body": "## AI回复\n\n### 追加要求（用户 2026-11-15 实机截图）\n\n图一：绳整串缠在胸口/脖子位置，错误。要求：\n1. 绳必须缠在手腕上（左右两只手腕，HAND1_ABOVE / HAND1_BELOW）；\n2. 形态是「整条贴着肢体绕一圈」，不是松散的环；\n3. 用户补充：绳子缠的是双手。\n\n几何问题（审查证据）：CoilRadius=5 且每腕仅 5 点、两腕间 2 点直线桥接，不贴肢体；Render 统一 -6 世界 Y 让整串绳上浮。修法：每腕 loop 5→8 点、半径=手宽/2+绳半厚、桥接沿手链/小臂走、不跳过 Solid 落点。\n\n## 验收补充\n\n- [ ] 绳落在左右手腕坐标上（非胸口/脖子）\n- [ ] 每腕一圈、贴着手腕轮廓\n- [ ] 两只手都缠\n",
+        "createdAt": "2026-11-15T02:43:49Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABmqNNJw",
+        "body": "## AI回复\n\n### 追加（用户 2026-11-15 实机截图）\n\n被绑时绳团仍不在手腕，而是落在腰腹/裙前位置（截图：绳团停在裙前，双手在身侧）。此前已改 HAND3 取腕 + step.end 重锚 + 绑定态「两头+1 节身体」短绳渲染。\n\n### 待查\n\n- 绑定态 RenderBound 用的 HAND3 坐标是否与角色手部贴图实际位置一致（截图里手在身侧、绳在裙前）；\n- Hang 的局部偏移是否把腕摆到了腰腹；\n- 是否只有 native 渲染路径的 HAND3 位置与 PartPictureOverride 帧对应不上。\n\n### 验收\n\n- [ ] 绳团中心与双手腕贴图重合（截图核对）\n\n## Blocked by\n\n- #113\n",
+        "createdAt": "2026-11-15T04:48:15Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

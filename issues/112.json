@@ -1,0 +1,28 @@
+{
+  "title": "绳生物物理：穿模、掉出地图、随后消失",
+  "body": "## AI回复\n\n## Parent\n\n#97\n\n## What to build\n\n绳生物在地图上会穿模、掉出地面或边界，随后整条消失。要求：生物与链节不与实心块重叠、不越出房间边界，任何情况下都不消失。\n\n## Acceptance criteria\n\n- [ ] 生物站地稳定（ground 判定正确）\n- [ ] 不穿过地板/墙/坑壁\n- [ ] 不出房间边界\n- [ ] 连续 60 秒不消失\n\n## Blocked by\n\n- None\n\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-15T01:25:22Z",
+  "updatedAt": "2026-11-15T01:25:22Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

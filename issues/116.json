@@ -1,0 +1,28 @@
+{
+  "title": "固化 motions 生成脚本（locomotion/sink）",
+  "body": "## AI回复\n\n## Parent\n\n#97\n\n## What to build\n\n`Examples/Mods/ropebonds/motions/locomotion.motion.json` 与 `sink.motion.json` 由一次性脚本生成（未入库），reviewer 复核确认：\n- stand/walk/run/fall 与 `MotionImport.FromAst` 输出一致（Duration=原版 data_motLong×2）；\n- jump 经生成后编辑，与 JumpUp 签名不符；\n- sink 为脚本几何过渡。\n\n生成能力不可复现是维护风险，需把脚本固化。\n\n## Acceptance criteria\n\n- [ ] 生成脚本入库（`Tools/` 或按 AGENTS 允许的位置），或用 issue 附件 + 说明固定存放\n- [ ] 脚本能重生成现有 JSON（stand/walk/run/fall/jump）并输出 sink 过渡\n- [ ] README/PR 说明「FromAst/原版动作变更时需重生成」\n- [ ] 不引入运行时依赖\n\n## Blocked by\n\n- None\n\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-15T01:48:23Z",
+  "updatedAt": "2026-11-15T01:48:23Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

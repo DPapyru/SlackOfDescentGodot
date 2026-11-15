@@ -1,0 +1,62 @@
+{
+  "title": "复用原版 QTE 交互（摇杆/遥感提示）",
+  "body": "## AI回复\n\n## Parent\n\n#97\n\n## What to build\n\n原版捆绑 QTE 会生成一个可操作控件（遥感/摇杆式提示）让玩家操作；当前是自己实现的 Z×8 计数。改为复用原版 QTE 实现或按其交互形态重做。\n\n## Acceptance criteria\n\n- [ ] 定位原版 QTE 的实现（对象/脚本/输入）并给出引用\n- [ ] 捆绑前的 QTE 改用同形态交互（可操作控件/提示）\n- [ ] 成功/失败两条路径可复现\n\n## Blocked by\n\n- None\n\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-15T01:25:20Z",
+  "updatedAt": "2026-11-15T02:43:50Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABmogUOw",
+        "body": "## AI回复\n\n### 原版「被抓住 → 方向键挣扎」机制的反解进展（只读，代码证据）\n\n**结论先说**：原版确实有这套「被怪物抓住后按方向键挣扎」的判定，它不是 GUI 控件，而是**玩家娃娃的碰撞事件 + 耐力条**里的一整套状态机。\n\n#### 1. 入口与状态\n- 怪物抓住玩家（TestRoom 里的蠕虫 / Selima 等）后，会在玩家身上置 `HALFBINDED = true`（见 `external/Chara/BossFrog/step.txt`、`objects/objControllableDoll/4/261/0` 等）。\n- 挣扎/挣脱逻辑分布在 `objects/objControllableDoll` 的五个碰撞事件里：\n  - `4/261/0`、`4/320/0`、`4/357/0`、`4/369/0`、`4/411/0`（合计约 13 万字符）。\n- 相关变量：`leftSOS`、`rightSOS`、`qsTEnt`、`rl`、`rr`、`Tleft`、`Tright`、`COL_Q`、`COL_QQ`、`kEASY`、`doStaminaStruggle`。\n\n#### 2. 输入是方向键（经 objController，不是 keyboard_check）\n- 判定形如 `objController.up == 2 || objController.b2 == 2`（`2` 是「按下沿」），说明走的是原版 `objController` 的按键状态机（可改键），不是直接读键盘码。\n- 这解释了为什么全仓 `vk_left` 只出现在编辑器/显示对象里。\n\n#### 3. 耐力条（与血条不同）\n- `objects/objPlayerDoll/0/0/1`：`global.Stamina = 1` 初始化。\n- `objects/objControllableDoll/4/357/0`：挣扎时写 `doStaminaStruggle`，并用 `global.PlayerST` 参与难度/概率计算（`random(global.PlayerST / 3)` 一带）。\n- `objects/objDisplay/9/118/0`：`global.Stamina` 在 0/1 之间切换（HUD 耐力条绘制）。\n- 结论：**挣扎消耗耐力 `global.PlayerST`**，条 UI 由 `objDisplay` 画。\n\n#### 4. 难度开关\n- `global.EASY_QS` 会改变 `kEASY`（1 ↔ 2），即降低/提高挣扎难度；Playground 的 room create 会显式写 `EASY_QS = 0`，而我们的 demo 房间 create code 为空 —— 这笔初始化目前缺失（与「暂停菜单位移」一并看）。\n\n#### 5. 仍未确定\n- 挣扎的**具体计数/阈值/每次按键推进量**（`rl`/`rr` 与 `Tleft`/`Tright` 的比较方式）；\n- `leftSOS`/`rightSOS` 到底是「SOS 提示 UI」还是「救援实体」；\n- 能否从 mod 侧复用：`objController` 状态与这些碰撞事件都是 GML 侧，mod 只能读 `HALFBINDED`/`Stamina` 或调用脚本；**大概率需要按规则集复刻**，但输入与耐力可以复用原版 `global`。\n\n#### 6. 后续\n- impl-b 正在把这五个事件压缩成「键位 / 计数 / 阈值 / 状态转移」的最小规则集（见 #111 的 task）。\n- 拿到后 impl-a 把自研的「Z×8」替换成同规则（方向键 + 耐力消耗 + `EASY_QS`），QTE 输入已改用 `RegisterInput`，可映射到方向键上。\n- 相关：#113（缠绕）、#114（地图/room create 补 `EASY_QS` 等初始化）。\n",
+        "createdAt": "2026-11-15T01:53:32Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABmood0w",
+        "body": "## AI回复\n\n### 原版「按键挣脱」机制反解（只读，AST 证据）\n\n#### 已确定\n\n1. **五条碰撞事件都是「陷入流体」，不是「被抓/被绑」**：`objPlayerDoll` 分别碰撞 `objQuicksandBase(261)`/`objTar(320)`/`objQuicksandPit(357)`/`objSand(369)`/`objSelima(411)`，五段是同一套 `switch(MotionNum)` 沉没/爬出的整段复制。真正的「被抓/被绑」在怪物 `external/Chara/<名>/step.txt` 调 `startBind()` 置 `BINDED`；史莱姆弹 `objSlimeFluidTemp/3/0/0` 命中走 `addSTDamage(...,BINDED_FLUID_*,...)`。两者共用同一套计数 QTE。\n2. **键位**：`objController` 每步跑 script 152 `KeyMapGet`（`keyboard_check/_pressed/_released(global.key[i])`），把 7 个动作写到 `left/right/up/down/b1/b2/b3`：0=松开 1=按住 2=刚按下 3=刚松开。**QTE 只认 `==2`**（按住不连加）。**没有独立遥感/摇杆控件实体**。\n3. **计数**：`objController.BindCounter`，每次新按下 +1（`touchingSelima` 时 +0.5）；流体爬出阶段每帧 -0.05、推进失败再 -1.5；怪物绑定**不衰减**。\n4. **阈值**：`BindCounter > base + 0.1*(100-PlayerHP)`；抽样到 base 10/20/25/30/40/50（流体/BINDED_FLUID=10、史莱姆 20~30、多数怪物 30、Boss 50）。进度条 `BindCounter/BindMax*219`（`sprBind` 219×4，屏幕 48,43）。\n5. **提示图标**：`objController/8/0/0` 用 `sprGacha/sprGacha2`（64×64，4 帧，左右摆动），条件 `(BINDED||HALFBINDED) && !isHideStruggle()`。\n6. **`EASY_QS` 是死代码**：各处 create 无条件写 0，`kEASY` 只在被注释掉的 `CharKOF` 块里出现。\n7. **耐力**：`PlayerST` 只在流体中按帧扣（`0.25*max(1,|ST-MAX|/25)` 的氧气公式、动作 20/15/10/5/2.5/1、脱出 -7.5~-25）；**怪物绑定时不扣**。\n8. `rl/rr/Tleft/Tright` 是流沙表面邻接判定，与 QTE 无关。\n\n#### 未确定\n\n1. `global.key[]` 的默认键码（来自设置/存档，数据里没有硬编码）。\n2. `leftSOS/rightSOS` 的完整读写闭环（跨类型是否互通未逐行确认）。\n3. `objEGenerator00..10` 的 `global.EnemyObject[index]` 运行时建表，静态数据无法断言 TestRoom 里具体是哪只怪。\n4. 每只怪物阈值常量的完整枚举。\n\n#### 可复刻的最小规则集（本 mod 采用）\n\n- 任意 7 个动作键**新按下** +1；阈值 `10 + 0.1*(100-HP)`；无独立倒计时（用动作时长近似为 2.5s）；成功清 `BINDED/HALFBINDED` 并退出，失败进入被绑状态。\n- 原版提示资源（`sprGacha`/`sprBind`）mod 侧无法直接取用，先用 HUD 文本 `QTE n/N` 替代，属已知差异。\n- 无 `EASY_QS` 分支、怪物绑定不扣耐力。\n\n实现位置清单：`objController` Step action 28（计数与分发）、script 152 `KeyMapGet`、`objDisplay/8/0/20`（进度条）、`objController/8/0/0`（图标）、`external/Chara/*/step.txt`（`global.BindMax`）、`startBind/endBind` 脚本、`objSlimeFluidTemp/3/0/0`。\n",
+        "createdAt": "2026-11-15T02:06:11Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABmpAkyQ",
+        "body": "## AI回复\n\n### 用户定位（2026-11-15）\n\nQTE 必须复用原版的左右摇杆 SOS（图三那颗红色摇杆素材），不要自研计数 UI；约 25 次键盘输入，QTE 判定期间角色不能移动，未达标则进入被捆绑状态。\n\n审查证据指向的原版实现（已在本 issue 评论里反解过）：\n- 入口：objControllableDoll 的 4/261/0、4/320/0、4/357/0、4/369/0、4/411/0；\n- 输入：objController 的 up/b2（值 2=按下沿），配合 leftSOS / rightSOS / doStaminaStruggle；\n- 耐力：global.PlayerST / PlayerSTMAX，EASY_QS（kEASY=2/1）影响成功率；ST 条画在 objDisplay/8/0/20；\n- 应删掉自研的 10+0.1*(100-HP) 阈值与「QTE n/10」文本。\n\n## 验收补充\n\n- [ ] 在代码/资源中找到原版摇杆+SOS UI 并复用\n- [ ] 输入用原版方向键/摇杆状态，次数约 25\n- [ ] QTE 期间角色不可移动\n- [ ] 未达标→被绑；达标→脱离\n",
+        "createdAt": "2026-11-15T02:43:50Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

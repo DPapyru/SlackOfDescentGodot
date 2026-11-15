@@ -1,0 +1,28 @@
+{
+  "title": "动作细节：冲刺/跳跃屈肘，流沙按深度两段挣扎",
+  "body": "## AI回复\n\n### 需求（用户 2026-11-15）\n\n新增/调整以下动作资产：\n\n1. 冲刺：屈肘冲刺（手臂肘部弯曲，不是直臂）。\n2. 跳跃：屈肘。\n3. 陷入 quicksand 的挣扎，按陷入深度分两段：\n   - 陷入深度在胸口之前：双手尝试下压（双手向下压）。\n   - 陷入深度在这之后：举起双手，尝试平放/拍在 quicksand 表面，做挣扎状。\n\n### What to build\n\n- 在 Examples/Mods/ropebonds/motions 增加/调整对应 motion 资产并注册。\n- 冲刺/跳跃动作接入现有 locomotion 动作切换（走/跑/跳）。\n- 流沙挣扎按深度分两段切换，深度阈值=胸口；两段之间切换不跳变。\n- 不新增 Runtime 类型，纯资产优先。\n\n### Acceptance criteria\n\n- [ ] 冲刺与跳跃动作可见屈肘\n- [ ] 流沙挣扎在胸口前为双手下压\n- [ ] 胸口后为举手拍打表面\n- [ ] 两段切换无姿态跳变\n- [ ] mod 自检通过\n\n## Blocked by\n\n- #102\n- #103\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-15T03:01:16Z",
+  "updatedAt": "2026-11-15T03:01:16Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "title": "三坑演示房间",
+  "body": "## AI回复\n\n## Parent\n\n#97\n\n## What to build\n\nmod 自带一张最小演示地图：三个坑洞，每坑一条绳生物，玩家跳下即被绑；房间后排铺设大片 objQuicksandPit 实体，用于验证被捆绑状态下的动作。\n\n## Acceptance criteria\n\n- [ ] 加载 mod 后演示房间可达\n- [ ] 三个坑各有一条绳生物，跳下触发绑定\n- [ ] 后排流沙区可进入，被绑状态下不崩\n- [ ] 房间在地图编辑器中可打开\n\n## Blocked by\n\n- 依赖「绳子生物最小行为」\n\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-14T23:07:10Z",
+  "updatedAt": "2026-11-14T23:07:10Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "title": "绳贴图细节：两端头 / 9px 平铺 / 上移",
+  "body": "## AI回复\n\n## Parent\n\n#97\n\n## What to build\n\n绳贴图细节按提供素材的原意使用：身体 11×4 的左右各 1px 是边缘链接段、重复段是中间 9px；头 4×4 的右侧 1px 是连接边，且绳的两端都要有头且连接边朝向链身；绳子整体位置再上移。\n\n## Acceptance criteria\n\n- [ ] 身体按 9px 平铺，接缝无 1px 错位\n- [ ] 两端各有一个头，连接边朝向链身\n- [ ] 绳子相对角色位置符合预期（上移后的值写进 PR）\n- [ ] 不新增类型\n\n## Blocked by\n\n- None (can start immediately)\n\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-15T01:00:02Z",
+  "updatedAt": "2026-11-15T01:00:02Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

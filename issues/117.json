@@ -1,0 +1,28 @@
+{
+  "title": "附着时序：绳先跳到左右手腕再进入 QTE",
+  "body": "## AI回复\n\n### 问题（用户 2026-11-15 实机截图）\n\n图二：绳子还在地面上（玩家脚边）时就已经弹出 QTE。期望顺序：绳生物接近玩家 → 跳起，落到左右手腕上并附着 → 在此状态再进入 QTE；QTE 期间绳已缠在腕上。\n\n### What to build\n\n1. 去掉「进入距离即原地起 QTE」的路径（当前在 JumpMotion 内以距离触发）。\n2. 接近后先起跳，绳头落到 HAND1_ABOVE / HAND1_BELOW 左右腕坐标并附着（位置锁到腕骨）。\n3. 附着完成的那一帧才开始 QTE。\n4. 成功→绳后退脱离；失败→进入到手腕缠绕。\n\n### Acceptance criteria\n\n- [ ] 接近玩家时先看到绳跳起贴到手腕，之后才出现 QTE\n- [ ] QTE 期间绳贴在腕上，不在地面\n- [ ] 成功→后退；失败→进入缠绕/被绑\n- [ ] 不新增类型\n\n## Blocked by\n\n- #113\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-15T02:43:36Z",
+  "updatedAt": "2026-11-15T02:43:36Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

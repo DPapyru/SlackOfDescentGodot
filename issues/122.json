@@ -1,0 +1,21 @@
+{
+  "title": "Runtime：增加绘制前 frame.prepare 生命周期事件",
+  "body": "## AI回复\nSPEC: RopeBonds 收尾的最小运行时依赖，关联 #110。\n\n用户已授权一次性交付及以 #110 为显式依赖，不合并 PR。基于最新 ai 单独分支，PR 目标 ai。\n\n新增 NativeEventNames.FramePrepare；GmGraphics.Build 重入检查通过后、收集绘制命令前按既有异常隔离分发 Before/After；不更改 step.end 语义，不推进时间/输入/物理/状态机，重复绘制允许幂等提交。\n\n不新增框架、类型或文档；所有交付共享累计文本增删3000及Runtime300行预算、修改方法圈复杂度<15。回归由专门测试子代理串行完成。范围与架构来自用户已授权计划。",
+  "state": "OPEN",
+  "createdAt": "2026-11-15T07:41:14Z",
+  "updatedAt": "2026-11-15T07:41:14Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": []
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

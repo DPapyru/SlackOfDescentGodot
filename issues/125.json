@@ -1,0 +1,21 @@
+{
+  "title": "Runtime：允许 Mod 在碰撞前取消原版拾取处理",
+  "body": "## AI回复\nSPEC: RopeBonds 收尾的最小武器拾取拦截依赖，关联 #123、#110。\n\n现状：Native collision 事件当前是不可取消 observer，Mod 无法在原版 objItemFly 拾取逻辑执行前阻断。绳子捆绑态必须在实际枪械拾取入口拦截，不能用隐藏枪械显示帧替代。\n\n范围：在 GmWorld 原版碰撞 EventAsync 前增加可取消 before 阶段，复用 NativeGameEvent.Handled；仅当 handler 标记 handled 时跳过该次原版事件。既有 collision observer 与 step.end 语义保持不变。避免新增类型，新增/修改方法复杂度<15。\n\n用户已授权一次性收尾与以未合入#110为显式依赖，所有PR目标ai且不合并。全部交付共享文本增删3000行、Runtime300行预算，按ai累计。需专门测试子代理串行覆盖实际枪械入口捆绑阻止及解绑恢复。",
+  "state": "OPEN",
+  "createdAt": "2026-11-15T07:52:53Z",
+  "updatedAt": "2026-11-15T07:52:53Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": []
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

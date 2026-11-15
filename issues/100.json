@@ -1,0 +1,28 @@
+{
+  "title": "绳子生物最小行为",
+  "body": "## AI回复\n\n## Parent\n\n#97\n\n## What to build\n\n一条绳子形态的生物：在房间里以英寸虫式移动（头部伸出锚定、身体收缩跟随），按水平距离检测玩家，接近后跃起，随机选择一只被允许的部位（本票：左右手）建立约束；生物死亡时它持有的约束立即清除、姿态还原。\n\n## Acceptance criteria\n\n- [ ] 生物可在房间生成，英寸虫式移动，不穿墙/不穿地面\n- [ ] 玩家进入水平检测范围后，生物跃起并绑定随机一只手\n- [ ] 绑定期间手部保持约束\n- [ ] 生物死亡 → 玩家约束消失且姿态还原\n- [ ] mod 内含 verlet 步进稳定性的自检\n\n## Blocked by\n\n- 依赖「ropebond 骨架 + 手部约束」\n\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-14T23:07:08Z",
+  "updatedAt": "2026-11-14T23:07:08Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

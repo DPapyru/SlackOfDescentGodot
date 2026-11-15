@@ -416,7 +416,7 @@
     "number": 97,
     "title": "动作 mod：捆绑状态固定身体部位（状态约束层）",
     "state": "OPEN",
-    "updatedAt": "2026-11-14T22:44:27Z",
+    "updatedAt": "2026-11-15T01:55:34Z",
     "file": "issues/97.json"
   },
   {
@@ -425,5 +425,187 @@
     "state": "OPEN",
     "updatedAt": "2026-11-14T12:13:41Z",
     "file": "issues/98.json"
+  },
+  {
+    "number": 99,
+    "title": "ropebond 骨架 + 手部约束",
+    "state": "OPEN",
+    "updatedAt": "2026-11-14T23:07:05Z",
+    "file": "issues/99.json"
+  },
+  {
+    "number": 100,
+    "title": "绳子生物最小行为",
+    "state": "OPEN",
+    "updatedAt": "2026-11-14T23:07:08Z",
+    "file": "issues/100.json"
+  },
+  {
+    "number": 101,
+    "title": "三坑演示房间",
+    "state": "OPEN",
+    "updatedAt": "2026-11-14T23:07:10Z",
+    "file": "issues/101.json"
+  },
+  {
+    "number": 102,
+    "title": "基础位移动作（走/跑/跳）",
+    "state": "OPEN",
+    "updatedAt": "2026-11-14T23:07:13Z",
+    "file": "issues/102.json"
+  },
+  {
+    "number": 103,
+    "title": "流沙陷入动作",
+    "state": "OPEN",
+    "updatedAt": "2026-11-14T23:07:16Z",
+    "file": "issues/103.json"
+  },
+  {
+    "number": 104,
+    "title": "被捆绑 × 流沙交互",
+    "state": "OPEN",
+    "updatedAt": "2026-11-14T23:07:19Z",
+    "file": "issues/104.json"
+  },
+  {
+    "number": 105,
+    "title": "绳生物不生成 / 不主动捆绑玩家",
+    "state": "OPEN",
+    "updatedAt": "2026-11-15T00:59:55Z",
+    "file": "issues/105.json"
+  },
+  {
+    "number": 106,
+    "title": "绳链穿模后整条消失",
+    "state": "OPEN",
+    "updatedAt": "2026-11-15T00:59:57Z",
+    "file": "issues/106.json"
+  },
+  {
+    "number": 107,
+    "title": "捆绑 QTE 判定（新增）",
+    "state": "OPEN",
+    "updatedAt": "2026-11-15T02:43:52Z",
+    "file": "issues/107.json"
+  },
+  {
+    "number": 108,
+    "title": "绳贴图细节：两端头 / 9px 平铺 / 上移",
+    "state": "OPEN",
+    "updatedAt": "2026-11-15T01:00:02Z",
+    "file": "issues/108.json"
+  },
+  {
+    "number": 109,
+    "title": "双手同步旋转模拟被绑",
+    "state": "OPEN",
+    "updatedAt": "2026-11-15T01:00:05Z",
+    "file": "issues/109.json"
+  },
+  {
+    "number": 111,
+    "title": "复用原版 QTE 交互（摇杆/遥感提示）",
+    "state": "OPEN",
+    "updatedAt": "2026-11-15T02:43:50Z",
+    "file": "issues/111.json"
+  },
+  {
+    "number": 112,
+    "title": "绳生物物理：穿模、掉出地图、随后消失",
+    "state": "OPEN",
+    "updatedAt": "2026-11-15T01:25:22Z",
+    "file": "issues/112.json"
+  },
+  {
+    "number": 113,
+    "title": "缠绕式捆绑：爬到部位后缠绕，接触后继续更新",
+    "state": "OPEN",
+    "updatedAt": "2026-11-15T04:48:15Z",
+    "file": "issues/113.json"
+  },
+  {
+    "number": 114,
+    "title": "地图：坑宽×5、流沙与地表水平线对齐、整体调整",
+    "state": "OPEN",
+    "updatedAt": "2026-11-15T01:25:27Z",
+    "file": "issues/114.json"
+  },
+  {
+    "number": 115,
+    "title": "双手被绑姿态随朝向旋转，含持枪手",
+    "state": "OPEN",
+    "updatedAt": "2026-11-15T02:43:54Z",
+    "file": "issues/115.json"
+  },
+  {
+    "number": 116,
+    "title": "固化 motions 生成脚本（locomotion/sink）",
+    "state": "OPEN",
+    "updatedAt": "2026-11-15T01:48:23Z",
+    "file": "issues/116.json"
+  },
+  {
+    "number": 117,
+    "title": "附着时序：绳先跳到左右手腕再进入 QTE",
+    "state": "OPEN",
+    "updatedAt": "2026-11-15T02:43:36Z",
+    "file": "issues/117.json"
+  },
+  {
+    "number": 118,
+    "title": "QTE 冻结 vs 被绑可移动：阻止正常姿态回切（闪烁）",
+    "state": "OPEN",
+    "updatedAt": "2026-11-15T02:43:38Z",
+    "file": "issues/118.json"
+  },
+  {
+    "number": 119,
+    "title": "动作细节：冲刺/跳跃屈肘，流沙按深度两段挣扎",
+    "state": "OPEN",
+    "updatedAt": "2026-11-15T03:01:16Z",
+    "file": "issues/119.json"
+  },
+  {
+    "number": 120,
+    "title": "暂停菜单（objPause）位置仍偏移：GUI 修正后未修复",
+    "state": "OPEN",
+    "updatedAt": "2026-11-15T04:48:10Z",
+    "file": "issues/120.json"
+  },
+  {
+    "number": 121,
+    "title": "自由态绳身断成数截、段间有缝（链节 9px 后仍存在）",
+    "state": "OPEN",
+    "updatedAt": "2026-11-15T04:48:12Z",
+    "file": "issues/121.json"
+  },
+  {
+    "number": 122,
+    "title": "Runtime：增加绘制前 frame.prepare 生命周期事件",
+    "state": "OPEN",
+    "updatedAt": "2026-11-15T07:41:14Z",
+    "file": "issues/122.json"
+  },
+  {
+    "number": 123,
+    "title": "RopeBonds 收尾：原版运动、绑定姿势、QTE、禁枪及展示归属",
+    "state": "OPEN",
+    "updatedAt": "2026-11-15T08:23:38Z",
+    "file": "issues/123.json"
+  },
+  {
+    "number": 124,
+    "title": "Runtime：修复暂停菜单视口变换与背景截图单位",
+    "state": "OPEN",
+    "updatedAt": "2026-11-15T07:41:16Z",
+    "file": "issues/124.json"
+  },
+  {
+    "number": 125,
+    "title": "Runtime：允许 Mod 在碰撞前取消原版拾取处理",
+    "state": "OPEN",
+    "updatedAt": "2026-11-15T07:52:53Z",
+    "file": "issues/125.json"
   }
 ]

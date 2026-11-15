@@ -3,7 +3,7 @@
   "body": "## AI回复\n\n### 背景\n\n捆绑现在只是一串姿势/动作。进入捆绑状态后角色仍能被摆成任意姿态，退出时也没有「进入前」这个还原点。要的是「状态固定身体部位」，不是每帧再摆一次骨骼。\n\n### 现状\n\n- `MotionState`（`Runtime/Content/Actions/MotionGraph.cs:102`）只有 id 与 transition，没有「哪些骨骼被锁」的表达。\n- 动作串只描述骨骼写什么，没有「不许写」的语义；`MotionGraph.CopyFrom`（同文件 166 行）按可写属性反射复制，新增字段要确认一并被复制。\n\n### 做什么\n\n1) `MotionState` 增加可选字段：被约束骨骼 id 列表。落盘格式同步加键——`MotionToml` 用 Strict 反序列化，未知成员会直接报错，两边必须同时改。\n2) 进入状态时快照这些骨骼的局部变换；状态期间动作对它们的写入被跳过。\n3) 退出状态按快照还原，不在动作串里写还原帧。\n4) 动作编辑器在约束态把这些骨骼置灰，禁止拖动。\n\n### 验收\n\n- [ ] 捆绑状态中拖被约束骨骼无变化，退出后回到进入前姿态\n- [ ] 动作串不新增关键帧\n- [ ] 旧文件没有 constraints 字段仍能正常加载\n- [ ] RuntimeTests / gate 不回归\n\n### 不做\n\n- 不做绳索物理与绳索贴图\n- 不做判定与触发逻辑（谁进入捆绑状态由上层决定）\n\n### 待补充\n\n约束是全局生效还是每个状态各配一份？跨状态续约束要不要继承？\n",
   "state": "OPEN",
   "createdAt": "2026-11-14T12:13:39Z",
-  "updatedAt": "2026-11-14T22:44:27Z",
+  "updatedAt": "2026-11-15T01:55:34Z",
   "closedAt": null,
   "author": {
     "login": "DPapyru"
@@ -39,6 +39,138 @@
         "id": "IC_kwDOVf3hE88AAAABmmaDMw",
         "body": "## AI回复\n\n### 已核对的事实（读代码，不转述正文）\n\n- `Runtime/Content/Actions/MotionGraph.cs:102` 的 `MotionState` 只有 `Id/Clip/Movement/Transitions`；`MotionToml` 是 Strict，落盘加键必须两边同时改。\n- 动作挂在角色定义上：`Runtime/Host/Adapters/GmMotionBinding.cs:8`；播放器是 `Runtime/Host/Adapters/NativeMotionService.cs`——内建逐骨骼写入，**SDK 目前没有「跳过某骨骼」的门控**。\n- 原版动作注册表：`Runtime/Mods/NativeActionRegistry.cs`（`ContentRegistry.Actions / ActionFactories / ActionSettings`）。\n- mod 形态：`Examples/Mods/<id>/`（`mod.json` + `csproj` + C#，`Tools/ModCompiler` 编译），`Mods/` 是安装目录；全仓 grep 无任何绳索/约束代码。\n- 你的评论推翻正文两处：①「不要改动作编辑器」→ 正文「做什么-4」作废；②「物理绳必要 + 贴图」→ 正文「不做」作废。正文我改不了（只有维护者能编辑），以你的评论为准。\n\n### 问题：一轮问完（Q1–Q7 涉及范围/架构/验收，按 AGENTS.md 需要你 ACK 或直接回答）\n\n❓ **Q1** - **载体与仓库**：`Mods/` 是安装目录、`Examples/Mods/` 是示例源码。这个「单独的 mod」源码放哪——独立仓库，还是本仓库开一个目录（比如 `ModsSrc/<id>/`）？manifest 的 id 叫什么？\n\n➡️ 建议：独立仓库（你原话就是「单独的 mod」），本仓库不留源码；id 用 `ropebond`。如果你想让我就在这里直接开发，请指定目录，并允许我动 `Tools/verify.mjs` 的白名单。\n\n---\n\n❓ **Q2** - **正文四件事是否整段作废**：① `MotionState.constraints` 新字段；② `MotionToml` 加键；③ 引擎进出状态快照还原；④ 编辑器置灰。这四件都是引擎/编辑器改动，与「单独的 mod」冲突。\n\n➡️ 建议：①②③ 全部移出本 issue（约束在 mod 侧实现），④ 按你的话直接删。本 issue 只剩 mod 交付物。请 ACK，或让维护者改正文。\n\n---\n\n❓ **Q3** - **约束语义**（正文的「待补充」就在这里定）：约束是全局一份，还是每个状态各配一份？双手/双脚/身体三种束缚可同时出现，是三个集合叠加还是互斥？跨状态（双手束缚 → 双手+双脚）是继承还是替换？\n\n➡️ 建议：mod 配置里**每个状态一份**，三种束缚各一个骨骼集合，同时生效取并集；跨状态**不继承**，进入即替换；还原点只记最深一层的进入前姿态，退出该层整体还原。\n\n---\n\n❓ **Q4** - **约束怎么落地**（关键架构，必须你选）：SDK 没有逐骨骼写入门控，两条路——(a) mod 每帧在播放器写完骨骼后，把被约束骨骼的局部变换覆盖回快照（mod 侧，零引擎改动）；(b) 给 SDK 加最小 API `NativeMotion.Constrain(actor, bones)`，播放器直接跳过写入（一行门控，语义干净，但要动本仓库）。\n\n➡️ 建议：(b) 语义正确、不走样，但那已经是引擎改动；若坚持「只是一个 mod」，先用 (a)，把 (b) 记成后续 SDK issue。\n\n---\n\n❓ **Q5** - **绳索与贴图**：你给的头 4×4、身 11×4 太小，我需要确认意图——是「一段身体」平铺，还是单张贴图拉伸？另外：三种束缚同时 = 最多几条绳？每条绳锚点是世界（墙/地面）还是角色骨骼？碰撞范围（只撞角色胶囊和地面 / 是否自碰撞）？渲染走 mod 自绘 Godot Node2D，还是 SDK 的 `NativeModAnimation`/资源槽？\n\n➡️ 建议：每条绳 2 锚点（场景锚点 + 角色骨骼），11×4 身体按段平铺、4×4 头贴在锚点；Verlet 20~30 段，只撞角色胶囊 + 地面，不做自碰撞；渲染走 mod 资源 + `_Draw`。像素比例请按这两张贴图确认。\n\n---\n\n❓ **Q6** - **原版动作清单 / 触发 / 分批 / 验收**：你说「替换原版类似的动作…是游戏本身可以触发的，读取代码验证」。我会先读 `NativeActionRegistry` 和 GML 里 quicksand/vore/QTE 的触发点，产出「原版动作 → 触发点 → mod 对应动作」清单给你确认，**先不写实现**。触发路径你希望走哪条：房间对象（GML）、角色配置，还是 mod 自带测试场景？\n\n➡️ 建议：先出清单；按 奔跑/跳跃 → 流沙 → QTE → vore 分四批，每批一个子 issue + 一个 PR（AGENTS.md：大工程量拆子 issue）；触发走房间对象，mod 附可复现测试场景；验收 = mod 内最小自检 + 本仓库 `node Tools/gate.mjs` 与 `Tools/motion-audit.mjs` 不回归。\n\n---\n\n❓ **Q7** - **「替换原版类似的动作，不要替换旧的」精确含义**：是「同 id 覆盖原版动作」，还是「新 id 并存、原版照样能触发」？两种读法结果完全不同（覆盖会静默改掉全局行为）。\n\n➡️ 建议：新 id 并存，**绝不覆盖原版 id**；原版动作保持可触发，mod 动作统一前缀 id。\n\n---\n\n这 7 条答完我回 `DECISION:` + 分批计划；在你 ACK 范围/架构/验收之前不动工。\n",
         "createdAt": "2026-11-14T22:44:27Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABmmfMig",
+        "body": "Q1: Examples/Mods/ 目录,这样同时可以作为示例Mod让人学习\nQ2: 正文提及的事情作废,这里强制约束是Mod实现\nQ3: 没有问题\nQ4: 这个问题再详细讨论,你需要给出你这句话为什么存在,为了解决什么问题\nQ5: 反复拼接,这是捆绑在角色身上的\nQ6: 没有问题,注意这里QTE是所有QTE都受到影响,不过目前让我们先注重走路这类基础动作,然后再到quicksand部分,这两部分验证结束再尝试后面的\nQ7: 不覆盖原本ID\n\n额外追加:\n被捆绑状态是以一个\"绳子\"形态的生物触发的\n这个生物就使用绳子的贴图\n \n- 发现玩家后,会进行类似区的移动方式\n- 接近玩家后,跳起\n- 随机选择捆绑玩家一个位置\n- \"进入捆绑\"期间有QTE效果,如果QTE不成功,则变为**\"被捆绑状态\"**",
+        "createdAt": "2026-11-14T22:51:35Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABmmh2Kg",
+        "body": "## AI回复\n\n### 已 ACK，记为决策（Q1/Q2/Q3/Q6/Q7 + Q5 部分）\n\n`DECISION:` mod 源码放 `Examples/Mods/ropebond/`，兼作示例；不覆盖任何原版动作 id，原版动作保持可触发。\n\n`DECISION:` issue 正文四件事（`MotionState` 字段、`MotionToml` 加键、引擎快照还原、编辑器置灰）全部作废；约束由 mod 实现，本仓库引擎与编辑器不动。\n\n`DECISION:` 约束为每状态一份骨骼集合，双手/双脚/身体三种可叠加取并集，跨状态不继承，还原点只记最深一层；贴图为反复拼接；优先级 走路/跳跃 → quicksand → QTE → vore；QTE 影响全部 QTE。\n\n`DECISION:` 捆绑由「绳子形态生物」触发，流程为 发现→蛆虫式移动→跃起→随机选择身体部位→进入捆绑期间 QTE→失败则进入被捆绑状态。\n\n### Q4 详解：这个选择为什么存在\n\n先说一个代码事实，它把问题改写了一半：`ApplyPose`（`Runtime/Host/Adapters/NativeMotionService.cs:118`）**每步都写全部骨骼**，未被 track 的骨骼也会重算世界坐标（按父级），而局部量（`Angle`/`ScaleX`/`ScaleY`/`PartPicture`）保留上一次写入的值。\n\n所以「状态固定身体部位」在引擎里已经**免费成立**：一个状态只要不给这些骨骼轨道，它们就冻结在进入时的局部姿态、并跟着父级走。这记为选项 **(c) 纯片段省略**。\n\n那 (a)/(b) 为什么还要存在，三个原因：\n\n1. **组合爆炸**：双手/双脚/身体 = 8 种组合。用 (c) 就要 8 份省略轨道的片段，且「进入前姿态」依赖上一状态留下的局部值，组合之间没法复用同一份片段。\n2. **复用外来片段**：若某个捆绑状态要借用一份已经 track 了手臂的片段（原版动作或别的 mod），(c) 直接失效。\n3. **同一步内的读者**：`Motions.AfterStep()` 提交姿势在 `Runtime/Gml/GmWorld.cs:1658`，mod 的 `step.end` 在 1697 —— mod 覆盖能盖住绘制，但同一步内先跑的 GML/碰撞读到的仍是动画值。\n\n三选项对比：\n\n- **(a) mod 每步覆盖**：零引擎改动。字段集就是 `Session.RestorePose` 那 9 个；**必须还原局部量，不能还原世界坐标**，否则绑在身上的手会被钉死在世界上、脱离身体；世界坐标由播放器下一步按父级重算。代价：每步一次循环，同一步内读者看到动画值。\n- **(b) SDK 加 `Constrain(actor, bones)`**：语义最干净，同一步所有读者一致；但要改 `ApplyPose` 的父链重算（跳过世界写就得同时决定跳过哪些子级），且违背「只是一个 mod」。\n- **(c) 纯片段省略**：零代码，但 8 组合 + 不能复用外来片段。\n\n➡️ 我的建议：**(a) 作为主机制**（一份挣扎片段 + 每状态骨骼集合，8 组合走运行时），(c) 用作最简路径验证 (a) 的还原语义是否吻合；(b) 不开，留成后续 SDK issue。请你 ACK 这个方向，否则约束只能退化成片段复制。\n\n### 追加信息后的追问（Q8–Q11）\n\n❓ **Q8** - **蛆虫式移动的边界**：是「头伸出→锚定→身体/尾收缩跟随」的英寸虫式，还是整条贴地蠕动由每节碰撞推进？移动速度、是否会被地形挡住、要不要「发现玩家」的视野判定？\n\n➡️ 建议：头为唯一驱动点向前伸出（约 20~30px/s），身体 Verlet 链跟随收缩；用 `ActorContext.Call(\"place_free\", x, y)` 判地；发现玩家用水平距离阈值，不做视野锥。\n\n---\n\n❓ **Q9** - **生物与绳的拓扑 + 部位白名单**：一只生物就是一条绳（贴图即其身体）吗？三种束缚同时出现 = 三只生物/三根绳同时缠一个角色？「随机选择一个部位」的候选是哪些骨骼 id（左右手、左右脚、躯干？）\n\n➡️ 建议：一只生物 = 一条绳 = 一个 spawn，最多同时 3 条，各绑一个部位；部位白名单由你给，我按 `MotionSkeleton.IsNodeName` 校验。没有白名单我只能从躯干+四肢里挑。\n\n---\n\n❓ **Q10** - **QTE 与失败后的行为**：「所有 QTE 都受影响」是要接管现有 QTE 的判定，还是给捆绑一套独立 QTE？失败进入被捆绑状态后，生物是留在原地持续约束、还是变成一个附着物？QTE 成功时生物怎么办（撤退/重试/杀死）？\n\n➡️ 建议：先独立实现捆绑 QTE（屏幕方向键序列，mod 自绘），不碰全局 QTE；失败 → 进入被捆绑状态且生物附着在角色身上；成功 → 生物后退脱离，N 秒后重新尝试。\n\n---\n\n❓ **Q11** - **验收场景**：`Examples/Mods/` 现有 4 个示例，但都不是「有地面的房间 + 玩家 + 生物」这种演示场景。捆绑演示要不要 mod 自带一个测试房间/角色配置？\n\n➡️ 建议：mod 自带一个最小演示房间（地面 + 玩家 + 一只生物），手动跑通即为验收；加上 verlet 步进与前端姿态还原的小自检。本仓库 `node Tools/gate.mjs` 保持不回归。\n\n---\n\n你定的顺序（走路/跳跃 → quicksand）不依赖 Q8–Q11 和 Q4 的结论，我先按那个走，绳索生物放到后面批次。Q4 只在你 ACK 后我才动约束实现。\n",
+        "createdAt": "2026-11-14T22:55:14Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABmmnCTw",
+        "body": "q4: 你猜我为什么叫AI搞?工作量太大了,这里先验证手的部分,后续如果需要额外开发,我会提新的issues,引用这个issues\nq8: 英寸虫式，以水平检测玩家,不需要那么复杂的形式\nq9: 左右手、左右脚、躯干，同时说明: 这个生物死亡那玩家的捆绑状态随之消失\nq10: 捆绑是单独的QTE，一个新增的QTE判定。我们说的全局QTE是修改玩家新动作的，不要混为一谈\nq11: 自己再带一个最小演示房间,还能演示到和quciksand的交互\n房间布局:\n- 三个坑洞,里面是一条绳,加起来就是三条,让测试者跳下去验证\n- 后面布置 objQuicksandPit大片实体,测试者在被捆绑状态下验证动作",
+        "createdAt": "2026-11-14T23:02:29Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABmmoHIw",
+        "body": "## AI回复\n\n### 定稿（Q12/Q13 回答后）\n\n`DECISION:` #97 的交付边界 = **手部约束机制 + 生物最小行为 + 三坑演示房间**，同一次交付。左右脚/躯干约束、完整蛆虫 AI、捆绑 QTE、vore 系列与动作资产，由你后续新开 issue 引用本 issue。\n\n`DECISION:` 第一批动工 = 约束机制 + 演示房间；走路/跳跃等动作资产单独一个 PR。\n\n`SPEC:` 约束在 mod 侧实现：一份挣扎片段 + 每状态骨骼集合（8 组合运行时决定）；进入时快照**局部量**，退出按局部量还原（世界坐标由播放器按父级重算，不还原世界坐标）；不新增引擎 API、不改 `MotionGraph`/`MotionToml`/编辑器。\n\n`SPEC:` 演示房间：三个坑洞，每坑一条绳生物（共三条），测试者跳下去触发；后排布置大面积 `objQuicksandPit`，用于验证被捆绑状态下的动作。\n\n`SPEC:` 生物死亡 → 该生物持有的捆绑状态随之清除（捆绑状态记录持有者）。\n\n`SPEC:` 验收：mod 内自检（Verlet 步进、局部量快照/还原、8 组合取并集）+ 房间手动跑通 + 本仓库 `node Tools/gate.mjs` 不回归。\n\n下一步：从 `ai` 切 `feat/97-ropebond`，先读房间格式与 `objQuicksandPit`，再落骨架。\n",
+        "createdAt": "2026-11-14T23:03:57Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABmmrL6w",
+        "body": "## AI回复\n\n### 子 issue 已发布（6 张，按依赖顺序）\n\n| Ticket | Blocked by |\n|---|---|\n| #99 ropebond 骨架 + 手部约束 | 无 |\n| #100 绳子生物最小行为 | #99 |\n| #101 三坑演示房间 | #100 |\n| #102 基础位移动作（走/跑/跳） | 无（可与 #99 并行） |\n| #103 流沙陷入动作 | #101、#102 |\n| #104 被捆绑 × 流沙交互 | #100、#103 |\n\n全部已挂到 #97 作为子 issue，并打上 `ready-for-agent` + `area:mods`。\n\n**前沿**：#99 与 #102 可立即开始。按你「这一轮都要做」的要求，后续按依赖依次推进，不再另行分批确认。\n\n范围外仍留给后续 issue（引用 #97）：双脚/躯干约束、完整捆绑 QTE、vore 系列。\n",
+        "createdAt": "2026-11-14T23:08:07Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABmm5YQA",
+        "body": "## AI回复\n\n### W0 基建完成\n\n- 分支 `feat/97-ropebond` 已从 `origin/ai`（b382031）切出。\n- 团队：impl-a（#99/#100）、impl-b（#102/#103/#101）、tester（唯一测试与 Godot 执行者）、reviewer（预算守卫，只读）。\n- 基线门禁：`node Tools/gate.mjs` **PASS**（build / tests / verify / complexity，77s；tests 61664 assertions）。\n- mod 基线：`NativeModsAudit.tscn` **PASS**（NativeModsAuditOK assertions=136 reloads=20）。\n\n### 两条会影响实现的事实\n\n1. 游戏**不跑 `dotnet build`**，进程内 Roslyn 直接编译 `mod.json` 的 `content.code.sources`；csproj 只服务 IDE。因此 mod 里新增 `.cs` 必须同步 sources 清单。\n2. Godot 审计统一用 `node Tools/agent-lock.mjs godot <cmd>` 串行执行，同一时刻只允许一个进程。\n\n### 环境\n\n新 worktree 需 `GameData` 软链与 `slack-extract` 编译器（已修，均在 worktree 外或 gitignore 内，不污染提交）。\n\n下一步：W1（#99 骨架+手部约束）与 W2（#102 走/跑/跳）并行，按波次提交与审查。\n",
+        "createdAt": "2026-11-14T23:27:51Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABmnFB2g",
+        "body": "## AI回复\n\n### 进展：已提交 dc3e20c（`feat/97-ropebond`）\n\n包含 #99、#100、#102 三块与「让 mod 可自动验收」的审计入口（`NativeModsAudit` +4 行）。\n\n**已由测试子代理在锁内单 Godot 进程验证**\n- `NativeModsAudit`：`NATIVE_MOD_AUDIT_OK assertions=137`（136→+1），ropebonds reload Success（含 `MotionGraph.Validate`）。\n- `ROPEBONDS_SELFCHECK PASS assertions=31`（#99 时 25 → 31，Verlet 断言生效）。\n- 无 CS 编译错误、无 Diagnostics。\n\n**实现要点**\n- `#99`：`Bind/` 局部量快照 + `step.end` 写回；`image_angle` 按 `Angle + 父.image_angle` 重算（渲染只认 image_angle）；8 组合取并集。\n- `#100`：`Creature/` Verlet 链 + 英寸虫（头驱动、拽身体）+ 水平 96px 发现、48px 跃起、12px 随机绑一只手；死亡/离房/卸载释放自己的约束。\n- `#102`：`motions/locomotion.motion.json` 从原版动作 AST 用脚本复刻（stand/walk/run/jump/fall），未覆盖原版 id。\n\n**口径**\n- 代码 570 行（`*.cs`，含审计 +4）；数据资产 `.json` 8871 行，按约定单列不计入 900 行预算。\n- 未做的部分：`touchingQS` 会让 motion session 被 `Forced()` 挂起，所以 #103 只能走 step.begin 的薄 C#（纯资产不可行），已在做。\n\n**未验证**（headless 覆盖不到）：V 菜单选中角色、走 5px/帧、跑 12px/帧、原版 id 不受影响——等 #101 房间落地后统一做 play-audit。\n\n下一步：#101 三坑房间 + #103 流沙动作，#104 组合验收。\n",
+        "createdAt": "2026-11-14T23:44:54Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABmnV9Wg",
+        "body": "## AI回复\n\n### 进展：48c610f（#100/#101/#103 主体 + 审计入口）\n\n**四步验收全绿（tester 锁内单 Godot 进程，串行）**\n\n| 步骤 | 结果 |\n|---|---|\n| 诊断重建 | exit 0，0 error |\n| NativeModsAudit | `NATIVE_MOD_AUDIT_OK assertions=148`（136→+12），`ROPEBONDS_SELFCHECK PASS assertions=30` |\n| map-audit file | `MAP_FILE_OK room=11 instances=287 tiles=0 p95_ms=22.19` |\n| 全量 gate | `GATE PASS steps=4`（build/tests/verify/complexity） |\n\n**世界场景断言**（NativeModsAudit 新增 11 条，真实 Playground + Nana doll）：\n绑定/IsBound、伪 clip 写入后手角不变、世界坐标按父级重算、`image_angle = Angle + 父.image_angle`、父平移手跟随、父旋转后父相对距离保持、Release 清约束并还原。\n`ROPEBONDS_PARENTS` 实测父链：`HEAD=BODY_TOP`、`HAND2=HAND1`、`HAND3=HAND2`（非扁平，Depth 只在 Bind 预计算一次）。\n\n**预算（当前）**：代码 826 行（`*.cs`+`*.mjs`，含删除 3 行）；新增类型 **8**（RopeBondsMod / ConstraintService+BoneLocal / BindPart / VerletChain+Point / RopeCreature / SinkDriver）；数据 `.json` 12384 行单列；无 `.md`。\n\n**已知偏差**：`map-audit` 不加载 mod，3 个 `ropebonds.creature` 被静默丢弃，所以它只证明「地图合法 + 房间能跑」，生物/绑定由 NativeModsAudit 的世界断言覆盖；两个审计都不覆盖 GUI 进图观感。\n\n剩余：绳贴图 sprite 渲染（最后一件）、GUI 进图人工验收、reviewer 终审、开 PR。\n",
+        "createdAt": "2026-11-15T00:08:24Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABmne4pA",
+        "body": "## AI回复\n\n### 用户实测发现三个缺陷（暂不开 PR）\n\n| 现象 | 根因/方向 | task |\n|---|---|---|\n| 地图边界缺失、物块不可见 | `GameData` 里 `objBlock` 定义 `visible:false`（纯碰撞体，原版地板靠 tiles 画），我们 `tiles=[]` 所以只撞不画；边界也未补齐 | task-7 |\n| 绳贴图看不见 | sprite 管线只要求 owner Active + resource 命中，depth 语义正常（小的在上）；嫌疑为尺寸过小（ScaleX=Spacing/11）、生物在坑外镜头、或调用未发出 | task-8 |\n| 流沙姿态跳跃/错位 | 采样节奏（30Hz→60Hz、`frame+2`）或与原生 QS 写骨骼时序冲突 | task-9 |\n\n三个 task 已挂到 impl-a / impl-b，修法与验收写进任务描述；reviewer 的预算终表（代码 830 行、类型 8、cc 超标 2 处均为审计辅助方法）仍作为 PR 底稿，其中 `VerifyRopeBondsBinding` 会拆到 <15，`NativeMapAudit._Ready` 属既有 baseline 超标。\n\n修复闭环标准：用户能在游戏里看到地板/边界、看到绳、流沙动作连贯；随后重跑 NativeModsAudit + map-audit + gate。\n",
+        "createdAt": "2026-11-15T00:20:56Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABmn7SqQ",
+        "body": "## AI回复\n\n### 用户实机验收反馈（第 2 轮）与会话内新增范围\n\n已确认并分派（不新开 issue，均属 #97 的收尾范围）：\n\n| 问题 | 处理 |\n|---|---|\n| 绳子碰撞穿模、之后消失 | 诊断链点越界/NaN、实体是否被销毁、渲染跳过原因 |\n| 绳子不主动捆绑玩家 | 先诊断距离/阈值/落坑后实体状态，不盲改 |\n| 缺少 QTE 判定 | **新增**：靠近玩家后 2.5s 窗口，按键累计判定；成功脱战、失败进入被捆绑状态；写在现有 `RopeCreature` 内（类型预算已满 8，不新增类型） |\n| 绳头未正确使用（右 1px 连接边、两端都要有头） | 两端各画头、连接边朝向链身；`Presentation.Sprite` 无 source-rect，只能靠角度/scale 近似 |\n| 身体平铺应用 9px 而非 11px | `ScaleX = Spacing/9` 已改 |\n| 绳整体上移 | 渲染 y 偏移 −6px |\n| 持枪手限制姿势 | 绑一只手时扩为双手并集，两手同步旋转同一角度增量模拟被绑 |\n\n记录两条实现约束，供后续接手：\n1. `NativeEntityDefinition` 无 health 字段，生物血量是 scope 变量 `HP`（创建时写一次 10000）；原生受击还看 `DAMAGE_ACTIVE`/`objEnemyDoll`，普通攻击未必生效——若确实不吃伤害，另开票。\n2. 地图生成脚本未提交，坑深/生物落点等参数需与 `demo.map.json` 同步（当前 64px 深、坑底 y=464、生物 y=463）。\n",
+        "createdAt": "2026-11-15T00:58:37Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABmoOR2g",
+        "body": "## AI回复\n\n### PR 已开：#110（feat/97-ropebond → ai）\n\n首轮验收（gate / audit 150 / motion / play 全绿）见 PR 描述；map-audit 仅宿主 GLX 阻塞。\n\n### 用户实机第 3 轮反馈 → 新子票（均已挂到 #97）\n\n| # | 问题 | task |\n|---|---|---|\n| [#111](https://github.com/DPapyru/SlackOfDescentGodot/issues/111) | 原版 QTE 会生成可操作控件（遥感/摇杆），应复用原版而非自研 Z×8 | task-15 |\n| [#112](https://github.com/DPapyru/SlackOfDescentGodot/issues/112) | 绳生物穿模、掉出地图、随后消失 | task-16 |\n| [#113](https://github.com/DPapyru/SlackOfDescentGodot/issues/113) | 碰到玩家即停止更新；应「爬到部位→缠绕→进入捆绑」 | task-17 |\n| [#114](https://github.com/DPapyru/SlackOfDescentGodot/issues/114) | 坑宽 ×5；`objQuicksandPit` 与地表水平线不对齐，参考 Test Room | task-18 |\n| [#115](https://github.com/DPapyru/SlackOfDescentGodot/issues/115) | 双手被绑姿态应随朝向旋转，持枪手目前束缚不了 | task-19 |\n\n追加发现：demo 房间 create code 为空，Playground 的 `AlphaDarkness/IsFogging/EASY_QS/setCustomWeather` 未初始化——可能与「退格键窗口位移」相关，impl-b 正在定位。\n",
+        "createdAt": "2026-11-15T01:26:19Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABmohoUg",
+        "body": "## AI回复\n\n### 进度快照（供上下文截断后恢复）\n\n**分支 / PR**\n- 分支 `feat/97-ropebond`，HEAD `4c8cc21`，工作树干净，已推送。\n- PR [#110](https://github.com/DPapyru/SlackOfDescentGodot/pull/110) → `ai`，OPEN。\n- 提交链（9 个）：`dc3e20c` → `48c610f` → `2c4db59` → `c0ca861` → `e5a29bd` → `093e025` → `539ef27` → `f365c07` → `4c8cc21`。\n\n**预算（当前口径：Mod 不限行数、Runtime ≤200）**\n- Runtime **122 / 200**（`NativeModsAudit` +118、`NativeMapAudit` +2/-2）\n- Mod 代码 **882** 行（不限）；JSON 数据单列\n- 新增类型 **8**；注释 0、`.md` 0\n\n**票状态**\n- 已完成并入 PR：#99 #100 #101 #102 #103 #104 #106 #107 #108 #109（注：#105/#111/#112/#113/#114/#115 的实现也已提交，仅缺实机确认）\n- 进行中 / 待实机：#105（装配已由 audit 证明，跃起绑定的实机行为待确认）、#111（原版 QTE 规则反解）、#114（坑宽 ×5 + 流沙对齐 + 恢复 Playground room create）\n- 后续：#116（固化 motions 生成脚本）\n\n**关键事实（省得重新查）**\n1. 引擎/原版能力：`scripts/dropWeapon`（武器掉落）、`MotionImport.FromAst`（动作导入）、`NativeMapService.ImportOriginal/AddEntity/Save/Validate`、`Presentation.Sprite/Line/Text`、`RegisterInput + Input.Pressed`。\n2. 引擎**没有**的能力（必须自研，已写进 PR）：per-bone 写入门控（约束）、链式绳求解（Verlet）、可操作 QTE 控件。\n3. 原版「被抓住 → 方向键挣扎」在 `objControllableDoll` 的 `4/261,320,357,369,411`；输入走 `objController.up/b2==2`；耐力 `global.PlayerST` + HUD `global.Stamina`（`objDisplay/9/118`）；难度 `global.EASY_QS`。详见 [#111 评论](https://github.com/DPapyru/SlackOfDescentGodot/issues/111#issuecomment-6887576635)。\n4. 退格键窗口 = 原版 `objPause`，位置只依赖 `view_*` 与 `global.config_AspectRatio`；demo 房间 create code 为空、缺 Playground 的 `EASY_QS/AlphaDarkness/fog` 等初始化，归入 #114。\n5. 环境：新 worktree 需 `GameData` 软链 + `<worktrees>/Tools/slack-extract`；Godot 单进程 `node Tools/agent-lock.mjs godot <cmd>`；`map-audit file` 自 08:35 起被宿主 GLX/EGL 阻塞（08:31 绿过）。\n\n**恢复协议（上下文截断时按此执行）**\n1. `git log --oneline origin/ai..HEAD` + `git status` 看代码到哪一步；\n2. `gh issue view 97` 与本评论确认票状态；\n3. `gh pr view 110` 看 PR 是否已含最新提交；\n4. 验收顺序：诊断重建 → `NativeModsAudit` → `map-audit file`（GL 允许时）→ `node Tools/gate.mjs`；\n5. 不确定的机制先读 `GameData/code.json` 的 AST，不要猜。\n",
+        "createdAt": "2026-11-15T01:55:34Z",
         "author": {
           "login": "DPapyru"
         },

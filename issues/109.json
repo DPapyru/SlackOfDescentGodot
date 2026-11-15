@@ -1,0 +1,28 @@
+{
+  "title": "双手同步旋转模拟被绑",
+  "body": "## AI回复\n\n## Parent\n\n#97\n\n## What to build\n\n持枪手会限制手臂姿势上限，因此捆绑时改为「双手一起旋转同一角度增量」模拟被捆，而不是只冻结一只手。\n\n## Acceptance criteria\n\n- [ ] 绑一只手时双手同步旋转同一增量\n- [ ] 释放一只时另一只仍被约束\n- [ ] 持枪手视觉正常、无穿模\n- [ ] 自检断言覆盖「双手增量相等 + 集合并集」\n\n## Blocked by\n\n- None (can start immediately)\n\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-15T01:00:05Z",
+  "updatedAt": "2026-11-15T01:00:05Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

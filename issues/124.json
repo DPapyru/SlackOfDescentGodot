@@ -1,0 +1,21 @@
+{
+  "title": "Runtime：修复暂停菜单视口变换与背景截图单位",
+  "body": "## AI回复\nSPEC: RopeBonds 收尾中的暂停修复，关联 #120、#110。\n\n用户已授权一次性交付，不合并 PR。基于最新 ai 单独分支，PR 目标 ai。\n\n移除 objPause 单位变换特判，恢复完整视图到输出视口变换，不叠加摄像机补偿；统一暂停背景截图的输出像素与裁剪单位，避免视图/输出大小不同时裁剪拉伸错误。暂停重绘保留姿态，不推进 QTE/动画，不改摄像机补偿UI。\n\n不得改文档/图片/Skill/门禁基准；全部交付共享累计文本增删3000及Runtime300行预算，新增修改方法圈复杂度<15。仅测试子代理串行测试。菜单与背景缩放待用户实机验收。范围与架构来自用户已授权计划。",
+  "state": "OPEN",
+  "createdAt": "2026-11-15T07:41:16Z",
+  "updatedAt": "2026-11-15T07:41:16Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": []
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

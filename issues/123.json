@@ -1,0 +1,66 @@
+{
+  "title": "RopeBonds 收尾：原版运动、绑定姿势、QTE、禁枪及展示归属",
+  "body": "## AI回复\nSPEC: 按用户授权的收尾计划交付；关联 #97、#110、#111、#115、#117、#118、#119、#121。\n\n人工授权记录：用户要求一次性完成，并明确授权以尚未合入的 #110 当前分支为基础、作为显式依赖交付；所有 PR 目标 ai，不合并、不批准。\n\n验收范围：移除普通运动接管；绑定状态按原版当前/待切换动作选择站走跑跳落及浅深流沙姿态；双腕身前、自然屈肘、双向一致；QTE 2.5 秒、普通25/简单12、新按下去重、截止先输入、暂停冻结，原版 GUI；实际拾枪入口拦截；frame.prepare 同帧动画→约束→绳子且重复绘制幂等；解绑/销毁/换房/卸载资源清理。受伤死亡和其他敌人抓取保留原生。\n\n交付依赖：frame.prepare 与暂停 UI 各立 Issue/PR。#110 不由代理合并，修复 PR 显式依赖 #110。\n\n硬约束：全部交付相对 ai b382031 的累计文本增删 <=3000，Runtime/ <=300；Mod全部类型 <15；新增/修改方法圈复杂度 <15；不修改门禁基准；不新增仓库文档。保留原有未提交修改，不加载 Skill，不读图片。\n\n验证：仅专门测试子代理串行运行现有 gate、诊断构建、motion audit；现有审计内补绘制幂等、QTE恢复、拾枪恢复三组回归。原版运动、双向绑定、浅深流沙、暂停菜单与背景缩放待用户实机验收。",
+  "state": "OPEN",
+  "createdAt": "2026-11-15T07:41:16Z",
+  "updatedAt": "2026-11-15T08:23:38Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": []
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABmr-e6Q",
+        "body": "## AI回复\n实施协调：依赖事件 #122，暂停修复 #124；显式依赖未合入的 PR #110（50742d4），实施基线 ai=b382031。\n\n人工授权原文：用户在确认替代交付方式后回复「授权，不进行PR合并操作」。此前要求「请一次性完成」。本次将分工实施，唯一测试子代理串行验证，主代理只监督协调。最终仍待用户实机验收。\n\n工作区保护：主worktree未跟踪项 .agents/、.bc.mjs、.gmldump.mjs、.rc.mjs 不动；既有feat/97-ropebond worktree中 RopeCreature.cs 与 GmGraphics.cs 有未提交修改，保留原处，不自动夹带。各实现均使用新worktree。\n\n预算按 ai 到最终候选全部累计差异统计，包含#110已有内容和独立运行时PR；不能只算修复增量。",
+        "createdAt": "2026-11-15T07:42:40Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABmr_mYA",
+        "body": "## AI回复\n验收分工与人工清单：自动化只由专门测试子代理串行执行，实施子代理不启动测试或Godot。\n\n待用户实机确认（本次不会读取截图或代替人工判定）：\n- 未绑时原版按键映射、走跑跳、重力碰撞正常。\n- 捆绑后左右朝向，站/走/跑/起跳/下落中双腕身前靠拢、肘部自然弯曲，无普通姿态闪回。\n- 浅流沙双手下压，胸口后举手在表面挣扎，切换无明显跳变。\n- 绳先跳至腕部附着再显示QTE；QTE冻结、成功立即逃脱、失败可移动被绑；暂停不消耗时间。\n- 捆绑不能拾枪，解除后恢复；绳死亡/销毁/离房/卸载后无残留。\n- 暂停菜单与图标位置正确；不同输出窗口/视口尺寸下背景不裁错、不拉伸，退出暂停相机与姿态正常。\n\n最终PR将列出自动验证结果和完整累计预算，人工清单保留待验收，不将自动绿等同实机通过。",
+        "createdAt": "2026-11-15T07:44:27Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABmsFX8g",
+        "body": "## AI回复\n新增依赖 Issue #125：当前 collision hook 是 observer，不能阻止原版 objItemFly 拾取；#125 将为原版碰撞事件增加最小 handled-before 拦截，以满足捆绑态实际拾枪阻断。该依赖单独分支/PR，目标 ai，不合并。\n\n另分派了独立 Mod 实施子代理负责 ConstraintService 与 Actions 文件；主 Mod 代理继续负责绳状态/QTE、资源清理、地图与动作数据预算。测试仍仅由 Euler 串行执行。",
+        "createdAt": "2026-11-15T07:53:39Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABmsYklQ",
+        "body": "## AI回复\n人工验收状态更新：用户要求后台启动 Godot 实机检查，并明确表示「如果实机通过，则不用在乎相对 ai 约 7897 行超过 3000 行上限」。因此总文本行数限制仅在用户实机通过后豁免；Runtime 300 行、类型数量及复杂度等其他限制仍保留。\n\n准备由唯一专门测试子代理在隔离候选 7a196dc 启动 RopeBonds 演示；不读取图片、不合并 PR，等待用户人工结果。",
+        "createdAt": "2026-11-15T08:23:37Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

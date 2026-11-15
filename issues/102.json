@@ -1,0 +1,28 @@
+{
+  "title": "基础位移动作（走/跑/跳）",
+  "body": "## AI回复\n\n## Parent\n\n#97\n\n## What to build\n\n走路、奔跑、跳跃三段基础动作，供玩家角色在基础状态下使用；不覆盖任何原版动作 id，可与绳索相关的工作并行。\n\n## Acceptance criteria\n\n- [ ] 走路、奔跑、跳跃三段动作可在游戏中触发，循环与落地表现正确\n- [ ] 不覆盖原版动作 id，原版动作仍可触发\n- [ ] mod 内动作资产可正常加载\n\n## Blocked by\n\n- None (can start immediately)\n\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-14T23:07:13Z",
+  "updatedAt": "2026-11-14T23:07:13Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

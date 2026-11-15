@@ -105,7 +105,7 @@
     "caption": "",
     "clearRegion": true,
     "clearScreen": true,
-    "code": "rooms/11/create",
+    "code": "",
     "colour": 12632256,
     "height": 1280,
     "id": 11,
@@ -156,30 +156,6 @@
         "angle": 0,
         "blend": 4294967295,
         "code": "rooms/11/instances/102245",
-        "properties": {}
-      },
-      {
-        "id": 102879,
-        "object": 297,
-        "x": 96,
-        "y": 32,
-        "xscale": 1,
-        "yscale": 1,
-        "angle": 0,
-        "blend": 4294967295,
-        "code": "rooms/11/instances/102879",
-        "properties": {}
-      },
-      {
-        "id": 102880,
-        "object": 292,
-        "x": 96,
-        "y": 64,
-        "xscale": 1,
-        "yscale": 1,
-        "angle": 0,
-        "blend": 4294967295,
-        "code": "rooms/11/instances/102880",
         "properties": {}
       },
       {
@@ -4157,9 +4133,7 @@
     "30": "objSetRespawn",
     "191": "objNikukabe",
     "301": "objSwampReload",
-    "357": "objQuicksandPit",
-    "292": "objDark3",
-    "297": "objFogController"
+    "357": "objQuicksandPit"
   },
   "BackgroundNames": {
     "9": "jungleBack"
@@ -4178,201 +4152,6 @@
       []
     ],
     "rooms/11/instances/102245": [
-      "group",
-      []
-    ],
-    "rooms/11/create": [
-      "group",
-      [
-        [
-          "call",
-          "DataItemSave",
-          []
-        ],
-        [
-          "binary",
-          "Assign",
-          [
-            "binary",
-            "Deref",
-            [
-              "id",
-              "global"
-            ],
-            [
-              "id",
-              "AlphaDarkness"
-            ]
-          ],
-          [
-            "num",
-            0.8
-          ]
-        ],
-        [
-          "binary",
-          "Assign",
-          [
-            "binary",
-            "Deref",
-            [
-              "id",
-              "global"
-            ],
-            [
-              "id",
-              "StepSound"
-            ]
-          ],
-          [
-            "id",
-            "sndStep"
-          ]
-        ],
-        [
-          "binary",
-          "Assign",
-          [
-            "binary",
-            "Deref",
-            [
-              "id",
-              "global"
-            ],
-            [
-              "id",
-              "IsFogging"
-            ]
-          ],
-          [
-            "num",
-            1.0
-          ]
-        ],
-        [
-          "binary",
-          "Assign",
-          [
-            "binary",
-            "Deref",
-            [
-              "id",
-              "global"
-            ],
-            [
-              "id",
-              "EASY_QS"
-            ]
-          ],
-          [
-            "num",
-            0.0
-          ]
-        ],
-        [
-          "with",
-          [
-            "id",
-            "objFogController"
-          ],
-          [
-            "group",
-            [
-              [
-                "binary",
-                "Assign",
-                [
-                  "id",
-                  "alpha1"
-                ],
-                [
-                  "num",
-                  0.75
-                ]
-              ],
-              [
-                "binary",
-                "Assign",
-                [
-                  "id",
-                  "alpha2"
-                ],
-                [
-                  "num",
-                  0.5
-                ]
-              ],
-              [
-                "binary",
-                "Assign",
-                [
-                  "id",
-                  "alphaD"
-                ],
-                [
-                  "binary",
-                  "Divide",
-                  [
-                    "id",
-                    "alpha2"
-                  ],
-                  [
-                    "id",
-                    "alpha1"
-                  ]
-                ]
-              ]
-            ]
-          ]
-        ],
-        [
-          "with",
-          [
-            "id",
-            "objDark3"
-          ],
-          [
-            "group",
-            [
-              [
-                "binary",
-                "Assign",
-                [
-                  "id",
-                  "darkness1"
-                ],
-                [
-                  "num",
-                  0.25
-                ]
-              ],
-              [
-                "binary",
-                "Assign",
-                [
-                  "id",
-                  "darkness2"
-                ],
-                [
-                  "num",
-                  0.75
-                ]
-              ]
-            ]
-          ]
-        ],
-        [
-          "call",
-          "setCustomWeather",
-          []
-        ]
-      ]
-    ],
-    "rooms/11/instances/102879": [
-      "group",
-      []
-    ],
-    "rooms/11/instances/102880": [
       "group",
       []
     ]

@@ -26,7 +26,7 @@ public sealed class RopeCreature : IEntityBehavior
     private readonly List<GmBounds> solids = [];
     private ActorContext? victim;
     private double startX, startY, direction = 1, headVelocity;
-    private bool grounded, jumping;
+    private bool grounded, jumping, locked;
     private int jumpFrame;
 
     public RopeCreature(HandConstraint constraints) => this.constraints = constraints;
@@ -78,14 +78,17 @@ public sealed class RopeCreature : IEntityBehavior
         victim = player;
         headVelocity = 0;
         jumping = false;
-        (entity.X, entity.Y) = Hands(player);
+        locked = false;
+        (entity.X, entity.Y) = constraints.BoundHands(player.Id) ?? Hands(player);
         chain.Reset(Segments, entity.X, entity.Y);
         Console.WriteLine("ROPE_ATTACH actor=" + player.Id + " x=" + entity.X + " y=" + entity.Y);
     }
 
     private void Follow(ActorContext entity)
     {
-        (entity.X, entity.Y) = Hands(victim!);
+        (double X, double Y)? bound = constraints.BoundHands(victim!.Id);
+        (entity.X, entity.Y) = bound ?? Hands(victim!);
+        if (bound is not null && !locked) { locked = true; Console.WriteLine("ROPE_LOCK source=clip x=" + entity.X.ToString("0.0") + " y=" + entity.Y.ToString("0.0")); }
         headVelocity = 0;
         jumping = false;
         chain.Step(entity.X, entity.Y);

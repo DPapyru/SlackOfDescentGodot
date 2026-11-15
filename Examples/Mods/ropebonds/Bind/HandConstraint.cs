@@ -23,6 +23,7 @@ public sealed class HandConstraint : IDisposable
     private readonly Dictionary<int, Entry> entries = new();
     private ContentRegistry? registry;
     private readonly Dictionary<int, (double X, double Y, double Angle)> written = new();
+    private readonly Dictionary<(int Actor, string Bone), (double X, double Y)> placed = new();
     private readonly bool trace = Environment.GetEnvironmentVariable("ROPEBONDS_TRACE") is { Length: > 0 };
 
     public void Attach(ModContext context)
@@ -63,6 +64,7 @@ public sealed class HandConstraint : IDisposable
         if (!entries.Remove(actor.Id, out var entry)) return false;
         Restore(entry, Direction(actor));
         if (trace) foreach (Bone bone in entry.Bones) written.Remove(bone.Instance.Id);
+        foreach (Bone bone in entry.Bones) placed.Remove((entry.Actor.Id, bone.Name));
         Console.WriteLine("ROPE_BIND_RELEASE actor=" + actor.Id);
         return true;
     }
@@ -74,6 +76,11 @@ public sealed class HandConstraint : IDisposable
     }
 
     public bool IsBound(int actorId) => entries.ContainsKey(actorId);
+
+    public (double X, double Y)? BoundHands(int actorId) =>
+        placed.TryGetValue((actorId, "HAND3_ABOVE"), out var above) && placed.TryGetValue((actorId, "HAND3_BELOW"), out var below)
+            ? ((above.X + below.X) / 2, (above.Y + below.Y) / 2)
+            : null;
 
     private void Tick()
     {
@@ -143,6 +150,7 @@ public sealed class HandConstraint : IDisposable
             else pose = entry.Pose.GetValueOrDefault(bone.Name);
             if (pose is null) continue;
             Apply(bone.Instance, bone.Parent, pose, entry.Actor, direction);
+            placed[(entry.Actor.Id, bone.Name)] = (bone.Instance.Scope.ReadOr("x").Number, bone.Instance.Scope.ReadOr("y").Number);
             if (trace) written[bone.Instance.Id] = (bone.Instance.Scope.ReadOr("x").Number, bone.Instance.Scope.ReadOr("y").Number, bone.Instance.Scope.ReadOr("Angle").Number);
         }
     }

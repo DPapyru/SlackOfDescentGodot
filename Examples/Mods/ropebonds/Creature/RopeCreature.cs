@@ -67,6 +67,7 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
     private int stuckFrames;
     private ActorContext? frozen;
     private ActorContext? self;
+    private readonly Dictionary<int, int> hiddenPickups = new();
     private double previousCamera = 1;
     private double frozenX, frozenY;
     private bool reportedBones;
@@ -130,10 +131,10 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
     {
         if (victim is null) return false;
         if (victim.Instance.Destroyed || !victim.Instance.Active || !entity.World.Instances.Contains(victim.Instance)) { Release(); return true; }
-        if (victim.MotionState is null) Play(victim, "ropebonds.locomotion");
         if (chain.Count != WrapSegments) chain.Reset(WrapSegments, chain[0].X, chain[0].Y);
         Coil(entity, victim, 1);
         RenderBound(victim);
+        BlockPickups(victim);
         if (boundTick++ % 3 == 0)
         {
             var upper = victim.Part("HAND3_ABOVE");
@@ -151,7 +152,7 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
         qteTime += frame.Delta;
         if (player is not null)
         {
-            if (player.MotionState?.State != "struggle") player.PlayMotion("ropebonds.struggle");
+            if (player.MotionState?.State != "struggle") Play(player, "ropebonds.struggle");
             else
             {
                 struggleFrame = (struggleFrame + 1) % 40;
@@ -164,6 +165,7 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
         if (qteTime < 2.5) return;
         qte = false;
         Unfreeze();
+        if (player is not null) Stop(player);
         if (player is not null) { Unembed(player); ReportGeometry(player); }
         if (player is null || bindCounter >= qteThreshold)
         {
@@ -186,7 +188,6 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
         previousBound = (int)player.Read("BINDED");
         previousCamera = player.World.Globals.ReadOr("Camera", 1).Number;
         player.Write("BINDED", 1);
-        player.World.Globals.Write("Camera", 0);
         frozenX = player.X; frozenY = player.Y;
         frozen = player;
         Log("ROPE_FREEZE camera=" + previousCamera + "->0 binded=" + previousBound + "->1");
@@ -197,8 +198,7 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
         if (frozen is not null && !frozen.Instance.Destroyed)
         {
             frozen.Write("BINDED", previousBound);
-            frozen.World.Globals.Write("Camera", previousCamera);
-            Log("ROPE_UNFREEZE camera=0->" + previousCamera + " binded=1->" + previousBound);
+            Log("ROPE_UNFREEZE camera=" + previousCamera + " binded=1->" + previousBound);
         }
         frozen = null;
     }
@@ -206,7 +206,37 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
     private void Retreat(ActorContext entity, ActorContext? player)
     {
         qteCooldown = 12;
-        if (player is not null) { player.StopMotion(); direction = player.X > entity.X ? -1 : 1; }
+        if (player is not null) direction = player.X > entity.X ? -1 : 1;
+    }
+
+    private void BlockPickups(ActorContext victim)
+    {
+        int blocked = 0;
+        foreach (var instance in victim.World.Instances)
+        {
+            if (instance.Destroyed || instance.Scope.ReadOr("image_index").Int != 3) continue;
+            if (!(victim.Services.Instances.ObjectName(instance.Object)?.Contains("Gun", StringComparison.Ordinal) ?? false)) continue;
+            if (Math.Abs(instance.Scope.ReadOr("x").Number - victim.X) > 64 || Math.Abs(instance.Scope.ReadOr("y").Number - victim.Y) > 64) continue;
+            hiddenPickups.TryAdd(instance.Id, 3);
+            instance.Scope.Write("image_index", 2);
+            blocked++;
+        }
+        if (boundTick % 30 == 0) Log("ROPE_GUN blocked=" + blocked + " bound=1");
+    }
+
+    private void RestorePickups()
+    {
+        if (self is { } entity)
+            foreach (var pair in hiddenPickups)
+                foreach (var instance in entity.World.Instances)
+                    if (instance.Id == pair.Key && !instance.Destroyed) instance.Scope.Write("image_index", pair.Value);
+        hiddenPickups.Clear();
+    }
+
+    private static void Stop(ActorContext player)
+    {
+        try { player.StopMotion(); }
+        catch (Exception) { }
     }
 
     private static void Play(ActorContext player, string id)
@@ -277,6 +307,7 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
                 double dx = to.X - from.X, dy = to.Y - from.Y, distance = Math.Sqrt(dx * dx + dy * dy);
                 presentation.Sprite(entity.Id, "rope.body." + (index - 1), "ropebonds.rope_body9", (from.X + to.X) / 2, (from.Y + to.Y) / 2, Angle(from, to), Math.Clamp(distance / 9, .9, 1.1), 2, 4.5, 2, RopeDepth);
             }
+            for (int stale = chain.Count - 1; stale <= WrapSegments - 2; stale++) presentation.Remove(entity.Id, "rope.body." + stale);
             if (reported) return;
             reported = true;
             int count = presentation.Sprites.Count(sprite => sprite.Owner == entity.Id);
@@ -495,7 +526,23 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
     {
         if (!player.World.Globals.Values.ContainsKey("CurrentWeapon")) player.World.Globals.Write("CurrentWeapon", 0);
         if (!player.World.Globals.ReadOr("config_DropWeapon", 1).Truth) return;
-        try { player.Call("dropWeapon"); }
+        try
+        {
+            player.Call("dropWeapon");
+            double direction = player.Read("Direction") == 0 ? 1 : Math.Sign(player.Read("Direction"));
+            GmInstance? flying = null;
+            foreach (var instance in player.World.Instances)
+                if (!instance.Destroyed && (player.Services.Instances.ObjectName(instance.Object) ?? "").Contains("Gun", StringComparison.Ordinal)
+                    && Math.Abs(instance.Scope.ReadOr("x").Number - player.X) < 64 && Math.Abs(instance.Scope.ReadOr("y").Number - player.Y) < 64) flying = instance;
+            if (flying is not null)
+            {
+                flying.Scope.Write("x", player.X + direction * 50);
+                flying.Scope.Write("y", player.Y - 24);
+                flying.Scope.Write("hspeed", direction * 6);
+                flying.Scope.Write("vspeed", -4);
+                Log("ROPE_DROP gun=" + flying.Id + " to=" + (player.X + direction * 50) + "," + (player.Y - 24));
+            }
+        }
         catch (Exception error) { Log("ROPEBONDS dropWeapon failed: " + error.Message); }
     }
 
@@ -513,7 +560,6 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
 
     private bool Bind(ActorContext player)
     {
-        Play(player, "ropebonds.locomotion");
         if (!constraints.Bind(player, BindPart.Hands)) return false;
         constraints.Hang(player);
         constraints.Offset(player, BoundAngle);
@@ -531,10 +577,10 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
         constraints.Release(victim);
         if (!victim.Instance.Destroyed)
         {
-            victim.StopMotion();
             foreach (string name in new[] { "HAND3_ABOVE", "HAND3_BELOW" }) if (victim.Part(name) is { } bone) bone.Instance.Scope.Write("PartPictureOverride", -1);
         }
         if (!victim.Instance.Destroyed && !constraints.IsBound(victim.Id)) victim.Write("ropeBound", 0);
+        RestorePickups();
         victim = null;
         double x = lastX, y = lastY;
         for (int attempts = 0; attempts < 32 && Solid(x, y, HalfSize); attempts++) y -= 2;

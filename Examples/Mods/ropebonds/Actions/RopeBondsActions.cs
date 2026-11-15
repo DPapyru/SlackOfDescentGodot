@@ -119,6 +119,8 @@ public sealed class SinkDriver
             if (fy > ey) { ex = fx; ey = fy; }
             Place(elbow, ex, ey);
             Place(hand, tx, ty);
+            Aim(elbow, sx, sy, ex, ey, direction);
+            Aim(hand, ex, ey, tx, ty, direction);
             double bend = Bend(sx, sy, ex, ey, tx, ty);
             Log("ROPE_SINK side=" + side + " palm=" + ty.ToString("0.0") + " surface=" + surface.ToString("0.0") + " err=" + (ty - surface).ToString("0.0") + " elbow=" + bend.ToString("0") + " raw=" + Angle(upper, elbow).ToString("0"));
         }
@@ -142,6 +144,14 @@ public sealed class SinkDriver
     private static void Place(ActorContext bone, double x, double y)
     {
         bone.X = x; bone.Y = y;
+    }
+
+    private static void Aim(ActorContext bone, double fromX, double fromY, double toX, double toY, double direction)
+    {
+        double angle = Math.Atan2(-(toY - fromY), toX - fromX) * 180 / Math.PI;
+        bone.Instance.Scope.Write("Angle", angle);
+        bone.Instance.Scope.Write("image_angle", angle);
+        bone.Instance.Scope.Write("Direction", direction);
     }
 
     private static List<(string Name, GmInstance Bone)> Parts(ActorContext actor)

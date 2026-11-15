@@ -527,8 +527,11 @@ public sealed partial class GmGraphics
                             subTicks = (long)Time.GetTicksUsec();
                             subAlloc = System.GC.GetAllocatedBytesForCurrentThread();
                         }
+                        bool previousGui = graphics.guiBuild;
+                        graphics.guiBuild = graphics.GuiObject(instance);
                         bool handled =
                             !instance.Destroyed && hasDraw && graphics.world.Event(instance, 8, 0);
+                        graphics.guiBuild = previousGui;
                         if (buildPhases)
                             MarkPhase(8, ref subTicks, ref subAlloc);
                         if (!handled)
@@ -759,8 +762,28 @@ public sealed partial class GmGraphics
 
     private void Add(Action<GmCanvas> command) => Add(new GmDrawCommand(command));
 
+    private bool guiBuild;
+    private int guiCount;
+
+    private bool GuiObject(GmInstance instance) =>
+        world.Objects.TryGetValue(instance.Object, out var definition) && definition.GetProperty("name").GetString() == "objPause";
+
     private void Add(GmDrawCommand command)
     {
+        if (guiBuild)
+        {
+            guiCount++;
+            if (System.Environment.GetEnvironmentVariable("SLACK_ROPE_TRACE") is { Length: > 0 } && guiCount % 120 == 1)
+                Console.Error.WriteLine("ROPE_GUI cmds=" + guiCount + " identity=true");
+            var inner = command;
+            command = new GmDrawCommand(canvas =>
+            {
+                var saved = canvas.Transform;
+                canvas.Transform = Transform2D.Identity;
+                inner.Execute(canvas);
+                canvas.Transform = saved;
+            });
+        }
         long addTicks = 0,
             addAlloc = 0;
         if (buildPhases)

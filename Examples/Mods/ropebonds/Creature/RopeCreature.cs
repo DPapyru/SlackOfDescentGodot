@@ -38,6 +38,7 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
     private int direction = 1, phaseFrame, jumpFrame;
     private double headVelocity;
     private bool jumping;
+    private bool render = true;
 
     public string Id => "ropebonds.creature";
 
@@ -59,7 +60,31 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
         if (player is not null && ShouldJump(entity, player, grounded)) JumpMotion(player, ref headX, ref headY);
         else Crawl(ref headX, ref headY);
         Commit(entity, ref headX, ref headY);
+        Render(entity);
     }
+
+    private void Render(ActorContext entity)
+    {
+        if (!render || chain.Count < 2) return;
+        try
+        {
+            var presentation = entity.Services.Presentation;
+            double depth = -100000;
+            presentation.Sprite(entity.Id, "rope.head", "ropebonds.rope_head", chain[0].X, chain[0].Y, Angle(chain[1], chain[0]), 1, 1, 2, 2, depth);
+            for (int index = 1; index < chain.Count; index++)
+            {
+                var from = chain[index - 1]; var to = chain[index];
+                presentation.Sprite(entity.Id, "rope.body." + (index - 1), "ropebonds.rope_body", (from.X + to.X) / 2, (from.Y + to.Y) / 2, Angle(from, to), chain.Spacing(index) / 11, 1, 5.5, 2, depth);
+            }
+        }
+        catch (Exception error)
+        {
+            render = false;
+            Console.Error.WriteLine("ROPEBONDS sprite rendering disabled: " + error.Message);
+        }
+    }
+
+    private static double Angle((double X, double Y) from, (double X, double Y) to) => Math.Atan2(-(to.Y - from.Y), to.X - from.X) * 180 / Math.PI;
 
     private bool DropInvalidVictim()
     {

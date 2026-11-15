@@ -49,7 +49,7 @@ for (const gap of pits) {
     }
     expect(positions(gap.start - TILE, GROUND_Y + TILE) && positions(gap.end, GROUND_Y + TILE), 'pit walls at both sides');
     expect(positions(gap.start - TILE, GROUND_Y) && positions(gap.end, GROUND_Y), 'ground meets pit mouth');
-    expect(creatures.filter(creature => creature.x >= gap.start && creature.x < gap.end && creature.y === GROUND_Y + PIT_DEPTH - 1).length === 1, 'creature rests on pit floor ' + gap.start);
+    expect(creatures.filter(creature => creature.x >= gap.start && creature.x < gap.end && creature.y === GROUND_Y + PIT_DEPTH - 32).length === 1, 'creature spawns above pit floor ' + gap.start);
 }
 for (let x = pool.start - TILE; x < pool.end + TILE; x += TILE) {
     const ground = x === pool.start - TILE || x === pool.end;

@@ -1,0 +1,17 @@
+{
+  "formatVersion": 2,
+  "id": "example.ropebonds",
+  "name": "RopeBonds",
+  "author": "DPapyru",
+  "description": "绳索生物与手部姿态约束示例（开发中）。",
+  "version": "0.1.0",
+  "content": {
+    "code": {
+      "entryType": "RopeBonds.RopeBondsMod",
+      "sources": [
+        "RopeBondsMod.cs",
+        "Qte/QteSession.cs"
+      ]
+    }
+  }
+}

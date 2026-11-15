@@ -9,11 +9,7 @@ public sealed class HandConstraint : IDisposable
 {
     private const string Handler = "ropebonds.hand.constraint", VerifyHandler = "ropebonds.hand.verify", PrepareHandler = "ropebonds.hand.prepare";
     private const string ClipGraph = "ropebonds.bound", ClipId = "bound";
-    public static readonly string[] Hands =
-    [
-        "HAND1_ABOVE", "HAND2_ABOVE", "HAND3_ABOVE",
-        "HAND1_BELOW", "HAND2_BELOW", "HAND3_BELOW"
-    ];
+    public static readonly string[] Hands = MotionSkeleton.Bones.Where(name => name.StartsWith("HAND", StringComparison.Ordinal)).ToArray();
     private sealed record Bone(string Name, GmInstance Instance, GmInstance Parent);
     private sealed record Snapshot(double Angle, double ScaleX, double ScaleY, int Picture, double ImageIndex, double PX, double PY);
     private sealed record Entry(ActorContext Actor, List<Bone> Bones, Dictionary<string, Snapshot> Pose, MotionClip? Clip)

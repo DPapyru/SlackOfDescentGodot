@@ -34,7 +34,19 @@ public sealed partial class NativeCharacterRendering
         foreach (var frame in part.Frames) { if (tick < frame.Duration) return frame; tick -= frame.Duration; }
         return part.Frames[0];
     }
-    private string Path(CharacterDefinition definition, NativeCharacterPart part) => repository.FramePath(Frame(definition, part), registry.CharacterDirectories.GetValueOrDefault(definition.Id));
+    private string Path(CharacterDefinition definition, NativeCharacterPart part, GmInstance? bone = null)
+    {
+        var frame = Frame(definition, part);
+        bool overridden = false;
+        if (bone is not null && part.Frames.Count > 0)
+        {
+            double value = bone.Scope.ReadOr("PartPictureOverride", -1).Number;
+            if (value >= 0 && value < part.Frames.Count) { frame = part.Frames[(int)value]; overridden = true; }
+        }
+        string path = repository.FramePath(frame, registry.CharacterDirectories.GetValueOrDefault(definition.Id));
+        if (overridden && System.Environment.GetEnvironmentVariable("SLACK_ROPE_TRACE") is { Length: > 0 }) Console.Error.WriteLine("ROPE_PART_FRAME " + part.Target + "=" + path);
+        return path;
+    }
     internal bool Replace(GmInstance? drawing, Vector2 position, Vector2 scale, float angle, Color tint)
     {
         if (drawing is null) return false;
@@ -46,7 +58,7 @@ public sealed partial class NativeCharacterRendering
             if (drawing != bone && !RendererMatches(drawing, part.Target)) continue;
             var point = new Vector2((float)bone.Scope.ReadOr("x").Number, (float)bone.Scope.ReadOr("y").Number);
             if (part.Target != "TAIL" && !point.IsEqualApprox(position)) continue;
-            string path = Path(definition, part); if (!File.Exists(path)) continue;
+            string path = Path(definition, part, bone); if (!File.Exists(path)) continue;
             if (tint.A > 0 && replaced.Add(bone.Id))
             {
                 graphics.DrawExternal(path, new(part.AnchorX - part.OffsetX, part.AnchorY - part.OffsetY), position, scale, angle, tint);
@@ -75,7 +87,7 @@ public sealed partial class NativeCharacterRendering
             {
                 var bone = Bone(actor, part.Target);
                 if (bone is null || !bone.Scope.ReadOr("visible", true).Truth) continue;
-                string path = Path(definition, part); if (!File.Exists(path)) continue;
+                string path = Path(definition, part, bone); if (!File.Exists(path)) continue;
                 var scope = bone.Scope;
                 var position = new Vector2((float)scope.ReadOr("x").Number, (float)scope.ReadOr("y").Number);
                 float direction = (float)scope.ReadOr("Direction", actor.Scope.ReadOr("Direction", 1)).Number;

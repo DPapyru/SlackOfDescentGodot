@@ -8,7 +8,8 @@
   "content": {
     "resources": {
       "ropebonds.rope_head": "assets/rope_head.png",
-      "ropebonds.rope_body": "assets/rope_body.png"
+      "ropebonds.rope_body": "assets/rope_body.png",
+      "ropebonds.rope_body9": "assets/rope_body9.png"
     },
     "maps": {
       "ropebonds.demo": "maps/demo.map.json"
@@ -17,7 +18,8 @@
     "languages": {},
     "motions": {
       "ropebonds.locomotion": "motions/locomotion.motion.json",
-      "ropebonds.sink": "motions/sink.motion.json"
+      "ropebonds.sink": "motions/sink.motion.json",
+      "ropebonds.struggle": "motions/struggle.motion.json"
     },
     "code": {
       "entryType": "RopeBonds.RopeBondsMod",

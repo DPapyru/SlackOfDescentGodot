@@ -12,6 +12,11 @@ public sealed partial class RopeBondsMod
 
 public sealed class SinkDriver
 {
+    private static void Log(string message)
+    {
+        if (RopeBondsMod.TraceOn) Console.Error.WriteLine(message);
+    }
+
     private const string TickHandler = "ropebonds.sink.tick", SpawnHandler = "ropebonds.sink.spawn";
     private readonly ContentRegistry content;
     private readonly Dictionary<int, double> frames = new();
@@ -48,9 +53,17 @@ public sealed class SinkDriver
         player = actor;
         if (actor is null) { frames.Clear(); return; }
         foreach (int id in frames.Keys.Where(id => id != actor.Id).ToArray()) frames.Remove(id);
-        if (actor.Read("touchingQS") == 0) { frames.Remove(actor.Id); return; }
-        double frame = frames.TryGetValue(actor.Id, out var previous) ? Math.Min(active.Duration, previous + 2) : 0;
-        if (NativeActorActions.MotionMatches(actor, "STAND_0_QUICKSAND") || NativeActorActions.MotionMatches(actor, "STAND_1_QUICKSAND")) Write(active, actor, frame);
+        if (!InSand(actor)) { frames.Remove(actor.Id); return; }
+        double half = active.Duration * .5;
+        bool deep = actor.Read("KOF1") > 10;
+        double frame = frames.TryGetValue(actor.Id, out var previous) ? previous + 2 : 0;
+        if (deep) frame = frame < half ? half : frame > active.Duration ? half : frame;
+        else if (frame > half) frame = 0;
+        if (NativeActorActions.MotionMatches(actor, "STAND_0_QUICKSAND") || NativeActorActions.MotionMatches(actor, "STAND_1_QUICKSAND"))
+        {
+            Write(active, actor, frame);
+            Press(actor);
+        }
         frames[actor.Id] = frame;
     }
     private void Write(MotionClip clip, ActorContext actor, double frame)
@@ -67,7 +80,7 @@ public sealed class SinkDriver
             GmInstance? parent = parentId == actor.Id ? actor.Instance : byId.GetValueOrDefault(parentId);
             if (parent is null || parent.Destroyed)
             {
-                if (warned.Add(name)) Console.Error.WriteLine("ROPEBONDS sink parent missing, bone skipped: " + name);
+                if (warned.Add(name)) Log("ROPEBONDS sink parent missing, bone skipped: " + name);
                 continue;
             }
             double parentAngle = ParentAngle(actor, parent);
@@ -83,6 +96,54 @@ public sealed class SinkDriver
             bone.Scope.Write("image_angle", local.Angle + parentAngle);
         }
     }
+    private void Press(ActorContext actor)
+    {
+        double depth = actor.Read("KOF1");
+        double surface = actor.Y + 59 - 4 * depth;
+        double target = surface - 2;
+        double direction = actor.Instance.Scope.ReadOr("Direction", 1).Number;
+        if (direction == 0) direction = 1;
+        foreach (string side in new[] { "ABOVE", "BELOW" })
+        {
+            var upper = actor.Part("HAND1_" + side);
+            var elbow = actor.Part("HAND2_" + side);
+            var hand = actor.Part("HAND3_" + side);
+            if (upper is null || elbow is null || hand is null) continue;
+            double l1 = Length(upper, elbow), l2 = Length(elbow, hand), sx = upper.X, sy = upper.Y;
+            double tx = sx + direction * 6, ty = Math.Min(target, sy + l1 + l2 - .01);
+            double d = Math.Clamp(Math.Sqrt((tx - sx) * (tx - sx) + (ty - sy) * (ty - sy)), .01, l1 + l2 - .01);
+            double k = (l1 * l1 - l2 * l2 + d * d) / (2 * d), h = Math.Sqrt(Math.Max(0, l1 * l1 - k * k));
+            double ux = (tx - sx) / d, uy = (ty - sy) / d;
+            double ex = sx + ux * k - uy * h, ey = sy + uy * k + ux * h;
+            double fx = sx + ux * k + uy * h, fy = sy + uy * k - ux * h;
+            if (fy > ey) { ex = fx; ey = fy; }
+            Place(elbow, ex, ey);
+            Place(hand, tx, ty);
+            double bend = Bend(sx, sy, ex, ey, tx, ty);
+            Log("ROPE_SINK side=" + side + " palm=" + ty.ToString("0.0") + " surface=" + surface.ToString("0.0") + " err=" + (ty - surface).ToString("0.0") + " elbow=" + bend.ToString("0") + " raw=" + Angle(upper, elbow).ToString("0"));
+        }
+    }
+
+    private static bool InSand(ActorContext actor) => actor.Read("touchingQS") != 0 || actor.Read("KOF1") > 0;
+
+    private static double Length(ActorContext a, ActorContext b) => Math.Sqrt((a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y));
+
+    private static double Angle(ActorContext a, ActorContext b) => Math.Atan2(-(b.Y - a.Y), b.X - a.X) * 180 / Math.PI;
+
+    private static double Bend(double ax, double ay, double bx, double by, double cx, double cy)
+    {
+        double ux = ax - bx, uy = ay - by, vx = cx - bx, vy = cy - by;
+        double dot = ux * vx + uy * vy;
+        double lengths = Math.Sqrt(ux * ux + uy * uy) * Math.Sqrt(vx * vx + vy * vy);
+        if (lengths < 1e-9) return 0;
+        return Math.Acos(Math.Clamp(dot / lengths, -1, 1)) * 180 / Math.PI;
+    }
+
+    private static void Place(ActorContext bone, double x, double y)
+    {
+        bone.X = x; bone.Y = y;
+    }
+
     private static List<(string Name, GmInstance Bone)> Parts(ActorContext actor)
     {
         var parts = new List<(string, GmInstance)>();

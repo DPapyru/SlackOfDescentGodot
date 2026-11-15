@@ -7,6 +7,7 @@ namespace RopeBonds;
 
 public sealed partial class RopeBondsMod : IMod
 {
+    internal static readonly bool TraceOn = Environment.GetEnvironmentVariable("SLACK_ROPE_TRACE") is { Length: > 0 };
     public string Id => "example.ropebonds";
     public ConstraintService Constraints { get; } = new();
     public void Load(ModContext context)

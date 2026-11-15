@@ -10,6 +10,11 @@ public enum BindPart { Hands, HandAbove, HandBelow, Feet, Body }
 public sealed class ConstraintService
 {
     private const string HandlerId = "ropebonds.constraint";
+
+    private static void Log(string message)
+    {
+        if (RopeBondsMod.TraceOn) Console.Error.WriteLine(message);
+    }
     internal readonly record struct BoneLocal(double Angle, double ScaleX, double ScaleY, int Picture, double ImageIndex, double PX = 0, double PY = 0)
     {
         public static BoneLocal Read(GmInstance bone) => new(
@@ -96,7 +101,7 @@ public sealed class ConstraintService
             GmInstance? parent = parentId == actor.Id ? actor.Instance : byId.GetValueOrDefault(parentId);
             if (parent is null || parent.Destroyed)
             {
-                Console.Error.WriteLine("ROPEBONDS parent missing, bone not constrained: " + name);
+                Log("ROPEBONDS parent missing, bone not constrained: " + name);
                 continue;
             }
             (double px, double py) = Offset(bone, parent, actor, direction);
@@ -128,7 +133,7 @@ public sealed class ConstraintService
         {
             if (!released.Contains(part.Name) || !entry.Pose.TryGetValue(part.Name, out var local)) continue;
             if (part.Parent is null || part.Parent.Destroyed)
-                Console.Error.WriteLine("ROPEBONDS parent missing, bone released without restore: " + part.Name);
+                Log("ROPEBONDS parent missing, bone released without restore: " + part.Name);
             else
                 Apply(part.Bone, part.Parent, local, entry.Actor, direction, 0);
         }
@@ -143,6 +148,17 @@ public sealed class ConstraintService
         entries.Clear();
     }
     public bool IsBound(int actorId) => entries.ContainsKey(actorId);
+        public void Hang(ActorContext actor)
+    {
+        if (!entries.TryGetValue(actor.Id, out var entry)) return;
+        foreach (var part in entry.Parts)
+        {
+            if (!entry.Pose.TryGetValue(part.Name, out var local)) continue;
+            bool upper = part.Name.StartsWith("HAND1", StringComparison.Ordinal);
+            entry.Pose[part.Name] = local with { PX = upper ? 0 : 1, PY = upper ? 7 : 8 };
+        }
+    }
+
     internal void Offset(ActorContext actor, double degrees)
     {
         if (!entries.TryGetValue(actor.Id, out var entry)) return;
@@ -155,32 +171,34 @@ public sealed class ConstraintService
         {
             var entry = entries[id];
             if (entry.Actor.Instance.Destroyed) { entries.Remove(id); continue; }
-            Restore(entry, Direction(entry.Actor), entry.Offset);
+            Restore(entry, Direction(entry.Actor), entry.Offset, true);
             if (entry.Parts.Count == 0) entries.Remove(id);
         }
     }
-    private static void Restore((ActorContext Actor, List<(string Name, GmInstance Bone, GmInstance? Parent)> Parts, Dictionary<string, BoneLocal> Pose, double Offset) entry, double direction, double offset)
+    private static void Restore((ActorContext Actor, List<(string Name, GmInstance Bone, GmInstance? Parent)> Parts, Dictionary<string, BoneLocal> Pose, double Offset) entry, double direction, double offset, bool pictures = false)
     {
         List<string>? stale = null;
         foreach (var part in entry.Parts.ToArray())
         {
             if (part.Bone.Destroyed || part.Parent is null || part.Parent.Destroyed)
             {
-                Console.Error.WriteLine("ROPEBONDS parent missing, bone released: " + part.Name);
+                Log("ROPEBONDS parent missing, bone released: " + part.Name);
                 (stale ??= new List<string>()).Add(part.Name);
                 continue;
             }
-            if (entry.Pose.TryGetValue(part.Name, out var local)) Apply(part.Bone, part.Parent, local, entry.Actor, direction, offset);
+            if (entry.Pose.TryGetValue(part.Name, out var local)) Apply(part.Bone, part.Parent, local, entry.Actor, direction, offset, part.Name, pictures);
         }
         if (stale is null) return;
         entry.Parts.RemoveAll(part => stale.Contains(part.Name));
         foreach (string name in stale) entry.Pose.Remove(name);
     }
-    private static void Apply(GmInstance bone, GmInstance parent, BoneLocal local, ActorContext actor, double direction, double offset)
+    private static void Apply(GmInstance bone, GmInstance parent, BoneLocal local, ActorContext actor, double direction, double offset, string? name = null, bool pictures = false)
     {
         double parentX = ParentX(actor, parent), parentY = ParentY(actor, parent), parentAngle = ParentAngle(actor, parent);
         double radians = parentAngle * Math.PI / 180, cos = Math.Cos(radians), sin = Math.Sin(radians);
         local.Write(bone);
+        if (pictures && name == "HAND3_ABOVE") { bone.Scope.Write("PartPicture", 2); bone.Scope.Write("PartPictureOverride", 2); }
+        else if (pictures && name == "HAND3_BELOW") { bone.Scope.Write("PartPicture", 1); bone.Scope.Write("PartPictureOverride", 1); }
         double angle = BoundAngle(local.Angle, offset);
         bone.Scope.Write("Angle", angle);
         bone.Scope.Write("x", parentX + (local.PX * cos + local.PY * sin) * direction);

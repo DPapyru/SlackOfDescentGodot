@@ -32,7 +32,7 @@ public sealed class RopeCreature : IEntityBehavior
     public void Update(ActorContext entity, FrameContext frame)
     {
         if (chain.Count == 0) Reset(entity);
-        if (solids.Count == 0) CollectS给olids(entity);
+        if (solids.Count == 0) CollectSolids(entity);
         if (victim is not null && (victim.Instance.Destroyed || !victim.Instance.Active)) Release(entity);
         if (victim is not null && !constraints.IsBound(victim.Id)) Release(entity);
         if (victim is not null) { Follow(entity); return; }

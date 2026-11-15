@@ -24,11 +24,18 @@ public sealed class VerletChain
         RestLength = restLength; Gravity = gravity; this.iterations = iterations;
     }
     public (double X, double Y) this[int index] => (points[index].X, points[index].Y);
-    public void Clamp(double headX, double headY, double maxDistance)
+    public void Place(int index, double x, double y)
+    {
+        var point = points[index];
+        point.X = point.PreviousX = x;
+        point.Y = point.PreviousY = y;
+    }
+    public void Clamp(double headX, double headY, double maxDistance, double width, double height)
     {
         for (int index = 1; index < points.Count; index++)
         {
             var point = points[index];
+            point.X = Math.Clamp(point.X, 2, width - 2); point.Y = Math.Clamp(point.Y, 2, height - 2);
             if (double.IsFinite(point.X) && double.IsFinite(point.Y) && Math.Abs(point.X - headX) <= maxDistance && Math.Abs(point.Y - headY) <= maxDistance) continue;
             point.X = point.PreviousX = headX;
             point.Y = point.PreviousY = headY;

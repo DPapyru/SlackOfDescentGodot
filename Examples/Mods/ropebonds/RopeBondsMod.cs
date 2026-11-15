@@ -18,7 +18,11 @@ public sealed partial class RopeBondsMod : IMod
         RegisterCreatures(context);
         if (Environment.GetEnvironmentVariable("ROPEBONDS_SELFCHECK") is { Length: > 0 }) RunSelfCheck();
     }
-    public void Unload() => Constraints.ReleaseAll();
+    public void Unload()
+    {
+        RopeCreature.ReleaseAll();
+        Constraints.ReleaseAll();
+    }
     partial void RegisterMotions(ModContext context);
     partial void RegisterActions(ModContext context);
     partial void RegisterMaps(ModContext context);

@@ -17,7 +17,7 @@
               "Frame": 0,
               "X": 1.31,
               "Y": -14.94,
-              "Angle": -35.5,
+              "Angle": -9.898814795254225,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -26,7 +26,7 @@
               "Frame": 30,
               "X": 1.31,
               "Y": -14.94,
-              "Angle": -35.5,
+              "Angle": -9.898814795254225,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -40,7 +40,7 @@
               "Frame": 0,
               "X": 0,
               "Y": 12,
-              "Angle": 139.1,
+              "Angle": -35.951524551442475,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -49,7 +49,7 @@
               "Frame": 30,
               "X": 0,
               "Y": 12,
-              "Angle": 139.1,
+              "Angle": -35.951524551442475,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -86,7 +86,7 @@
               "Frame": 0,
               "X": 1.31,
               "Y": -14.94,
-              "Angle": -27.8,
+              "Angle": -41.2581278459533,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -95,7 +95,7 @@
               "Frame": 30,
               "X": 1.31,
               "Y": -14.94,
-              "Angle": -27.8,
+              "Angle": -41.2581278459533,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -109,7 +109,7 @@
               "Frame": 0,
               "X": 0,
               "Y": 12,
-              "Angle": 148.8,
+              "Angle": 16.168308002190997,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -118,7 +118,7 @@
               "Frame": 30,
               "X": 0,
               "Y": 12,
-              "Angle": 148.8,
+              "Angle": 16.168308002190997,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -135,7 +135,7 @@
               "Angle": 0,
               "ScaleX": 1,
               "ScaleY": 1,
-              "Picture": 8
+              "Picture": 1
             },
             {
               "Frame": 30,
@@ -144,7 +144,7 @@
               "Angle": 0,
               "ScaleX": 1,
               "ScaleY": 1,
-              "Picture": 8
+              "Picture": 1
             }
           ]
         }

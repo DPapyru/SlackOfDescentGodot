@@ -24,7 +24,8 @@ public sealed class RopeCreature : IEntityBehavior
     private readonly HandConstraint constraints;
     private readonly VerletChain chain = new(SegmentLength, 2);
     private readonly List<GmBounds> solids = [];
-    private ActorContext? victim;
+    private static readonly List<RopeCreature> Live = [];
+    private ActorContext? victim, self;
     private double startX, startY, direction = 1, headVelocity;
     private bool grounded, jumping, locked;
     private int jumpFrame;
@@ -32,14 +33,15 @@ public sealed class RopeCreature : IEntityBehavior
     public RopeCreature(HandConstraint constraints) => this.constraints = constraints;
     public string Id => "ropebonds.creature";
 
-    public void Created(ActorContext entity) { entity.Write("HP", 10000); Reset(entity); }
+    public void Created(ActorContext entity) { Live.Add(this); entity.Write("HP", 10000); Reset(entity); }
     public void RoomEntered(ActorContext entity) => Reset(entity);
     public void RoomExited(ActorContext entity) => Release(entity);
-    public void Destroyed(ActorContext entity) => Release(entity);
+    public void Destroyed(ActorContext entity) { Live.Remove(this); Release(entity); }
     public void Detach(ActorContext entity) => Release(entity);
 
     public void Update(ActorContext entity, FrameContext frame)
     {
+        self = entity;
         if (chain.Count == 0) Reset(entity);
         if (solids.Count == 0) CollectSolids(entity);
         if (victim is not null && (victim.Instance.Destroyed || !victim.Instance.Active)) Release(entity);
@@ -82,6 +84,27 @@ public sealed class RopeCreature : IEntityBehavior
         (entity.X, entity.Y) = constraints.BoundHands(player.Id) ?? Hands(player);
         chain.Reset(Segments, entity.X, entity.Y);
         Console.WriteLine("ROPE_ATTACH actor=" + player.Id + " x=" + entity.X + " y=" + entity.Y);
+    }
+
+    public static void Clear() => Live.Clear();
+
+    public static void Prepare()
+    {
+        foreach (RopeCreature creature in Live)
+            if (creature.self is { } entity && creature.victim is { } player && !entity.Instance.Destroyed && !player.Instance.Destroyed)
+                creature.LockToHands(entity, player);
+    }
+
+    private void LockToHands(ActorContext entity, ActorContext player)
+    {
+        if (player.Part("HAND3_ABOVE") is not { } above || player.Part("HAND3_BELOW") is not { } below) return;
+        double x = (above.X + below.X) / 2, y = (above.Y + below.Y) / 2;
+        double dx = x - entity.X, dy = y - entity.Y;
+        if (Math.Abs(dx) < .01 && Math.Abs(dy) < .01) return;
+        entity.X = x;
+        entity.Y = y;
+        for (int index = 0; index < chain.Count; index++) { var (px, py) = chain[index]; chain.Place(index, px + dx, py + dy); }
+        Render(entity);
     }
 
     private void Follow(ActorContext entity)

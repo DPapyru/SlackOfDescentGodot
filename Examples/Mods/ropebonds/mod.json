@@ -22,6 +22,9 @@
     },
     "maps": {
       "ropebonds.demo": "maps/demo.map.json"
+    },
+    "motions": {
+      "ropebonds.bound": "motions/bound.motion.json"
     }
   },
   "mapPack": {

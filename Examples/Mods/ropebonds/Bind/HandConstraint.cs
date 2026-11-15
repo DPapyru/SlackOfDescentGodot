@@ -8,6 +8,7 @@ namespace RopeBonds;
 public sealed class HandConstraint : IDisposable
 {
     private const string Handler = "ropebonds.hand.constraint", VerifyHandler = "ropebonds.hand.verify", PrepareHandler = "ropebonds.hand.prepare";
+    private const string ClipGraph = "ropebonds.bound", ClipId = "bound";
     public static readonly string[] Hands =
     [
         "HAND1_ABOVE", "HAND2_ABOVE", "HAND3_ABOVE",
@@ -15,16 +16,21 @@ public sealed class HandConstraint : IDisposable
     ];
     private sealed record Bone(string Name, GmInstance Instance, GmInstance Parent);
     private sealed record Snapshot(double Angle, double ScaleX, double ScaleY, int Picture, double ImageIndex, double PX, double PY);
-    private sealed record Entry(ActorContext Actor, List<Bone> Bones, Dictionary<string, Snapshot> Pose);
+    private sealed record Entry(ActorContext Actor, List<Bone> Bones, Dictionary<string, Snapshot> Pose, MotionClip? Clip)
+    {
+        public double Frame;
+    }
     private readonly Dictionary<int, Entry> entries = new();
+    private ContentRegistry? registry;
     private readonly Dictionary<int, (double X, double Y, double Angle)> written = new();
     private readonly bool trace = Environment.GetEnvironmentVariable("ROPEBONDS_TRACE") is { Length: > 0 };
 
     public void Attach(ModContext context)
     {
+        registry = context.Content;
         context.Subscribe(Handler, NativeEventNames.StepEnd, NativeEventPhase.After, _ => Tick());
         context.Subscribe(VerifyHandler, NativeEventNames.StepBegin, NativeEventPhase.Before, _ => Verify());
-        context.Subscribe(PrepareHandler, NativeEventNames.FramePrepare, NativeEventPhase.After, _ => Tick());
+        context.Subscribe(PrepareHandler, NativeEventNames.FramePrepare, NativeEventPhase.After, _ => Prepare());
     }
 
     public bool Bind(ActorContext actor, IEnumerable<string>? names = null)
@@ -47,7 +53,7 @@ public sealed class HandConstraint : IDisposable
         }
         if (bones.Count == 0) return false;
         bones.Sort((left, right) => Depth(left, bones).CompareTo(Depth(right, bones)));
-        entries[actor.Id] = new Entry(actor, bones, pose);
+        entries[actor.Id] = new Entry(actor, bones, pose, BoundClip());
         Console.WriteLine("ROPE_BIND_START bones=" + bones.Count + " actor=" + actor.Id);
         return true;
     }
@@ -76,8 +82,21 @@ public sealed class HandConstraint : IDisposable
         {
             var entry = entries[id];
             if (entry.Actor.Instance.Destroyed) { entries.Remove(id); continue; }
+            if (entry.Clip is { } clip) entry.Frame = clip.Loop ? (entry.Frame + 1) % Math.Max(1, clip.Duration) : Math.Min(entry.Frame + 1, clip.Duration);
             Restore(entry, Direction(entry.Actor));
         }
+    }
+
+    private void Prepare()
+    {
+        foreach (Entry entry in entries.Values)
+            if (!entry.Actor.Instance.Destroyed) Restore(entry, Direction(entry.Actor));
+    }
+
+    private MotionClip? BoundClip()
+    {
+        if (registry is null || !registry.MotionGraphs.TryGetValue(ClipGraph, out var graph) || graph.Clips.Count == 0) return null;
+        return graph.Clips.FirstOrDefault(clip => clip.Id == ClipId) ?? graph.Clips[0];
     }
 
     private static int Depth(Bone bone, List<Bone> bones)
@@ -115,10 +134,14 @@ public sealed class HandConstraint : IDisposable
 
     private void Restore(Entry entry, double direction)
     {
+        IReadOnlyDictionary<string, MotionPose>? sample = entry.Clip?.Sample(entry.Frame);
         foreach (Bone bone in entry.Bones)
         {
             if (bone.Instance.Destroyed || bone.Parent.Destroyed) continue;
-            if (!entry.Pose.TryGetValue(bone.Name, out var pose)) continue;
+            Snapshot? pose = null;
+            if (sample is not null && sample.TryGetValue(bone.Name, out var key)) pose = new(key.Angle, key.ScaleX, key.ScaleY, key.Picture, key.Picture, key.X, key.Y);
+            else pose = entry.Pose.GetValueOrDefault(bone.Name);
+            if (pose is null) continue;
             Apply(bone.Instance, bone.Parent, pose, entry.Actor, direction);
             if (trace) written[bone.Instance.Id] = (bone.Instance.Scope.ReadOr("x").Number, bone.Instance.Scope.ReadOr("y").Number, bone.Instance.Scope.ReadOr("Angle").Number);
         }

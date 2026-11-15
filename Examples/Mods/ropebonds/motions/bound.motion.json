@@ -1,0 +1,160 @@
+{
+  "FormatVersion": 1,
+  "Id": "ropebonds.bound",
+  "Skeleton": "Nana",
+  "Entry": "bound",
+  "Origin": "mod",
+  "Clips": [
+    {
+      "Id": "bound",
+      "Duration": 30,
+      "Loop": true,
+      "Tracks": [
+        {
+          "Bone": "HAND1_ABOVE",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 1.31,
+              "Y": -14.94,
+              "Angle": -35.5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 30,
+              "X": 1.31,
+              "Y": -14.94,
+              "Angle": -35.5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "HAND2_ABOVE",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 0,
+              "Y": 12,
+              "Angle": 139.1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 30,
+              "X": 0,
+              "Y": 12,
+              "Angle": 139.1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "HAND3_ABOVE",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 0,
+              "Y": 12,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 8
+            },
+            {
+              "Frame": 30,
+              "X": 0,
+              "Y": 12,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 8
+            }
+          ]
+        },
+        {
+          "Bone": "HAND1_BELOW",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 1.31,
+              "Y": -14.94,
+              "Angle": -27.8,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 30,
+              "X": 1.31,
+              "Y": -14.94,
+              "Angle": -27.8,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "HAND2_BELOW",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 0,
+              "Y": 12,
+              "Angle": 148.8,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 30,
+              "X": 0,
+              "Y": 12,
+              "Angle": 148.8,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "HAND3_BELOW",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 0,
+              "Y": 12,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 8
+            },
+            {
+              "Frame": 30,
+              "X": 0,
+              "Y": 12,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 8
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "States": [
+    {
+      "Id": "bound",
+      "Clip": "bound"
+    }
+  ]
+}

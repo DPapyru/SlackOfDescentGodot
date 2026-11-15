@@ -1,0 +1,212 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using SlackOfDescent;
+
+namespace RopeBonds;
+
+public sealed class HandConstraint : IDisposable
+{
+    private const string Handler = "ropebonds.hand.constraint";
+    public static readonly string[] Hands =
+    [
+        "HAND1_ABOVE", "HAND2_ABOVE", "HAND3_ABOVE",
+        "HAND1_BELOW", "HAND2_BELOW", "HAND3_BELOW"
+    ];
+    private sealed record Bone(string Name, GmInstance Instance, GmInstance Parent);
+    private sealed record Snapshot(double Angle, double ScaleX, double ScaleY, int Picture, double ImageIndex, double PX, double PY);
+    private sealed record Entry(ActorContext Actor, List<Bone> Bones, Dictionary<string, Snapshot> Pose);
+    private readonly Dictionary<int, Entry> entries = new();
+
+    public void Attach(ModContext context) =>
+        context.Subscribe(Handler, NativeEventNames.StepEnd, NativeEventPhase.After, _ => Tick());
+
+    public bool Bind(ActorContext actor, IEnumerable<string>? names = null)
+    {
+        if (actor.Instance.Destroyed || entries.ContainsKey(actor.Id)) return false;
+        List<Bone> bones = [];
+        Dictionary<string, Snapshot> pose = new(StringComparer.Ordinal);
+        double direction = Direction(actor);
+        foreach (string name in (names ?? Hands).Distinct(StringComparer.Ordinal))
+        {
+            if (actor.Part(name) is not { } part) continue;
+            GmInstance instance = part.Instance;
+            int parentId = instance.Scope.ReadOr("parent", actor.Id).Int;
+            GmInstance? parent = parentId == actor.Id
+                ? actor.Instance
+                : actor.World.Instances.FirstOrDefault(candidate => candidate.Id == parentId && !candidate.Destroyed);
+            if (parent is null || parent.Destroyed) continue;
+            bones.Add(new Bone(name, instance, parent));
+            pose[name] = SnapshotOf(instance, parent, actor, direction);
+        }
+        if (bones.Count == 0) return false;
+        bones.Sort((left, right) => Depth(left, bones).CompareTo(Depth(right, bones)));
+        entries[actor.Id] = new Entry(actor, bones, pose);
+        Console.WriteLine("ROPE_BIND_START bones=" + bones.Count + " actor=" + actor.Id);
+        return true;
+    }
+
+    public bool Release(ActorContext actor)
+    {
+        if (!entries.Remove(actor.Id, out var entry)) return false;
+        Restore(entry, Direction(actor));
+        Console.WriteLine("ROPE_BIND_RELEASE actor=" + actor.Id);
+        return true;
+    }
+
+    public void ReleaseAll()
+    {
+        foreach (var entry in entries.Values) Restore(entry, Direction(entry.Actor));
+        entries.Clear();
+    }
+
+    public bool IsBound(int actorId) => entries.ContainsKey(actorId);
+
+    private void Tick()
+    {
+        if (entries.Count == 0) return;
+        foreach (int id in entries.Keys.ToArray())
+        {
+            var entry = entries[id];
+            if (entry.Actor.Instance.Destroyed) { entries.Remove(id); continue; }
+            Restore(entry, Direction(entry.Actor));
+        }
+    }
+
+    private static int Depth(Bone bone, List<Bone> bones)
+    {
+        int depth = 0;
+        GmInstance? parent = bone.Parent;
+        while (parent is not null)
+        {
+            Bone? match = bones.FirstOrDefault(candidate => ReferenceEquals(candidate.Instance, parent));
+            if (match is null) break;
+            depth++;
+            parent = match.Parent;
+        }
+        return depth;
+    }
+
+    private static void Restore(Entry entry, double direction)
+    {
+        foreach (Bone bone in entry.Bones)
+        {
+            if (bone.Instance.Destroyed || bone.Parent.Destroyed) continue;
+            if (!entry.Pose.TryGetValue(bone.Name, out var pose)) continue;
+            Apply(bone.Instance, bone.Parent, pose, entry.Actor, direction);
+        }
+    }
+
+    private static void Apply(GmInstance bone, GmInstance parent, Snapshot pose, ActorContext actor, double direction)
+    {
+        double parentX = ParentX(actor, parent), parentY = ParentY(actor, parent), parentAngle = ParentAngle(actor, parent);
+        double radians = parentAngle * Math.PI / 180, cos = Math.Cos(radians), sin = Math.Sin(radians);
+        bone.Scope.Write("Angle", pose.Angle);
+        bone.Scope.Write("ScaleX", pose.ScaleX);
+        bone.Scope.Write("ScaleY", pose.ScaleY);
+        bone.Scope.Write("PartPicture", pose.Picture);
+        bone.Scope.Write("image_index", pose.ImageIndex);
+        bone.Scope.Write("x", parentX + (pose.PX * cos + pose.PY * sin) * direction);
+        bone.Scope.Write("y", parentY - pose.PX * sin + pose.PY * cos);
+        bone.Scope.Write("Direction", direction);
+        bone.Scope.Write("image_angle", pose.Angle + parentAngle);
+    }
+
+    private static Snapshot SnapshotOf(GmInstance bone, GmInstance parent, ActorContext actor, double direction)
+    {
+        double parentAngle = ParentAngle(actor, parent);
+        double radians = parentAngle * Math.PI / 180, cos = Math.Cos(radians), sin = Math.Sin(radians);
+        double dx = (bone.Scope.ReadOr("x").Number - ParentX(actor, parent)) / direction;
+        double dy = bone.Scope.ReadOr("y").Number - ParentY(actor, parent);
+        return new(
+            bone.Scope.ReadOr("Angle").Number,
+            bone.Scope.ReadOr("ScaleX", 1).Number,
+            bone.Scope.ReadOr("ScaleY", 1).Number,
+            bone.Scope.ReadOr("PartPicture").Int,
+            bone.Scope.ReadOr("image_index").Number,
+            dx * cos - dy * sin,
+            dx * sin + dy * cos);
+    }
+
+    private static double ParentX(ActorContext actor, GmInstance parent) =>
+        ReferenceEquals(parent, actor.Instance) ? actor.X : parent.Scope.ReadOr("x").Number;
+    private static double ParentY(ActorContext actor, GmInstance parent) =>
+        ReferenceEquals(parent, actor.Instance) ? actor.Y : parent.Scope.ReadOr("y").Number;
+    private static double ParentAngle(ActorContext actor, GmInstance parent) =>
+        ReferenceEquals(parent, actor.Instance) ? actor.Read("image_angle") : parent.Scope.ReadOr("image_angle").Number;
+    private static double Direction(ActorContext actor)
+    {
+        double direction = actor.Read("Direction");
+        return direction == 0 ? 1 : direction;
+    }
+
+    public void Dispose() => ReleaseAll();
+}
+
+public sealed class BindProbe : IDisposable
+{
+    private const string CreatedHandler = "ropebonds.bind.created";
+    private const string StepHandler = "ropebonds.bind.step";
+    private readonly HandConstraint constraints;
+    private readonly bool enabled = Environment.GetEnvironmentVariable("ROPEBONDS_BIND_TEST") is { Length: > 0 };
+    private readonly bool loop = Environment.GetEnvironmentVariable("ROPEBONDS_BIND_LOOP") is { Length: > 0 };
+    private GmWorld? world;
+    private ActorContext? player;
+    private double waited;
+    private double boundAt;
+    private bool bound;
+    private bool done;
+
+    public BindProbe(HandConstraint constraints) => this.constraints = constraints;
+
+    public void Attach(ModContext context)
+    {
+        if (!enabled) return;
+        context.Subscribe(CreatedHandler, NativeEventNames.InstanceCreated, NativeEventPhase.After, Created);
+        context.Subscribe(StepHandler, NativeEventNames.StepEnd, NativeEventPhase.After, Step);
+    }
+
+    private void Created(NativeGameEvent value)
+    {
+        if (value.Actor is not { } actor) return;
+        world ??= actor.World;
+        if (IsPlayer(actor)) player = actor;
+    }
+
+    private void Step(NativeGameEvent value)
+    {
+        if (world is null || done) return;
+        if (player is null || player.Instance.Destroyed || !world.Instances.Contains(player.Instance)) player = FindPlayer();
+        if (player is null) return;
+        if (!bound)
+        {
+            waited += player.Services.Frame.Delta;
+            if (waited < 2) return;
+            if (constraints.Bind(player)) { bound = true; boundAt = player.Services.Frame.GameTime; }
+            return;
+        }
+        if (player.Services.Frame.GameTime - boundAt < 2) return;
+        constraints.Release(player);
+        bound = false;
+        if (!loop) { done = true; return; }
+        waited = 0;
+    }
+
+    private ActorContext? FindPlayer()
+    {
+        if (world is null || !world.Constants.TryGetValue("objPlayerDoll", out var kind)) return null;
+        foreach (var instance in world.Instances)
+            if (!instance.Destroyed && instance.Active && world.IsObject(instance.Object, kind.Int)) return new(world, instance);
+        return null;
+    }
+
+    private static bool IsPlayer(ActorContext actor) =>
+        actor.World.Constants.TryGetValue("objPlayerDoll", out var kind) && actor.World.IsObject(actor.Instance.Object, kind.Int);
+
+    public void Dispose()
+    {
+        if (bound && player is not null && !player.Instance.Destroyed) constraints.Release(player);
+        bound = false;
+        done = true;
+    }
+}

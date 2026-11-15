@@ -673,6 +673,20 @@
       "Loop": true,
       "Tracks": [
         {
+          "Bone": "BODY_BOTTOM",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 0,
+              "Y": 0,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
           "Bone": "BODY_TOP",
           "Keys": [
             {
@@ -1698,6 +1712,20 @@
       "Duration": 28,
       "Loop": true,
       "Tracks": [
+        {
+          "Bone": "BODY_BOTTOM",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 0,
+              "Y": 0,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
         {
           "Bone": "BODY_TOP",
           "Keys": [

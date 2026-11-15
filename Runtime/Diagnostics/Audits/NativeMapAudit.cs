@@ -55,7 +55,7 @@ public partial class NativeMapAudit : Node2D
             await InitializeGame();
             var service = new NativeMapService(world, registry);
             var original = service.ImportOriginal(service.TestRoomId).Document;
-            string path = Path.Combine(output, "中文 空格", "完整测试.map.json"); service.Save(original, path);
+            string path = System.Environment.GetEnvironmentVariable("SLACK_MAP_FILE") ?? Path.Combine(output, "中文 空格", "完整测试.map.json"); if (!File.Exists(path)) service.Save(original, path);
             if (mode == "collision") { await AuditPlayerCollision(service, original); return; }
             if (mode is "loads" or "cold")
             {
@@ -90,7 +90,7 @@ public partial class NativeMapAudit : Node2D
             int room = mode == "baseline" ? service.TestRoomId : service.InstallForPlay(service.Load(path).Document);
             long loading = Stopwatch.GetTimestamp(); await world.LoadRoomAsync(room); loadMilliseconds = Stopwatch.GetElapsedTime(loading).TotalMilliseconds;
             if (mode == "custom") service.ApplyProperties(original); graphics.Build();
-            Expect(world.Tiles.Count == 1647, "Performance scenario contains all tiles");
+            if (System.Environment.GetEnvironmentVariable("SLACK_MAP_FILE") is null) Expect(world.Tiles.Count == 1647, "Performance scenario contains all tiles");
             GetWindow().ContentScaleSize = new(640,480); Engine.MaxFps = 60;
             int argFrames = args.Length > 1 ? int.Parse(args[1]) : 600; frames = argFrames; started = Stopwatch.GetTimestamp(); running = true;
         }

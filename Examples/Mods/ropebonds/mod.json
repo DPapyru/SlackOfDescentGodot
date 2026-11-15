@@ -6,18 +6,23 @@
   "description": "绳索生物与手部姿态约束示例。",
   "version": "0.1.0",
   "content": {
-    "resources": {},
-    "maps": {},
+    "resources": {
+      "ropebonds.rope_head": "assets/rope_head.png",
+      "ropebonds.rope_body": "assets/rope_body.png"
+    },
+    "maps": {
+      "ropebonds.demo": "maps/demo.map.json"
+    },
     "characters": {},
     "languages": {},
-    "motions": {},
+    "motions": {
+      "ropebonds.locomotion": "motions/locomotion.motion.json",
+      "ropebonds.sink": "motions/sink.motion.json"
+    },
     "code": {
       "entryType": "RopeBonds.RopeBondsMod",
       "sources": [
         "RopeBondsMod.cs",
-        "SelfCheck.cs",
-        "Bind/BindPose.cs",
-        "Bind/BoneSets.cs",
         "Bind/ConstraintService.cs",
         "Creature/VerletChain.cs",
         "Creature/RopeCreature.cs",
@@ -27,5 +32,11 @@
       ],
       "managedDependencies": []
     }
+  },
+  "mapPack": {
+    "roomOrder": [
+      "ropebonds.demo"
+    ],
+    "startRoom": "ropebonds.demo"
   }
 }

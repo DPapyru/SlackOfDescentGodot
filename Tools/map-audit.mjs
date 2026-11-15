@@ -38,6 +38,10 @@ if (mode === 'loads') {
   await run('ui', 'ui', 1, true); console.log(`MAP_UI_FINISHED ${output}`);
 } else if (mode === 'collision') {
   await run('collision', 'collision', 1); console.log(`MAP_COLLISION_OK ${output}`);
+} else if (mode === 'file') {
+  const result = await run('custom', 'file', 600, true);
+  console.log(`MAP_FILE_OK room=${result.room} instances=${result.instances} tiles=${result.tiles} p95_ms=${result.p95Milliseconds} ${output}`);
+  process.exit(0);
 } else {
-  throw new Error('Use loads, performance, collision or ui; pure data: dotnet run --project Tests/Map/NativeMapTests.csproj');
+  throw new Error('Use loads, performance, collision, file or ui; pure data: dotnet run --project Tests/Map/NativeMapTests.csproj');
 }

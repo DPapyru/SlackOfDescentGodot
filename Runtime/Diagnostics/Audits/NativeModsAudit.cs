@@ -1,4 +1,5 @@
 using Godot;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 
 namespace SlackOfDescent;
@@ -83,11 +84,101 @@ public partial class NativeModsAudit : Node
             var ropebonds = manager.Reload(CopyExample(root, temporary, "ropebonds"));
             System.Environment.SetEnvironmentVariable("ROPEBONDS_SELFCHECK", null);
             Expect(ropebonds.Success, "ropebonds example compiles and self-checks: " + ropebonds.Diagnostics);
+            VerifyRopeBondsBinding(root, temporary, manager, content);
             GD.Print("NATIVE_MOD_AUDIT_OK assertions=", assertions, " reloads=20 collected=20 tracked_nodes=0 tracked_tasks=0");
             GetTree().Quit();
         }
         catch (Exception error) { GD.PushError("NATIVE_MOD_AUDIT_FAILED " + error); GetTree().Quit(1); }
         finally { Directory.Delete(temporary, true); }
+    }
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void VerifyRopeBondsBinding(string root, string temporary, NativeModManager manager, ContentRegistry content)
+    {
+        var live = new GmWorld(Path.Combine(root, "GameData"), Path.Combine(root, "GameData", "assets"), Path.Combine(temporary, "bind"));
+        var input = new GmInput();
+        live.Platform = (name, arguments, context) => input.Call(name, arguments, live)
+            ?? (name.StartsWith("place_", StringComparison.Ordinal) || name.StartsWith("collision_", StringComparison.Ordinal)
+                || name.StartsWith("move_", StringComparison.Ordinal) || name is "instance_place" or "action_if_empty" or "action_if_object" or "distance_to_object"
+                ? null : (GmValue?)0);
+        live.Wait = (name, arguments, context) => new ValueTask<GmValue>(1);
+        live.LoadRoom(live.Manifest.GetProperty("roomOrder")[0].GetInt32());
+        for (int i = 0; i < 180; i++) live.Step();
+        var title = live.Instances.First(i => !i.Destroyed && live.IsObject(i.Object, live.Constants["objTitle"].Int));
+        live.Globals.Write("StartArea", 0);
+        live.Evaluator.ResetBudget(); live.Call("DataItemReset", [], new(title)); live.Call("DataItemLoad", [], new(title));
+        live.LoadRoom(live.Constants["Playground_Loading"].Int);
+        for (int i = 0; i < 30; i++) live.Step();
+        var player = live.Instances.First(i => !i.Destroyed && live.IsObject(i.Object, live.Constants["objPlayerDoll"].Int));
+        foreach (var instance in live.Instances)
+            if (instance != player && !instance.Scope.ReadOr("solid").Truth
+                && !live.IsObject(instance.Object, live.Constants["objController"].Int)
+                && !live.IsObject(instance.Object, live.Constants["objPlayerParts"].Int)) instance.Active = false;
+        using var bridge = new GmNativeBridge(live, content);
+        live.Evaluator.ResetBudget(); live.Call("NanaLoad", [], new(player));
+        var actor = new ActorContext(live, player);
+        var mod = FindLoadedMod(manager, "example.ropebonds");
+        var constraints = mod.GetType().GetProperty("Constraints")!.GetValue(mod)!;
+        var partType = mod.GetType().Assembly.GetType("RopeBonds.BindPart")!;
+        var bind = constraints.GetType().GetMethod("Bind", new[] { typeof(ActorContext), partType.MakeArrayType() })!;
+        var release = constraints.GetType().GetMethod("Release", new[] { typeof(ActorContext) })!;
+        var isBound = constraints.GetType().GetMethod("IsBound")!;
+        var parts = Array.CreateInstance(partType, 1);
+        parts.SetValue(Enum.Parse(partType, "HandAbove"), 0);
+        Expect((bool)bind.Invoke(constraints, new object[] { actor, parts })!, "ropebonds constrains a real Nana hand");
+        Expect((bool)isBound.Invoke(constraints, new object[] { player.Id })!, "ropebonds records the bound actor");
+        player.Active = false;
+        string[] names = ["HAND1_ABOVE", "HAND2_ABOVE", "HAND3_ABOVE"];
+        var hands = names.Select(name => actor.Part(name)!.Instance).ToArray();
+        var angles = hands.Select(hand => hand.Scope.ReadOr("Angle").Number).ToArray();
+        foreach (var hand in hands)
+        {
+            hand.Scope.Write("Angle", 123);
+            hand.Scope.Write("ScaleX", 3);
+            hand.Scope.Write("x", 9999);
+            hand.Scope.Write("y", -9999);
+        }
+        live.Step();
+        Expect(hands.Select((hand, index) => Math.Abs(hand.Scope.ReadOr("Angle").Number - angles[index]) < 1e-9).All(value => value), "frozen hands keep their angle against a clip write");
+        Expect(hands.All(hand => Math.Abs(hand.Scope.ReadOr("x").Number) < 5000 && Math.Abs(hand.Scope.ReadOr("y").Number) < 5000), "frozen hands recompute a finite world position");
+        Expect(hands.All(hand => Math.Abs(hand.Scope.ReadOr("image_angle").Number - (hand.Scope.ReadOr("Angle").Number + ParentOf(live, player, hand).Scope.ReadOr("image_angle").Number)) < 1e-9), "frozen image_angle follows the live parent");
+        var rootPart = ParentOf(live, player, hands[0]);
+        var before = hands.Select(hand => hand.Scope.ReadOr("x").Number).ToArray();
+        rootPart.Scope.Write("x", rootPart.Scope.ReadOr("x").Number + 20);
+        live.Step();
+        Expect(hands.Select((hand, index) => Math.Abs(hand.Scope.ReadOr("x").Number - before[index] - 20) < 1e-9).All(value => value), "frozen hands follow parent translation");
+        var offsets = hands.Select(hand => Distance(hand, ParentOf(live, player, hand))).ToArray();
+        rootPart.Scope.Write("image_angle", rootPart.Scope.ReadOr("image_angle").Number + 30);
+        live.Step();
+        Expect(hands.Select((hand, index) => Math.Abs(Distance(hand, ParentOf(live, player, hand)) - offsets[index]) < 1e-9).All(value => value), "frozen hands keep parent-relative offset under rotation");
+        Expect(hands.All(hand => Math.Abs(hand.Scope.ReadOr("image_angle").Number - (hand.Scope.ReadOr("Angle").Number + ParentOf(live, player, hand).Scope.ReadOr("image_angle").Number)) < 1e-9), "frozen image_angle follows parent rotation");
+        release.Invoke(constraints, new object[] { actor });
+        Expect(!(bool)isBound.Invoke(constraints, new object[] { player.Id })!, "release clears the constraint");
+        Expect(hands.Select((hand, index) => Math.Abs(hand.Scope.ReadOr("Angle").Number - angles[index]) < 1e-9).All(value => value), "release restores the entry pose");
+        foreach (var hand in hands) hand.Scope.Write("Angle", 456);
+        live.Step();
+        Expect(hands.All(hand => Math.Abs(hand.Scope.ReadOr("Angle").Number - 456) < 1e-9), "release stops restoring the hands");
+        GD.Print("ROPEBONDS_PARENTS ", string.Join(" ", NativeCharacterBones.Order.Select(name => name + "=" + (actor.Part(name)?.Instance.Scope.ReadOr("parent", player.Id).Int ?? -4))));
+    }
+    private static IMod FindLoadedMod(NativeModManager manager, string id)
+    {
+        var field = typeof(NativeModManager).GetField("loaded", BindingFlags.Instance | BindingFlags.NonPublic) ?? throw new InvalidOperationException("loaded field missing");
+        foreach (var pair in (System.Collections.IEnumerable)field.GetValue(manager)!)
+        {
+            var value = pair!.GetType().GetProperty("Value")!.GetValue(pair);
+            if (value!.GetType().GetProperty("Entry")!.GetValue(value) is IMod mod && mod.Id == id) return mod;
+        }
+        throw new InvalidOperationException("mod not loaded: " + id);
+    }
+    private static GmInstance ParentOf(GmWorld world, GmInstance actor, GmInstance bone)
+    {
+        int id = bone.Scope.ReadOr("parent", actor.Id).Int;
+        return id == actor.Id ? actor : world.Instances.First(instance => instance.Id == id && !instance.Destroyed);
+    }
+    private static double Distance(GmInstance left, GmInstance right)
+    {
+        double dx = left.Scope.ReadOr("x").Number - right.Scope.ReadOr("x").Number;
+        double dy = left.Scope.ReadOr("y").Number - right.Scope.ReadOr("y").Number;
+        return Math.Sqrt(dx * dx + dy * dy);
     }
     private static string CopyExample(string root, string temporary, string name)
     {

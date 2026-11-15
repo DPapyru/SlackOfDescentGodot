@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using SlackOfDescent;
 
 namespace RopeBonds;
@@ -30,6 +31,7 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
     private const int ContractFrames = 14;
     private const int JumpTimeout = 90;
     private readonly VerletChain chain = new(SegmentLength, .35);
+    private readonly List<GmBounds> solids = new();
     private Random random = new();
     private ActorContext? victim;
     private BindPart hand;
@@ -48,48 +50,90 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
     public void Update(ActorContext entity, FrameContext frame)
     {
         if (chain.Count == 0) Reset(entity);
-        if (victim is not null)
-        {
-            if (victim.Instance.Destroyed || !entity.World.Instances.Contains(victim.Instance)) Release();
-            else return;
-        }
+        if (DropInvalidVictim()) return;
         var player = Player(entity);
+        CollectSolids(entity);
+        bool grounded = Solid(entity.X, entity.Y + 1);
         double headX = entity.X, headY = entity.Y;
-        bool grounded = Solid(entity, headX, headY + 1);
-        if (player is null) jumping = false;
-        else if (!jumping && grounded)
+        if (player is not null) ApplyFacing(entity, player);
+        if (player is not null && ShouldJump(entity, player, grounded)) JumpMotion(player, ref headX, ref headY);
+        else Crawl(ref headX, ref headY);
+        Commit(entity, ref headX, ref headY);
+    }
+
+    private bool DropInvalidVictim()
+    {
+        if (victim is null) return false;
+        if (!victim.Instance.Destroyed) return true;
+        Release();
+        return false;
+    }
+
+    private void ApplyFacing(ActorContext entity, ActorContext player)
+    {
+        double distance = player.X - entity.X;
+        if (Math.Abs(distance) <= DetectRange && Math.Sign(distance) is int facing && facing != 0) direction = facing;
+    }
+
+    private bool ShouldJump(ActorContext entity, ActorContext player, bool grounded)
+    {
+        if (jumping) return true;
+        if (!grounded || Math.Abs(player.X - entity.X) > JumpRange) return false;
+        jumping = true; jumpFrame = 0; headVelocity = JumpVelocity;
+        return true;
+    }
+
+    private void JumpMotion(ActorContext player, ref double headX, ref double headY)
+    {
+        jumpFrame++;
+        double nextX = headX + direction * JumpStep;
+        if (Solid(nextX + direction * 2, headY)) direction = -direction;
+        else headX = nextX;
+        headVelocity = Math.Min(headVelocity + chain.Gravity, VerletChain.MaxVelocity);
+        double nextY = headY + headVelocity;
+        if (!Solid(headX, nextY + 2)) headY = nextY;
+        else { headVelocity = 0; jumping = false; }
+        if (Math.Abs(player.X - headX) <= BindRange && Bind(player)) jumping = false;
+        else if (jumpFrame > JumpTimeout) jumping = false;
+    }
+
+    private void Crawl(ref double headX, ref double headY)
+    {
+        phaseFrame = (phaseFrame + 1) % (ExtendFrames + ContractFrames);
+        if (phaseFrame <= ExtendFrames)
         {
-            double distance = player.X - headX;
-            if (Math.Abs(distance) <= DetectRange && Math.Sign(distance) is int facing && facing != 0) direction = facing;
-            if (Math.Abs(distance) <= JumpRange)
-            {
-                jumping = true; jumpFrame = 0; headVelocity = JumpVelocity;
-            }
+            double next = headX + direction * ExtendSpeed;
+            if (Solid(next + direction * 2, headY)) direction = -direction;
+            else headX = next;
         }
-        if (jumping)
-        {
-            jumpFrame++;
-            headX += direction * JumpStep;
-            headVelocity = Math.Min(headVelocity + chain.Gravity, VerletChain.MaxVelocity);
-            headY += headVelocity;
-            if (player is not null && Math.Abs(player.X - headX) <= BindRange && Bind(player)) jumping = false;
-            else if (jumpFrame > JumpTimeout || Solid(entity, headX, headY + 1)) jumping = false;
-        }
-        else
-        {
-            phaseFrame = (phaseFrame + 1) % (ExtendFrames + ContractFrames);
-            if (phaseFrame <= ExtendFrames)
-            {
-                double next = headX + direction * ExtendSpeed;
-                if (Solid(entity, next + direction * 2, headY)) direction = -direction;
-                else headX = next;
-            }
-            headVelocity = Solid(entity, headX, headY + 1) ? 0 : Math.Min(headVelocity + chain.Gravity, VerletChain.MaxVelocity);
-            if (!Solid(entity, headX, headY + headVelocity + 1)) headY += headVelocity;
-        }
+        headVelocity = Solid(headX, headY + 1) ? 0 : Math.Min(headVelocity + chain.Gravity, VerletChain.MaxVelocity);
+        double nextY = headY + headVelocity;
+        if (!Solid(headX, nextY + 1)) headY = nextY;
+    }
+
+    private void Commit(ActorContext entity, ref double headX, ref double headY)
+    {
         entity.X = headX; entity.Y = headY;
         chain.Step(headX, headY);
-        chain.Collide((x, y) => Solid(entity, x, y));
+        chain.Collide((x, y) => Solid(x, y));
+    }
+
+    private void CollectSolids(ActorContext entity)
+    {
+        solids.Clear();
+        foreach (var instance in entity.World.Instances)
+        {
+            if (instance.Destroyed || !instance.Active || instance.Id == entity.Id || !instance.Scope.ReadOr("solid").Truth) continue;
+            var bounds = entity.World.Bounds(instance);
+            if (!bounds.Empty) solids.Add(bounds);
+        }
+    }
+
+    private bool Solid(double x, double y)
+    {
+        foreach (var bounds in solids)
+            if (x >= bounds.Left && x <= bounds.Right && y >= bounds.Top && y <= bounds.Bottom) return true;
+        return false;
     }
 
     private void Reset(ActorContext entity)
@@ -122,16 +166,5 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
         foreach (var instance in entity.World.Instances)
             if (!instance.Destroyed && instance.Active && entity.World.IsObject(instance.Object, kind.Int)) return new(entity.World, instance);
         return null;
-    }
-
-    private static bool Solid(ActorContext entity, double x, double y)
-    {
-        foreach (var instance in entity.World.Instances)
-        {
-            if (instance.Destroyed || !instance.Active || instance.Id == entity.Id || !instance.Scope.ReadOr("solid").Truth) continue;
-            var bounds = entity.World.Bounds(instance);
-            if (!bounds.Empty && x >= bounds.Left && x <= bounds.Right && y >= bounds.Top && y <= bounds.Bottom) return true;
-        }
-        return false;
     }
 }

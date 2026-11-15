@@ -1,3 +1,4 @@
+using System.Linq;
 using SlackOfDescent;
 
 namespace RopeBonds;
@@ -27,6 +28,17 @@ public sealed class RopeBondsMod : IMod
         qte = new QteProbe();
         qte.Attach(context);
     }
+
+    internal static ActorContext? FindPlayer(GmWorld world)
+    {
+        if (!world.Constants.ContainsKey("objPlayerDoll")) return null;
+        foreach (ActorContext actor in world.Instances.Where(instance => !instance.Destroyed).Select(instance => new ActorContext(world, instance)).ToArray())
+            if (actor.Instance.Active && IsPlayer(actor)) return actor;
+        return null;
+    }
+
+    internal static bool IsPlayer(ActorContext actor) =>
+        actor.World.Constants.ContainsKey("objPlayerDoll") && actor.Services.Instances.IsObjectOf(actor, "objPlayerDoll");
 
     public void Unload()
     {

@@ -28,13 +28,13 @@ public sealed class QteProbe : IDisposable
     {
         if (value.Actor is not { } actor) return;
         world ??= actor.World;
-        if (IsPlayer(actor)) player = actor;
+        if (RopeBondsMod.IsPlayer(actor)) player = actor;
     }
 
     private void Step(NativeGameEvent value)
     {
         if (world is null) return;
-        if (player is null || player.Instance.Destroyed || !world.Instances.Contains(player.Instance)) player = FindPlayer();
+        if (player is null || player.Instance.Destroyed || !world.Instances.Contains(player.Instance)) player = RopeBondsMod.FindPlayer(world);
         if (player is null) return;
         if (session is not null)
         {
@@ -56,17 +56,6 @@ public sealed class QteProbe : IDisposable
         session = new QteSession(player, controller, Window);
         session.Start();
     }
-
-    private ActorContext? FindPlayer()
-    {
-        if (world is null || !world.Constants.TryGetValue("objPlayerDoll", out var kind)) return null;
-        foreach (var instance in world.Instances)
-            if (!instance.Destroyed && instance.Active && world.IsObject(instance.Object, kind.Int)) return new(world, instance);
-        return null;
-    }
-
-    private static bool IsPlayer(ActorContext actor) =>
-        actor.World.Constants.TryGetValue("objPlayerDoll", out var kind) && actor.World.IsObject(actor.Instance.Object, kind.Int);
 
     public void Dispose()
     {

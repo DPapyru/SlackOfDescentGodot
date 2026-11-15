@@ -249,11 +249,6 @@ public sealed class RopeCreature : IEntityBehavior
 
     private static double Angle((double X, double Y) from, (double X, double Y) to) => Math.Atan2(-(to.Y - from.Y), to.X - from.X) * 180 / Math.PI;
 
-    private static ActorContext? Player(ActorContext entity)
-    {
-        if (!entity.World.Constants.TryGetValue("objPlayerDoll", out var kind)) return null;
-        foreach (GmInstance instance in entity.World.Instances)
-            if (!instance.Destroyed && instance.Active && entity.World.IsObject(instance.Object, kind.Int)) return new(entity.World, instance);
-        return null;
-    }
+    private static ActorContext? Player(ActorContext entity) =>
+        entity.World.Constants.ContainsKey("objPlayerDoll") ? entity.Services.Instances.FindObject("objPlayerDoll") : null;
 }

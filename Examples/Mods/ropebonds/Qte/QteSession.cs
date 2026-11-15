@@ -9,6 +9,7 @@ public sealed class QteProbe : IDisposable
     private const string StepHandler = "ropebonds.qte.step";
     private const double StartDelay = 1.5;
     private const double Window = 2.5;
+    private readonly bool enabled = Environment.GetEnvironmentVariable("ROPEBONDS_QTE_TEST") is { Length: > 0 };
     private readonly bool loop = Environment.GetEnvironmentVariable("ROPEBONDS_QTE_LOOP") is { Length: > 0 };
     private GmWorld? world;
     private ActorContext? player;
@@ -18,6 +19,7 @@ public sealed class QteProbe : IDisposable
 
     public void Attach(ModContext context)
     {
+        if (!enabled) return;
         context.Subscribe(CreatedHandler, NativeEventNames.InstanceCreated, NativeEventPhase.After, Created);
         context.Subscribe(StepHandler, NativeEventNames.StepEnd, NativeEventPhase.After, Step);
     }

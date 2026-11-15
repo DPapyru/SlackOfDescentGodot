@@ -14,7 +14,7 @@ public sealed class SinkDriver
 {
     private const string TickHandler = "ropebonds.sink.tick", SpawnHandler = "ropebonds.sink.spawn";
     private readonly ContentRegistry content;
-    private readonly Dictionary<int, (ActorContext Actor, Dictionary<string, ConstraintService.BoneLocal> Pose, double Frame)> entries = new();
+    private readonly Dictionary<int, double> frames = new();
     private MotionClip? clip;
     private GmWorld? world;
     private ActorContext? player;
@@ -45,43 +45,41 @@ public sealed class SinkDriver
         ActorContext? actor = player;
         if (actor is null || actor.Instance.Destroyed) actor = FindPlayer();
         player = actor;
-        if (actor is null) { entries.Clear(); return; }
-        foreach (int id in entries.Keys.Where(id => id != actor.Id).ToArray())
-            if (entries.Remove(id, out var stale)) Restore(stale.Actor, stale.Pose);
-        if (actor.Read("touchingQS") == 0)
+        if (actor is null) { frames.Clear(); return; }
+        foreach (int id in frames.Keys.Where(id => id != actor.Id).ToArray()) frames.Remove(id);
+        if (actor.Read("touchingQS") == 0 || !NativeActorActions.MotionMatches(actor, "STAND_0_QUICKSAND"))
         {
-            if (entries.Remove(actor.Id, out var leaving)) Restore(leaving.Actor, leaving.Pose);
+            frames.Remove(actor.Id);
             return;
         }
-        if (!entries.TryGetValue(actor.Id, out var entry))
-        {
-            var snapped = Parts(actor);
-            entry = (actor, ConstraintService.Snapshot(snapped.Select(part => (part.Name, part.Bone))), 0);
-        }
-        Write(active, entry.Actor, entry.Frame);
-        entries[actor.Id] = (entry.Actor, entry.Pose, (entry.Frame + 2) % active.Duration);
+        double frame = frames.TryGetValue(actor.Id, out var previous) ? Math.Min(active.Duration, previous + 2) : 0;
+        Write(active, actor, frame);
+        frames[actor.Id] = frame;
     }
     private static void Write(MotionClip clip, ActorContext actor, double frame)
     {
         var sample = clip.Sample(frame);
         var parts = Parts(actor);
         var byId = parts.ToDictionary(part => part.Bone.Id, part => part.Bone);
+        double direction = actor.Instance.Scope.ReadOr("Direction", 1).Number;
+        if (direction == 0) direction = 1;
         foreach (var (name, bone) in Ordered(actor, parts))
         {
             if (!sample.TryGetValue(name, out var local)) continue;
-            new ConstraintService.BoneLocal(local.Angle, local.ScaleX, local.ScaleY, local.Picture, local.Picture).Write(bone);
-            bone.Scope.Write("image_angle", local.Angle + ParentAngle(actor, bone, byId));
-        }
-    }
-    private static void Restore(ActorContext actor, Dictionary<string, ConstraintService.BoneLocal> pose)
-    {
-        var parts = Parts(actor);
-        var byId = parts.ToDictionary(part => part.Bone.Id, part => part.Bone);
-        foreach (var (name, bone) in Ordered(actor, parts))
-        {
-            if (!pose.TryGetValue(name, out var local)) continue;
-            local.Write(bone);
-            bone.Scope.Write("image_angle", local.Angle + ParentAngle(actor, bone, byId));
+            int parentId = bone.Scope.ReadOr("parent", actor.Id).Int;
+            GmInstance? parent = parentId == actor.Id ? actor.Instance : byId.GetValueOrDefault(parentId);
+            if (parent is null || parent.Destroyed) continue;
+            double parentAngle = ParentAngle(actor, parent);
+            double radians = parentAngle * Math.PI / 180, cos = Math.Cos(radians), sin = Math.Sin(radians);
+            bone.Scope.Write("Angle", local.Angle);
+            bone.Scope.Write("ScaleX", local.ScaleX);
+            bone.Scope.Write("ScaleY", local.ScaleY);
+            bone.Scope.Write("PartPicture", local.Picture);
+            bone.Scope.Write("image_index", local.Picture);
+            bone.Scope.Write("x", ParentX(actor, parent) + (local.X * cos + local.Y * sin) * direction);
+            bone.Scope.Write("y", ParentY(actor, parent) - local.X * sin + local.Y * cos);
+            bone.Scope.Write("Direction", direction);
+            bone.Scope.Write("image_angle", local.Angle + parentAngle);
         }
     }
     private static List<(string Name, GmInstance Bone)> Parts(ActorContext actor)
@@ -102,11 +100,9 @@ public sealed class SinkDriver
         }
         return parts.OrderBy(part => Depth(part.Bone));
     }
-    private static double ParentAngle(ActorContext actor, GmInstance bone, Dictionary<int, GmInstance> byId)
-    {
-        int parent = bone.Scope.ReadOr("parent", actor.Id).Int;
-        return byId.TryGetValue(parent, out var above) ? above.Scope.ReadOr("image_angle").Number : actor.Read("image_angle");
-    }
+    private static double ParentX(ActorContext actor, GmInstance parent) => ReferenceEquals(parent, actor.Instance) ? actor.X : parent.Scope.ReadOr("x").Number;
+    private static double ParentY(ActorContext actor, GmInstance parent) => ReferenceEquals(parent, actor.Instance) ? actor.Y : parent.Scope.ReadOr("y").Number;
+    private static double ParentAngle(ActorContext actor, GmInstance parent) => ReferenceEquals(parent, actor.Instance) ? actor.Read("image_angle") : parent.Scope.ReadOr("image_angle").Number;
     private ActorContext? FindPlayer()
     {
         if (world is null || !world.Constants.TryGetValue("objPlayerDoll", out var doll)) return null;

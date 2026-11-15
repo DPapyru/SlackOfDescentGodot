@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using SlackOfDescent;
 
 namespace RopeBonds;
@@ -20,7 +22,8 @@ public sealed partial class RopeBondsMod
 public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavior
 {
     private const int Segments = 8;
-    private const double SegmentLength = 6;
+    private const double SegmentLength = 11;
+    private const double RopeDepth = -100000;
     private const double ExtendSpeed = .5;
     private const double JumpStep = .8;
     private const double DetectRange = 96;
@@ -39,6 +42,7 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
     private double headVelocity;
     private bool jumping;
     private bool render = true;
+    private bool diagnosed;
 
     public string Id => "ropebonds.creature";
 
@@ -65,23 +69,48 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
 
     private void Render(ActorContext entity)
     {
-        if (!render || chain.Count < 2) return;
+        if (chain.Count < 2) return;
         try
         {
             var presentation = entity.Services.Presentation;
-            double depth = -100000;
-            presentation.Sprite(entity.Id, "rope.head", "ropebonds.rope_head", chain[0].X, chain[0].Y, Angle(chain[1], chain[0]), 1, 1, 2, 2, depth);
             for (int index = 1; index < chain.Count; index++)
             {
                 var from = chain[index - 1]; var to = chain[index];
-                presentation.Sprite(entity.Id, "rope.body." + (index - 1), "ropebonds.rope_body", (from.X + to.X) / 2, (from.Y + to.Y) / 2, Angle(from, to), chain.Spacing(index) / 11, 1, 5.5, 2, depth);
+                presentation.Line(entity.Id, "rope.line." + (index - 1), from.X, from.Y, to.X, to.Y, 1.0 / 30, 0xff6600, 2);
+            }
+            if (render)
+            {
+                presentation.Sprite(entity.Id, "rope.head", "ropebonds.rope_head", chain[0].X, chain[0].Y, Angle(chain[1], chain[0]), 2, 2, 2, 2, RopeDepth);
+                for (int index = 1; index < chain.Count; index++)
+                {
+                    var from = chain[index - 1]; var to = chain[index];
+                    presentation.Sprite(entity.Id, "rope.body." + (index - 1), "ropebonds.rope_body", (from.X + to.X) / 2, (from.Y + to.Y) / 2, Angle(from, to), chain.Spacing(index) / 11, 2, 5.5, 2, RopeDepth);
+                }
             }
         }
         catch (Exception error)
         {
             render = false;
-            Console.Error.WriteLine("ROPEBONDS sprite rendering disabled: " + error.Message);
+            Console.Error.WriteLine("ROPEBONDS render failed: " + error.Message);
         }
+        Diagnose(entity);
+    }
+
+    private void Diagnose(ActorContext entity)
+    {
+        if (diagnosed) return;
+        diagnosed = true;
+        var sprites = entity.Services.Presentation.Sprites.Where(sprite => sprite.Owner == entity.Id).ToArray();
+        string first = sprites.Length == 0 ? "none" : sprites[0].X + "," + sprites[0].Y + "," + sprites[0].Angle + "," + sprites[0].ScaleX;
+        Console.WriteLine("ROPEBONDS_RENDER owner=" + entity.Id + " active=" + entity.Instance.Active + " sprites=" + sprites.Length
+            + " head=" + Resolve(entity.Services, "ropebonds.rope_head") + " body=" + Resolve(entity.Services, "ropebonds.rope_body")
+            + " first=" + first);
+    }
+
+    private static string Resolve(NativeModServices services, string id)
+    {
+        var registry = typeof(NativeModServices).GetField("Registry", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(services) as ContentRegistry;
+        return registry is not null && registry.Resources.TryGetValue(id, out var path) ? path : "(unresolved)";
     }
 
     private static double Angle((double X, double Y) from, (double X, double Y) to) => Math.Atan2(-(to.Y - from.Y), to.X - from.X) * 180 / Math.PI;

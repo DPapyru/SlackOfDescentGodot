@@ -7,8 +7,8 @@
   "Clips": [
     {
       "Id": "sink",
-      "Duration": 702,
-      "Loop": true,
+      "Duration": 120,
+      "Loop": false,
       "Tracks": [
         {
           "Bone": "BODY_BOTTOM",
@@ -23,10 +23,46 @@
               "Picture": 0
             },
             {
+              "Frame": 10,
+              "X": 0,
+              "Y": 0.5,
+              "Angle": -6.833333333333333,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": 0,
+              "Y": 1,
+              "Angle": -6.666666666666667,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
               "Frame": 30,
               "X": 0,
-              "Y": 0,
-              "Angle": -11,
+              "Y": 1.5,
+              "Angle": -6.5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": 0,
+              "Y": 2,
+              "Angle": -6.333333333333333,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 50,
+              "X": 0,
+              "Y": 2.5,
+              "Angle": -6.166666666666667,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -34,8 +70,26 @@
             {
               "Frame": 60,
               "X": 0,
-              "Y": 0,
-              "Angle": -14,
+              "Y": 3,
+              "Angle": -6,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 70,
+              "X": 0,
+              "Y": 3.5,
+              "Angle": -5.833333333333333,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 80,
+              "X": 0,
+              "Y": 4,
+              "Angle": -5.666666666666667,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -43,242 +97,35 @@
             {
               "Frame": 90,
               "X": 0,
-              "Y": 0,
-              "Angle": -7,
+              "Y": 4.5,
+              "Angle": -5.5,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 92,
+              "Frame": 100,
               "X": 0,
-              "Y": 0,
-              "Angle": -7,
+              "Y": 5,
+              "Angle": -5.333333333333333,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 122,
+              "Frame": 110,
               "X": 0,
-              "Y": 0,
-              "Angle": -7,
+              "Y": 5.5,
+              "Angle": -5.166666666666667,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 152,
+              "Frame": 120,
               "X": 0,
-              "Y": 0,
-              "Angle": -11,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 182,
-              "X": 0,
-              "Y": 0,
-              "Angle": -14,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 212,
-              "X": 0,
-              "Y": 0,
-              "Angle": -7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 214,
-              "X": 0,
-              "Y": 0,
-              "Angle": -7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 244,
-              "X": 0,
-              "Y": 0,
-              "Angle": -7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 274,
-              "X": 0,
-              "Y": 0,
-              "Angle": -11,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 304,
-              "X": 0,
-              "Y": 0,
-              "Angle": -14,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 334,
-              "X": 0,
-              "Y": 0,
-              "Angle": -7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 336,
-              "X": 0,
-              "Y": 0,
-              "Angle": -7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 366,
-              "X": 0,
-              "Y": 0,
-              "Angle": -7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 396,
-              "X": 0,
-              "Y": 0,
-              "Angle": -11,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 426,
-              "X": 0,
-              "Y": 0,
-              "Angle": -14,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 456,
-              "X": 0,
-              "Y": 0,
-              "Angle": -7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 458,
-              "X": 0,
-              "Y": 0,
-              "Angle": -7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 488,
-              "X": 0,
-              "Y": 0,
-              "Angle": -7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 518,
-              "X": 0,
-              "Y": 0,
-              "Angle": -11,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 548,
-              "X": 0,
-              "Y": 0,
-              "Angle": -14,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 578,
-              "X": 0,
-              "Y": 0,
-              "Angle": -7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 580,
-              "X": 0,
-              "Y": 0,
-              "Angle": -7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 610,
-              "X": 0,
-              "Y": 0,
-              "Angle": -7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 640,
-              "X": 0,
-              "Y": 0,
-              "Angle": -11,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 670,
-              "X": 0,
-              "Y": 0,
-              "Angle": -14,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 700,
-              "X": 0,
-              "Y": 0,
-              "Angle": -7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 702,
-              "X": 0,
-              "Y": 0,
-              "Angle": -7,
+              "Y": 6,
+              "Angle": -5,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -292,7 +139,25 @@
               "Frame": 0,
               "X": 0,
               "Y": 0,
-              "Angle": 8,
+              "Angle": 5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 10,
+              "X": 0,
+              "Y": 0,
+              "Angle": 5.75,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": 0,
+              "Y": 0,
+              "Angle": 6.5,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -301,7 +166,25 @@
               "Frame": 30,
               "X": 0,
               "Y": 0,
-              "Angle": 14,
+              "Angle": 7.25,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": 0,
+              "Y": 0,
+              "Angle": 8,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 50,
+              "X": 0,
+              "Y": 0,
+              "Angle": 8.75,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -310,7 +193,25 @@
               "Frame": 60,
               "X": 0,
               "Y": 0,
-              "Angle": 16,
+              "Angle": 9.5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 70,
+              "X": 0,
+              "Y": 0,
+              "Angle": 10.25,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 80,
+              "X": 0,
+              "Y": 0,
+              "Angle": 11,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -319,241 +220,34 @@
               "Frame": 90,
               "X": 0,
               "Y": 0,
-              "Angle": 8,
+              "Angle": 11.75,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 92,
+              "Frame": 100,
               "X": 0,
               "Y": 0,
-              "Angle": 8,
+              "Angle": 12.5,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 122,
+              "Frame": 110,
               "X": 0,
               "Y": 0,
-              "Angle": 9,
+              "Angle": 13.25,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 152,
+              "Frame": 120,
               "X": 0,
               "Y": 0,
-              "Angle": 15,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 182,
-              "X": 0,
-              "Y": 0,
-              "Angle": 18,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 212,
-              "X": 0,
-              "Y": 0,
-              "Angle": 9,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 214,
-              "X": 0,
-              "Y": 0,
-              "Angle": 9,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 244,
-              "X": 0,
-              "Y": 0,
-              "Angle": -3,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 274,
-              "X": 0,
-              "Y": 0,
-              "Angle": 3,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 304,
-              "X": 0,
-              "Y": 0,
-              "Angle": 4,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 334,
-              "X": 0,
-              "Y": 0,
-              "Angle": -3,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 336,
-              "X": 0,
-              "Y": 0,
-              "Angle": -3,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 366,
-              "X": 0,
-              "Y": 0,
-              "Angle": -3,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 396,
-              "X": 0,
-              "Y": 0,
-              "Angle": 3,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 426,
-              "X": 0,
-              "Y": 0,
-              "Angle": 4,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 456,
-              "X": 0,
-              "Y": 0,
-              "Angle": -3,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 458,
-              "X": 0,
-              "Y": 0,
-              "Angle": -3,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 488,
-              "X": 0,
-              "Y": 0,
-              "Angle": -15,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 518,
-              "X": 0,
-              "Y": 0,
-              "Angle": -8,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 548,
-              "X": 0,
-              "Y": 0,
-              "Angle": -3,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 578,
-              "X": 0,
-              "Y": 0,
-              "Angle": -15,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 580,
-              "X": 0,
-              "Y": 0,
-              "Angle": -15,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 610,
-              "X": 0,
-              "Y": 0,
-              "Angle": -15,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 640,
-              "X": 0,
-              "Y": 0,
-              "Angle": -16,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 670,
-              "X": 0,
-              "Y": 0,
-              "Angle": -11,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 700,
-              "X": 0,
-              "Y": 0,
-              "Angle": -15,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 702,
-              "X": 0,
-              "Y": 0,
-              "Angle": -15,
+              "Angle": 14,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -567,7 +261,25 @@
               "Frame": 0,
               "X": 1.102182119232618e-15,
               "Y": -18,
-              "Angle": 19,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 10,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 2,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -576,7 +288,25 @@
               "Frame": 30,
               "X": 1.102182119232618e-15,
               "Y": -18,
-              "Angle": 16,
+              "Angle": 3,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 4,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 50,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 5,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -585,7 +315,25 @@
               "Frame": 60,
               "X": 1.102182119232618e-15,
               "Y": -18,
-              "Angle": 18,
+              "Angle": 6,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 70,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 80,
+              "X": 1.102182119232618e-15,
+              "Y": -18,
+              "Angle": 8,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -594,220 +342,13 @@
               "Frame": 90,
               "X": 1.102182119232618e-15,
               "Y": -18,
-              "Angle": 19,
+              "Angle": 9,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 92,
-              "X": 1.102182119232618e-15,
-              "Y": -18,
-              "Angle": 19,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 122,
-              "X": 1.102182119232618e-15,
-              "Y": -18,
-              "Angle": 19,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 152,
-              "X": 1.102182119232618e-15,
-              "Y": -18,
-              "Angle": 16,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 182,
-              "X": 1.102182119232618e-15,
-              "Y": -18,
-              "Angle": 18,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 212,
-              "X": 1.102182119232618e-15,
-              "Y": -18,
-              "Angle": 19,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 214,
-              "X": 1.102182119232618e-15,
-              "Y": -18,
-              "Angle": 19,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 244,
-              "X": 1.102182119232618e-15,
-              "Y": -18,
-              "Angle": 34,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 274,
-              "X": 1.102182119232618e-15,
-              "Y": -18,
-              "Angle": 35,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 304,
-              "X": 1.102182119232618e-15,
-              "Y": -18,
-              "Angle": 37,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 334,
-              "X": 1.102182119232618e-15,
-              "Y": -18,
-              "Angle": 34,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 336,
-              "X": 1.102182119232618e-15,
-              "Y": -18,
-              "Angle": 34,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 366,
-              "X": 1.102182119232618e-15,
-              "Y": -18,
-              "Angle": 34,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 396,
-              "X": 1.102182119232618e-15,
-              "Y": -18,
-              "Angle": 35,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 426,
-              "X": 1.102182119232618e-15,
-              "Y": -18,
-              "Angle": 37,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 456,
-              "X": 1.102182119232618e-15,
-              "Y": -18,
-              "Angle": 34,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 458,
-              "X": 1.102182119232618e-15,
-              "Y": -18,
-              "Angle": 34,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 488,
-              "X": 1.102182119232618e-15,
-              "Y": -18,
-              "Angle": 44,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 518,
-              "X": 1.102182119232618e-15,
-              "Y": -18,
-              "Angle": 36,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 548,
-              "X": 1.102182119232618e-15,
-              "Y": -18,
-              "Angle": 37,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 578,
-              "X": 1.102182119232618e-15,
-              "Y": -18,
-              "Angle": 44,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 580,
-              "X": 1.102182119232618e-15,
-              "Y": -18,
-              "Angle": 44,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 610,
-              "X": 1.102182119232618e-15,
-              "Y": -18,
-              "Angle": 6,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 640,
-              "X": 1.102182119232618e-15,
-              "Y": -18,
-              "Angle": 13,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 670,
+              "Frame": 100,
               "X": 1.102182119232618e-15,
               "Y": -18,
               "Angle": 10,
@@ -816,19 +357,19 @@
               "Picture": 0
             },
             {
-              "Frame": 700,
+              "Frame": 110,
               "X": 1.102182119232618e-15,
               "Y": -18,
-              "Angle": 6,
+              "Angle": 11,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 702,
+              "Frame": 120,
               "X": 1.102182119232618e-15,
               "Y": -18,
-              "Angle": 6,
+              "Angle": 12,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -842,7 +383,25 @@
               "Frame": 0,
               "X": 1.307336141214872,
               "Y": -14.942920471376183,
-              "Angle": 16,
+              "Angle": 13,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 10,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 9.666666666666668,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": 6.333333333333334,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -851,7 +410,25 @@
               "Frame": 30,
               "X": 1.307336141214872,
               "Y": -14.942920471376183,
-              "Angle": 17,
+              "Angle": 3,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -0.33333333333333215,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 50,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -3.666666666666668,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -860,7 +437,25 @@
               "Frame": 60,
               "X": 1.307336141214872,
               "Y": -14.942920471376183,
-              "Angle": 15,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 70,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -10.333333333333336,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 80,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -13.666666666666664,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -869,241 +464,34 @@
               "Frame": 90,
               "X": 1.307336141214872,
               "Y": -14.942920471376183,
-              "Angle": 16,
+              "Angle": -17,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 92,
+              "Frame": 100,
               "X": 1.307336141214872,
               "Y": -14.942920471376183,
-              "Angle": 16,
+              "Angle": -20.333333333333336,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 122,
+              "Frame": 110,
               "X": 1.307336141214872,
               "Y": -14.942920471376183,
-              "Angle": 16,
+              "Angle": -23.666666666666664,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 152,
+              "Frame": 120,
               "X": 1.307336141214872,
               "Y": -14.942920471376183,
-              "Angle": 17,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 182,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 15,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 212,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 16,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 214,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 16,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 244,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 37,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 274,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 32,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 304,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 35,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 334,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 37,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 336,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 37,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 366,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 67,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 396,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 62,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 426,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 65,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 456,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 67,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 458,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 67,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 488,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 68,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 518,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 65,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 548,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 64,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 578,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 68,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 580,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 68,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 610,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 202,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 640,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 206,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 670,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 201,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 700,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 202,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 702,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 202,
+              "Angle": -27,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -1117,7 +505,25 @@
               "Frame": 0,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": 7,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 10,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 2.083333333333333,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 4.166666666666666,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -1126,7 +532,25 @@
               "Frame": 30,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": 8,
+              "Angle": 6.25,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 8.333333333333332,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 50,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 10.416666666666668,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -1135,7 +559,25 @@
               "Frame": 60,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": 7,
+              "Angle": 12.5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 70,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 14.583333333333334,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 80,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 16.666666666666664,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -1144,241 +586,34 @@
               "Frame": 90,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": 7,
+              "Angle": 18.75,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 92,
+              "Frame": 100,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": 7,
+              "Angle": 20.833333333333336,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 122,
+              "Frame": 110,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": 28,
+              "Angle": 22.916666666666664,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 152,
+              "Frame": 120,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": 32,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 182,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 30,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 212,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 28,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 214,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 28,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 244,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 34,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 274,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 44,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 304,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 41,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 334,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 34,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 336,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 34,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 366,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 34,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 396,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 44,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 426,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 41,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 456,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 34,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 458,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 34,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 488,
-              "X": 2.3489937210499727,
-              "Y": 12.419815960732583,
-              "Angle": 131,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 518,
-              "X": 2.3489937210499727,
-              "Y": 12.419815960732583,
-              "Angle": 127,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 548,
-              "X": 2.3489937210499727,
-              "Y": 12.419815960732583,
-              "Angle": 125,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 578,
-              "X": 2.3489937210499727,
-              "Y": 12.419815960732583,
-              "Angle": 131,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 580,
-              "X": 2.3489937210499727,
-              "Y": 12.419815960732583,
-              "Angle": 131,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 610,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 0,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 640,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 6,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 670,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 9,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 700,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 0,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 702,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 0,
+              "Angle": 25,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -1392,271 +627,118 @@
               "Frame": 0,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": 28,
+              "Angle": 0,
               "ScaleX": 1,
               "ScaleY": 1,
-              "Picture": 14
+              "Picture": 8
+            },
+            {
+              "Frame": 10,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 1.25,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 8
+            },
+            {
+              "Frame": 20,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 2.5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 8
             },
             {
               "Frame": 30,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": 15,
+              "Angle": 3.75,
               "ScaleX": 1,
               "ScaleY": 1,
-              "Picture": 14
+              "Picture": 8
+            },
+            {
+              "Frame": 40,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 8
+            },
+            {
+              "Frame": 50,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 6.25,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 8
             },
             {
               "Frame": 60,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": 23,
+              "Angle": 7.5,
               "ScaleX": 1,
               "ScaleY": 1,
-              "Picture": 14
+              "Picture": 8
+            },
+            {
+              "Frame": 70,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 8.75,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 8
+            },
+            {
+              "Frame": 80,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 10,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 8
             },
             {
               "Frame": 90,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": 28,
+              "Angle": 11.25,
               "ScaleX": 1,
               "ScaleY": 1,
-              "Picture": 14
+              "Picture": 8
             },
             {
-              "Frame": 92,
+              "Frame": 100,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": 28,
+              "Angle": 12.5,
               "ScaleX": 1,
               "ScaleY": 1,
-              "Picture": 14
+              "Picture": 8
             },
             {
-              "Frame": 122,
+              "Frame": 110,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": 28,
+              "Angle": 13.75,
               "ScaleX": 1,
               "ScaleY": 1,
-              "Picture": 14
+              "Picture": 8
             },
             {
-              "Frame": 152,
+              "Frame": 120,
               "X": -2.204364238465236e-15,
               "Y": 12,
               "Angle": 15,
               "ScaleX": 1,
               "ScaleY": 1,
-              "Picture": 14
-            },
-            {
-              "Frame": 182,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 23,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 14
-            },
-            {
-              "Frame": 212,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 28,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 14
-            },
-            {
-              "Frame": 214,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 28,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 14
-            },
-            {
-              "Frame": 244,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 18,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 14
-            },
-            {
-              "Frame": 274,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 5,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 14
-            },
-            {
-              "Frame": 304,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 13,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 14
-            },
-            {
-              "Frame": 334,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 18,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 14
-            },
-            {
-              "Frame": 336,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 18,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 14
-            },
-            {
-              "Frame": 366,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 18,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 14
-            },
-            {
-              "Frame": 396,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 5,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 14
-            },
-            {
-              "Frame": 426,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 13,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 14
-            },
-            {
-              "Frame": 456,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 18,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 14
-            },
-            {
-              "Frame": 458,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 18,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 14
-            },
-            {
-              "Frame": 488,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -2,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 13
-            },
-            {
-              "Frame": 518,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 13
-            },
-            {
-              "Frame": 548,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 5,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 13
-            },
-            {
-              "Frame": 578,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -2,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 13
-            },
-            {
-              "Frame": 580,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -2,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 13
-            },
-            {
-              "Frame": 610,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -2,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 13
-            },
-            {
-              "Frame": 640,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -4,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 13
-            },
-            {
-              "Frame": 670,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -3,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 13
-            },
-            {
-              "Frame": 700,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -2,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 13
-            },
-            {
-              "Frame": 702,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -2,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 13
+              "Picture": 8
             }
           ]
         },
@@ -1667,7 +749,25 @@
               "Frame": 0,
               "X": 1.307336141214872,
               "Y": -14.942920471376183,
-              "Angle": -4,
+              "Angle": -6,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 10,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -9.333333333333332,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -12.666666666666666,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -1676,7 +776,25 @@
               "Frame": 30,
               "X": 1.307336141214872,
               "Y": -14.942920471376183,
-              "Angle": -11,
+              "Angle": -16,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -19.333333333333332,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 50,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -22.666666666666668,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -1685,7 +803,25 @@
               "Frame": 60,
               "X": 1.307336141214872,
               "Y": -14.942920471376183,
-              "Angle": -7,
+              "Angle": -26,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 70,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -29.333333333333336,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 80,
+              "X": 1.307336141214872,
+              "Y": -14.942920471376183,
+              "Angle": -32.666666666666664,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -1694,241 +830,34 @@
               "Frame": 90,
               "X": 1.307336141214872,
               "Y": -14.942920471376183,
-              "Angle": -4,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 92,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": -4,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 122,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": -4,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 152,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": -11,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 182,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": -7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 212,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": -4,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 214,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": -4,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 244,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 12,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 274,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 13,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 304,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 15,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 334,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 12,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 336,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": 12,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 366,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": -48,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 396,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": -47,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 426,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": -45,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 456,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": -48,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 458,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": -48,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 488,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": -38,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 518,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": -39,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 548,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
               "Angle": -36,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 578,
+              "Frame": 100,
               "X": 1.307336141214872,
               "Y": -14.942920471376183,
-              "Angle": -38,
+              "Angle": -39.333333333333336,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 580,
+              "Frame": 110,
               "X": 1.307336141214872,
               "Y": -14.942920471376183,
-              "Angle": -38,
+              "Angle": -42.666666666666664,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 610,
+              "Frame": 120,
               "X": 1.307336141214872,
               "Y": -14.942920471376183,
-              "Angle": -146,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 640,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": -144,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 670,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": -145,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 700,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": -146,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 702,
-              "X": 1.307336141214872,
-              "Y": -14.942920471376183,
-              "Angle": -146,
+              "Angle": -46,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -1942,7 +871,25 @@
               "Frame": 0,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": -17,
+              "Angle": -4,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 10,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": -1.916666666666667,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 0.16666666666666607,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -1951,7 +898,25 @@
               "Frame": 30,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": -4,
+              "Angle": 2.25,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 4.333333333333332,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 50,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 6.416666666666668,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -1960,7 +925,25 @@
               "Frame": 60,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": -13,
+              "Angle": 8.5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 70,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 10.583333333333334,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 80,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 12.666666666666664,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -1969,241 +952,34 @@
               "Frame": 90,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": -17,
+              "Angle": 14.75,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 92,
+              "Frame": 100,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": -17,
+              "Angle": 16.833333333333336,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 122,
+              "Frame": 110,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": -50,
+              "Angle": 18.916666666666664,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 152,
+              "Frame": 120,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": -38,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 182,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -44,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 212,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -50,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 214,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -50,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 244,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -90,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 274,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -91,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 304,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -94,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 334,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -90,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 336,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -90,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 366,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -45,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 396,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -46,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 426,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -49,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 456,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -45,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 458,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -45,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 488,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -134,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 518,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -137,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 548,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -136,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 578,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -134,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 580,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -134,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 610,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -9,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 640,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -10,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 670,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -12,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 700,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -9,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 702,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -9,
+              "Angle": 21,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -2217,271 +993,118 @@
               "Frame": 0,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": -28,
+              "Angle": 10,
               "ScaleX": 1,
               "ScaleY": 1,
-              "Picture": 15
+              "Picture": 8
+            },
+            {
+              "Frame": 10,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 11.25,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 8
+            },
+            {
+              "Frame": 20,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 12.5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 8
             },
             {
               "Frame": 30,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": -42,
+              "Angle": 13.75,
               "ScaleX": 1,
               "ScaleY": 1,
-              "Picture": 15
+              "Picture": 8
+            },
+            {
+              "Frame": 40,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 15,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 8
+            },
+            {
+              "Frame": 50,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 16.25,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 8
             },
             {
               "Frame": 60,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": -35,
+              "Angle": 17.5,
               "ScaleX": 1,
               "ScaleY": 1,
-              "Picture": 15
+              "Picture": 8
+            },
+            {
+              "Frame": 70,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 18.75,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 8
+            },
+            {
+              "Frame": 80,
+              "X": -2.204364238465236e-15,
+              "Y": 12,
+              "Angle": 20,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 8
             },
             {
               "Frame": 90,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": -28,
+              "Angle": 21.25,
               "ScaleX": 1,
               "ScaleY": 1,
-              "Picture": 15
+              "Picture": 8
             },
             {
-              "Frame": 92,
+              "Frame": 100,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": -28,
+              "Angle": 22.5,
               "ScaleX": 1,
               "ScaleY": 1,
-              "Picture": 15
+              "Picture": 8
             },
             {
-              "Frame": 122,
+              "Frame": 110,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": -18,
+              "Angle": 23.75,
               "ScaleX": 1,
               "ScaleY": 1,
-              "Picture": 15
+              "Picture": 8
             },
             {
-              "Frame": 152,
+              "Frame": 120,
               "X": -2.204364238465236e-15,
               "Y": 12,
-              "Angle": -32,
+              "Angle": 25,
               "ScaleX": 1,
               "ScaleY": 1,
-              "Picture": 15
-            },
-            {
-              "Frame": 182,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -25,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 15
-            },
-            {
-              "Frame": 212,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -18,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 15
-            },
-            {
-              "Frame": 214,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -18,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 15
-            },
-            {
-              "Frame": 244,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 14,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 15
-            },
-            {
-              "Frame": 274,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 5,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 15
-            },
-            {
-              "Frame": 304,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 8,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 15
-            },
-            {
-              "Frame": 334,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 14,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 15
-            },
-            {
-              "Frame": 336,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 14,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 15
-            },
-            {
-              "Frame": 366,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -6,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 15
-            },
-            {
-              "Frame": 396,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -15,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 15
-            },
-            {
-              "Frame": 426,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 15
-            },
-            {
-              "Frame": 456,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -6,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 15
-            },
-            {
-              "Frame": 458,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -6,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 15
-            },
-            {
-              "Frame": 488,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -10,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 15
-            },
-            {
-              "Frame": 518,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -9,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 15
-            },
-            {
-              "Frame": 548,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -8,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 15
-            },
-            {
-              "Frame": 578,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -10,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 15
-            },
-            {
-              "Frame": 580,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -10,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 15
-            },
-            {
-              "Frame": 610,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -13,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 15
-            },
-            {
-              "Frame": 640,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 15
-            },
-            {
-              "Frame": 670,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": 3,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 15
-            },
-            {
-              "Frame": 700,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -13,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 15
-            },
-            {
-              "Frame": 702,
-              "X": -2.204364238465236e-15,
-              "Y": 12,
-              "Angle": -13,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 15
+              "Picture": 8
             }
           ]
         },
@@ -2498,10 +1121,46 @@
               "Picture": 0
             },
             {
+              "Frame": 10,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -3.5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": -2,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
               "Frame": 30,
               "X": 1.7364817766692997,
               "Y": 9.848077530122081,
-              "Angle": -9,
+              "Angle": -0.5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 1,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 50,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 2.5,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -2510,7 +1169,25 @@
               "Frame": 60,
               "X": 1.7364817766692997,
               "Y": 9.848077530122081,
-              "Angle": -6,
+              "Angle": 4,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 70,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 5.5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 80,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 7,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -2519,241 +1196,34 @@
               "Frame": 90,
               "X": 1.7364817766692997,
               "Y": 9.848077530122081,
-              "Angle": -5,
+              "Angle": 8.5,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 92,
+              "Frame": 100,
               "X": 1.7364817766692997,
               "Y": 9.848077530122081,
-              "Angle": -5,
+              "Angle": 10,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 122,
+              "Frame": 110,
               "X": 1.7364817766692997,
               "Y": 9.848077530122081,
-              "Angle": -5,
+              "Angle": 11.5,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 152,
+              "Frame": 120,
               "X": 1.7364817766692997,
               "Y": 9.848077530122081,
-              "Angle": -9,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 182,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": -6,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 212,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": -5,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 214,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": -5,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 244,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": -5,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 274,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": -9,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 304,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": -6,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 334,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": -5,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 336,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": -5,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 366,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": -5,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 396,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": -9,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 426,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": -6,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 456,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": -5,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 458,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": -5,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 488,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": -5,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 518,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": -9,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 548,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": -6,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 578,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": -5,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 580,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": -5,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 610,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": -5,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 640,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": -9,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 670,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": -6,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 700,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": -5,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 702,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": -5,
+              "Angle": 13,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -2773,10 +1243,46 @@
               "Picture": 0
             },
             {
+              "Frame": 10,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 36.166666666666664,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 35.333333333333336,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
               "Frame": 30,
               "X": -4.0413344371862654e-15,
               "Y": 22,
-              "Angle": 50,
+              "Angle": 34.5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 33.666666666666664,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 50,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 32.833333333333336,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -2785,7 +1291,25 @@
               "Frame": 60,
               "X": -4.0413344371862654e-15,
               "Y": 22,
-              "Angle": 53,
+              "Angle": 32,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 70,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 31.166666666666664,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 80,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": 30.333333333333336,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -2794,241 +1318,34 @@
               "Frame": 90,
               "X": -4.0413344371862654e-15,
               "Y": 22,
-              "Angle": 37,
+              "Angle": 29.5,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 92,
+              "Frame": 100,
               "X": -4.0413344371862654e-15,
               "Y": 22,
-              "Angle": 37,
+              "Angle": 28.666666666666664,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 122,
+              "Frame": 110,
               "X": -4.0413344371862654e-15,
               "Y": 22,
-              "Angle": 37,
+              "Angle": 27.833333333333336,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 152,
+              "Frame": 120,
               "X": -4.0413344371862654e-15,
               "Y": 22,
-              "Angle": 50,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 182,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 53,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 212,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 37,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 214,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 37,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 244,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 37,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 274,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 50,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 304,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 53,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 334,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 37,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 336,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 37,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 366,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 37,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 396,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 50,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 426,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 53,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 456,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 37,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 458,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 37,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 488,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 37,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 518,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 50,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 548,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 53,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 578,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 37,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 580,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 37,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 610,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 37,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 640,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 50,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 670,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 53,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 700,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 37,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 702,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 37,
+              "Angle": 27,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -3048,10 +1365,46 @@
               "Picture": 0
             },
             {
+              "Frame": 10,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -12.666666666666666,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -13.333333333333334,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
               "Frame": 30,
               "X": -1.3083989060736076,
               "Y": 24.965738368864347,
-              "Angle": 1,
+              "Angle": -14,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -14.666666666666666,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 50,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -15.333333333333334,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -3060,7 +1413,25 @@
               "Frame": 60,
               "X": -1.3083989060736076,
               "Y": 24.965738368864347,
-              "Angle": 1,
+              "Angle": -16,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 70,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -16.666666666666668,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 80,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -17.333333333333332,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -3069,241 +1440,34 @@
               "Frame": 90,
               "X": -1.3083989060736076,
               "Y": 24.965738368864347,
-              "Angle": -12,
+              "Angle": -18,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 92,
+              "Frame": 100,
               "X": -1.3083989060736076,
               "Y": 24.965738368864347,
-              "Angle": -12,
+              "Angle": -18.666666666666668,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 122,
+              "Frame": 110,
               "X": -1.3083989060736076,
               "Y": 24.965738368864347,
-              "Angle": -12,
+              "Angle": -19.333333333333332,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 152,
+              "Frame": 120,
               "X": -1.3083989060736076,
               "Y": 24.965738368864347,
-              "Angle": 1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 182,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": 1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 212,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": -12,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 214,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": -12,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 244,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": -12,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 274,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": 1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 304,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": 1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 334,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": -12,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 336,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": -12,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 366,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": -12,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 396,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": 1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 426,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": 1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 456,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": -12,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 458,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": -12,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 488,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": -12,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 518,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": 1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 548,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": 1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 578,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": -12,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 580,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": -12,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 610,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": -12,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 640,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": 1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 670,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": 1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 700,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": -12,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 702,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": -12,
+              "Angle": -20,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -3323,10 +1487,46 @@
               "Picture": 0
             },
             {
+              "Frame": 10,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 8.5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 10,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
               "Frame": 30,
               "X": 1.7364817766692997,
               "Y": 9.848077530122081,
-              "Angle": 11,
+              "Angle": 11.5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 13,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 50,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 14.5,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -3335,7 +1535,25 @@
               "Frame": 60,
               "X": 1.7364817766692997,
               "Y": 9.848077530122081,
-              "Angle": 14,
+              "Angle": 16,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 70,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 17.5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 80,
+              "X": 1.7364817766692997,
+              "Y": 9.848077530122081,
+              "Angle": 19,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -3344,241 +1562,34 @@
               "Frame": 90,
               "X": 1.7364817766692997,
               "Y": 9.848077530122081,
-              "Angle": 7,
+              "Angle": 20.5,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 92,
+              "Frame": 100,
               "X": 1.7364817766692997,
               "Y": 9.848077530122081,
-              "Angle": 7,
+              "Angle": 22,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 122,
+              "Frame": 110,
               "X": 1.7364817766692997,
               "Y": 9.848077530122081,
-              "Angle": 7,
+              "Angle": 23.5,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 152,
+              "Frame": 120,
               "X": 1.7364817766692997,
               "Y": 9.848077530122081,
-              "Angle": 11,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 182,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": 14,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 212,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": 7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 214,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": 7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 244,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": 7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 274,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": 11,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 304,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": 14,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 334,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": 7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 336,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": 7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 366,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": 7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 396,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": 11,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 426,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": 14,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 456,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": 7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 458,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": 7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 488,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": 7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 518,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": 11,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 548,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": 14,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 578,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": 7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 580,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": 7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 610,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": 7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 640,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": 11,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 670,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": 14,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 700,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": 7,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 702,
-              "X": 1.7364817766692997,
-              "Y": 9.848077530122081,
-              "Angle": 7,
+              "Angle": 25,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -3598,10 +1609,46 @@
               "Picture": 0
             },
             {
+              "Frame": 10,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": -0.8333333333333333,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": -1.6666666666666665,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
               "Frame": 30,
               "X": -4.0413344371862654e-15,
               "Y": 22,
-              "Angle": 2,
+              "Angle": -2.5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": -3.333333333333333,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 50,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": -4.166666666666667,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -3610,7 +1657,25 @@
               "Frame": 60,
               "X": -4.0413344371862654e-15,
               "Y": 22,
-              "Angle": 2,
+              "Angle": -5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 70,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": -5.833333333333334,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 80,
+              "X": -4.0413344371862654e-15,
+              "Y": 22,
+              "Angle": -6.666666666666666,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -3619,241 +1684,34 @@
               "Frame": 90,
               "X": -4.0413344371862654e-15,
               "Y": 22,
-              "Angle": 0,
+              "Angle": -7.5,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 92,
+              "Frame": 100,
               "X": -4.0413344371862654e-15,
               "Y": 22,
-              "Angle": 0,
+              "Angle": -8.333333333333334,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 122,
+              "Frame": 110,
               "X": -4.0413344371862654e-15,
               "Y": 22,
-              "Angle": 0,
+              "Angle": -9.166666666666666,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 152,
+              "Frame": 120,
               "X": -4.0413344371862654e-15,
               "Y": 22,
-              "Angle": 2,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 182,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 2,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 212,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 0,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 214,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 0,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 244,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 0,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 274,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 2,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 304,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 2,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 334,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 0,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 336,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 0,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 366,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 0,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 396,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 2,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 426,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 2,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 456,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 0,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 458,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 0,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 488,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 0,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 518,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 2,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 548,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 2,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 578,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 0,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 580,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 0,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 610,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 0,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 640,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 2,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 670,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 2,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 700,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 0,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 702,
-              "X": -4.0413344371862654e-15,
-              "Y": 22,
-              "Angle": 0,
+              "Angle": -10,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -3873,6 +1731,24 @@
               "Picture": 0
             },
             {
+              "Frame": 10,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": 0.33333333333333337,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -0.33333333333333326,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
               "Frame": 30,
               "X": -1.3083989060736076,
               "Y": 24.965738368864347,
@@ -3882,10 +1758,46 @@
               "Picture": 0
             },
             {
+              "Frame": 40,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -1.6666666666666665,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 50,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -2.3333333333333335,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
               "Frame": 60,
               "X": -1.3083989060736076,
               "Y": 24.965738368864347,
-              "Angle": -1,
+              "Angle": -3,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 70,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -3.666666666666667,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 80,
+              "X": -1.3083989060736076,
+              "Y": 24.965738368864347,
+              "Angle": -4.333333333333333,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -3894,241 +1806,34 @@
               "Frame": 90,
               "X": -1.3083989060736076,
               "Y": 24.965738368864347,
-              "Angle": 1,
+              "Angle": -5,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 92,
+              "Frame": 100,
               "X": -1.3083989060736076,
               "Y": 24.965738368864347,
-              "Angle": 1,
+              "Angle": -5.666666666666667,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 122,
+              "Frame": 110,
               "X": -1.3083989060736076,
               "Y": 24.965738368864347,
-              "Angle": 1,
+              "Angle": -6.333333333333333,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
             },
             {
-              "Frame": 152,
+              "Frame": 120,
               "X": -1.3083989060736076,
               "Y": 24.965738368864347,
-              "Angle": -1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 182,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": -1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 212,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": 1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 214,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": 1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 244,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": 1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 274,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": -1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 304,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": -1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 334,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": 1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 336,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": 1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 366,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": 1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 396,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": -1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 426,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": -1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 456,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": 1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 458,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": 1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 488,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": 1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 518,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": -1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 548,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": -1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 578,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": 1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 580,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": 1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 610,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": 1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 640,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": -1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 670,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": -1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 700,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": 1,
-              "ScaleX": 1,
-              "ScaleY": 1,
-              "Picture": 0
-            },
-            {
-              "Frame": 702,
-              "X": -1.3083989060736076,
-              "Y": 24.965738368864347,
-              "Angle": 1,
+              "Angle": -7,
               "ScaleX": 1,
               "ScaleY": 1,
               "Picture": 0
@@ -4136,278 +1841,7 @@
           ]
         }
       ],
-      "Root": [
-        {
-          "Frame": 0,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 30,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 60,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 90,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 92,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 122,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 152,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 182,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 212,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 214,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 244,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 274,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 304,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 334,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 336,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 366,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 396,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 426,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 456,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 458,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 488,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 518,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 548,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 578,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 580,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 610,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 640,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 670,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 700,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        },
-        {
-          "Frame": 702,
-          "X": 0,
-          "Y": 1,
-          "Angle": 0,
-          "ScaleX": 1,
-          "ScaleY": 1,
-          "Picture": 0
-        }
-      ],
+      "Root": [],
       "Phases": [],
       "Events": []
     }

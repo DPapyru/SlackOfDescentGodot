@@ -16,12 +16,18 @@ public sealed class RopeCreature : IEntityBehavior
     private const double HeadRadius = 4;
     private const double HeadGravity = 1.5;
     private const double MaxFall = 12;
+    private const double JumpSpeed = 2.2;
+    private const double JumpImpulse = -11;
+    private const double JumpGravity = .5;
+    private const int MaxJumpFrames = 90;
     private const double RopeDepth = -100000;
     private readonly HandConstraint constraints;
     private readonly VerletChain chain = new(SegmentLength, 2);
     private readonly List<GmBounds> solids = [];
     private ActorContext? victim;
     private double startX, startY, direction = 1, headVelocity;
+    private bool grounded, jumping;
+    private int jumpFrame;
 
     public RopeCreature(HandConstraint constraints) => this.constraints = constraints;
     public string Id => "ropebonds.creature";
@@ -40,21 +46,26 @@ public sealed class RopeCreature : IEntityBehavior
         if (victim is not null && !constraints.IsBound(victim.Id)) Release(entity);
         if (victim is not null) { Follow(entity); return; }
         ActorContext? player = Player(entity);
-        if (player is not null && Math.Abs(player.X - entity.X) < DetectRange && Math.Abs(player.Y - entity.Y) < 140)
+        (double X, double Y)? hands = player is null ? null : Hands(player);
+        if (hands is { } target
+            && Math.Abs(target.X - entity.X) < DetectRange && Math.Abs(target.Y - entity.Y) < 140)
         {
-            int toward = Math.Sign(player.X - entity.X);
-            if (toward != 0) direction = toward;
-            if (Math.Abs(player.X - entity.X) <= AttachRange) { Attach(entity, player); return; }
-            entity.X += direction * Speed;
+            int facing = Math.Sign(target.X - entity.X);
+            if (facing != 0) direction = facing;
+            if (Math.Abs(target.X - entity.X) <= AttachRange && Math.Abs(target.Y - entity.Y) <= AttachRange) { Attach(entity, player!); return; }
+            if (grounded && !jumping) Jump();
+            entity.X += jumping ? Math.Clamp(target.X - entity.X, -JumpSpeed, JumpSpeed) : direction * Speed;
         }
-        else
+        else if (!jumping)
         {
             entity.X += direction * Speed * .5;
             if (entity.X < startX - PatrolRange || entity.X > startX + PatrolRange) direction = -direction;
         }
-        headVelocity = Math.Min(headVelocity + HeadGravity, MaxFall);
+        if (jumping && ++jumpFrame > MaxJumpFrames) jumping = false;
+        headVelocity = Math.Min(headVelocity + (jumping ? JumpGravity : HeadGravity), MaxFall);
         entity.Y += headVelocity;
-        ResolveHead(entity);
+        grounded = false;
+        if (ResolveHead(entity)) { grounded = true; jumping = false; }
         chain.Step(entity.X, entity.Y);
         chain.Clamp(entity.X, entity.Y, 256, entity.World.Engine.Read("room_width").Number, entity.World.Engine.Read("room_height").Number);
         ResolveSolids();
@@ -66,20 +77,17 @@ public sealed class RopeCreature : IEntityBehavior
         if (!constraints.Bind(player)) return;
         victim = player;
         headVelocity = 0;
-        entity.X = player.X;
-        entity.Y = player.Y;
+        jumping = false;
+        (entity.X, entity.Y) = Hands(player);
         chain.Reset(Segments, entity.X, entity.Y);
         Console.WriteLine("ROPE_ATTACH actor=" + player.Id + " x=" + entity.X + " y=" + entity.Y);
     }
 
     private void Follow(ActorContext entity)
     {
-        ActorContext player = victim!;
-        ActorContext? left = player.Part("HAND3_ABOVE");
-        ActorContext? right = player.Part("HAND3_BELOW");
-        if (left is not null && right is not null) { entity.X = (left.X + right.X) / 2; entity.Y = (left.Y + right.Y) / 2; }
-        else if (left is not null) { entity.X = left.X; entity.Y = left.Y; }
+        (entity.X, entity.Y) = Hands(victim!);
         headVelocity = 0;
+        jumping = false;
         chain.Step(entity.X, entity.Y);
         ResolveSolids();
         Render(entity);
@@ -93,6 +101,7 @@ public sealed class RopeCreature : IEntityBehavior
             victim = null;
         }
         headVelocity = 0;
+        jumping = false;
         if (!entity.Instance.Destroyed)
         {
             RemoveSprites(entity);
@@ -109,6 +118,9 @@ public sealed class RopeCreature : IEntityBehavior
         victim = null;
         direction = 1;
         headVelocity = 0;
+        grounded = false;
+        jumping = false;
+        jumpFrame = 0;
         chain.Reset(Segments, startX, startY);
         CollectSolids(entity);
     }
@@ -124,8 +136,25 @@ public sealed class RopeCreature : IEntityBehavior
         }
     }
 
-    private void ResolveHead(ActorContext entity)
+    private void Jump()
     {
+        jumping = true;
+        jumpFrame = 0;
+        headVelocity = JumpImpulse;
+    }
+
+    private static (double X, double Y) Hands(ActorContext player)
+    {
+        ActorContext? left = player.Part("HAND3_ABOVE");
+        ActorContext? right = player.Part("HAND3_BELOW");
+        if (left is not null && right is not null) return ((left.X + right.X) / 2, (left.Y + right.Y) / 2);
+        if (left is not null) return (left.X, left.Y);
+        return right is not null ? (right.X, right.Y) : (player.X, player.Y);
+    }
+
+    private bool ResolveHead(ActorContext entity)
+    {
+        bool grounded = false;
         foreach (GmBounds bounds in solids)
         {
             double x = entity.X, y = entity.Y;
@@ -138,9 +167,10 @@ public sealed class RopeCreature : IEntityBehavior
             double smallest = Math.Min(Math.Min(left, right), Math.Min(top, bottom));
             if (smallest == left) entity.X = bounds.Left - HeadRadius - .01;
             else if (smallest == right) entity.X = bounds.Right + HeadRadius + .01;
-            else if (smallest == top) { entity.Y = bounds.Top - HeadRadius - .01; headVelocity = 0; }
+            else if (smallest == top) { entity.Y = bounds.Top - HeadRadius - .01; headVelocity = 0; grounded = true; }
             else { entity.Y = bounds.Bottom + HeadRadius + .01; headVelocity = 0; }
         }
+        return grounded;
     }
 
     private void ResolveSolids()

@@ -7,7 +7,7 @@ namespace RopeBonds;
 
 public sealed class HandConstraint : IDisposable
 {
-    private const string Handler = "ropebonds.hand.constraint";
+    private const string Handler = "ropebonds.hand.constraint", VerifyHandler = "ropebonds.hand.verify";
     public static readonly string[] Hands =
     [
         "HAND1_ABOVE", "HAND2_ABOVE", "HAND3_ABOVE",
@@ -17,9 +17,14 @@ public sealed class HandConstraint : IDisposable
     private sealed record Snapshot(double Angle, double ScaleX, double ScaleY, int Picture, double ImageIndex, double PX, double PY);
     private sealed record Entry(ActorContext Actor, List<Bone> Bones, Dictionary<string, Snapshot> Pose);
     private readonly Dictionary<int, Entry> entries = new();
+    private readonly Dictionary<int, (double X, double Y, double Angle)> written = new();
+    private readonly bool trace = Environment.GetEnvironmentVariable("ROPEBONDS_TRACE") is { Length: > 0 };
 
-    public void Attach(ModContext context) =>
+    public void Attach(ModContext context)
+    {
         context.Subscribe(Handler, NativeEventNames.StepEnd, NativeEventPhase.After, _ => Tick());
+        context.Subscribe(VerifyHandler, NativeEventNames.StepBegin, NativeEventPhase.Before, _ => Verify());
+    }
 
     public bool Bind(ActorContext actor, IEnumerable<string>? names = null)
     {
@@ -50,6 +55,7 @@ public sealed class HandConstraint : IDisposable
     {
         if (!entries.Remove(actor.Id, out var entry)) return false;
         Restore(entry, Direction(actor));
+        if (trace) foreach (Bone bone in entry.Bones) written.Remove(bone.Instance.Id);
         Console.WriteLine("ROPE_BIND_RELEASE actor=" + actor.Id);
         return true;
     }
@@ -87,13 +93,33 @@ public sealed class HandConstraint : IDisposable
         return depth;
     }
 
-    private static void Restore(Entry entry, double direction)
+    private void Verify()
+    {
+        if (!trace) return;
+        foreach (Entry entry in entries.Values)
+            foreach (Bone bone in entry.Bones)
+            {
+                if (bone.Instance.Destroyed || bone.Parent.Destroyed)
+                {
+                    if (written.Remove(bone.Instance.Id)) Console.WriteLine("ROPE_BONE_LOST bone=" + bone.Name + " actor=" + entry.Actor.Id);
+                    continue;
+                }
+                if (!written.TryGetValue(bone.Instance.Id, out var pose)) continue;
+                double x = bone.Instance.Scope.ReadOr("x").Number, y = bone.Instance.Scope.ReadOr("y").Number, angle = bone.Instance.Scope.ReadOr("Angle").Number;
+                if (Math.Abs(x - pose.X) < .01 && Math.Abs(y - pose.Y) < .01 && Math.Abs(angle - pose.Angle) < .01) continue;
+                Console.WriteLine("ROPE_POSE_MOVED bone=" + bone.Name + " actor=" + entry.Actor.Id + " dx=" + (x - pose.X).ToString("0.00") + " dy=" + (y - pose.Y).ToString("0.00") + " da=" + (angle - pose.Angle).ToString("0.00"));
+                written.Remove(bone.Instance.Id);
+            }
+    }
+
+    private void Restore(Entry entry, double direction)
     {
         foreach (Bone bone in entry.Bones)
         {
             if (bone.Instance.Destroyed || bone.Parent.Destroyed) continue;
             if (!entry.Pose.TryGetValue(bone.Name, out var pose)) continue;
             Apply(bone.Instance, bone.Parent, pose, entry.Actor, direction);
+            if (trace) written[bone.Instance.Id] = (bone.Instance.Scope.ReadOr("x").Number, bone.Instance.Scope.ReadOr("y").Number, bone.Instance.Scope.ReadOr("Angle").Number);
         }
     }
 

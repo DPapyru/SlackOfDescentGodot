@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using SlackOfDescent;
 
 namespace RopeBonds;
@@ -42,11 +41,16 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
     private double headVelocity;
     private bool jumping;
     private bool render = true;
-    private bool diagnosed;
+    private bool reported;
 
     public string Id => "ropebonds.creature";
 
-    public void Created(ActorContext entity) => Reset(entity);
+    public void Created(ActorContext entity)
+    {
+        entity.Write("HP", 10000);
+        Console.WriteLine("ropebonds.creature spawn x=" + entity.X + " y=" + entity.Y + " id=" + entity.Id);
+        Reset(entity);
+    }
     public void RoomEntered(ActorContext entity) => Reset(entity);
     public void RoomExited(ActorContext entity) => Release();
     public void Detach(ActorContext entity) => Release();
@@ -73,44 +77,24 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
         try
         {
             var presentation = entity.Services.Presentation;
+            if (!render) return;
+            presentation.Sprite(entity.Id, "rope.head", "ropebonds.rope_head", chain[0].X, chain[0].Y, Angle(chain[1], chain[0]), 2, 2, 2, 2, RopeDepth);
             for (int index = 1; index < chain.Count; index++)
             {
                 var from = chain[index - 1]; var to = chain[index];
-                presentation.Line(entity.Id, "rope.line." + (index - 1), from.X, from.Y, to.X, to.Y, 1.0 / 30, 0xff6600, 2);
+                presentation.Sprite(entity.Id, "rope.body." + (index - 1), "ropebonds.rope_body", (from.X + to.X) / 2, (from.Y + to.Y) / 2, Angle(from, to), chain.Spacing(index) / 11, 2, 5.5, 2, RopeDepth);
             }
-            if (render)
-            {
-                presentation.Sprite(entity.Id, "rope.head", "ropebonds.rope_head", chain[0].X, chain[0].Y, Angle(chain[1], chain[0]), 2, 2, 2, 2, RopeDepth);
-                for (int index = 1; index < chain.Count; index++)
-                {
-                    var from = chain[index - 1]; var to = chain[index];
-                    presentation.Sprite(entity.Id, "rope.body." + (index - 1), "ropebonds.rope_body", (from.X + to.X) / 2, (from.Y + to.Y) / 2, Angle(from, to), chain.Spacing(index) / 11, 2, 5.5, 2, RopeDepth);
-                }
-            }
+            if (reported) return;
+            reported = true;
+            Console.WriteLine("ropebonds.creature render id=" + entity.Id + " chain=" + chain.Count);
+            int count = presentation.Sprites.Count(sprite => sprite.Owner == entity.Id);
+            if (count != chain.Count) Console.Error.WriteLine("ROPEBONDS sprite count " + count + " expected " + chain.Count);
         }
         catch (Exception error)
         {
             render = false;
             Console.Error.WriteLine("ROPEBONDS render failed: " + error.Message);
         }
-        Diagnose(entity);
-    }
-
-    private void Diagnose(ActorContext entity)
-    {
-        if (diagnosed) return;
-        diagnosed = true;
-        var sprites = entity.Services.Presentation.Sprites.Where(sprite => sprite.Owner == entity.Id).ToArray();
-        string first = sprites.Length == 0 ? "none" : sprites[0].X + "," + sprites[0].Y + "," + sprites[0].Angle + "," + sprites[0].ScaleX;
-        Console.WriteLine("ROPEBONDS_RENDER owner=" + entity.Id + " active=" + entity.Instance.Active + " sprites=" + sprites.Length
-            + " head=" + Resolve(entity.Services, "ropebonds.rope_head") + " body=" + Resolve(entity.Services, "ropebonds.rope_body")
-            + " first=" + first);
-    }
-
-    private static string Resolve(NativeModServices services, string id)
-    {
-        var registry = typeof(NativeModServices).GetField("Registry", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(services) as ContentRegistry;
-        return registry is not null && registry.Resources.TryGetValue(id, out var path) ? path : "(unresolved)";
     }
 
     private static double Angle((double X, double Y) from, (double X, double Y) to) => Math.Atan2(-(to.Y - from.Y), to.X - from.X) * 180 / Math.PI;

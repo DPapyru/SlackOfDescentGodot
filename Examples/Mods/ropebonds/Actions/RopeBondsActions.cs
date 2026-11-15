@@ -15,6 +15,7 @@ public sealed class SinkDriver
     private const string TickHandler = "ropebonds.sink.tick", SpawnHandler = "ropebonds.sink.spawn";
     private readonly ContentRegistry content;
     private readonly Dictionary<int, double> frames = new();
+    private readonly HashSet<string> warned = new();
     private MotionClip? clip;
     private GmWorld? world;
     private ActorContext? player;
@@ -47,16 +48,12 @@ public sealed class SinkDriver
         player = actor;
         if (actor is null) { frames.Clear(); return; }
         foreach (int id in frames.Keys.Where(id => id != actor.Id).ToArray()) frames.Remove(id);
-        if (actor.Read("touchingQS") == 0 || !NativeActorActions.MotionMatches(actor, "STAND_0_QUICKSAND"))
-        {
-            frames.Remove(actor.Id);
-            return;
-        }
+        if (actor.Read("touchingQS") == 0) { frames.Remove(actor.Id); return; }
         double frame = frames.TryGetValue(actor.Id, out var previous) ? Math.Min(active.Duration, previous + 2) : 0;
-        Write(active, actor, frame);
+        if (NativeActorActions.MotionMatches(actor, "STAND_0_QUICKSAND") || NativeActorActions.MotionMatches(actor, "STAND_1_QUICKSAND")) Write(active, actor, frame);
         frames[actor.Id] = frame;
     }
-    private static void Write(MotionClip clip, ActorContext actor, double frame)
+    private void Write(MotionClip clip, ActorContext actor, double frame)
     {
         var sample = clip.Sample(frame);
         var parts = Parts(actor);
@@ -68,7 +65,11 @@ public sealed class SinkDriver
             if (!sample.TryGetValue(name, out var local)) continue;
             int parentId = bone.Scope.ReadOr("parent", actor.Id).Int;
             GmInstance? parent = parentId == actor.Id ? actor.Instance : byId.GetValueOrDefault(parentId);
-            if (parent is null || parent.Destroyed) continue;
+            if (parent is null || parent.Destroyed)
+            {
+                if (warned.Add(name)) Console.Error.WriteLine("ROPEBONDS sink parent missing, bone skipped: " + name);
+                continue;
+            }
             double parentAngle = ParentAngle(actor, parent);
             double radians = parentAngle * Math.PI / 180, cos = Math.Cos(radians), sin = Math.Sin(radians);
             bone.Scope.Write("Angle", local.Angle);

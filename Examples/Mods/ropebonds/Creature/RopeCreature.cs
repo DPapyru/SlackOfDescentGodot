@@ -13,12 +13,15 @@ public sealed class RopeCreature : IEntityBehavior
     private const double AttachRange = 18;
     private const double PatrolRange = 64;
     private const double HalfThickness = 2;
+    private const double HeadRadius = 4;
+    private const double HeadGravity = .5;
+    private const double MaxFall = 8;
     private const double RopeDepth = -100000;
     private readonly HandConstraint constraints;
-    private readonly VerletChain chain = new(SegmentLength, .2);
+    private readonly VerletChain chain = new(SegmentLength, .6);
     private readonly List<GmBounds> solids = [];
     private ActorContext? victim;
-    private double startX, startY, direction = 1;
+    private double startX, startY, direction = 1, headVelocity;
 
     public RopeCreature(HandConstraint constraints) => this.constraints = constraints;
     public string Id => "ropebonds.creature";
@@ -49,7 +52,9 @@ public sealed class RopeCreature : IEntityBehavior
             entity.X += direction * Speed * .5;
             if (entity.X < startX - PatrolRange || entity.X > startX + PatrolRange) direction = -direction;
         }
-        entity.Y = startY;
+        headVelocity = Math.Min(headVelocity + HeadGravity, MaxFall);
+        entity.Y += headVelocity;
+        ResolveHead(entity);
         chain.Step(entity.X, entity.Y);
         chain.Clamp(entity.X, entity.Y, 256, entity.World.Engine.Read("room_width").Number, entity.World.Engine.Read("room_height").Number);
         ResolveSolids();
@@ -60,6 +65,7 @@ public sealed class RopeCreature : IEntityBehavior
     {
         if (!constraints.Bind(player)) return;
         victim = player;
+        headVelocity = 0;
         entity.X = player.X;
         entity.Y = player.Y;
         chain.Reset(Segments, entity.X, entity.Y);
@@ -73,6 +79,7 @@ public sealed class RopeCreature : IEntityBehavior
         ActorContext? right = player.Part("HAND3_BELOW");
         if (left is not null && right is not null) { entity.X = (left.X + right.X) / 2; entity.Y = (left.Y + right.Y) / 2; }
         else if (left is not null) { entity.X = left.X; entity.Y = left.Y; }
+        headVelocity = 0;
         chain.Step(entity.X, entity.Y);
         ResolveSolids();
         Render(entity);
@@ -85,6 +92,7 @@ public sealed class RopeCreature : IEntityBehavior
             if (!player.Instance.Destroyed) constraints.Release(player);
             victim = null;
         }
+        headVelocity = 0;
         if (!entity.Instance.Destroyed)
         {
             RemoveSprites(entity);
@@ -100,6 +108,7 @@ public sealed class RopeCreature : IEntityBehavior
         startY = entity.Y;
         victim = null;
         direction = 1;
+        headVelocity = 0;
         chain.Reset(Segments, startX, startY);
         CollectSolids(entity);
     }
@@ -112,6 +121,25 @@ public sealed class RopeCreature : IEntityBehavior
             if (instance.Destroyed || !instance.Active || instance.Id == entity.Id || !instance.Scope.ReadOr("solid").Truth) continue;
             GmBounds bounds = entity.World.Bounds(instance);
             if (!bounds.Empty) solids.Add(bounds);
+        }
+    }
+
+    private void ResolveHead(ActorContext entity)
+    {
+        foreach (GmBounds bounds in solids)
+        {
+            double x = entity.X, y = entity.Y;
+            if (x < bounds.Left - HeadRadius || x > bounds.Right + HeadRadius
+                || y < bounds.Top - HeadRadius || y > bounds.Bottom + HeadRadius) continue;
+            double left = x - (bounds.Left - HeadRadius);
+            double right = bounds.Right + HeadRadius - x;
+            double top = y - (bounds.Top - HeadRadius);
+            double bottom = bounds.Bottom + HeadRadius - y;
+            double smallest = Math.Min(Math.Min(left, right), Math.Min(top, bottom));
+            if (smallest == left) entity.X = bounds.Left - HeadRadius - .01;
+            else if (smallest == right) entity.X = bounds.Right + HeadRadius + .01;
+            else if (smallest == top) { entity.Y = bounds.Top - HeadRadius - .01; headVelocity = 0; }
+            else { entity.Y = bounds.Bottom + HeadRadius + .01; headVelocity = 0; }
         }
     }
 

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using SlackOfDescent;
 
 namespace RopeBonds;
@@ -11,9 +12,11 @@ public sealed class RopeCreature : IEntityBehavior
     private const double DetectRange = 160;
     private const double AttachRange = 18;
     private const double PatrolRange = 64;
+    private const double HalfThickness = 2;
     private const double RopeDepth = -100000;
     private readonly HandConstraint constraints;
     private readonly VerletChain chain = new(SegmentLength, .2);
+    private readonly List<GmBounds> solids = [];
     private ActorContext? victim;
     private double startX, startY, direction = 1;
 
@@ -29,6 +32,7 @@ public sealed class RopeCreature : IEntityBehavior
     public void Update(ActorContext entity, FrameContext frame)
     {
         if (chain.Count == 0) Reset(entity);
+        if (solids.Count == 0) CollectS给olids(entity);
         if (victim is not null && (victim.Instance.Destroyed || !victim.Instance.Active)) Release(entity);
         if (victim is not null && !constraints.IsBound(victim.Id)) Release(entity);
         if (victim is not null) { Follow(entity); return; }
@@ -48,6 +52,7 @@ public sealed class RopeCreature : IEntityBehavior
         entity.Y = startY;
         chain.Step(entity.X, entity.Y);
         chain.Clamp(entity.X, entity.Y, 256, entity.World.Engine.Read("room_width").Number, entity.World.Engine.Read("room_height").Number);
+        ResolveSolids();
         Render(entity);
     }
 
@@ -69,6 +74,7 @@ public sealed class RopeCreature : IEntityBehavior
         if (left is not null && right is not null) { entity.X = (left.X + right.X) / 2; entity.Y = (left.Y + right.Y) / 2; }
         else if (left is not null) { entity.X = left.X; entity.Y = left.Y; }
         chain.Step(entity.X, entity.Y);
+        ResolveSolids();
         Render(entity);
     }
 
@@ -95,6 +101,41 @@ public sealed class RopeCreature : IEntityBehavior
         victim = null;
         direction = 1;
         chain.Reset(Segments, startX, startY);
+        CollectSolids(entity);
+    }
+
+    private void CollectSolids(ActorContext entity)
+    {
+        solids.Clear();
+        foreach (GmInstance instance in entity.World.Instances)
+        {
+            if (instance.Destroyed || !instance.Active || instance.Id == entity.Id || !instance.Scope.ReadOr("solid").Truth) continue;
+            GmBounds bounds = entity.World.Bounds(instance);
+            if (!bounds.Empty) solids.Add(bounds);
+        }
+    }
+
+    private void ResolveSolids()
+    {
+        for (int index = 1; index < chain.Count; index++)
+        {
+            var (x, y) = chain[index];
+            foreach (GmBounds bounds in solids)
+            {
+                if (x < bounds.Left - HalfThickness || x > bounds.Right + HalfThickness
+                    || y < bounds.Top - HalfThickness || y > bounds.Bottom + HalfThickness) continue;
+                double left = x - (bounds.Left - HalfThickness);
+                double right = bounds.Right + HalfThickness - x;
+                double top = y - (bounds.Top - HalfThickness);
+                double bottom = bounds.Bottom + HalfThickness - y;
+                double smallest = Math.Min(Math.Min(left, right), Math.Min(top, bottom));
+                if (smallest == left) x = bounds.Left - HalfThickness - .01;
+                else if (smallest == right) x = bounds.Right + HalfThickness + .01;
+                else if (smallest == top) y = bounds.Top - HalfThickness - .01;
+                else y = bounds.Bottom + HalfThickness + .01;
+            }
+            chain.Place(index, x, y);
+        }
     }
 
     private void Render(ActorContext entity)
@@ -127,7 +168,7 @@ public sealed class RopeCreature : IEntityBehavior
     private static ActorContext? Player(ActorContext entity)
     {
         if (!entity.World.Constants.TryGetValue("objPlayerDoll", out var kind)) return null;
-        foreach (var instance in entity.World.Instances)
+        foreach (GmInstance instance in entity.World.Instances)
             if (!instance.Destroyed && instance.Active && entity.World.IsObject(instance.Object, kind.Int)) return new(entity.World, instance);
         return null;
     }

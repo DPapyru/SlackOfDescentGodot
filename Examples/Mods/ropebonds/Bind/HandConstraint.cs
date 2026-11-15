@@ -11,8 +11,7 @@ public sealed class HandConstraint : IDisposable
     private const string ClipGraph = "ropebonds.bound", ClipId = "bound";
     public static readonly string[] Hands = MotionSkeleton.Bones.Where(name => name.StartsWith("HAND", StringComparison.Ordinal)).ToArray();
     private sealed record Bone(string Name, GmInstance Instance, GmInstance Parent);
-    private sealed record Snapshot(double Angle, double ScaleX, double ScaleY, int Picture, double ImageIndex, double PX, double PY);
-    private sealed record Entry(ActorContext Actor, List<Bone> Bones, Dictionary<string, Snapshot> Pose, MotionClip? Clip)
+    private sealed record Entry(ActorContext Actor, List<Bone> Bones, NativePoseService.Snapshot? Pose, MotionClip? Clip)
     {
         public double Frame;
     }
@@ -34,8 +33,6 @@ public sealed class HandConstraint : IDisposable
     {
         if (actor.Instance.Destroyed || entries.ContainsKey(actor.Id)) return false;
         List<Bone> bones = [];
-        Dictionary<string, Snapshot> pose = new(StringComparer.Ordinal);
-        double direction = Direction(actor);
         MotionSkeletonDescriptor skeleton = MotionSkeletonDescriptor.FromActor(actor.World, actor.Instance);
         foreach (string name in (names ?? Hands).Distinct(StringComparer.Ordinal))
         {
@@ -47,11 +44,10 @@ public sealed class HandConstraint : IDisposable
                 : actor.World.Instances.FirstOrDefault(candidate => candidate.Id == node.Parent && !candidate.Destroyed);
             if (parent is null || parent.Destroyed) continue;
             bones.Add(new Bone(name, instance, parent));
-            pose[name] = SnapshotOf(instance, parent, actor, direction);
         }
         if (bones.Count == 0) return false;
         bones.Sort((left, right) => Depth(left, bones).CompareTo(Depth(right, bones)));
-        entries[actor.Id] = new Entry(actor, bones, pose, BoundClip());
+        entries[actor.Id] = new Entry(actor, bones, actor.Services.Poses.Capture(actor, bones.Select(bone => bone.Name).ToArray()), BoundClip());
         Console.WriteLine("ROPE_BIND_START bones=" + bones.Count + " actor=" + actor.Id);
         return true;
     }
@@ -59,7 +55,7 @@ public sealed class HandConstraint : IDisposable
     public bool Release(ActorContext actor)
     {
         if (!entries.Remove(actor.Id, out var entry)) return false;
-        Restore(entry, Direction(actor));
+        Restore(entry);
         if (trace) foreach (Bone bone in entry.Bones) written.Remove(bone.Instance.Id);
         foreach (Bone bone in entry.Bones) placed.Remove((entry.Actor.Id, bone.Name));
         Console.WriteLine("ROPE_BIND_RELEASE actor=" + actor.Id);
@@ -68,7 +64,7 @@ public sealed class HandConstraint : IDisposable
 
     public void ReleaseAll()
     {
-        foreach (var entry in entries.Values) Restore(entry, Direction(entry.Actor));
+        foreach (var entry in entries.Values) Restore(entry);
         entries.Clear();
     }
 
@@ -87,14 +83,14 @@ public sealed class HandConstraint : IDisposable
             var entry = entries[id];
             if (entry.Actor.Instance.Destroyed) { entries.Remove(id); continue; }
             if (entry.Clip is { } clip) entry.Frame = clip.Loop ? (entry.Frame + 1) % Math.Max(1, clip.Duration) : Math.Min(entry.Frame + 1, clip.Duration);
-            Restore(entry, Direction(entry.Actor));
+            Restore(entry);
         }
     }
 
     private void Prepare()
     {
         foreach (Entry entry in entries.Values)
-            if (!entry.Actor.Instance.Destroyed) Restore(entry, Direction(entry.Actor));
+            if (!entry.Actor.Instance.Destroyed) Restore(entry);
     }
 
     private MotionClip? BoundClip()
@@ -136,63 +132,17 @@ public sealed class HandConstraint : IDisposable
             }
     }
 
-    private void Restore(Entry entry, double direction)
+    private void Restore(Entry entry)
     {
         IReadOnlyDictionary<string, MotionPose>? sample = entry.Clip?.Sample(entry.Frame);
         foreach (Bone bone in entry.Bones)
         {
             if (bone.Instance.Destroyed || bone.Parent.Destroyed) continue;
-            Snapshot? pose = null;
-            if (sample is not null && sample.TryGetValue(bone.Name, out var key)) pose = new(key.Angle, key.ScaleX, key.ScaleY, key.Picture, key.Picture, key.X, key.Y);
-            else pose = entry.Pose.GetValueOrDefault(bone.Name);
-            if (pose is null) continue;
-            Apply(bone.Instance, bone.Parent, pose, entry.Actor, direction);
+            if (sample is not null && sample.TryGetValue(bone.Name, out var key)) entry.Actor.Services.Poses.Apply(entry.Actor, bone.Name, key);
+            else if (entry.Pose is { } snapshot) entry.Actor.Services.Poses.Restore(snapshot, bone.Name);
             placed[(entry.Actor.Id, bone.Name)] = (bone.Instance.Scope.ReadOr("x").Number, bone.Instance.Scope.ReadOr("y").Number);
             if (trace) written[bone.Instance.Id] = (bone.Instance.Scope.ReadOr("x").Number, bone.Instance.Scope.ReadOr("y").Number, bone.Instance.Scope.ReadOr("Angle").Number);
         }
-    }
-
-    private static void Apply(GmInstance bone, GmInstance parent, Snapshot pose, ActorContext actor, double direction)
-    {
-        double parentX = ParentX(actor, parent), parentY = ParentY(actor, parent), parentAngle = ParentAngle(actor, parent);
-        double radians = parentAngle * Math.PI / 180, cos = Math.Cos(radians), sin = Math.Sin(radians);
-        bone.Scope.Write("Angle", pose.Angle);
-        bone.Scope.Write("ScaleX", pose.ScaleX);
-        bone.Scope.Write("ScaleY", pose.ScaleY);
-        bone.Scope.Write("PartPicture", pose.Picture);
-        bone.Scope.Write("image_index", pose.ImageIndex);
-        bone.Scope.Write("x", parentX + (pose.PX * cos + pose.PY * sin) * direction);
-        bone.Scope.Write("y", parentY - pose.PX * sin + pose.PY * cos);
-        bone.Scope.Write("Direction", direction);
-        bone.Scope.Write("image_angle", pose.Angle + parentAngle);
-    }
-
-    private static Snapshot SnapshotOf(GmInstance bone, GmInstance parent, ActorContext actor, double direction)
-    {
-        double parentAngle = ParentAngle(actor, parent);
-        double radians = parentAngle * Math.PI / 180, cos = Math.Cos(radians), sin = Math.Sin(radians);
-        double dx = (bone.Scope.ReadOr("x").Number - ParentX(actor, parent)) / direction;
-        double dy = bone.Scope.ReadOr("y").Number - ParentY(actor, parent);
-        return new(
-            bone.Scope.ReadOr("Angle").Number,
-            bone.Scope.ReadOr("ScaleX", 1).Number,
-            bone.Scope.ReadOr("ScaleY", 1).Number,
-            bone.Scope.ReadOr("PartPicture").Int,
-            bone.Scope.ReadOr("image_index").Number,
-            dx * cos - dy * sin,
-            dx * sin + dy * cos);
-    }
-
-    private static double ParentX(ActorContext actor, GmInstance parent) =>
-        ReferenceEquals(parent, actor.Instance) ? actor.X : parent.Scope.ReadOr("x").Number;
-    private static double ParentY(ActorContext actor, GmInstance parent) =>
-        ReferenceEquals(parent, actor.Instance) ? actor.Y : parent.Scope.ReadOr("y").Number;
-    private static double ParentAngle(ActorContext actor, GmInstance parent) =>
-        ReferenceEquals(parent, actor.Instance) ? actor.Read("image_angle") : parent.Scope.ReadOr("image_angle").Number;
-    private static double Direction(ActorContext actor)
-    {
-        double direction = actor.Read("Direction");
-        return direction == 0 ? 1 : direction;
     }
 
     public void Dispose() => ReleaseAll();

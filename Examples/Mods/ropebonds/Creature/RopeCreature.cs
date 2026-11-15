@@ -74,7 +74,7 @@ public sealed class RopeCreature(ConstraintService constraints) : IEntityBehavio
         if (qte)
         {
             qteTime += frame.Delta;
-            entity.Services.Presentation.Text(entity.Id, "qte", "Z x" + (8 - qteHits), 12, 96);
+            entity.Services.Presentation.Text(entity.Id, "qte", "Z x" + Math.Max(0, 8 - qteHits), 12, 96);
             if (qteTime < 2.5) return;
             qte = false; active = null;
             entity.Services.Presentation.Remove(entity.Id, "qte");

@@ -51,6 +51,7 @@ public sealed class GmInstance
     internal bool PreviousKnown;
     internal double PreviousX;
     internal double PreviousY;
+    internal ActorContext? Context;
 }
 
 public sealed partial class GmWorld
@@ -98,6 +99,15 @@ public sealed partial class GmWorld
         CollisionSnapshotRebuilds++;
         return collisionSnapshots[target] = new(instances, order);
     }
+
+    internal GmInstance? Instance(int id)
+    {
+        if (indexedCount != Instances.Count)
+            ResetInstanceLookup();
+        return instanceLookup.TryGetValue(id, out var found) && !found.Destroyed ? found : null;
+    }
+
+    internal ActorContext Actor(GmInstance instance) => instance.Context ??= new(this, instance);
 
     private void ResetInstanceLookup()
     {
@@ -1427,6 +1437,7 @@ public sealed partial class GmWorld
         NativeServices?.Maps.RoomEntered(id);
         NativeServices?.Dispatch(roomEvent, NativeEventPhase.After);
         PrewarmSlots();
+        CollectAfterLoad();
         Trace.Add("room:" + room.GetProperty("name").GetString());
         if (loadStarted > 0)
             Console.WriteLine(
@@ -1435,6 +1446,13 @@ public sealed partial class GmWorld
                 + "B ms=" + System.Diagnostics.Stopwatch
                     .GetElapsedTime(loadTicks).TotalMilliseconds.ToString("0.0")
             );
+    }
+
+    private static void CollectAfterLoad()
+    {
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
     }
 
     public void Step() => StepAsync().GetAwaiter().GetResult();

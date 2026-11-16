@@ -16,7 +16,11 @@ public sealed class NativePresentation(NativeModServices services)
     public IReadOnlyCollection<NativeLine> Lines => lines.Values;
     public void Line(int owner, string id, double x1, double y1, double x2, double y2, double seconds = .08, int colour = 0x88eeff, double width = 1)
         => lines[(services.CurrentScope, owner, id)] = new(owner, id, x1, y1, x2, y2, services.Frame.GameTime + Math.Max(0, seconds), colour, width);
-    internal void Update() { foreach (var pair in lines.Where(p => p.Value.Expires <= services.Frame.GameTime).ToArray()) lines.Remove(pair.Key); }
+    internal void Update()
+    {
+        if (lines.Count == 0) return;
+        foreach (var pair in lines.Where(p => p.Value.Expires <= services.Frame.GameTime).ToArray()) lines.Remove(pair.Key);
+    }
     public void Sprite(int owner, string id, string resource, double x, double y, double angle = 0, double scaleX = 1, double scaleY = 1, double originX = 0, double originY = 0, double depth = -10000)
     {
         if (!services.Registry.Resources.ContainsKey(resource)) throw new InvalidDataException("资源未加载：" + resource);

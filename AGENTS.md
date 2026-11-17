@@ -10,6 +10,14 @@
 - **Execution Pace:** Execute only one step per turn. Proceed step-by-step rather than completing everything at once, unless explicitly authorized by the user.
 - **Test Isolation:** Tests run only through a dedicated test sub-agent dispatched by the main agent; no other sub-agent may run tests. Concurrent test runs have caused an OOM.
 
+## Code Style
+
+- **Indentation:** 4 spaces per level, never tabs; keep nesting shallow and prefer guard clauses.
+- **One statement per line:** never put a block body on the same line as its header (`if (x) { A(); B(); }`, `for (...) { ... }`, `using (...) { ... }`).
+- **Braces:** open on their own line aligned with the statement, close aligned with the opener; single-statement guards may stay on one line (`if (!ready) return;`).
+- **Long lines:** break signatures, calls and conditions one element per line, indented one level deeper, with the operator at the start of the continuation line.
+- **Touched lines only:** format the lines you change; bulk reformatting belongs in its own commit.
+
 ## Branch Model
 
 - `main` is the stable/release branch; `ai` is the integration branch. Feature branches are cut from `ai`, and feature PRs target `ai`. Release PRs go `ai` -> `main` once per milestone.

@@ -27,7 +27,7 @@ public sealed class RopeCreature : IEntityBehavior
     private static readonly List<RopeCreature> Live = [];
     private ActorContext? victim, self;
     private double startX, startY, direction = 1, headVelocity;
-    private bool grounded, jumping, locked;
+    private bool grounded, jumping, locked, bodiesCleared;
     private int jumpFrame;
 
     public RopeCreature(HandConstraint constraints) => this.constraints = constraints;
@@ -71,7 +71,6 @@ public sealed class RopeCreature : IEntityBehavior
         chain.Step(entity.X, entity.Y);
         chain.Clamp(entity.X, entity.Y, 256, entity.World.Engine.Read("room_width").Number, entity.World.Engine.Read("room_height").Number);
         ResolveSolids();
-        Render(entity);
     }
 
     private void Attach(ActorContext entity, ActorContext player)
@@ -91,20 +90,43 @@ public sealed class RopeCreature : IEntityBehavior
     public static void Prepare()
     {
         foreach (RopeCreature creature in Live)
-            if (creature.self is { } entity && creature.victim is { } player && !entity.Instance.Destroyed && !player.Instance.Destroyed)
-                creature.LockToHands(entity, player);
+        {
+            if (creature.self is not { } entity || entity.Instance.Destroyed) continue;
+            creature.Draw(entity);
+        }
     }
 
-    private void LockToHands(ActorContext entity, ActorContext player)
+    private void Draw(ActorContext entity)
     {
-        if (player.Part("HAND3_ABOVE") is not { } above || player.Part("HAND3_BELOW") is not { } below) return;
-        double x = (above.X + below.X) / 2, y = (above.Y + below.Y) / 2;
-        double dx = x - entity.X, dy = y - entity.Y;
-        if (Math.Abs(dx) < .01 && Math.Abs(dy) < .01) return;
-        entity.X = x;
-        entity.Y = y;
-        for (int index = 0; index < chain.Count; index++) { var (px, py) = chain[index]; chain.Place(index, px + dx, py + dy); }
+        if (victim is { } player && !player.Instance.Destroyed
+            && player.Part("HAND3_ABOVE") is { } above && player.Part("HAND3_BELOW") is { } below)
+        {
+            double x = (above.X + below.X) / 2, y = (above.Y + below.Y) / 2;
+            double dx = x - entity.X, dy = y - entity.Y;
+            if (Math.Abs(dx) >= .01 || Math.Abs(dy) >= .01)
+            {
+                entity.X = x;
+                entity.Y = y;
+                for (int index = 0; index < chain.Count; index++) { var (px, py) = chain[index]; chain.Place(index, px + dx, py + dy); }
+            }
+            RenderBound(entity, above, below);
+            return;
+        }
         Render(entity);
+    }
+
+    private void RenderBound(ActorContext entity, ActorContext above, ActorContext below)
+    {
+        double leftX = above.X, leftY = above.Y, rightX = below.X, rightY = below.Y;
+        double dx = rightX - leftX, dy = rightY - leftY, distance = Math.Sqrt(dx * dx + dy * dy);
+        double angle = Math.Atan2(-dy, dx) * 180 / Math.PI;
+        var presentation = entity.Services.Presentation;
+        presentation.Sprite(entity.Id, "rope.head", "ropebonds.rope_head", leftX, leftY, angle, 2, 2, 4, 2, RopeDepth);
+        presentation.Sprite(entity.Id, "rope.body.0", "ropebonds.rope_body", (leftX + rightX) / 2, (leftY + rightY) / 2, angle, Math.Clamp(distance / 9, .9, 1.1), 2, 4.5, 2, RopeDepth);
+        presentation.Sprite(entity.Id, "rope.head.tail", "ropebonds.rope_head", rightX, rightY, angle + 180, 2, 2, 4, 2, RopeDepth);
+        if (bodiesCleared) return;
+        bodiesCleared = true;
+        for (int index = 1; index < chain.Count - 1; index++) presentation.Remove(entity.Id, "rope.body." + index);
     }
 
     private void Follow(ActorContext entity)
@@ -116,7 +138,6 @@ public sealed class RopeCreature : IEntityBehavior
         jumping = false;
         chain.Step(entity.X, entity.Y);
         ResolveSolids();
-        Render(entity);
     }
 
     private void Release(ActorContext entity)
@@ -128,9 +149,9 @@ public sealed class RopeCreature : IEntityBehavior
         }
         headVelocity = 0;
         jumping = false;
+        bodiesCleared = false;
         if (!entity.Instance.Destroyed)
         {
-            RemoveSprites(entity);
             entity.X = startX;
             entity.Y = startY;
         }
@@ -237,14 +258,6 @@ public sealed class RopeCreature : IEntityBehavior
             presentation.Sprite(entity.Id, "rope.body." + (index - 1), "ropebonds.rope_body",
                 (from.X + to.X) / 2, (from.Y + to.Y) / 2, Angle(from, to), Math.Max(.4, distance / 9), 2, 4.5, 2, RopeDepth);
         }
-    }
-
-    private void RemoveSprites(ActorContext entity)
-    {
-        var presentation = entity.Services.Presentation;
-        presentation.Remove(entity.Id, "rope.head");
-        presentation.Remove(entity.Id, "rope.head.tail");
-        for (int index = 0; index < Segments; index++) presentation.Remove(entity.Id, "rope.body." + index);
     }
 
     private static double Angle((double X, double Y) from, (double X, double Y) to) => Math.Atan2(-(to.Y - from.Y), to.X - from.X) * 180 / Math.PI;

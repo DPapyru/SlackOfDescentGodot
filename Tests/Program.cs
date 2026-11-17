@@ -8,6 +8,7 @@ var self=new GmInstance{Id=999999,Object=-1};
 world.Instances.Add(self);
 var context=new GmContext(self);
 int assertions=0;
+assertions+=TarEndStepTests.Run(world);
 assertions+=MotionGraphTests.Run(world);
 assertions+=MotionTomlTests.Run();
 assertions+=MotionSourceTests.Run();

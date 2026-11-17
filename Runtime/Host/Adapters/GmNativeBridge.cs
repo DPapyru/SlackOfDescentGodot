@@ -212,18 +212,19 @@ public sealed partial class GmNativeBridge : IDisposable
                 if (entityInstances.Remove(pair.Key, out var instance)) { Invoke(pair.Value, instance.Id, () => pair.Value.Destroyed(world.Actor(instance))); Detach(pair.Value, instance); }
                 entities.Remove(pair.Key); entityBindings.Remove(pair.Key); entityFactories.Remove(pair.Key); Services.ClearActor(pair.Key); continue;
             }
-            if (actor.Active)
-            {
-                using var scope = EnterCallback(pair.Value, actor.Id);
-                pair.Value.Update(world.Actor(actor), frame); EntityUpdates++;
-                var bounds = world.Bounds(actor);
-                instanceSnapshot.Clear();
-                foreach (var other in world.Instances) instanceSnapshot.Add(other);
-                foreach (var other in instanceSnapshot)
-                    if (other.Id != actor.Id && other.Active && !other.Destroyed && !bounds.Empty && bounds.Overlaps(world.Bounds(other))) pair.Value.Collided(world.Actor(actor), world.Actor(other));
-            }
+            if (actor.Active) UpdateActive(pair.Value, actor, frame);
         }
         SetControllerFlags();
+    }
+    private void UpdateActive(IEntityBehavior behavior, GmInstance actor, FrameContext frame)
+    {
+        using var scope = EnterCallback(behavior, actor.Id);
+        behavior.Update(world.Actor(actor), frame); EntityUpdates++;
+        var bounds = world.Bounds(actor);
+        instanceSnapshot.Clear();
+        foreach (var other in world.Instances) instanceSnapshot.Add(other);
+        foreach (var other in instanceSnapshot)
+            if (other.Id != actor.Id && other.Active && !other.Destroyed && !bounds.Empty && bounds.Overlaps(world.Bounds(other))) behavior.Collided(world.Actor(actor), world.Actor(other));
     }
     public bool TrySuppressCode(string key, GmContext context)
     {

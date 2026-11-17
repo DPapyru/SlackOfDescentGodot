@@ -1136,7 +1136,7 @@ public sealed partial class GmWorld
             return false;
         var name = definition.GetProperty("name").GetString()!;
         if (
-            name is "objMud" or "objSwampSurface" or "objSwampSurface2"
+            name is "objMud" or "objSwampSurface" or "objSwampSurface2" or "objTarString"
             || name.StartsWith("objQuicksand", StringComparison.Ordinal)
         )
             return true;

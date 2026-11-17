@@ -8,7 +8,7 @@ public sealed partial class GmNativeBridge : IDisposable
 {
     private sealed record ScopeBox(NativeResourceScope Scope);
     private readonly ConditionalWeakTable<object, ScopeBox> scopes = new();
-    private IDisposable EnterCallback(object callback, int actor) => Services.EnterScope(scopes.TryGetValue(callback, out var scope) ? scope.Scope with { Actor = actor } : default);
+    private NativeModServices.ScopeLease EnterCallback(object callback, int actor) => Services.EnterScope(scopes.TryGetValue(callback, out var scope) ? scope.Scope with { Actor = actor } : default);
     private void Invoke(object callback, int actor, Action call) { using var scope = EnterCallback(callback, actor); call(); }
     private T Invoke<T>(object callback, int actor, Func<T> call) { using var scope = EnterCallback(callback, actor); return call(); }
     private T Create<T>(string kind, string id, int actor, Func<T> factory) where T : class
@@ -40,6 +40,9 @@ public sealed partial class GmNativeBridge : IDisposable
     private readonly Dictionary<int,(int Owner,int Ammunition)> originalWeapons = new();
     private readonly Dictionary<int, GmInstance> entityInstances = new();
     private readonly HashSet<GmInstance> roomSurvivors = new();
+    private readonly List<KeyValuePair<int, IEntityBehavior>> entitySnapshot = new();
+    private readonly List<GmInstance> instanceSnapshot = new();
+    private readonly List<int> staleWeapons = new();
     private int room;
     public NativeModServices Services { get; }
     public int ActionUpdates { get; private set; }
@@ -198,24 +201,30 @@ public sealed partial class GmNativeBridge : IDisposable
             if (actor.Active && !(Services.Motions.Controls(actor.Id)&&(pair.Key.Item2 is CharacterActionSlot.Jump or CharacterActionSlot.Dash or CharacterActionSlot.Controller))) { Invoke(pair.Value, actor.Id, () => pair.Value.Update(new(world, actor), frame)); ActionUpdates++; }
         }
         SyncWeapons();
-        foreach (var pair in entities.ToArray())
+        entitySnapshot.Clear();
+        foreach (var pair in entities) entitySnapshot.Add(pair);
+        for (int index = 0; index < entitySnapshot.Count; index++)
         {
+            var pair = entitySnapshot[index];
             var actor = Find(pair.Key);
             if (actor is null)
             {
-                if (entityInstances.Remove(pair.Key, out var instance)) { Invoke(pair.Value, instance.Id, () => pair.Value.Destroyed(new(world, instance))); Detach(pair.Value, instance); }
+                if (entityInstances.Remove(pair.Key, out var instance)) { Invoke(pair.Value, instance.Id, () => pair.Value.Destroyed(world.Actor(instance))); Detach(pair.Value, instance); }
                 entities.Remove(pair.Key); entityBindings.Remove(pair.Key); entityFactories.Remove(pair.Key); Services.ClearActor(pair.Key); continue;
             }
-            if (actor.Active)
-            {
-                using var scope = EnterCallback(pair.Value, actor.Id);
-                pair.Value.Update(new(world, actor), frame); EntityUpdates++;
-                var bounds = world.Bounds(actor);
-                foreach (var other in world.Instances.ToArray())
-                    if (other.Id != actor.Id && other.Active && !other.Destroyed && !bounds.Empty && bounds.Overlaps(world.Bounds(other))) pair.Value.Collided(new(world, actor), new(world, other));
-            }
+            if (actor.Active) UpdateActive(pair.Value, actor, frame);
         }
         SetControllerFlags();
+    }
+    private void UpdateActive(IEntityBehavior behavior, GmInstance actor, FrameContext frame)
+    {
+        using var scope = EnterCallback(behavior, actor.Id);
+        behavior.Update(world.Actor(actor), frame); EntityUpdates++;
+        var bounds = world.Bounds(actor);
+        instanceSnapshot.Clear();
+        foreach (var other in world.Instances) instanceSnapshot.Add(other);
+        foreach (var other in instanceSnapshot)
+            if (other.Id != actor.Id && other.Active && !other.Destroyed && !bounds.Empty && bounds.Overlaps(world.Bounds(other))) behavior.Collided(world.Actor(actor), world.Actor(other));
     }
     public bool TrySuppressCode(string key, GmContext context)
     {
@@ -269,18 +278,21 @@ public sealed partial class GmNativeBridge : IDisposable
     private void SyncWeapons()
     {
         if(!world.Constants.TryGetValue("objNana_Gun",out var kind))return;
-        foreach(var gun in world.Instances.Where(instance=>!instance.Destroyed&&world.IsObject(instance.Object,kind.Int)))
+        foreach(var gun in world.Instances)
         {
+            if(gun.Destroyed||!world.IsObject(gun.Object,kind.Int))continue;
             int target=gun.Scope.ReadOr("DrawTarget",-4).Int;
             if(Find(target) is {} actor&&Binding(target,CharacterActionSlot.Attack) is ICharacterWeapon weapon
-                &&weapon.Mode!=CharacterActionMode.Additive&&Invoke(weapon, target, () => weapon.IsEquipped(new(world,actor)))&&Invoke(weapon, target, () => weapon.State) is {} state)
+                &&weapon.Mode!=CharacterActionMode.Additive&&Invoke(weapon, target, () => weapon.IsEquipped(world.Actor(actor)))&&Invoke(weapon, target, () => weapon.State) is {} state)
             {
                 originalWeapons.TryAdd(gun.Id,(target,gun.Scope.ReadOr("Bullet").Int));
                 gun.Scope.Write("Bullet",Math.Clamp(state.Ammunition,0,state.Capacity));
             }
             else if(originalWeapons.TryGetValue(gun.Id,out var original))RestoreWeapon(gun.Id,original.Ammunition);
         }
-        foreach(int id in originalWeapons.Keys.Where(id=>Find(id) is null).ToArray())originalWeapons.Remove(id);
+        staleWeapons.Clear();
+        foreach(int id in originalWeapons.Keys)if(Find(id) is null)staleWeapons.Add(id);
+        foreach(int id in staleWeapons)originalWeapons.Remove(id);
     }
     private bool ExtendJump(GmInstance actor)
     {
@@ -315,7 +327,7 @@ public sealed partial class GmNativeBridge : IDisposable
         try { behavior.Detach(new(world, actor)); } catch (Exception error) { registry.ReportLifecycle(Services.CurrentScope, "ENTITY_DETACH", error); }
         finally { ClearRuntimeScope(Services.CurrentScope); Services.ClearScope(Services.CurrentScope); }
     }
-    private GmInstance? Find(int id) => world.Instances.FirstOrDefault(i => i.Id == id && !i.Destroyed);
+    private GmInstance? Find(int id) => world.Instance(id);
     private void BuildActions(int id, CharacterDefinition definition)
     {
         foreach (var pair in definition.Actions)
@@ -404,8 +416,9 @@ public sealed partial class GmNativeBridge : IDisposable
     private void SetControllerFlags()
     {
         if (!world.Constants.TryGetValue("objController", out var controllerObject)) return;
-        foreach (var controller in world.Instances.Where(i => !i.Destroyed && world.IsObject(i.Object, controllerObject.Int)))
+        foreach (var controller in world.Instances)
         {
+            if (controller.Destroyed || !world.IsObject(controller.Object, controllerObject.Int)) continue;
             int target = controller.Scope.ReadOr("CtrlTarget", -4).Int;
             if (Find(target) is null)
                 target = world.Instances.FirstOrDefault(i => !i.Destroyed && world.IsObject(i.Object, target))?.Id ?? target;

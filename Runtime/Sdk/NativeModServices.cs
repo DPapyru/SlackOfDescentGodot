@@ -18,11 +18,11 @@ public sealed partial class NativeModServices : IDisposable
     public NativeActorService Actors { get; }
     public NativeMotionService Motions { get; }
     internal NativeResourceScope CurrentScope { get; private set; }
-    internal IDisposable EnterScope(NativeResourceScope scope)
+    internal ScopeLease EnterScope(NativeResourceScope scope)
     {
-        var previous = CurrentScope; CurrentScope = scope; return new ScopeLease(this, previous);
+        var previous = CurrentScope; CurrentScope = scope; return new(this, previous);
     }
-    private sealed class ScopeLease(NativeModServices services, NativeResourceScope previous) : IDisposable
+    internal readonly struct ScopeLease(NativeModServices services, NativeResourceScope previous) : IDisposable
     { public void Dispose() => services.CurrentScope = previous; }
     internal void ClearScope(NativeResourceScope scope) { Entities.ClearScope(scope); Presentation.ClearScope(scope); Audio.ClearScope(scope); Instances.ClearScope(scope); Actors.ClearScope(scope); Motions.ClearScope(scope); }
     private void ClearOwner(NativeModOwner owner) { Entities.ClearOwner(owner); Presentation.ClearOwner(owner); Audio.ClearOwner(owner); Instances.ClearOwner(owner); Actors.ClearOwner(owner); }

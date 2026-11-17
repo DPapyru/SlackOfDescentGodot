@@ -64,6 +64,60 @@ public sealed partial class GmEvaluator
         return waitingNodes[node] = false;
     }
 
+    private readonly Dictionary<(string Key, int Self), bool> waitingCodeForSelf = new();
+    private readonly HashSet<(string Key, int Self)> checkingCodeForSelf = new();
+
+    private bool CanWaitFor(string key, int self)
+    {
+        if (!world.Code.TryGetValue(key, out var code))
+            return true;
+        var entry = (key, self);
+        if (waitingCodeForSelf.TryGetValue(entry, out bool waiting))
+            return waiting;
+        if (!checkingCodeForSelf.Add(entry))
+            return true;
+        try
+        {
+            return waitingCodeForSelf[entry] = NodeCanWaitFor(code, self);
+        }
+        finally
+        {
+            checkingCodeForSelf.Remove(entry);
+        }
+    }
+
+    private bool NodeCanWaitFor(JsonElement node, int self)
+    {
+        if (node.ValueKind != JsonValueKind.Array)
+            return false;
+        if (Tag(node) == "call")
+        {
+            string name = node[1].GetString()!;
+            if (name is "instance_destroy" or "action_kill_object")
+                return EventCanWait(self, 1, 0);
+            if (name == "instance_create")
+                return CreatedEventCanWait(node);
+            if (WaitingCalls.Contains(name))
+                return true;
+            if (world.Scripts.TryGetValue(name, out var script) && CanWaitFor(script, self))
+                return true;
+        }
+        foreach (var child in node.EnumerateArray())
+            if (child.ValueKind == JsonValueKind.Array)
+            {
+                if (child.GetArrayLength() > 0 && child[0].ValueKind == JsonValueKind.String)
+                {
+                    if (NodeCanWaitFor(child, self))
+                        return true;
+                }
+                else
+                    foreach (var item in child.EnumerateArray())
+                        if (NodeCanWaitFor(item, self))
+                            return true;
+            }
+        return false;
+    }
+
     private bool ScriptCanWait(string key)
     {
         if (!world.Code.TryGetValue(key, out var code) || !checkingScripts.Add(key))
@@ -86,6 +140,50 @@ public sealed partial class GmEvaluator
                 : null;
         int literal = Tag(node) == "num" ? (int)node[1].GetDouble() : -1;
         return world.Objects.ContainsKey(literal) ? literal : null;
+    }
+
+    private readonly Dictionary<(int Owner, int Self, int Kind, int Sub), bool> waitingEventsForSelf = new();
+    private readonly HashSet<(int Owner, int Self, int Kind, int Sub)> checkingEventsForSelf = new();
+
+    internal bool EventCanWaitFor(int owner, int self, int kind, int sub)
+    {
+        var entry = (owner, self, kind, sub);
+        if (waitingEventsForSelf.TryGetValue(entry, out bool waiting))
+            return waiting;
+        if (!checkingEventsForSelf.Add(entry))
+            return true;
+        try
+        {
+            var actions = world.EventActions(owner, kind, sub);
+            if (actions is null)
+                return waitingEventsForSelf[entry] = true;
+            foreach (var action in actions)
+            {
+                if (action.GetProperty("kind").GetInt32() is 1 or 2 or 3 or 4)
+                    continue;
+                var code = action.GetProperty("code");
+                if (code.ValueKind == JsonValueKind.String)
+                {
+                    if (CanWaitFor(code.GetString()!, self))
+                        return waitingEventsForSelf[entry] = true;
+                    continue;
+                }
+                if (action.GetProperty("execution").GetInt32() != 1)
+                    continue;
+                string function = action.GetProperty("function").GetString()!;
+                if (
+                    WaitingCalls.Contains(function)
+                    || function == "action_create_object"
+                    || (world.Scripts.TryGetValue(function, out var script) && CanWaitFor(script, self))
+                )
+                    return waitingEventsForSelf[entry] = true;
+            }
+            return waitingEventsForSelf[entry] = false;
+        }
+        finally
+        {
+            checkingEventsForSelf.Remove(entry);
+        }
     }
 
     private bool CreatedEventCanWait(JsonElement call)
@@ -164,7 +262,7 @@ public sealed partial class GmEvaluator
         if (string.IsNullOrEmpty(key))
             return 0;
         var code = world.Code[key];
-        if (!CanWait(code))
+        if (!CanWaitFor(key, context.Self.Object))
             return Run(key, context);
         var nativeEvent = world.NativeServices?.BeforeCode(key, context);
         var value =
@@ -555,10 +653,12 @@ public sealed partial class GmWorld
         int? start = null
     )
     {
-        var measurement = Performance.Objects.Begin(
-            EventOwner(start ?? instance.Object, kind, sub) < 0 ? -1 : instance.Object,
-            kind
-        );
+        int owner = EventOwner(start ?? instance.Object, kind, sub);
+        if (owner < 0)
+            return ValueTask.FromResult(false);
+        if (!Evaluator.EventCanWaitFor(owner, instance.Object, kind, sub))
+            return ValueTask.FromResult(Event(instance, kind, sub, other, start));
+        var measurement = Performance.Objects.Begin(instance.Object, kind);
         ValueTask<bool> result;
         try
         {

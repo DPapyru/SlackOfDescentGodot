@@ -5,11 +5,12 @@ namespace SlackOfDescent;
 
 public sealed class NativeEntityService(NativeModServices services) : IDisposable
 {
-    private sealed record Entry(GmInstance Instance, NativeEntityDefinition Definition, int Owner, NativeResourceScope Scope);
+    private sealed record Entry(GmInstance Instance, NativeEntityDefinition Definition, int Owner, NativeResourceScope Scope, ActorContext Actor, NativeResourceScope UpdateScope);
     private readonly Dictionary<int, Entry> spawned = new();
+    private readonly List<int> deadSpawned = new();
     internal Action<int, string>? Attach;
     internal bool IsNative(int id)=>spawned.ContainsKey(id);
-    public ActorContext? Find(int id) => services.World.Instances.FirstOrDefault(i => i.Id == id && !i.Destroyed) is {} instance ? new(services.World, instance) : null;
+    public ActorContext? Find(int id) => services.World.Instance(id) is {} instance ? services.World.Actor(instance) : null;
     public IReadOnlyList<ActorContext> Query(string? type = null) => services.World.Instances.Where(i => !i.Destroyed && (type is null || spawned.TryGetValue(i.Id, out var entry) && entry.Definition.Id == type)).Select(i => new ActorContext(services.World, i)).ToArray();
     public ActorContext Spawn(string id, double x, double y, int owner = 0, IReadOnlyDictionary<string, GmValue>? parameters = null)
     {
@@ -25,7 +26,7 @@ public sealed class NativeEntityService(NativeModServices services) : IDisposabl
         var instance = world.CreateNativeEntity(x, y);
         instance.Scope.Write("visible", false); instance.Scope.Write("solid", definition.Solid);
         foreach (var pair in values) instance.Scope.Write(pair.Key, pair.Value);
-        spawned.Add(instance.Id, new(instance, definition, owner, services.CurrentScope));
+        spawned.Add(instance.Id, new(instance, definition, owner, services.CurrentScope, world.Actor(instance), services.Registry.ScopeFor("entity", definition.BehaviorId, instance.Id)));
         try
         {
             Attach?.Invoke(instance.Id, definition.BehaviorId);
@@ -42,7 +43,7 @@ public sealed class NativeEntityService(NativeModServices services) : IDisposabl
         foreach (var pair in definition.Parameters)
             if (!actor.Instance.Scope.Values.ContainsKey(pair.Key)) actor.Instance.Scope.Write(pair.Key, ParameterDefault(pair.Value));
         actor.Write("solid", definition.Solid ? 1 : 0);
-        spawned[id] = new(actor.Instance, definition, 0, services.CurrentScope);
+        spawned[id] = new(actor.Instance, definition, 0, services.CurrentScope, actor, services.Registry.ScopeFor("entity", definition.BehaviorId, id));
         try { Attach?.Invoke(id, definition.BehaviorId); }
         catch { spawned.Remove(id); services.Presentation.ClearActor(id); throw; }
     }
@@ -55,7 +56,7 @@ public sealed class NativeEntityService(NativeModServices services) : IDisposabl
     public void Destroy(int id)
     {
         var actor = spawned.TryGetValue(id, out var entry)
-            ? services.World.Instances.Contains(entry.Instance) && !entry.Instance.Destroyed ? new ActorContext(services.World, entry.Instance) : null
+            ? services.World.Instance(entry.Instance.Id) is null ? null : entry.Actor
             : Find(id);
         actor?.Call("instance_destroy");
         spawned.Remove(id); services.Presentation.ClearActor(id);
@@ -71,12 +72,14 @@ public sealed class NativeEntityService(NativeModServices services) : IDisposabl
     }
     internal void Update()
     {
-        foreach (var entry in spawned.Values.ToArray())
+        foreach (var entry in spawned.Values)
         {
-            if (entry.Instance.Destroyed || !services.World.Instances.Contains(entry.Instance) || !services.Registry.EntityDefinitions.ContainsKey(entry.Definition.Id)) { Destroy(entry.Instance.Id); continue; }
-            using var scope = services.EnterScope(services.Registry.ScopeFor("entity", entry.Definition.BehaviorId, entry.Instance.Id));
+            if (services.World.Instance(entry.Instance.Id) is null || !services.Registry.EntityDefinitions.ContainsKey(entry.Definition.Id)) { deadSpawned.Add(entry.Instance.Id); continue; }
+            using var scope = services.EnterScope(entry.UpdateScope);
             if (!string.IsNullOrEmpty(entry.Definition.ResourceId)) services.Presentation.Sprite(entry.Instance.Id, "entity", entry.Definition.ResourceId, entry.Instance.Scope.ReadOr("x").Number, entry.Instance.Scope.ReadOr("y").Number);
         }
+        foreach (int id in deadSpawned) Destroy(id);
+        deadSpawned.Clear();
     }
     internal void ClearScope(NativeResourceScope scope) { foreach (int id in spawned.Values.Where(e => e.Scope == scope).Select(e => e.Instance.Id).ToArray()) Destroy(id); }
     internal void ClearOwner(NativeModOwner owner) { foreach (int id in spawned.Values.Where(e => e.Scope.Owner == owner).Select(e => e.Instance.Id).ToArray()) Destroy(id); }

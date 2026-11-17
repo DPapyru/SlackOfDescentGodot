@@ -116,7 +116,7 @@ public static class GmSlotLayoutTests
         Check(partInstance.Scope.Read("part_probe").Number == 8, "compiled character code reads slots");
         var inheritedInstance = world.Create(world.Constants["objRyoko_Foot_Below"].Int, 0, 0, run: false);
         Check(inheritedInstance.Scope.Layout is not null, "instances of inherited character parts use the slot layout");
-        int outside = world.Constants["objTarString"].Int;
+        int outside = world.Constants["objBlock"].Int;
         Check(world.SlotLayout(outside) is null, "objects outside the slot families keep the dictionary path");
         return assertions;
     }

@@ -24,6 +24,7 @@ public sealed class VerletChain
         RestLength = restLength; Gravity = gravity; this.iterations = iterations;
     }
     public (double X, double Y) this[int index] => (points[index].X, points[index].Y);
+    public (double X, double Y) Previous(int index) => (points[index].PreviousX, points[index].PreviousY);
     public void Place(int index, double x, double y)
     {
         var point = points[index];

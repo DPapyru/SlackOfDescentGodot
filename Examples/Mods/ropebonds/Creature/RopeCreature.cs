@@ -50,6 +50,7 @@ public sealed class RopeCreature : IEntityBehavior
         if (victim is not null) { Follow(entity); return; }
         ActorContext? player = Player(entity);
         if (player is not null) ropeDepth = player.Instance.Scope.ReadOr("depth").Number - PlayerLayerOffset;
+        double previousX = entity.X, previousY = entity.Y;
         (double X, double Y)? hands = player is null ? null : Hands(player);
         if (hands is { } target
             && Math.Abs(target.X - entity.X) < DetectRange && Math.Abs(target.Y - entity.Y) < 140)
@@ -69,7 +70,11 @@ public sealed class RopeCreature : IEntityBehavior
         headVelocity = Math.Min(headVelocity + (jumping ? JumpGravity : HeadGravity), MaxFall);
         entity.Y += headVelocity;
         grounded = false;
-        if (ResolveHead(entity)) { grounded = true; jumping = false; }
+        if (ResolveHead(entity, previousX, previousY))
+        {
+            grounded = true;
+            jumping = false;
+        }
         chain.Step(entity.X, entity.Y);
         chain.Clamp(entity.X, entity.Y, 256, entity.World.Engine.Read("room_width").Number, entity.World.Engine.Read("room_height").Number);
         ResolveSolids();
@@ -201,7 +206,7 @@ public sealed class RopeCreature : IEntityBehavior
         return right is not null ? (right.X, right.Y) : (player.X, player.Y);
     }
 
-    private bool ResolveHead(ActorContext entity)
+    private bool ResolveHead(ActorContext entity, double previousX, double previousY)
     {
         bool grounded = false;
         foreach (GmBounds bounds in solids)
@@ -209,17 +214,31 @@ public sealed class RopeCreature : IEntityBehavior
             double x = entity.X, y = entity.Y;
             if (x < bounds.Left - HeadRadius || x > bounds.Right + HeadRadius
                 || y < bounds.Top - HeadRadius || y > bounds.Bottom + HeadRadius) continue;
-            double left = x - (bounds.Left - HeadRadius);
-            double right = bounds.Right + HeadRadius - x;
-            double top = y - (bounds.Top - HeadRadius);
-            double bottom = bounds.Bottom + HeadRadius - y;
-            double smallest = Math.Min(Math.Min(left, right), Math.Min(top, bottom));
-            if (smallest == left) entity.X = bounds.Left - HeadRadius - .01;
-            else if (smallest == right) entity.X = bounds.Right + HeadRadius + .01;
-            else if (smallest == top) { entity.Y = bounds.Top - HeadRadius - .01; headVelocity = 0; grounded = true; }
-            else { entity.Y = bounds.Bottom + HeadRadius + .01; headVelocity = 0; }
+            (entity.X, entity.Y) = PushOut(x, y, previousX, previousY, bounds, HeadRadius);
+            if (entity.Y < y)
+            {
+                headVelocity = 0;
+                grounded = true;
+            }
+            else if (entity.Y > y) headVelocity = 0;
         }
         return grounded;
+    }
+
+    private static (double X, double Y) PushOut(double x, double y, double previousX, double previousY, GmBounds bounds, double thickness)
+    {
+        double left = bounds.Left - thickness, right = bounds.Right + thickness;
+        double top = bounds.Top - thickness, bottom = bounds.Bottom + thickness;
+        bool horizontal = Math.Abs(x - previousX) > Math.Abs(y - previousY);
+        if (horizontal && previousX <= left) return (left - .01, y);
+        if (horizontal && previousX >= right) return (right + .01, y);
+        if (!horizontal && previousY <= top) return (x, top - .01);
+        if (!horizontal && previousY >= bottom) return (x, bottom + .01);
+        double smallest = Math.Min(Math.Min(x - left, right - x), Math.Min(y - top, bottom - y));
+        if (smallest == x - left) return (left - .01, y);
+        if (smallest == right - x) return (right + .01, y);
+        if (smallest == y - top) return (x, top - .01);
+        return (x, bottom + .01);
     }
 
     private void ResolveSolids()
@@ -227,19 +246,12 @@ public sealed class RopeCreature : IEntityBehavior
         for (int index = 1; index < chain.Count; index++)
         {
             var (x, y) = chain[index];
+            var (previousX, previousY) = chain.Previous(index);
             foreach (GmBounds bounds in solids)
             {
                 if (x < bounds.Left - HalfThickness || x > bounds.Right + HalfThickness
                     || y < bounds.Top - HalfThickness || y > bounds.Bottom + HalfThickness) continue;
-                double left = x - (bounds.Left - HalfThickness);
-                double right = bounds.Right + HalfThickness - x;
-                double top = y - (bounds.Top - HalfThickness);
-                double bottom = bounds.Bottom + HalfThickness - y;
-                double smallest = Math.Min(Math.Min(left, right), Math.Min(top, bottom));
-                if (smallest == left) x = bounds.Left - HalfThickness - .01;
-                else if (smallest == right) x = bounds.Right + HalfThickness + .01;
-                else if (smallest == top) y = bounds.Top - HalfThickness - .01;
-                else y = bounds.Bottom + HalfThickness + .01;
+                (x, y) = PushOut(x, y, previousX, previousY, bounds, HalfThickness);
             }
             chain.Place(index, x, y);
         }

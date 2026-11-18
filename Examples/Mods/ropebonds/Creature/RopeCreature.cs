@@ -20,12 +20,13 @@ public sealed class RopeCreature : IEntityBehavior
     private const double JumpImpulse = -11;
     private const double JumpGravity = .5;
     private const int MaxJumpFrames = 90;
-    private const double RopeDepth = -100000;
+    private const double PlayerLayerOffset = 1000.5;
     private readonly HandConstraint constraints;
     private readonly VerletChain chain = new(SegmentLength, 2);
     private readonly List<GmBounds> solids = [];
     private static readonly List<RopeCreature> Live = [];
     private ActorContext? victim, self;
+    private double ropeDepth = -100000;
     private double startX, startY, direction = 1, headVelocity;
     private bool grounded, jumping, locked, bodiesCleared;
     private int jumpFrame;
@@ -48,6 +49,7 @@ public sealed class RopeCreature : IEntityBehavior
         if (victim is not null && !constraints.IsBound(victim.Id)) Release(entity);
         if (victim is not null) { Follow(entity); return; }
         ActorContext? player = Player(entity);
+        if (player is not null) ropeDepth = player.Instance.Scope.ReadOr("depth").Number - PlayerLayerOffset;
         (double X, double Y)? hands = player is null ? null : Hands(player);
         if (hands is { } target
             && Math.Abs(target.X - entity.X) < DetectRange && Math.Abs(target.Y - entity.Y) < 140)
@@ -121,9 +123,9 @@ public sealed class RopeCreature : IEntityBehavior
         double dx = rightX - leftX, dy = rightY - leftY, distance = Math.Sqrt(dx * dx + dy * dy);
         double angle = Math.Atan2(-dy, dx) * 180 / Math.PI;
         var presentation = entity.Services.Presentation;
-        presentation.Sprite(entity.Id, "rope.head", "ropebonds.rope_head", leftX, leftY, angle, 2, 2, 4, 2, RopeDepth);
-        presentation.Sprite(entity.Id, "rope.body.0", "ropebonds.rope_body", (leftX + rightX) / 2, (leftY + rightY) / 2, angle, Math.Clamp(distance / 9, .9, 1.1), 2, 4.5, 2, RopeDepth);
-        presentation.Sprite(entity.Id, "rope.head.tail", "ropebonds.rope_head", rightX, rightY, angle + 180, 2, 2, 4, 2, RopeDepth);
+        presentation.Sprite(entity.Id, "rope.head", "ropebonds.rope_head", leftX, leftY, angle, 2, 2, 4, 2, ropeDepth);
+        presentation.Sprite(entity.Id, "rope.body.0", "ropebonds.rope_body", (leftX + rightX) / 2, (leftY + rightY) / 2, angle, Math.Clamp(distance / 9, .9, 1.1), 2, 4.5, 2, ropeDepth);
+        presentation.Sprite(entity.Id, "rope.head.tail", "ropebonds.rope_head", rightX, rightY, angle + 180, 2, 2, 4, 2, ropeDepth);
         if (bodiesCleared) return;
         bodiesCleared = true;
         for (int index = 1; index < chain.Count - 1; index++) presentation.Remove(entity.Id, "rope.body." + index);
@@ -247,16 +249,16 @@ public sealed class RopeCreature : IEntityBehavior
     {
         if (chain.Count < 2) return;
         var presentation = entity.Services.Presentation;
-        presentation.Sprite(entity.Id, "rope.head", "ropebonds.rope_head", chain[0].X, chain[0].Y, Angle(chain[0], chain[1]), 2, 2, 2, 2, RopeDepth);
+        presentation.Sprite(entity.Id, "rope.head", "ropebonds.rope_head", chain[0].X, chain[0].Y, Angle(chain[0], chain[1]), 2, 2, 2, 2, ropeDepth);
         int tail = chain.Count - 1;
-        presentation.Sprite(entity.Id, "rope.head.tail", "ropebonds.rope_head", chain[tail].X, chain[tail].Y, Angle(chain[tail], chain[tail - 1]), 2, 2, 2, 2, RopeDepth);
+        presentation.Sprite(entity.Id, "rope.head.tail", "ropebonds.rope_head", chain[tail].X, chain[tail].Y, Angle(chain[tail], chain[tail - 1]), 2, 2, 2, 2, ropeDepth);
         for (int index = 1; index < chain.Count; index++)
         {
             var from = chain[index - 1];
             var to = chain[index];
             double distance = Math.Sqrt((to.X - from.X) * (to.X - from.X) + (to.Y - from.Y) * (to.Y - from.Y));
             presentation.Sprite(entity.Id, "rope.body." + (index - 1), "ropebonds.rope_body",
-                (from.X + to.X) / 2, (from.Y + to.Y) / 2, Angle(from, to), Math.Max(.4, distance / 9), 2, 4.5, 2, RopeDepth);
+                (from.X + to.X) / 2, (from.Y + to.Y) / 2, Angle(from, to), Math.Max(.4, distance / 9), 2, 4.5, 2, ropeDepth);
         }
     }
 

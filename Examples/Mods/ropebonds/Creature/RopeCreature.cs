@@ -28,7 +28,7 @@ public sealed class RopeCreature : IEntityBehavior
     private ActorContext? victim, self;
     private double ropeDepth = -100000;
     private double startX, startY, direction = 1, headVelocity;
-    private bool grounded, jumping, locked, bodiesCleared;
+    private bool grounded, jumping, locked;
     private int jumpFrame;
 
     public RopeCreature(HandConstraint constraints) => this.constraints = constraints;
@@ -38,7 +38,7 @@ public sealed class RopeCreature : IEntityBehavior
     public void RoomEntered(ActorContext entity) => Reset(entity);
     public void RoomExited(ActorContext entity) => Release(entity);
     public void Destroyed(ActorContext entity) { Live.Remove(this); Release(entity); }
-    public void Detach(ActorContext entity) => Release(entity);
+    public void Detach(ActorContext entity) { Live.Remove(this); Release(entity); }
 
     public void Update(ActorContext entity, FrameContext frame)
     {
@@ -128,11 +128,9 @@ public sealed class RopeCreature : IEntityBehavior
         double dx = rightX - leftX, dy = rightY - leftY, distance = Math.Sqrt(dx * dx + dy * dy);
         double angle = Math.Atan2(-dy, dx) * 180 / Math.PI;
         var presentation = entity.Services.Presentation;
-        presentation.Sprite(entity.Id, "rope.head", "ropebonds.rope_head", leftX, leftY, angle, 2, 2, 4, 2, ropeDepth);
-        presentation.Sprite(entity.Id, "rope.body.0", "ropebonds.rope_body", (leftX + rightX) / 2, (leftY + rightY) / 2, angle, Math.Clamp(distance / 9, .9, 1.1), 2, 4.5, 2, ropeDepth);
-        presentation.Sprite(entity.Id, "rope.head.tail", "ropebonds.rope_head", rightX, rightY, angle + 180, 2, 2, 4, 2, ropeDepth);
-        if (bodiesCleared) return;
-        bodiesCleared = true;
+        presentation.Sprite(entity.Id, "rope.head", "ropebonds.rope_head", leftX, leftY, angle, 2, 2, 2, 2, ropeDepth);
+        presentation.Sprite(entity.Id, "rope.body.0", "ropebonds.rope_body", (leftX + rightX) / 2, (leftY + rightY) / 2, angle, Math.Max(.4, distance / 9), 2, 4.5, 2, ropeDepth);
+        presentation.Sprite(entity.Id, "rope.head.tail", "ropebonds.rope_head", rightX, rightY, angle + 180, 2, 2, 2, 2, ropeDepth);
         for (int index = 1; index < chain.Count - 1; index++) presentation.Remove(entity.Id, "rope.body." + index);
     }
 
@@ -156,7 +154,6 @@ public sealed class RopeCreature : IEntityBehavior
         }
         headVelocity = 0;
         jumping = false;
-        bodiesCleared = false;
         if (!entity.Instance.Destroyed)
         {
             entity.X = startX;

@@ -24,6 +24,9 @@ public sealed class RopeCreature : IEntityBehavior
     private const double QteWindow = 2.5;
     private const double RetreatCooldown = 2;
     private const int QtePresses = 25, QteEasyPresses = 12;
+    private const double GishiInterval = .5;
+    private static readonly string[] GishiFiles = ["gishi.wav", "gishi_low.wav", "gishi_high.wav"];
+    private static readonly Dictionary<string, int> GishiSounds = new(StringComparer.Ordinal);
     private readonly HandConstraint constraints;
     private readonly VerletChain chain = new(SegmentLength, 2);
     private readonly List<GmBounds> solids = [];
@@ -32,7 +35,9 @@ public sealed class RopeCreature : IEntityBehavior
     private GmInstance? controller;
     private double ropeDepth = -100000;
     private double startX, startY, direction = 1, headVelocity;
-    private double qteTime, qteStart, frozenX, frozenY, frozenDirection, cooldownUntil;
+    private double qteTime, qteStart, frozenX, frozenY, frozenDirection, cooldownUntil, nextGishi, lastCounter;
+    private int gishiIndex;
+    private bool muguPlayed;
     private bool grounded, jumping, locked, qte;
     private int jumpFrame;
 
@@ -98,6 +103,11 @@ public sealed class RopeCreature : IEntityBehavior
         qte = true;
         qteTime = 0;
         qteStart = entity.Services.Frame.GameTime;
+        nextGishi = 0;
+        lastCounter = 0;
+        gishiIndex = 0;
+        muguPlayed = false;
+        PlayVoice(player, "V_UHI", 0);
         frozenX = player.X;
         frozenY = player.Y;
         frozenDirection = player.Read("Direction");
@@ -139,7 +149,47 @@ public sealed class RopeCreature : IEntityBehavior
         qteTime = player.Services.Frame.GameTime - qteStart;
         double counter = controller.Scope.ReadOr("BindCounter").Number;
         if (counter >= bindMax) { FinishQte(player, true); return; }
-        if (qteTime >= QteWindow) FinishQte(player, false);
+        if (qteTime >= QteWindow) { FinishQte(player, false); return; }
+        if (!muguPlayed && qteTime >= .5)
+        {
+            muguPlayed = true;
+            PlayVoice(player, "V_MUGU", 2);
+        }
+        if (counter > lastCounter && qteTime >= nextGishi)
+        {
+            nextGishi = qteTime + GishiInterval;
+            PlayGishi(player, gishiIndex++ % GishiFiles.Length);
+        }
+        lastCounter = counter;
+    }
+
+    private static void PlayGishi(ActorContext player, int index)
+    {
+        if (RopeBondsMod.AssetDirectory is { } root)
+        {
+            string full = System.IO.Path.Combine(root, GishiFiles[index]);
+            string relative = System.IO.Path.GetRelativePath(player.World.UserRoot, full);
+            if (!relative.StartsWith("..", StringComparison.Ordinal) && !System.IO.Path.IsPathRooted(relative) && System.IO.File.Exists(full))
+            {
+                try
+                {
+                    if (!GishiSounds.TryGetValue(relative, out int sound))
+                        GishiSounds[relative] = sound = player.Call("sound_add", relative, 0, 0).Int;
+                    player.Call("sound_volume", sound, 1);
+                    player.Call("sound_play", sound);
+                    return;
+                }
+                catch (Exception) { }
+            }
+        }
+        player.Services.Audio.PlayBuiltin(player, "sndGishi00");
+    }
+
+    private static void PlayVoice(ActorContext player, string kindName, int index)
+    {
+        if (!player.World.Constants.TryGetValue(kindName, out GmValue kind)) return;
+        GmValue voice = player.World.Globals.ReadOr(GmScope.Key("Voice", new[] { kind.Int, index }));
+        if (voice.Int > 0) player.Call("sound_play2", voice);
     }
 
     private void FinishQte(ActorContext player, bool success)

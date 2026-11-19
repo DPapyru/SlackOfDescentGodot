@@ -7,10 +7,12 @@ public sealed class RopeBondsMod : IMod
 {
     public string Id => "example.ropebonds";
     public HandConstraint Constraints { get; } = new();
+    internal static string? AssetDirectory;
     private BindProbe? bind;
 
     public void Load(ModContext context)
     {
+        AssetDirectory = System.IO.Path.Combine(context.Directory, "assets");
         context.Content.RegisterEntity(new NativeEntityDefinition
         {
             Id = "ropebonds.creature",

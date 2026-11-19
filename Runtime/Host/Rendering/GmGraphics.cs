@@ -980,6 +980,7 @@ public sealed partial class GmGraphics
         {
             using var measurement = world.Performance.Objects.Begin(-2, 8);
 
+            world.Events?.PrepareFrame();
             Begin();
 
             Camera = world.Engine.ReadOr("view_enabled").Truth

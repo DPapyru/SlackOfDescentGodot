@@ -1,0 +1,53 @@
+using System.Linq;
+using SlackOfDescent;
+
+namespace RopeBonds;
+
+public sealed class RopeBondsMod : IMod
+{
+    public string Id => "example.ropebonds";
+    public HandConstraint Constraints { get; } = new();
+    internal static string? AssetDirectory;
+    private BindProbe? bind;
+
+    public void Load(ModContext context)
+    {
+        AssetDirectory = System.IO.Path.Combine(context.Directory, "assets");
+        context.Content.RegisterEntity(new NativeEntityDefinition
+        {
+            Id = "ropebonds.creature",
+            Name = "RopeBonds creature",
+            Description = "Rope creature.",
+            BehaviorId = "ropebonds.creature",
+            Width = 10,
+            Height = 10
+        }, () => new RopeCreature(Constraints));
+        context.Subscribe("ropebonds.creature.qte", NativeEventNames.StepEnd, NativeEventPhase.After, _ => RopeCreature.TickQte());
+        string controllerStep = NativeEventNames.EnginePrefix + "objects/objController/3/0/28";
+        context.Subscribe("ropebonds.qte.unbind", controllerStep, NativeEventPhase.Before, value => RopeCreature.BindFlag(value.Actor?.Id ?? -1, false));
+        context.Subscribe("ropebonds.qte.rebind", controllerStep, NativeEventPhase.After, value => RopeCreature.BindFlag(value.Actor?.Id ?? -1, true));
+        Constraints.Attach(context);
+        context.Subscribe("ropebonds.creature.prepare", NativeEventNames.FramePrepare, NativeEventPhase.After, _ => RopeCreature.Prepare());
+        bind = new BindProbe(Constraints);
+        bind.Attach(context);
+    }
+
+    internal static ActorContext? FindPlayer(GmWorld world)
+    {
+        if (!world.Constants.ContainsKey("objPlayerDoll")) return null;
+        foreach (ActorContext actor in world.Instances.Where(instance => !instance.Destroyed).Select(instance => new ActorContext(world, instance)).ToArray())
+            if (actor.Instance.Active && IsPlayer(actor)) return actor;
+        return null;
+    }
+
+    internal static bool IsPlayer(ActorContext actor) =>
+        actor.World.Constants.ContainsKey("objPlayerDoll") && actor.Services.Instances.IsObjectOf(actor, "objPlayerDoll");
+
+    public void Unload()
+    {
+        bind?.Dispose();
+        bind = null;
+        Constraints.ReleaseAll();
+        RopeCreature.Clear();
+    }
+}

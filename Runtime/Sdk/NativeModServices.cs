@@ -17,6 +17,7 @@ public sealed partial class NativeModServices : IDisposable
     public NativeEventService Events { get; }
     public NativeActorService Actors { get; }
     public NativeMotionService Motions { get; }
+    public NativePoseService Poses { get; }
     internal NativeResourceScope CurrentScope { get; private set; }
     internal ScopeLease EnterScope(NativeResourceScope scope)
     {
@@ -32,7 +33,7 @@ public sealed partial class NativeModServices : IDisposable
     public NativeModServices(GmWorld world, ContentRegistry registry)
     {
         World = world; Registry = registry; registry.ModDataRoot = Path.Combine(world.UserRoot, "Content", "ModData"); Input = new(registry, world.UserRoot);
-        Entities = new(this); Combat = new(this); Presentation = new(this); Audio = new(this); Maps = new(this); world.NativeServices = this; Instances = new(this); Events = new(this); Actors = new(this); Motions = new(this); registry.OwnerRetired += ClearOwner;
+        Entities = new(this); Combat = new(this); Presentation = new(this); Audio = new(this); Maps = new(this); world.NativeServices = this; Instances = new(this); Events = new(this); Actors = new(this); Motions = new(this); Poses = new(this); registry.OwnerRetired += ClearOwner;
     }
     public NativeGameEvent Dispatch(NativeGameEvent value, NativeEventPhase phase)
     {

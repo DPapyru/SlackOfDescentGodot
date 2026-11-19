@@ -2,6 +2,7 @@ namespace SlackOfDescent;
 
 public static class NativeEventNames
 {
+    public const string FramePrepare="frame.prepare";
     public const string InstanceCreated="instance.created",InstanceDestroyed="instance.destroyed",StepBegin="step.begin",StepEnd="step.end",Room="room",Collision="collision",Alarm="alarm",KeyDown="key.down",KeyPressed="key.pressed",KeyReleased="key.released",CallPrefix="call.",EnginePrefix="engine.";
     public static string Call(string function)=>CallPrefix+function;
 }
@@ -110,6 +111,10 @@ public sealed class NativeEventService : IDisposable
     private void Destroyed(GmInstance instance)=>Notify(NativeEventNames.InstanceDestroyed,instance);
     private void BeginStep()=>Notify(NativeEventNames.StepBegin,null);
     private void EndStep()=>Notify(NativeEventNames.StepEnd,null);
+    internal void PrepareFrame()
+    {
+        if(HasHandlers(NativeEventNames.FramePrepare))Notify(NativeEventNames.FramePrepare,null);
+    }
     private void Collide(GmInstance self,GmInstance other,int target)
     {
         var value=Payload(NativeEventNames.Collision,self);

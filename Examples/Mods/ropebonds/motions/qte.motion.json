@@ -1,0 +1,626 @@
+{
+  "FormatVersion": 1,
+  "Id": "ropebonds.qte",
+  "Skeleton": "Nana",
+  "Entry": "qte",
+  "Origin": "mod",
+  "Clips": [
+    {
+      "Id": "qte",
+      "Duration": 40,
+      "Loop": true,
+      "Tracks": [
+        {
+          "Bone": "BODY_BOTTOM",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 0,
+              "Y": 0,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 10,
+              "X": 0,
+              "Y": 0,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": 0,
+              "Y": 0,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 30,
+              "X": 0,
+              "Y": 0,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": 0,
+              "Y": 0,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "BODY_TOP",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 0,
+              "Y": 0,
+              "Angle": 2,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 10,
+              "X": 0,
+              "Y": 0,
+              "Angle": 7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": 0,
+              "Y": 0,
+              "Angle": -2,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 30,
+              "X": 0,
+              "Y": 0,
+              "Angle": 6,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": 0,
+              "Y": 0,
+              "Angle": 2,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "HEAD",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 0,
+              "Y": -18,
+              "Angle": -3,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 10,
+              "X": 0,
+              "Y": -18,
+              "Angle": 5,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": 0,
+              "Y": -18,
+              "Angle": -7,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 30,
+              "X": 0,
+              "Y": -18,
+              "Angle": 3,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": 0,
+              "Y": -18,
+              "Angle": -3,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "HAND1_ABOVE",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 1.31,
+              "Y": -14.94,
+              "Angle": 0.0246,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 10,
+              "X": 1.31,
+              "Y": -14.94,
+              "Angle": -5.7833,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": 1.31,
+              "Y": -14.94,
+              "Angle": 4.7864,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 30,
+              "X": 1.31,
+              "Y": -14.94,
+              "Angle": -3.841,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": 1.31,
+              "Y": -14.94,
+              "Angle": 0.0246,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "HAND2_ABOVE",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 0,
+              "Y": 12,
+              "Angle": 49.182,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 10,
+              "X": 0,
+              "Y": 12,
+              "Angle": 58.9069,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": 0,
+              "Y": 12,
+              "Angle": 40.2368,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 30,
+              "X": 0,
+              "Y": 12,
+              "Angle": 55.3607,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": 0,
+              "Y": 12,
+              "Angle": 49.182,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "HAND3_ABOVE",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 0,
+              "Y": 12,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 8
+            },
+            {
+              "Frame": 10,
+              "X": 0,
+              "Y": 12,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 8
+            },
+            {
+              "Frame": 20,
+              "X": 0,
+              "Y": 12,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 8
+            },
+            {
+              "Frame": 30,
+              "X": 0,
+              "Y": 12,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 8
+            },
+            {
+              "Frame": 40,
+              "X": 0,
+              "Y": 12,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 8
+            }
+          ]
+        },
+        {
+          "Bone": "HAND1_BELOW",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 1.31,
+              "Y": -14.94,
+              "Angle": 38.8801,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 10,
+              "X": 1.31,
+              "Y": -14.94,
+              "Angle": 44.6289,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": 1.31,
+              "Y": -14.94,
+              "Angle": 30.6485,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 30,
+              "X": 1.31,
+              "Y": -14.94,
+              "Angle": 42.4823,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": 1.31,
+              "Y": -14.94,
+              "Angle": 38.8801,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "HAND2_BELOW",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 0,
+              "Y": 12,
+              "Angle": -31.4217,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 10,
+              "X": 0,
+              "Y": 12,
+              "Angle": -44.8205,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": 0,
+              "Y": 12,
+              "Angle": -14.3248,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 30,
+              "X": 0,
+              "Y": 12,
+              "Angle": -40.1629,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": 0,
+              "Y": 12,
+              "Angle": -31.4217,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "HAND3_BELOW",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 0,
+              "Y": 12,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 1
+            },
+            {
+              "Frame": 10,
+              "X": 0,
+              "Y": 12,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 1
+            },
+            {
+              "Frame": 20,
+              "X": 0,
+              "Y": 12,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 1
+            },
+            {
+              "Frame": 30,
+              "X": 0,
+              "Y": 12,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 1
+            },
+            {
+              "Frame": 40,
+              "X": 0,
+              "Y": 12,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 1
+            }
+          ]
+        },
+        {
+          "Bone": "FOOT1_ABOVE",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 1.74,
+              "Y": 9.85,
+              "Angle": 18,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": 1.74,
+              "Y": 9.85,
+              "Angle": 18,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "FOOT2_ABOVE",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 0,
+              "Y": 22,
+              "Angle": 11,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": 0,
+              "Y": 22,
+              "Angle": 11,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "FOOT3_ABOVE",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": -1.31,
+              "Y": 24.97,
+              "Angle": -24,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": -1.31,
+              "Y": 24.97,
+              "Angle": -24,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "FOOT1_BELOW",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 1.74,
+              "Y": 9.85,
+              "Angle": -28,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": 1.74,
+              "Y": 9.85,
+              "Angle": -28,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "FOOT2_BELOW",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 0,
+              "Y": 22,
+              "Angle": 25,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": 0,
+              "Y": 22,
+              "Angle": 25,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "FOOT3_BELOW",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": -1.31,
+              "Y": 24.97,
+              "Angle": 3,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": -1.31,
+              "Y": 24.97,
+              "Angle": 3,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "States": [
+    {
+      "Id": "qte",
+      "Clip": "qte"
+    }
+  ],
+  "Parameters": {},
+  "IkChains": [
+    {
+      "Root": "HAND1_ABOVE",
+      "Mid": "HAND2_ABOVE",
+      "End": "HAND3_ABOVE",
+      "Enabled": true
+    },
+    {
+      "Root": "HAND1_BELOW",
+      "Mid": "HAND2_BELOW",
+      "End": "HAND3_BELOW",
+      "Enabled": true
+    }
+  ],
+  "EntitySlots": {}
+}

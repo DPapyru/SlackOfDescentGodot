@@ -54,32 +54,84 @@ public sealed class RopeCreature : IEntityBehavior
     public void Update(ActorContext entity, FrameContext frame)
     {
         self = entity;
-        if (chain.Count == 0) Reset(entity);
-        if (solids.Count == 0) CollectSolids(entity);
-        if (victim is not null && (victim.Instance.Destroyed || !victim.Instance.Active)) Release(entity);
-        if (!qte && victim is not null && !constraints.IsBound(victim.Id)) Release(entity);
-        if (victim is not null) ropeDepth = victim.Instance.Scope.ReadOr("depth").Number - PlayerLayerOffset;
+        if (chain.Count == 0)
+        {
+            Reset(entity);
+        }
+        if (solids.Count == 0)
+        {
+            CollectSolids(entity);
+        }
+        if (victim is not null && (victim.Instance.Destroyed || !victim.Instance.Active))
+        {
+            Release(entity);
+        }
+        if (!qte && victim is not null && !constraints.IsBound(victim.Id))
+        {
+            Release(entity);
+        }
+        if (victim is not null)
+        {
+            ropeDepth = victim.Instance.Scope.ReadOr("depth").Number - PlayerLayerOffset;
+        }
         if (qte) return;
-        if (victim is not null) { Follow(entity); return; }
+        if (victim is not null)
+        {
+            Follow(entity);
+            return;
+        }
         ActorContext? player = Player(entity);
-        if (player is not null) ropeDepth = player.Instance.Scope.ReadOr("depth").Number - PlayerLayerOffset;
-        double previousX = entity.X, previousY = entity.Y;
+        if (player is not null)
+        {
+            ropeDepth = player.Instance.Scope.ReadOr("depth").Number - PlayerLayerOffset;
+        }
+        double previousX = entity.X;
+        if (Approach(entity, frame, player)) return;
+        Fall(entity, previousX);
+        chain.Step(entity.X, entity.Y);
+        chain.Clamp(entity.X, entity.Y, 256, entity.World.Engine.Read("room_width").Number, entity.World.Engine.Read("room_height").Number);
+        ResolveSolids();
+    }
+
+    private bool Approach(ActorContext entity, FrameContext frame, ActorContext? player)
+    {
         (double X, double Y)? hands = player is null ? null : Hands(player);
         if (hands is { } target && frame.GameTime >= cooldownUntil
             && Math.Abs(target.X - entity.X) < DetectRange && Math.Abs(target.Y - entity.Y) < 140)
         {
             int facing = Math.Sign(target.X - entity.X);
-            if (facing != 0) direction = facing;
-            if (Math.Abs(target.X - entity.X) <= AttachRange && Math.Abs(target.Y - entity.Y) <= AttachRange) { Attach(entity, player!); return; }
-            if (grounded && !jumping) Jump();
+            if (facing != 0)
+            {
+                direction = facing;
+            }
+            if (Math.Abs(target.X - entity.X) <= AttachRange && Math.Abs(target.Y - entity.Y) <= AttachRange)
+            {
+                Attach(entity, player!);
+                return true;
+            }
+            if (grounded && !jumping)
+            {
+                Jump();
+            }
             entity.X += jumping ? Math.Clamp(target.X - entity.X, -JumpSpeed, JumpSpeed) : direction * Speed;
+            return false;
         }
-        else if (!jumping)
+        if (jumping) return false;
+        entity.X += direction * Speed * .5;
+        if (entity.X < startX - PatrolRange || entity.X > startX + PatrolRange)
         {
-            entity.X += direction * Speed * .5;
-            if (entity.X < startX - PatrolRange || entity.X > startX + PatrolRange) direction = -direction;
+            direction = -direction;
         }
-        if (jumping && ++jumpFrame > MaxJumpFrames) jumping = false;
+        return false;
+    }
+
+    private void Fall(ActorContext entity, double previousX)
+    {
+        double previousY = entity.Y;
+        if (jumping && ++jumpFrame > MaxJumpFrames)
+        {
+            jumping = false;
+        }
         headVelocity = Math.Min(headVelocity + (jumping ? JumpGravity : HeadGravity), MaxFall);
         entity.Y += headVelocity;
         grounded = false;
@@ -88,9 +140,6 @@ public sealed class RopeCreature : IEntityBehavior
             grounded = true;
             jumping = false;
         }
-        chain.Step(entity.X, entity.Y);
-        chain.Clamp(entity.X, entity.Y, 256, entity.World.Engine.Read("room_width").Number, entity.World.Engine.Read("room_height").Number);
-        ResolveSolids();
     }
 
     private void Attach(ActorContext entity, ActorContext player)

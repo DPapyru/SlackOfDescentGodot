@@ -25,6 +25,7 @@ public sealed class RopeCreature : IEntityBehavior
     private const double RetreatCooldown = 2;
     private const int QtePresses = 25, QteEasyPresses = 12;
     private const double GishiInterval = .5;
+    private const double FaceInterval = .4;
     private static readonly string[] GishiFiles = ["gishi.wav", "gishi_low.wav", "gishi_high.wav"];
     private static readonly Dictionary<string, int> GishiSounds = new(StringComparer.Ordinal);
     private readonly HandConstraint constraints;
@@ -36,7 +37,7 @@ public sealed class RopeCreature : IEntityBehavior
     private double ropeDepth = -100000;
     private double startX, startY, direction = 1, headVelocity;
     private double qteTime, qteStart, frozenX, frozenY, frozenDirection, cooldownUntil, nextGishi, lastCounter;
-    private int gishiIndex;
+    private int gishiIndex, savedBindBy, faceStep = -1;
     private bool muguPlayed;
     private bool grounded, jumping, locked, qte;
     private int jumpFrame;
@@ -114,7 +115,12 @@ public sealed class RopeCreature : IEntityBehavior
         headVelocity = 0;
         jumping = false;
         locked = false;
+        savedBindBy = (int)player.Read("BINDED_BY");
+        faceStep = -1;
         player.Write("HALFBINDED", 1);
+        player.Write("BINDED_BY", 1);
+        ApplyFace(player);
+        Console.WriteLine("ROPE_FACE_START actor=" + player.Id + " bind_by=" + savedBindBy);
         controller.Scope.Write("BindCounter", 0);
         player.World.Globals.Write("BindMax", BindMax(player));
         (entity.X, entity.Y) = constraints.BoundHands(player.Id) ?? Hands(player);
@@ -139,6 +145,7 @@ public sealed class RopeCreature : IEntityBehavior
         controller ??= NativeActorActions.Controller(player);
         if (controller is null || controller.Destroyed) { AbortQte(); return; }
         player.Write("HALFBINDED", 1);
+        player.Write("BINDED_BY", 1);
         player.X = frozenX;
         player.Y = frozenY;
         player.Write("Direction", frozenDirection);
@@ -243,10 +250,48 @@ public sealed class RopeCreature : IEntityBehavior
 
     private void ClearQte(ActorContext player)
     {
-        if (!player.Instance.Destroyed) player.Write("HALFBINDED", 0);
+        faceStep = -1;
+        if (!player.Instance.Destroyed)
+        {
+            player.Write("HALFBINDED", 0);
+            player.Write("BINDED_BY", savedBindBy);
+        }
         if (controller is { Destroyed: false } current) current.Scope.Write("BindCounter", 0);
         controller = null;
+        Console.WriteLine("ROPE_FACE_END actor=" + player.Id + " bind_by=" + savedBindBy);
     }
+
+    private void ApplyFace(ActorContext player)
+    {
+        int step = (int)(qteTime / FaceInterval) % 4;
+        if (step == faceStep) return;
+        faceStep = step;
+        int eye = step is 1 or 2
+            ? Constant(player, "FACE_EYE_CLOSE", 1)
+            : Constant(player, "FACE_EYE_HALF", 3);
+        int mouth = step is 2 or 3
+            ? Constant(player, "FACE_MOUTH_A", 1)
+            : Constant(player, "FACE_MOUTH_I", 3);
+        GmInstance? head = Head(player);
+        if (head is null) return;
+        head.Scope.Write("Eye_Num", eye);
+        head.Scope.Write("Mouth_Num", mouth);
+        Console.WriteLine("ROPE_FACE_STEP actor=" + player.Id + " head=" + head.Id + " step=" + step + " eye=" + eye + " mouth=" + mouth);
+    }
+
+    private static GmInstance? Head(ActorContext player)
+    {
+        foreach (GmInstance instance in player.World.Instances)
+        {
+            if (instance.Destroyed || instance.Scope.ReadOr("DrawTarget").Int != player.Id) continue;
+            string? name = player.Services.Instances.ObjectName(instance.Object);
+            if (name is not null && name.EndsWith("_Head", StringComparison.Ordinal)) return instance;
+        }
+        return null;
+    }
+
+    private static int Constant(ActorContext player, string name, int fallback) =>
+        player.World.Constants.TryGetValue(name, out GmValue value) ? value.Int : fallback;
 
     private static double BindMax(ActorContext player) =>
         player.World.Globals.ReadOr("EASY_QS").Truth ? QteEasyPresses : QtePresses;

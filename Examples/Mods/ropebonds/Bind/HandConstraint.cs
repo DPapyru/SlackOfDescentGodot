@@ -8,7 +8,7 @@ namespace RopeBonds;
 public sealed class HandConstraint : IDisposable
 {
     private const string Handler = "ropebonds.hand.constraint", VerifyHandler = "ropebonds.hand.verify", PrepareHandler = "ropebonds.hand.prepare";
-    private const string ClipGraph = "ropebonds.bound", ClipId = "bound";
+    private const string ClipGraph = "ropebonds.bound", ClipId = "bound", QteGraph = "ropebonds.qte", QteClipId = "qte";
     public static readonly string[] Hands = MotionSkeleton.Bones.Where(name => name.StartsWith("HAND", StringComparison.Ordinal)).ToArray();
     private sealed record Bone(string Name, GmInstance Instance, GmInstance Parent);
     private sealed record Entry(ActorContext Actor, List<Bone> Bones, NativePoseService.Snapshot? Pose, MotionClip? Clip)
@@ -29,12 +29,16 @@ public sealed class HandConstraint : IDisposable
         context.Subscribe(PrepareHandler, NativeEventNames.FramePrepare, NativeEventPhase.After, _ => Prepare());
     }
 
-    public bool Bind(ActorContext actor, IEnumerable<string>? names = null)
+    public bool Bind(ActorContext actor, IEnumerable<string>? names = null) => Bind(actor, ClipGraph, ClipId, names ?? Hands);
+
+    public bool BindQte(ActorContext actor) => Bind(actor, QteGraph, QteClipId, MotionSkeleton.Bones);
+
+    private bool Bind(ActorContext actor, string graph, string clip, IEnumerable<string> names)
     {
         if (actor.Instance.Destroyed || entries.ContainsKey(actor.Id)) return false;
         List<Bone> bones = [];
         MotionSkeletonDescriptor skeleton = MotionSkeletonDescriptor.FromActor(actor.World, actor.Instance);
-        foreach (string name in (names ?? Hands).Distinct(StringComparer.Ordinal))
+        foreach (string name in names.Distinct(StringComparer.Ordinal))
         {
             if (!skeleton.ByName.TryGetValue(name, out var node)) continue;
             GmInstance? instance = actor.World.Instances.FirstOrDefault(candidate => candidate.Id == node.Instance && !candidate.Destroyed);
@@ -46,8 +50,8 @@ public sealed class HandConstraint : IDisposable
             bones.Add(new Bone(name, instance, parent));
         }
         if (bones.Count == 0) return false;
-        bones.Sort((left, right) => Depth(left, bones).CompareTo(Depth(right, bones)));
-        entries[actor.Id] = new Entry(actor, bones, actor.Services.Poses.Capture(actor, bones.Select(bone => bone.Name).ToArray()), BoundClip());
+        bones.Sort((left, right) => Array.IndexOf(MotionSkeleton.Bones, left.Name).CompareTo(Array.IndexOf(MotionSkeleton.Bones, right.Name)));
+        entries[actor.Id] = new Entry(actor, bones, actor.Services.Poses.Capture(actor, bones.Select(bone => bone.Name).ToArray()), Clip(graph, clip));
         Console.WriteLine("ROPE_BIND_START bones=" + bones.Count + " actor=" + actor.Id);
         return true;
     }
@@ -93,24 +97,10 @@ public sealed class HandConstraint : IDisposable
             if (!entry.Actor.Instance.Destroyed) Restore(entry);
     }
 
-    private MotionClip? BoundClip()
+    private MotionClip? Clip(string graphId, string clipId)
     {
-        if (registry is null || !registry.MotionGraphs.TryGetValue(ClipGraph, out var graph) || graph.Clips.Count == 0) return null;
-        return graph.Clips.FirstOrDefault(clip => clip.Id == ClipId) ?? graph.Clips[0];
-    }
-
-    private static int Depth(Bone bone, List<Bone> bones)
-    {
-        int depth = 0;
-        GmInstance? parent = bone.Parent;
-        while (parent is not null)
-        {
-            Bone? match = bones.FirstOrDefault(candidate => ReferenceEquals(candidate.Instance, parent));
-            if (match is null) break;
-            depth++;
-            parent = match.Parent;
-        }
-        return depth;
+        if (registry is null || !registry.MotionGraphs.TryGetValue(graphId, out var graph) || graph.Clips.Count == 0) return null;
+        return graph.Clips.FirstOrDefault(clip => clip.Id == clipId) ?? graph.Clips[0];
     }
 
     private void Verify()

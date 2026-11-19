@@ -21,14 +21,19 @@ public sealed class RopeCreature : IEntityBehavior
     private const double JumpGravity = .5;
     private const int MaxJumpFrames = 90;
     private const double PlayerLayerOffset = 1000.5;
+    private const double QteWindow = 2.5;
+    private const double RetreatCooldown = 12;
+    private const int QtePresses = 25, QteEasyPresses = 12;
     private readonly HandConstraint constraints;
     private readonly VerletChain chain = new(SegmentLength, 2);
     private readonly List<GmBounds> solids = [];
     private static readonly List<RopeCreature> Live = [];
     private ActorContext? victim, self;
+    private GmInstance? controller;
     private double ropeDepth = -100000;
     private double startX, startY, direction = 1, headVelocity;
-    private bool grounded, jumping, locked;
+    private double qteTime, frozenX, frozenY, frozenDirection, cooldownUntil;
+    private bool grounded, jumping, locked, qte;
     private int jumpFrame;
 
     public RopeCreature(HandConstraint constraints) => this.constraints = constraints;
@@ -46,13 +51,15 @@ public sealed class RopeCreature : IEntityBehavior
         if (chain.Count == 0) Reset(entity);
         if (solids.Count == 0) CollectSolids(entity);
         if (victim is not null && (victim.Instance.Destroyed || !victim.Instance.Active)) Release(entity);
-        if (victim is not null && !constraints.IsBound(victim.Id)) Release(entity);
+        if (!qte && victim is not null && !constraints.IsBound(victim.Id)) Release(entity);
+        if (victim is not null) ropeDepth = victim.Instance.Scope.ReadOr("depth").Number - PlayerLayerOffset;
+        if (qte) return;
         if (victim is not null) { Follow(entity); return; }
         ActorContext? player = Player(entity);
         if (player is not null) ropeDepth = player.Instance.Scope.ReadOr("depth").Number - PlayerLayerOffset;
         double previousX = entity.X, previousY = entity.Y;
         (double X, double Y)? hands = player is null ? null : Hands(player);
-        if (hands is { } target
+        if (hands is { } target && frame.GameTime >= cooldownUntil
             && Math.Abs(target.X - entity.X) < DetectRange && Math.Abs(target.Y - entity.Y) < 140)
         {
             int facing = Math.Sign(target.X - entity.X);
@@ -82,17 +89,112 @@ public sealed class RopeCreature : IEntityBehavior
 
     private void Attach(ActorContext entity, ActorContext player)
     {
-        if (!constraints.Bind(player)) return;
+        if (player.Read("BINDED") != 0 || player.Read("HALFBINDED") != 0 || constraints.IsBound(player.Id)) return;
+        if (!NativeActorActions.Grounded(player)) return;
+        GmInstance? target = NativeActorActions.Controller(player);
+        if (target is null || !constraints.BindQte(player)) return;
+        controller = target;
         victim = player;
+        qte = true;
+        qteTime = 0;
+        frozenX = player.X;
+        frozenY = player.Y;
+        frozenDirection = player.Read("Direction");
         headVelocity = 0;
         jumping = false;
         locked = false;
+        player.Write("HALFBINDED", 1);
+        controller.Scope.Write("BindCounter", 0);
+        player.World.Globals.Write("BindMax", BindMax(player));
         (entity.X, entity.Y) = constraints.BoundHands(player.Id) ?? Hands(player);
         chain.Reset(Segments, entity.X, entity.Y);
-        Console.WriteLine("ROPE_ATTACH actor=" + player.Id + " x=" + entity.X + " y=" + entity.Y);
+        Console.WriteLine("ROPE_QTE_START actor=" + player.Id + " max=" + BindMax(player) + " x=" + entity.X + " y=" + entity.Y);
     }
 
-    public static void Clear() => Live.Clear();
+    public static void TickQte()
+    {
+        foreach (RopeCreature creature in Live.ToArray()) creature.TickQteStep();
+    }
+
+    private void TickQteStep()
+    {
+        if (!qte) return;
+        if (victim is not { } player || player.Instance.Destroyed || !player.Instance.Active
+            || player.Read("BINDED") != 0 || player.Read("HALFBINDED") == 0)
+        {
+            AbortQte();
+            return;
+        }
+        controller ??= NativeActorActions.Controller(player);
+        if (controller is null || controller.Destroyed) { AbortQte(); return; }
+        player.X = frozenX;
+        player.Y = frozenY;
+        player.Write("Direction", frozenDirection);
+        player.HorizontalSpeed = 0;
+        player.VerticalSpeed = 0;
+        double bindMax = BindMax(player);
+        player.World.Globals.Write("BindMax", bindMax);
+        qteTime += self?.Services.Frame.Delta ?? FrameContext.FixedDelta;
+        double counter = controller.Scope.ReadOr("BindCounter").Number;
+        if (counter >= bindMax) { FinishQte(player, true); return; }
+        if (qteTime >= QteWindow) FinishQte(player, false);
+    }
+
+    private void FinishQte(ActorContext player, bool success)
+    {
+        qte = false;
+        double counter = controller?.Scope.ReadOr("BindCounter").Number ?? 0;
+        ClearQte(player);
+        constraints.Release(player);
+        if (success)
+        {
+            victim = null;
+            cooldownUntil = (self?.Services.Frame.GameTime ?? 0) + RetreatCooldown;
+            direction = startX >= player.X ? 1 : -1;
+            Console.WriteLine("ROPE_QTE_SUCCESS actor=" + player.Id + " counter=" + counter + " time=" + qteTime.ToString("0.00"));
+            return;
+        }
+        if (constraints.Bind(player))
+        {
+            victim = player;
+            Console.WriteLine("ROPE_QTE_FAIL actor=" + player.Id + " counter=" + counter + " time=" + qteTime.ToString("0.00") + " bind=1");
+            return;
+        }
+        victim = null;
+        Console.WriteLine("ROPE_QTE_FAIL actor=" + player.Id + " bind=missing");
+    }
+
+    private void AbortQte()
+    {
+        if (!qte) return;
+        qte = false;
+        if (victim is { } player)
+        {
+            if (!player.Instance.Destroyed)
+            {
+                ClearQte(player);
+                constraints.Release(player);
+            }
+            victim = null;
+        }
+        controller = null;
+    }
+
+    private void ClearQte(ActorContext player)
+    {
+        if (!player.Instance.Destroyed) player.Write("HALFBINDED", 0);
+        if (controller is { Destroyed: false } current) current.Scope.Write("BindCounter", 0);
+        controller = null;
+    }
+
+    private static double BindMax(ActorContext player) =>
+        player.World.Globals.ReadOr("EASY_QS").Truth ? QteEasyPresses : QtePresses;
+
+    public static void Clear()
+    {
+        foreach (RopeCreature creature in Live.ToArray()) creature.AbortQte();
+        Live.Clear();
+    }
 
     public static void Prepare()
     {
@@ -147,11 +249,22 @@ public sealed class RopeCreature : IEntityBehavior
 
     private void Release(ActorContext entity)
     {
+        if (qte)
+        {
+            qte = false;
+            if (victim is { } carried && !carried.Instance.Destroyed)
+            {
+                ClearQte(carried);
+                constraints.Release(carried);
+            }
+            victim = null;
+        }
         if (victim is { } player)
         {
             if (!player.Instance.Destroyed) constraints.Release(player);
             victim = null;
         }
+        controller = null;
         headVelocity = 0;
         jumping = false;
         if (!entity.Instance.Destroyed)
@@ -164,6 +277,7 @@ public sealed class RopeCreature : IEntityBehavior
 
     private void Reset(ActorContext entity)
     {
+        AbortQte();
         startX = entity.X;
         startY = entity.Y;
         victim = null;

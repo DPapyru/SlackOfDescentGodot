@@ -22,7 +22,7 @@ public sealed class RopeCreature : IEntityBehavior
     private const int MaxJumpFrames = 90;
     private const double PlayerLayerOffset = 1000.5;
     private const double QteWindow = 2.5;
-    private const double RetreatCooldown = 12;
+    private const double RetreatCooldown = 2;
     private const int QtePresses = 25, QteEasyPresses = 12;
     private readonly HandConstraint constraints;
     private readonly VerletChain chain = new(SegmentLength, 2);
@@ -32,7 +32,7 @@ public sealed class RopeCreature : IEntityBehavior
     private GmInstance? controller;
     private double ropeDepth = -100000;
     private double startX, startY, direction = 1, headVelocity;
-    private double qteTime, frozenX, frozenY, frozenDirection, cooldownUntil;
+    private double qteTime, qteStart, frozenX, frozenY, frozenDirection, cooldownUntil;
     private bool grounded, jumping, locked, qte;
     private int jumpFrame;
 
@@ -97,6 +97,7 @@ public sealed class RopeCreature : IEntityBehavior
         victim = player;
         qte = true;
         qteTime = 0;
+        qteStart = entity.Services.Frame.GameTime;
         frozenX = player.X;
         frozenY = player.Y;
         frozenDirection = player.Read("Direction");
@@ -120,13 +121,14 @@ public sealed class RopeCreature : IEntityBehavior
     {
         if (!qte) return;
         if (victim is not { } player || player.Instance.Destroyed || !player.Instance.Active
-            || player.Read("BINDED") != 0 || player.Read("HALFBINDED") == 0)
+            || player.Read("BINDED") != 0 || player.World.Globals.ReadOr("PlayerHP", 1).Number <= 0)
         {
             AbortQte();
             return;
         }
         controller ??= NativeActorActions.Controller(player);
         if (controller is null || controller.Destroyed) { AbortQte(); return; }
+        player.Write("HALFBINDED", 1);
         player.X = frozenX;
         player.Y = frozenY;
         player.Write("Direction", frozenDirection);
@@ -134,7 +136,7 @@ public sealed class RopeCreature : IEntityBehavior
         player.VerticalSpeed = 0;
         double bindMax = BindMax(player);
         player.World.Globals.Write("BindMax", bindMax);
-        qteTime += self?.Services.Frame.Delta ?? FrameContext.FixedDelta;
+        qteTime = player.Services.Frame.GameTime - qteStart;
         double counter = controller.Scope.ReadOr("BindCounter").Number;
         if (counter >= bindMax) { FinishQte(player, true); return; }
         if (qteTime >= QteWindow) FinishQte(player, false);
@@ -168,6 +170,7 @@ public sealed class RopeCreature : IEntityBehavior
     {
         if (!qte) return;
         qte = false;
+        cooldownUntil = (self?.Services.Frame.GameTime ?? 0) + RetreatCooldown;
         if (victim is { } player)
         {
             if (!player.Instance.Destroyed)
@@ -178,6 +181,14 @@ public sealed class RopeCreature : IEntityBehavior
             victim = null;
         }
         controller = null;
+    }
+
+    public static void BindFlag(int controllerId, bool bound)
+    {
+        foreach (RopeCreature creature in Live)
+            if (creature.qte && creature.controller is { } controller && controller.Id == controllerId
+                && creature.victim is { } player && !player.Instance.Destroyed)
+                player.Write("HALFBINDED", bound ? 1 : 0);
     }
 
     private void ClearQte(ActorContext player)

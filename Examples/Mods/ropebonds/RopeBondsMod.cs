@@ -21,6 +21,9 @@ public sealed class RopeBondsMod : IMod
             Height = 10
         }, () => new RopeCreature(Constraints));
         context.Subscribe("ropebonds.creature.qte", NativeEventNames.StepEnd, NativeEventPhase.After, _ => RopeCreature.TickQte());
+        string controllerStep = NativeEventNames.EnginePrefix + "objects/objController/3/0/28";
+        context.Subscribe("ropebonds.qte.unbind", controllerStep, NativeEventPhase.Before, value => RopeCreature.BindFlag(value.Actor?.Id ?? -1, false));
+        context.Subscribe("ropebonds.qte.rebind", controllerStep, NativeEventPhase.After, value => RopeCreature.BindFlag(value.Actor?.Id ?? -1, true));
         Constraints.Attach(context);
         context.Subscribe("ropebonds.creature.prepare", NativeEventNames.FramePrepare, NativeEventPhase.After, _ => RopeCreature.Prepare());
         bind = new BindProbe(Constraints);

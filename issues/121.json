@@ -1,10 +1,10 @@
 {
   "title": "自由态绳身断成数截、段间有缝（链节 9px 后仍存在）",
   "body": "## AI回复\n\n### 现象（用户 2026-11-15 实机截图）\n\n自由态绳生物在地面上时，绳身断成数截，段与段之间有明显空隙（不是接缝错位，而是整段缺失）。链节长度已改为 9px、绳身改用 9px 中段贴图、scaleX=clamp(distance/9,.9,1.1)，问题仍存在。\n\n### 需要的数据\n\n- 链点间距（相邻点距离）在自由态是否等于 9；\n- 每段 body 精灵的 id/x/y/angle/scaleX/originX 与实际链点是否首尾相接；\n- Render 与 RenderBound 共用 rope.body.* id 的切换/清理是否有残留或提前删除。\n\n### 验收\n\n- [ ] 自由态绳身连续无空隙（截图核对）\n- [ ] 绑定→解绑切换后无残留段\n\n## Blocked by\n\n- None\n",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-15T04:48:12Z",
-  "updatedAt": "2026-11-15T04:48:12Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-19T09:52:41Z",
+  "closedAt": "2026-11-19T09:52:41Z",
   "author": {
     "login": "DPapyru"
   },
@@ -23,6 +23,18 @@
     "nodes": []
   },
   "comments": {
-    "nodes": []
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABoZHohA",
+        "body": "## AI回复\n\n母票 #97 已关闭，按维护者要求一并关闭本子票。",
+        "createdAt": "2026-11-19T09:52:39Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
   }
 }

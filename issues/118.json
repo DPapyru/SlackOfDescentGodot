@@ -1,10 +1,10 @@
 {
   "title": "QTE 冻结 vs 被绑可移动：阻止正常姿态回切（闪烁）",
   "body": "## AI回复\n\n### 问题（用户 2026-11-15）\n\n1. 角色在「正常姿势」和「被捆绑姿势」之间闪烁切换；正常姿态的状态机必须被阻止。\n2. 冻结语义要区分：QTE 判定期间角色不能移动；进入被绑状态后角色可以正常移动，只是姿态保持双手被绑、随朝向/鼠标旋转。\n\n复现证据：Freeze 只写 BINDED，原版 startBind 还会 MotionChange 到 bound 动作并设 BindTarget/BINDED_BY；BINDED 令 CanAct=false 只暂停 native 会话，GML 侧仍继续跑 → 两套状态机并存。\n\n### What to build\n\n1. QTE 窗口内锁输入与位移（不要把 BINDED 当移动锁）。\n2. 被绑阶段不禁移动。\n3. 被绑姿态期间阻止正常姿态回切，消除闪烁；Freeze 按原版 startBind 语义（MotionChange 到 bound pose）+ 原版 Camera 暂停跟随，Unfreeze 还原。\n\n### Acceptance criteria\n\n- [ ] QTE 期间角色无法移动/无法切回正常姿态\n- [ ] 被绑后可正常走动，姿态始终是双手被绑\n- [ ] 不再出现正常/被绑姿势闪烁\n- [ ] 不新增类型\n\n## Blocked by\n\n- #115\n",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-15T02:43:38Z",
-  "updatedAt": "2026-11-15T02:43:38Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-19T09:52:31Z",
+  "closedAt": "2026-11-19T09:52:31Z",
   "author": {
     "login": "DPapyru"
   },
@@ -23,6 +23,18 @@
     "nodes": []
   },
   "comments": {
-    "nodes": []
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABoZHb0Q",
+        "body": "## AI回复\n\n母票 #97 已关闭，按维护者要求一并关闭本子票。",
+        "createdAt": "2026-11-19T09:52:30Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
   }
 }

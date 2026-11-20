@@ -1,10 +1,10 @@
 {
   "title": "捆绑 QTE 判定（新增）",
   "body": "## AI回复\n\n## Parent\n\n#97\n\n## What to build\n\n捆绑前的 QTE 判定（新增，不是全局 QTE）：生物贴近玩家后进入约 2.5s 窗口，屏幕提示并累计按键；成功则生物脱战、玩家不被绑；失败则进入被捆绑状态。\n\n## Acceptance criteria\n\n- [ ] 靠近后出现可见 QTE 提示\n- [ ] 按键累计达标即成功，生物后退、玩家不被绑\n- [ ] 未达标则进入被捆绑状态\n- [ ] 不新增类型，逻辑写在现有生物类内\n\n## Blocked by\n\n- 依赖「绳子生物不生成/不捆绑玩家」\n\n",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-15T01:00:00Z",
-  "updatedAt": "2026-11-15T02:43:52Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-19T09:51:59Z",
+  "closedAt": "2026-11-19T09:51:59Z",
   "author": {
     "login": "DPapyru"
   },
@@ -28,6 +28,17 @@
         "id": "IC_kwDOVf3hE88AAAABmpAlzA",
         "body": "## AI回复\n\n### 阈值与冻结（2026-11-15 用户更新）\n\n本 issue 的 2.5s 窗口/计数保留，但参数改为：约 25 次输入；判定期间角色不可移动；失败进入被捆绑状态。计数 UI 不自研，按 #111 复用原版左右摇杆 + SOS 提示。\n",
         "createdAt": "2026-11-15T02:43:52Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABoZGu9Q",
+        "body": "## AI回复\n\n母票 #97 已关闭，按维护者要求一并关闭本子票。",
+        "createdAt": "2026-11-19T09:51:58Z",
         "author": {
           "login": "DPapyru"
         },

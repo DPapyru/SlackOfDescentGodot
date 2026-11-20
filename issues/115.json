@@ -1,10 +1,10 @@
 {
   "title": "双手被绑姿态随朝向旋转，含持枪手",
   "body": "## AI回复\n\n## Parent\n\n#97\n\n## What to build\n\n被捆绑时双手应表现为「被绑起来」，并随角色朝向/鼠标方向旋转；当前持枪那只手无法被束缚。修复为双手统一受约束并随朝向旋转。\n\n## Acceptance criteria\n\n- [ ] 双手都被约束，含持枪手\n- [ ] 双手姿态随朝向旋转\n- [ ] 视觉上像被绑住（非持枪姿势）\n- [ ] 自检验证双手角度与朝向一致\n\n## Blocked by\n\n- None\n\n",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-15T01:25:29Z",
-  "updatedAt": "2026-11-15T02:43:54Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-19T09:52:21Z",
+  "closedAt": "2026-11-19T09:52:21Z",
   "author": {
     "login": "DPapyru"
   },
@@ -28,6 +28,17 @@
         "id": "IC_kwDOVf3hE88AAAABmpAnZw",
         "body": "## AI回复\n\n### 补充（2026-11-15）\n\n实测被绑姿态与正常姿态会闪烁切换（正常状态机回切）。已拆出 #118 处理「QTE 期间冻结 / 被绑后可移动 / 阻止正常姿态回切」。本 issue 的双手随朝向旋转验收不变。\n",
         "createdAt": "2026-11-15T02:43:54Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABoZHNfQ",
+        "body": "## AI回复\n\n母票 #97 已关闭，按维护者要求一并关闭本子票。",
+        "createdAt": "2026-11-19T09:52:20Z",
         "author": {
           "login": "DPapyru"
         },

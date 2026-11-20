@@ -1,10 +1,10 @@
 {
   "title": "复用原版 QTE 交互（摇杆/遥感提示）",
   "body": "## AI回复\n\n## Parent\n\n#97\n\n## What to build\n\n原版捆绑 QTE 会生成一个可操作控件（遥感/摇杆式提示）让玩家操作；当前是自己实现的 Z×8 计数。改为复用原版 QTE 实现或按其交互形态重做。\n\n## Acceptance criteria\n\n- [ ] 定位原版 QTE 的实现（对象/脚本/输入）并给出引用\n- [ ] 捆绑前的 QTE 改用同形态交互（可操作控件/提示）\n- [ ] 成功/失败两条路径可复现\n\n## Blocked by\n\n- None\n\n",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-15T01:25:20Z",
-  "updatedAt": "2026-11-15T02:43:50Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-19T09:52:08Z",
+  "closedAt": "2026-11-19T09:52:08Z",
   "author": {
     "login": "DPapyru"
   },
@@ -50,6 +50,17 @@
         "id": "IC_kwDOVf3hE88AAAABmpAkyQ",
         "body": "## AI回复\n\n### 用户定位（2026-11-15）\n\nQTE 必须复用原版的左右摇杆 SOS（图三那颗红色摇杆素材），不要自研计数 UI；约 25 次键盘输入，QTE 判定期间角色不能移动，未达标则进入被捆绑状态。\n\n审查证据指向的原版实现（已在本 issue 评论里反解过）：\n- 入口：objControllableDoll 的 4/261/0、4/320/0、4/357/0、4/369/0、4/411/0；\n- 输入：objController 的 up/b2（值 2=按下沿），配合 leftSOS / rightSOS / doStaminaStruggle；\n- 耐力：global.PlayerST / PlayerSTMAX，EASY_QS（kEASY=2/1）影响成功率；ST 条画在 objDisplay/8/0/20；\n- 应删掉自研的 10+0.1*(100-HP) 阈值与「QTE n/10」文本。\n\n## 验收补充\n\n- [ ] 在代码/资源中找到原版摇杆+SOS UI 并复用\n- [ ] 输入用原版方向键/摇杆状态，次数约 25\n- [ ] QTE 期间角色不可移动\n- [ ] 未达标→被绑；达标→脱离\n",
         "createdAt": "2026-11-15T02:43:50Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABoZG7mg",
+        "body": "## AI回复\n\n母票 #97 已关闭，按维护者要求一并关闭本子票。",
+        "createdAt": "2026-11-19T09:52:07Z",
         "author": {
           "login": "DPapyru"
         },

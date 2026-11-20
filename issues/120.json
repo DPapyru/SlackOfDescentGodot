@@ -1,10 +1,10 @@
 {
   "title": "暂停菜单（objPause）位置仍偏移：GUI 修正后未修复",
   "body": "## AI回复\n\n### 现象（用户 2026-11-15 实机截图）\n\n按退格打开暂停菜单后，菜单文字「暂停」仍出现在场景中偏移位置，红色圆环/十字图标出现在角色下方很远的地面处；HUD 血条/耐力条位置正常。此前已尝试「Draw GUI 事件以 Identity 变换执行」（GmGraphics 内 objPause 特判），但未修复。\n\n### 已知线索\n\n- objPause/8/0/0 用 menu_x = view_xview + 480*rateX、menu_y = view_yview + 20*rateY 计算坐标，背景用 sprite_create_from_screen 快照。\n- 引擎在 view_enabled 时把 canvas.Transform 设为相机变换后再执行 draw command；当前修正只对 event(8,0) 的 objPause 命令做了 Identity 包裹，但偏移仍在。\n- 需要确认：sprite_create_from_screen 是否返回 0（无快照）、事件是否在 main 队列被再次变换、以及 view_xview 值与实际屏幕坐标的关系。\n\n### 验收\n\n- [ ] 退格暂停菜单位置与 HUD 一致（角色屏幕中心/正确位置），红色图标不再出现在地面\n- [ ] 关闭菜单后画面与相机恢复正常\n\n## Blocked by\n\n- None\n",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-15T04:48:10Z",
-  "updatedAt": "2026-11-15T04:48:10Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-19T09:52:37Z",
+  "closedAt": "2026-11-19T09:52:37Z",
   "author": {
     "login": "DPapyru"
   },
@@ -23,6 +23,18 @@
     "nodes": []
   },
   "comments": {
-    "nodes": []
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABoZHk1Q",
+        "body": "## AI回复\n\n母票 #97 已关闭，按维护者要求一并关闭本子票。",
+        "createdAt": "2026-11-19T09:52:37Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
   }
 }

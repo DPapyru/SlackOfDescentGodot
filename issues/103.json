@@ -1,10 +1,10 @@
 {
   "title": "流沙陷入动作",
   "body": "## AI回复\n\n## Parent\n\n#97\n\n## What to build\n\n玩家踏入 objQuicksandPit（touchingQS）时播放陷入动作，脱离后恢复；不覆盖原版动作 id。\n\n## Acceptance criteria\n\n- [ ] 进入流沙触发陷入动作，与下陷过程一致\n- [ ] 离开流沙后恢复\n- [ ] 不覆盖原版动作 id\n\n## Blocked by\n\n- 依赖「三坑演示房间」\n- 依赖「基础位移动作（走/跑/跳）」\n\n",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-14T23:07:16Z",
-  "updatedAt": "2026-11-14T23:07:16Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-19T09:51:48Z",
+  "closedAt": "2026-11-19T09:51:48Z",
   "author": {
     "login": "DPapyru"
   },
@@ -23,6 +23,18 @@
     "nodes": []
   },
   "comments": {
-    "nodes": []
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABoZGeZQ",
+        "body": "## AI回复\n\n母票 #97 已关闭，按维护者要求一并关闭本子票。",
+        "createdAt": "2026-11-19T09:51:46Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
   }
 }

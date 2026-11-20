@@ -1,10 +1,10 @@
 {
   "title": "绳生物不生成 / 不主动捆绑玩家",
   "body": "## AI回复\n\n## Parent\n\n#97\n\n## What to build\n\n进图后绳生物应稳定生成并被看到；玩家进入检测范围（含落坑）时它主动跃起并捆绑一只手。当前实测：看不到绳生物，也不会发生绑定。\n\n## Acceptance criteria\n\n- [ ] 进图后坑内能看到绳生物（3 个坑各一）\n- [ ] 玩家进入检测范围后生物跃起并绑定一只手\n- [ ] 绑定后被绑手保持冻结、身体可动\n- [ ] 日志无 `spawn` 缺失、无 `bind failure`、无 `render skipped`\n\n## Blocked by\n\n- None (can start immediately)\n\n",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-15T00:59:55Z",
-  "updatedAt": "2026-11-15T00:59:55Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-19T09:51:54Z",
+  "closedAt": "2026-11-19T09:51:54Z",
   "author": {
     "login": "DPapyru"
   },
@@ -23,6 +23,18 @@
     "nodes": []
   },
   "comments": {
-    "nodes": []
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABoZGngQ",
+        "body": "## AI回复\n\n母票 #97 已关闭，按维护者要求一并关闭本子票。",
+        "createdAt": "2026-11-19T09:51:53Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
   }
 }

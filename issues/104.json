@@ -1,10 +1,10 @@
 {
   "title": "被捆绑 × 流沙交互",
   "body": "## AI回复\n\n## Parent\n\n#97\n\n## What to build\n\n被捆绑状态下跌入流沙：约束保持有效、动作合理、无异常；绳子生物行为不被卡死。\n\n## Acceptance criteria\n\n- [ ] 被绑 + 流沙组合可复现\n- [ ] 约束不丢失，退出后姿态还原\n- [ ] 无异常日志\n\n## Blocked by\n\n- 依赖「绳子生物最小行为」\n- 依赖「流沙陷入动作」\n\n",
-  "state": "OPEN",
+  "state": "CLOSED",
   "createdAt": "2026-11-14T23:07:19Z",
-  "updatedAt": "2026-11-14T23:07:19Z",
-  "closedAt": null,
+  "updatedAt": "2026-11-19T09:51:51Z",
+  "closedAt": "2026-11-19T09:51:51Z",
   "author": {
     "login": "DPapyru"
   },
@@ -23,6 +23,18 @@
     "nodes": []
   },
   "comments": {
-    "nodes": []
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABoZGjZA",
+        "body": "## AI回复\n\n母票 #97 已关闭，按维护者要求一并关闭本子票。",
+        "createdAt": "2026-11-19T09:51:50Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
   }
 }

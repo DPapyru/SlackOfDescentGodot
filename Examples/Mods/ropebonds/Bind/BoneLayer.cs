@@ -26,7 +26,7 @@ public sealed class BoneLayer(string prefix)
         context.Subscribe(prefix + ".prepare", NativeEventNames.FramePrepare, NativeEventPhase.After, _ => Prepare());
     }
 
-    public bool Bind(ActorContext actor, string graph, string clip, IEnumerable<string> names)
+    public bool Bind(ActorContext actor, string graph, string clip, IEnumerable<string> names, NativePoseService.Snapshot? pose = null)
     {
         if (actor.Instance.Destroyed || entries.ContainsKey(actor.Id)) return false;
         List<Bone> bones = [];
@@ -44,7 +44,8 @@ public sealed class BoneLayer(string prefix)
         }
         if (bones.Count == 0) return false;
         bones.Sort((left, right) => Array.IndexOf(MotionSkeleton.Bones, left.Name).CompareTo(Array.IndexOf(MotionSkeleton.Bones, right.Name)));
-        entries[actor.Id] = new Entry(actor, bones, actor.Services.Poses.Capture(actor, bones.Select(bone => bone.Name).ToArray()), Clip(graph, clip));
+        NativePoseService.Snapshot? snapshot = pose ?? actor.Services.Poses.Capture(actor, bones.Select(bone => bone.Name).ToArray());
+        entries[actor.Id] = new Entry(actor, bones, snapshot, Clip(graph, clip));
         Console.WriteLine("ROPE_BIND_START bones=" + bones.Count + " actor=" + actor.Id);
         return true;
     }

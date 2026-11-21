@@ -18,13 +18,17 @@ public sealed class ConstraintService : IDisposable
         feet.Attach(context);
     }
 
-    public bool Bind(ActorContext actor, BindLayer layer) =>
-        Bind(actor, layer, layer == BindLayer.Hands ? HandGraph : FootGraph, layer == BindLayer.Hands ? HandClip : FootClip);
+    public bool Bind(ActorContext actor, BindLayer layer) => Bind(actor, layer, null);
 
-    public bool Bind(ActorContext actor, BindLayer layer, string graph, string clip) =>
-        Bind(Layer(layer), Other(layer), actor, graph, clip, Bones(layer));
+    public bool Bind(ActorContext actor, BindLayer layer, NativePoseService.Snapshot? pose) =>
+        Bind(actor, layer, layer == BindLayer.Hands ? HandGraph : FootGraph, layer == BindLayer.Hands ? HandClip : FootClip, pose);
 
-    public bool BindQte(ActorContext actor) => Bind(hands, feet, actor, QteGraph, QteClip, MotionSkeleton.Bones);
+    public bool Bind(ActorContext actor, BindLayer layer, string graph, string clip) => Bind(actor, layer, graph, clip, null);
+
+    public bool Bind(ActorContext actor, BindLayer layer, string graph, string clip, NativePoseService.Snapshot? pose) =>
+        Bind(Layer(layer), Other(layer), actor, graph, clip, Bones(layer), pose);
+
+    public bool BindQte(ActorContext actor) => Bind(hands, feet, actor, QteGraph, QteClip, MotionSkeleton.Bones, null);
 
     public bool Release(ActorContext actor, BindLayer layer) => Layer(layer).Release(actor);
 
@@ -45,6 +49,8 @@ public sealed class ConstraintService : IDisposable
 
     public bool Bound(int actorId, BindLayer layer) => Layer(layer).Holds(actorId);
 
+    public string? Clip(int actorId, BindLayer layer) => Layer(layer).ClipId(actorId);
+
     public (double X, double Y)? BoundHands(int actorId) => hands.Center(actorId, "HAND3_ABOVE", "HAND3_BELOW");
 
     public (double X, double Y)? BoundFeet(int actorId) => feet.Center(actorId, "FOOT3_ABOVE", "FOOT3_BELOW");
@@ -57,6 +63,6 @@ public sealed class ConstraintService : IDisposable
 
     private static string[] Bones(BindLayer layer) => layer == BindLayer.Hands ? HandBones : FootBones;
 
-    private static bool Bind(BoneLayer layer, BoneLayer other, ActorContext actor, string graph, string clip, string[] bones) =>
-        !other.Holds(actor.Id, bones) && layer.Bind(actor, graph, clip, bones);
+    private static bool Bind(BoneLayer layer, BoneLayer other, ActorContext actor, string graph, string clip, string[] bones, NativePoseService.Snapshot? pose) =>
+        !other.Holds(actor.Id, bones) && layer.Bind(actor, graph, clip, bones, pose);
 }

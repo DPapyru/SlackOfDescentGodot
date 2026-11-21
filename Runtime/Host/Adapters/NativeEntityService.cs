@@ -16,6 +16,7 @@ public sealed class NativeEntityService(NativeModServices services) : IDisposabl
     {
         if (!services.Registry.EntityDefinitions.TryGetValue(id, out var definition)) throw new InvalidDataException("实体类型未加载：" + id);
         var world = services.World;
+        int baseObject = ResolveBase(definition.BaseObject);
         var values = new Dictionary<string, GmValue>(StringComparer.Ordinal);
         foreach (var pair in definition.Parameters)
         {
@@ -23,7 +24,7 @@ public sealed class NativeEntityService(NativeModServices services) : IDisposabl
             if (pair.Value.Type != "string" && (pair.Value.Min is {} min && value.Number < min || pair.Value.Max is {} max && value.Number > max)) throw new InvalidDataException("实体参数超出范围：" + pair.Key);
             values.Add(pair.Key, value);
         }
-        var instance = world.CreateNativeEntity(x, y);
+        var instance = world.CreateNativeEntity(x, y, baseObject);
         instance.Scope.Write("visible", false); instance.Scope.Write("solid", definition.Solid);
         foreach (var pair in values) instance.Scope.Write(pair.Key, pair.Value);
         spawned.Add(instance.Id, new(instance, definition, owner, services.CurrentScope, world.Actor(instance), services.Registry.ScopeFor("entity", definition.BehaviorId, instance.Id)));
@@ -40,12 +41,23 @@ public sealed class NativeEntityService(NativeModServices services) : IDisposabl
     {
         if (!services.Registry.EntityDefinitions.TryGetValue(definitionId, out var definition)) throw new InvalidDataException("实体类型未加载：" + definitionId);
         var actor = Find(id) ?? throw new InvalidDataException("实体实例不存在：" + id);
+        int baseObject = ResolveBase(definition.BaseObject);
+        if (baseObject >= 0)
+            services.World.ChangeObject(actor.Instance, services.World.NativeEntityObject(baseObject));
         foreach (var pair in definition.Parameters)
             if (!actor.Instance.Scope.Values.ContainsKey(pair.Key)) actor.Instance.Scope.Write(pair.Key, ParameterDefault(pair.Value));
         actor.Write("solid", definition.Solid ? 1 : 0);
         spawned[id] = new(actor.Instance, definition, 0, services.CurrentScope, actor, services.Registry.ScopeFor("entity", definition.BehaviorId, id));
         try { Attach?.Invoke(id, definition.BehaviorId); }
         catch { spawned.Remove(id); services.Presentation.ClearActor(id); throw; }
+    }
+    private int ResolveBase(string baseObject)
+    {
+        if (string.IsNullOrEmpty(baseObject))
+            return -1;
+        if (!services.World.Constants.TryGetValue(baseObject, out var resolved) || !services.World.Objects.ContainsKey(resolved.Int))
+            throw new InvalidDataException("原生基对象未找到：" + baseObject);
+        return resolved.Int;
     }
     private static GmValue ParameterDefault(NativeEntityParameter parameter) => parameter.Type switch
     {

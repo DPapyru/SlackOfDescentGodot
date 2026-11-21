@@ -315,10 +315,7 @@
         "angle": 0,
         "blend": 16777215,
         "code": "",
-        "properties": {
-          "PreBind": 1,
-          "AutoQte": 1
-        },
+        "properties": {},
         "entityType": "ropebonds.creature"
       },
       {
@@ -331,10 +328,7 @@
         "angle": 0,
         "blend": 16777215,
         "code": "",
-        "properties": {
-          "PreBind": 1,
-          "AutoQte": 2
-        },
+        "properties": {},
         "entityType": "ropebonds.creature"
       },
       {

@@ -53,10 +53,10 @@ public sealed class RopeCreature : IEntityBehavior
     private double startX, startY, direction = 1, headVelocity;
     private double qteTime, qteStart, phaseStart, landedAt, frozenX, frozenY, frozenDirection, cooldownUntil, nextGishi, lastCounter, rollUntil;
     private NativePoseService.Snapshot? feetEntry;
-    private int gishiIndex, savedBindBy, faceStep = -1, autoQte;
+    private int gishiIndex, savedBindBy, faceStep = -1;
     private BindLayer qteLayer;
     private double qteWindow = QteWindow;
-    private bool muguPlayed, preBind, anchorSeen;
+    private bool muguPlayed, anchorSeen;
     private bool grounded, jumping;
     private Phase phase;
     private bool dying;
@@ -257,13 +257,6 @@ public sealed class RopeCreature : IEntityBehavior
         if (player.Read("BINDED") != 0 || Busy(player)) return;
         if (!NativeActorActions.Grounded(player)) return;
         if (constraints.Bound(player.Id, BindLayer.Feet)) return;
-        if (preBind && !constraints.Bound(player.Id, BindLayer.Hands))
-        {
-            if (!constraints.Bind(player, BindLayer.Hands)) return;
-            heldHands = true;
-            boundPlayer = player;
-            Console.WriteLine("ROPE_PREBIND actor=" + player.Id);
-        }
         if (entity.Read("LegsOnly") != 0)
         {
             if (!constraints.Bind(player, BindLayer.Feet)) return;
@@ -337,6 +330,9 @@ public sealed class RopeCreature : IEntityBehavior
         headVelocity = 0;
         jumping = false;
         Hold(player);
+        controller ??= NativeActorActions.Controller(player);
+        if (controller is { Destroyed: false } current) current.Scope.Write("BindCounter", 0);
+        player.World.Globals.Write("BindMax", BindMax(player, qteLayer));
         NativeActorActions.Motion(player, "DOWN_0");
         Console.WriteLine("ROPE_FALL_START actor=" + player.Id);
     }
@@ -422,7 +418,6 @@ public sealed class RopeCreature : IEntityBehavior
             return;
         }
         Hold(player);
-        AutoStruggle(player);
         double bindMax = BindMax(player, qteLayer);
         player.World.Globals.Write("BindMax", bindMax);
         qteTime = player.Services.Frame.GameTime - qteStart;
@@ -453,19 +448,6 @@ public sealed class RopeCreature : IEntityBehavior
             nextGishi = qteTime + GishiInterval;
             PlayGishi(player, gishiIndex++ % GishiFiles.Length);
         }
-    }
-
-    private void AutoStruggle(ActorContext player)
-    {
-        if (autoQte == 0 || controller is null || controller.Destroyed) return;
-        if (autoQte == 2)
-        {
-            controller.Scope.Write("BindCounter", 0);
-            return;
-        }
-        double bindMax = BindMax(player, qteLayer);
-        double ramped = Math.Min(bindMax, controller.Scope.ReadOr("BindCounter").Number + Math.Max(1, bindMax / 12));
-        controller.Scope.Write("BindCounter", ramped);
     }
 
     private static bool Busy(ActorContext player) =>
@@ -679,11 +661,11 @@ public sealed class RopeCreature : IEntityBehavior
 
     private (ActorContext Above, ActorContext Below)? Pair(ActorContext player)
     {
-        if (phase is Phase.LegQte or Phase.Hold && constraints.Bound(player.Id, BindLayer.Feet) && !constraints.Bound(player.Id, BindLayer.Hands))
-            return Parts(player, "FOOT3_ABOVE", "FOOT3_BELOW");
-        if (phase is Phase.LegQte) return Parts(player, "FOOT3_ABOVE", "FOOT3_BELOW");
-        if (constraints.Bound(player.Id, BindLayer.Hands)) return Parts(player, "HAND3_ABOVE", "HAND3_BELOW");
+        if (phase == Phase.Fall) return Parts(player, "FOOT3_ABOVE", "FOOT3_BELOW");
+        if (heldFeet) return Parts(player, "FOOT3_ABOVE", "FOOT3_BELOW");
+        if (heldHands) return Parts(player, "HAND3_ABOVE", "HAND3_BELOW");
         if (constraints.Bound(player.Id, BindLayer.Feet)) return Parts(player, "FOOT3_ABOVE", "FOOT3_BELOW");
+        if (constraints.Bound(player.Id, BindLayer.Hands)) return Parts(player, "HAND3_ABOVE", "HAND3_BELOW");
         return null;
     }
 
@@ -692,10 +674,12 @@ public sealed class RopeCreature : IEntityBehavior
             ? (left, right)
             : null;
 
-    private (double X, double Y)? Anchor(ActorContext player) =>
-        phase is Phase.LegQte or Phase.Hold && constraints.Bound(player.Id, BindLayer.Feet) && !constraints.Bound(player.Id, BindLayer.Hands)
-            ? constraints.BoundFeet(player.Id)
-            : constraints.BoundHands(player.Id) ?? constraints.BoundFeet(player.Id);
+    private (double X, double Y)? Anchor(ActorContext player)
+    {
+        if (heldFeet || phase == Phase.Fall) return constraints.BoundFeet(player.Id) ?? Feet(player);
+        if (heldHands) return constraints.BoundHands(player.Id) ?? Hands(player);
+        return constraints.BoundFeet(player.Id) ?? constraints.BoundHands(player.Id);
+    }
 
     private void RenderBound(ActorContext entity, ActorContext above, ActorContext below)
     {
@@ -789,8 +773,6 @@ public sealed class RopeCreature : IEntityBehavior
         startX = entity.X;
         startY = entity.Y;
         victim = null;
-        autoQte = (int)entity.Read("AutoQte");
-        preBind = entity.Read("PreBind") != 0;
         direction = 1;
         headVelocity = 0;
         grounded = false;

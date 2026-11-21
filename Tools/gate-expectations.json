@@ -2,7 +2,7 @@
   "warnings": [
     {
       "code": "CS8600",
-      "where": "Runtime/Host/Rendering/GmGraphics.cs:1042:68"
+      "where": "Runtime/Host/Rendering/GmGraphics.cs:1043:68"
     },
     {
       "code": "CS8602",

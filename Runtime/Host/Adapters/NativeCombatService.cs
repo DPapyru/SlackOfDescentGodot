@@ -9,15 +9,28 @@ public sealed class NativeCombatService
 {
     private readonly NativeModServices services;
     private readonly JsonElement damage;
+    private static (string Source, JsonElement Damage)? damageBlock;
     internal NativeCombatService(NativeModServices services)
     {
         this.services = services;
-        var tree = JsonNode.Parse(services.World.Code["objects/objBullet/3/1/0"].GetRawText())!;
+        damage = ResolveDamageBlock(services.World.Code["objects/objBullet/3/1/0"].GetRawText());
+    }
+    private static JsonElement ResolveDamageBlock(string source)
+    {
+        if (damageBlock is {} cached && string.Equals(cached.Source, source, StringComparison.Ordinal))
+            return cached.Damage;
+        var resolved = BuildDamageBlock(source);
+        damageBlock = (source, resolved);
+        return resolved;
+    }
+    private static JsonElement BuildDamageBlock(string source)
+    {
+        var tree = JsonNode.Parse(source)!;
         var body = Nodes(tree).Single(n => n[0]?.ToString() == "with" && n[1]?[0]?.ToString() == "id" && n[1]?[1]?.ToString() == "col").DeepClone();
         var amount = Nodes(body).Single(n => n[0]?.ToString() == "binary" && n[1]?.ToString() == "AssignSubtract" && n[2]?[1]?.ToString() == "HP");
         if (amount[3] is JsonArray wrapped && wrapped[0]?.ToString() == "call" && wrapped[1]?.ToString() == "native_damage") amount[3] = wrapped[2]![0]!.DeepClone();
         amount[3]![2] = new JsonArray("id", "argument0");
-        damage = JsonSerializer.SerializeToElement(body);
+        return JsonSerializer.SerializeToElement(body);
     }
     private static IEnumerable<JsonArray> Nodes(JsonNode node)
     {

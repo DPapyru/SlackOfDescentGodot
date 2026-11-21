@@ -116,13 +116,23 @@ public sealed partial class GmWorld
         PatchBulletDamage();
         ApplyModMenu();
     }
+    private static (string Source, JsonElement Patched)? bulletDamagePatch;
     private void PatchBulletDamage()
     {
-        var tree=JsonNode.Parse(Code["objects/objBullet/3/1/0"].GetRawText())!.AsArray();
+        string source=Code["objects/objBullet/3/1/0"].GetRawText();
+        Code["objects/objBullet/3/1/0"]=CachedBulletDamage(source)??ApplyBulletDamage(source);
+    }
+    private static JsonElement? CachedBulletDamage(string source) =>
+        bulletDamagePatch is {} cached && string.Equals(cached.Source,source,StringComparison.Ordinal) ? cached.Patched : null;
+    private static JsonElement ApplyBulletDamage(string source)
+    {
+        var tree=JsonNode.Parse(source)!.AsArray();
         var amount=Nodes(tree).SingleOrDefault(n=>n.Count==4&&n[0]?.ToString()=="binary"&&n[1]?.ToString()=="AssignSubtract"&&n[2]?[1]?.ToString()=="HP")
             ??throw new InvalidOperationException("Expected one native bullet damage assignment");
         amount[3]=new JsonArray("call","native_damage",new JsonArray(amount[3]!.DeepClone()));
-        Code["objects/objBullet/3/1/0"]=JsonSerializer.SerializeToElement(tree);
+        var patched=JsonSerializer.SerializeToElement(tree);
+        bulletDamagePatch=(source,patched);
+        return patched;
         static IEnumerable<JsonArray> Nodes(JsonArray node)
         {
             yield return node;

@@ -1,0 +1,228 @@
+{
+  "FormatVersion": 1,
+  "Id": "ropebonds.legqte",
+  "Skeleton": "Nana",
+  "Entry": "legqte",
+  "Origin": "mod",
+  "Clips": [
+    {
+      "Id": "legqte",
+      "Duration": 40,
+      "Loop": true,
+      "Tracks": [
+        {
+          "Bone": "FOOT1_ABOVE",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 1.74,
+              "Y": 9.85,
+              "Angle": -28.582477673968203,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": 1.74,
+              "Y": 9.85,
+              "Angle": -10,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": 1.74,
+              "Y": 9.85,
+              "Angle": -28.582477673968203,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "FOOT2_ABOVE",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 0,
+              "Y": 22,
+              "Angle": 56.47954415105214,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": 0,
+              "Y": 22,
+              "Angle": 20,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": 0,
+              "Y": 22,
+              "Angle": 56.47954415105214,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "FOOT3_ABOVE",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": -1.31,
+              "Y": 24.97,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": -1.31,
+              "Y": 24.97,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": -1.31,
+              "Y": 24.97,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "FOOT1_BELOW",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 1.74,
+              "Y": 9.85,
+              "Angle": 28.582477673968203,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": 1.74,
+              "Y": 9.85,
+              "Angle": 10,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": 1.74,
+              "Y": 9.85,
+              "Angle": 28.582477673968203,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "FOOT2_BELOW",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": 0,
+              "Y": 22,
+              "Angle": -50.4732387534722,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": 0,
+              "Y": 22,
+              "Angle": -20,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": 0,
+              "Y": 22,
+              "Angle": -50.4732387534722,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        },
+        {
+          "Bone": "FOOT3_BELOW",
+          "Keys": [
+            {
+              "Frame": 0,
+              "X": -1.31,
+              "Y": 24.97,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 20,
+              "X": -1.31,
+              "Y": 24.97,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            },
+            {
+              "Frame": 40,
+              "X": -1.31,
+              "Y": 24.97,
+              "Angle": 0,
+              "ScaleX": 1,
+              "ScaleY": 1,
+              "Picture": 0
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "States": [
+    {
+      "Id": "legqte",
+      "Clip": "legqte"
+    }
+  ],
+  "IkChains": [
+    {
+      "Root": "FOOT1_ABOVE",
+      "Mid": "FOOT2_ABOVE",
+      "End": "FOOT3_ABOVE",
+      "Enabled": true
+    },
+    {
+      "Root": "FOOT1_BELOW",
+      "Mid": "FOOT2_BELOW",
+      "End": "FOOT3_BELOW",
+      "Enabled": true
+    }
+  ]
+}

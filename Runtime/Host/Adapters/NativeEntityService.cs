@@ -16,6 +16,13 @@ public sealed class NativeEntityService(NativeModServices services) : IDisposabl
     {
         if (!services.Registry.EntityDefinitions.TryGetValue(id, out var definition)) throw new InvalidDataException("实体类型未加载：" + id);
         var world = services.World;
+        int baseObject = -1;
+        if (!string.IsNullOrEmpty(definition.BaseObject))
+        {
+            if (!world.Constants.TryGetValue(definition.BaseObject, out var resolved) || !world.Objects.ContainsKey(resolved.Int))
+                throw new InvalidDataException("原生基对象未找到：" + definition.BaseObject);
+            baseObject = resolved.Int;
+        }
         var values = new Dictionary<string, GmValue>(StringComparer.Ordinal);
         foreach (var pair in definition.Parameters)
         {
@@ -23,7 +30,7 @@ public sealed class NativeEntityService(NativeModServices services) : IDisposabl
             if (pair.Value.Type != "string" && (pair.Value.Min is {} min && value.Number < min || pair.Value.Max is {} max && value.Number > max)) throw new InvalidDataException("实体参数超出范围：" + pair.Key);
             values.Add(pair.Key, value);
         }
-        var instance = world.CreateNativeEntity(x, y);
+        var instance = world.CreateNativeEntity(x, y, baseObject);
         instance.Scope.Write("visible", false); instance.Scope.Write("solid", definition.Solid);
         foreach (var pair in values) instance.Scope.Write(pair.Key, pair.Value);
         spawned.Add(instance.Id, new(instance, definition, owner, services.CurrentScope, world.Actor(instance), services.Registry.ScopeFor("entity", definition.BehaviorId, instance.Id)));

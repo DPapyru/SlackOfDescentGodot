@@ -33,6 +33,7 @@ public sealed class NativeEntityDefinition
     public string Description { get; set; } = "";
     public string BehaviorId { get; set; } = "";
     public string ResourceId { get; set; } = "";
+    public string BaseObject { get; set; } = "";
     public double Width { get; set; } = 16;
     public double Height { get; set; } = 16;
     public bool Solid { get; set; }

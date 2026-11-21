@@ -6,9 +6,11 @@ namespace SlackOfDescent;
 public sealed partial class GmWorld
 {
     internal NativeModServices? NativeServices;
-    internal GmInstance CreateNativeEntity(double x, double y)
+    internal const int NativeEntityKind = -100001;
+    internal const int NativeBaseKind = -100002;
+    internal GmInstance CreateNativeEntity(double x, double y, int baseObject = -1)
     {
-        const int kind = -100001;
+        int kind = baseObject < 0 ? NativeEntityKind : NativeBaseKind - baseObject;
         if (!Objects.ContainsKey(kind))
         {
             var definition = JsonNode.Parse(Objects[Constants["objLine"].Int].GetRawText())!.AsObject();
@@ -18,4 +20,5 @@ public sealed partial class GmWorld
         }
         return Create(kind, x, y, run: false);
     }
+    internal int NativeBase(int obj) => obj <= NativeBaseKind && Objects.ContainsKey(obj) ? NativeBaseKind - obj : -1;
 }

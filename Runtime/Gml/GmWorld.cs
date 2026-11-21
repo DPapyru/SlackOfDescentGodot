@@ -661,13 +661,14 @@ public sealed partial class GmWorld
         var key = (actual, target);
         if (objectRelations.TryGetValue(key, out bool result))
             return result;
+        int declared = NativeBase(actual);
         for (int depth = 0; depth < 128 && Objects.ContainsKey(actual); depth++)
         {
             if (actual == target)
                 return objectRelations[key] = true;
             actual = parents.GetValueOrDefault(actual, -1);
         }
-        return objectRelations[key] = false;
+        return objectRelations[key] = declared >= 0 && IsObject(declared, target);
     }
 
     public IEnumerable<GmInstance> Select(int target, GmContext context)

@@ -42,6 +42,7 @@ public sealed class RopeCreature : IEntityBehavior
     private static readonly string[] GishiFiles = ["gishi.wav", "gishi_low.wav", "gishi_high.wav"];
     private static readonly Dictionary<string, int> GishiSounds = new(StringComparer.Ordinal);
     private readonly ConstraintService constraints;
+    private readonly QteTrial trial = new();
     private readonly VerletChain chain = new(SegmentLength, 2);
     private readonly List<GmBounds> solids = [];
     private static readonly List<RopeCreature> Live = [];
@@ -205,6 +206,7 @@ public sealed class RopeCreature : IEntityBehavior
         savedBindBy = (int)player.Read("BINDED_BY");
         qteTime = 0;
         qteStart = entity.Services.Frame.GameTime;
+        trial.Begin(false, qteStart, qteWindow, BindMax(player, qteLayer));
         nextGishi = 0;
         lastCounter = 0;
         gishiIndex = 0;
@@ -257,6 +259,7 @@ public sealed class RopeCreature : IEntityBehavior
         qteWindow = LegQteWindow;
         qteTime = 0;
         qteStart = player.Services.Frame.GameTime;
+        trial.Begin(true, qteStart, qteWindow, BindMax(player, qteLayer));
         nextGishi = 0;
         lastCounter = 0;
         gishiIndex = 0;
@@ -325,16 +328,23 @@ public sealed class RopeCreature : IEntityBehavior
         }
         Hold(player);
         AutoStruggle(player);
-        double bindMax = BindMax(player, qteLayer);
-        player.World.Globals.Write("BindMax", bindMax);
-        qteTime = player.Services.Frame.GameTime - qteStart;
+        double now = player.Services.Frame.GameTime;
+        qteTime = now - qteStart;
         double counter = controller.Scope.ReadOr("BindCounter").Number;
-        if (counter >= bindMax)
+        QteStep step = trial.Step(counter, now);
+        if (step == QteStep.Half)
+        {
+            controller.Scope.Write("BindCounter", 0);
+            counter = 0;
+            Console.WriteLine("ROPE_QTE_HALF actor=" + player.Id + " deadline=" + trial.Deadline.ToString("0.00"));
+        }
+        player.World.Globals.Write("BindMax", trial.Max);
+        if (step == QteStep.Success)
         {
             FinishQte(player, true);
             return;
         }
-        if (qteTime >= qteWindow)
+        if (step == QteStep.Fail)
         {
             FinishQte(player, false);
             return;
@@ -528,7 +538,7 @@ public sealed class RopeCreature : IEntityBehavior
     private static int Constant(ActorContext player, string name, int fallback) =>
         player.World.Constants.TryGetValue(name, out GmValue value) ? value.Int : fallback;
 
-    private static double BindMax(ActorContext player, BindLayer layer)
+    public static double BindMax(ActorContext player, BindLayer layer)
     {
         double presses = player.World.Globals.ReadOr("EASY_QS").Truth ? QteEasyPresses : QtePresses;
         return layer == BindLayer.Feet ? presses * 2 : presses;
@@ -769,4 +779,111 @@ public sealed class RopeCreature : IEntityBehavior
 
     private static ActorContext? Player(ActorContext entity) =>
         entity.World.Constants.ContainsKey("objPlayerDoll") ? entity.Services.Instances.FindObject("objPlayerDoll") : null;
+}
+
+public enum QteStep
+{
+    Continue,
+    Half,
+    Success,
+    Fail
+}
+
+public sealed class QteTrial
+{
+    private const double SecondPhaseBonus = .1;
+    private double startedAt, window;
+    public bool Legs { get; private set; }
+    public int Phase { get; private set; }
+    public double Max { get; private set; } = 1;
+    public double Deadline { get; private set; }
+    public double Last { get; private set; }
+
+    public void Begin(bool legs, double now, double window, double max)
+    {
+        Legs = legs;
+        startedAt = now;
+        this.window = window;
+        Max = max;
+        Deadline = now + window;
+        Phase = 0;
+        Last = 0;
+    }
+
+    public QteStep Step(double counter, double now)
+    {
+        if (Legs && Phase == 0 && now - startedAt >= window / 2)
+        {
+            Phase = 1;
+            Last = 0;
+            return QteStep.Half;
+        }
+        if (counter >= Max) return QteStep.Success;
+        if (Phase == 1 && counter > Last) Deadline += SecondPhaseBonus;
+        Last = counter;
+        return now >= Deadline ? QteStep.Fail : QteStep.Continue;
+    }
+}
+
+public sealed class QteProbe : IDisposable
+{
+    private readonly ConstraintService constraints;
+    private readonly QteTrial trial = new();
+    private ActorContext? target;
+    private GmInstance? controller;
+    private bool running;
+
+    public QteProbe(ConstraintService constraints) => this.constraints = constraints;
+
+    public void Start(NativeGameEvent value)
+    {
+        value.Handled = true;
+        value.Result = 1;
+        if (value.Actor is not { } actor || !RopeBondsMod.IsPlayer(actor) || running) return;
+        if (!constraints.Bind(actor, BindLayer.Feet, "ropebonds.legqte", "legqte")) return;
+        controller = NativeActorActions.Controller(actor);
+        if (controller is null)
+        {
+            constraints.Release(actor, BindLayer.Feet);
+            return;
+        }
+        target = actor;
+        running = true;
+        trial.Begin(true, actor.Services.Frame.GameTime, 5, RopeCreature.BindMax(actor, BindLayer.Feet));
+        actor.World.Globals.Write("BindMax", trial.Max);
+        Console.WriteLine("ROPE_QTE_PROBE_START actor=" + actor.Id + " max=" + trial.Max);
+    }
+
+    public void Tick()
+    {
+        if (!running || target is not { } actor) return;
+        if (actor.Instance.Destroyed || controller is not { Destroyed: false } current)
+        {
+            running = false;
+            return;
+        }
+        QteStep step = trial.Step(actor.Read("ropeQteCounter"), actor.Services.Frame.GameTime);
+        if (step == QteStep.Half)
+        {
+            actor.Write("ropeQteCounter", 0);
+            current.Scope.Write("BindCounter", 0);
+        }
+        else if (step == QteStep.Success) Finish(true);
+        else if (step == QteStep.Fail) Finish(false);
+    }
+
+    private void Finish(bool success)
+    {
+        running = false;
+        if (target is not { } actor) return;
+        constraints.Release(actor, BindLayer.Feet);
+        if (!success) constraints.Bind(actor, BindLayer.Feet);
+        Console.WriteLine("ROPE_QTE_PROBE_" + (success ? "SUCCESS" : "FAIL") + " actor=" + actor.Id);
+    }
+
+    public void Dispose()
+    {
+        if (running && target is { } actor && !actor.Instance.Destroyed) constraints.Release(actor, BindLayer.Feet);
+        running = false;
+    }
 }

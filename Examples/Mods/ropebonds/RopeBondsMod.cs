@@ -10,6 +10,7 @@ public sealed class RopeBondsMod : IMod
     public ConstraintService Constraints { get; } = new();
     internal static string? AssetDirectory;
     private BindProbe? bind;
+    private QteProbe? qte;
     private ActorContext? staggering;
     private double staggerStart, staggerLandedAt;
     private NativePoseService.Snapshot? staggerSnapshot;
@@ -36,6 +37,9 @@ public sealed class RopeBondsMod : IMod
         context.Subscribe("ropebonds.legqte.toggle", NativeEventNames.Call("ropebonds_legqte"), NativeEventPhase.Before, value => ToggleLegQte(value));
         context.Subscribe("ropebonds.bound.query", NativeEventNames.Call("ropebonds_bound"), NativeEventPhase.Before, value => QueryBound(value));
         context.Subscribe("ropebonds.stagger", NativeEventNames.Call("ropebonds_stagger"), NativeEventPhase.Before, value => StartStagger(value));
+        qte = new QteProbe(Constraints);
+        context.Subscribe("ropebonds.legqte.run", NativeEventNames.Call("ropebonds_legqte_run"), NativeEventPhase.Before, value => qte.Start(value));
+        context.Subscribe("ropebonds.legqte.tick", NativeEventNames.StepEnd, NativeEventPhase.After, _ => qte.Tick());
         context.Subscribe("ropebonds.stagger.step", NativeEventNames.StepEnd, NativeEventPhase.After, _ => TickStagger());
         context.Subscribe("ropebonds.creature.prepare", NativeEventNames.FramePrepare, NativeEventPhase.After, _ => RopeCreature.Prepare());
         bind = new BindProbe(Constraints);
@@ -118,6 +122,8 @@ public sealed class RopeBondsMod : IMod
     {
         bind?.Dispose();
         bind = null;
+        qte?.Dispose();
+        qte = null;
         staggering = null;
         staggerSnapshot = null;
         Constraints.ReleaseAll();

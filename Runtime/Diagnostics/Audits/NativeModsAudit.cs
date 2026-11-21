@@ -267,6 +267,57 @@ public partial class NativeModsAudit : Node
         Expect((live.Call("ropebonds_bound", [], new(player)).Int & 6) == 6, "leg qte starts after the stagger and uses the leg qte clip");
         live.Call("ropebonds_legqte", [], new(player));
         Expect(Same(BoneState(live, player, feet), standing), "leg qte failure restores the standing entry pose");
+        VerifyLegQte(live, player, content, tick);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void VerifyLegQte(GmWorld live, GmInstance player, ContentRegistry content, Action tick)
+    {
+        string[] feet = ["FOOT1_ABOVE", "FOOT2_ABOVE", "FOOT3_ABOVE", "FOOT1_BELOW", "FOOT2_BELOW", "FOOT3_BELOW"];
+        string[] hands = ["HAND1_ABOVE", "HAND2_ABOVE", "HAND3_ABOVE", "HAND1_BELOW", "HAND2_BELOW", "HAND3_BELOW"];
+        var legQte = content.MotionGraphs["ropebonds.legqte"].Clips[0].Sample(0);
+        var legs = content.MotionGraphs["ropebonds.legs"].Clips[0].Sample(0);
+        var bound = content.MotionGraphs["ropebonds.bound"].Clips[0].Sample(0);
+        double[] entry = BoneState(live, player, feet);
+        live.Call("ropebonds_hands", [], new(player));
+        player.Scope.Write("ropeQteCounter", 60);
+        live.Call("ropebonds_legqte_run", [], new(player));
+        for (int index = 0; index < 3; index++) tick();
+        live.Events!.PrepareFrame();
+        Expect(Same(BoneState(live, player, feet), entry), "leg qte can succeed before the half point");
+        player.Scope.Write("ropeQteCounter", 0);
+        live.Call("ropebonds_legqte_run", [], new(player));
+        double cap = live.Globals.ReadOr("BindMax").Number;
+        for (int index = 0; index < 150; index++)
+        {
+            player.Scope.Write("ropeQteCounter", 7);
+            tick();
+        }
+        tick();
+        Expect(player.Scope.ReadOr("ropeQteCounter").Number == 0, "leg qte half point clears progress once and keeps the cap");
+        Expect(live.Globals.ReadOr("BindMax").Number == cap, "leg qte half point leaves the progress cap unchanged");
+        player.Scope.Write("ropeQteCounter", 7);
+        for (int index = 0; index < 20; index++) tick();
+        Expect(player.Scope.ReadOr("ropeQteCounter").Number > 0, "leg qte half point clears progress only once");
+        for (int index = 0; index < 160; index++)
+        {
+            player.Scope.Write("ropeQteCounter", 7 + index % 2);
+            tick();
+        }
+        live.Events!.PrepareFrame();
+        Expect(Matches(live, player, feet, legQte) && !Matches(live, player, feet, legs), "leg qte second phase extends the deadline by 0.1 per press");
+        player.Scope.Write("ropeQteCounter", 60);
+        for (int index = 0; index < 3; index++) tick();
+        live.Events!.PrepareFrame();
+        Expect(Same(BoneState(live, player, feet), entry), "leg qte extension still reaches success");
+        player.Scope.Write("ropeQteCounter", 0);
+        live.Call("ropebonds_legqte_run", [], new(player));
+        for (int index = 0; index < 310; index++) tick();
+        live.Events!.PrepareFrame();
+        Expect(Matches(live, player, feet, legs) && Matches(live, player, hands, bound), "leg qte timeout below the cap enters the overlay");
+        live.Call("ropebonds_legqte", [], new(player));
+        live.Call("ropebonds_hands", [], new(player));
+        Expect(Same(BoneState(live, player, feet), entry), "leg qte overlay release restores the standing pose");
     }
 
     private static double[] BoneState(GmWorld world, GmInstance actor, string[] bones)

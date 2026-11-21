@@ -214,6 +214,7 @@ public sealed partial class GmNativeBridge : IDisposable
             }
             if (actor.Active) UpdateActive(pair.Value, actor, frame);
         }
+        entitySnapshot.Clear();
         SetControllerFlags();
     }
     private void UpdateActive(IEntityBehavior behavior, GmInstance actor, FrameContext frame)
@@ -225,6 +226,7 @@ public sealed partial class GmNativeBridge : IDisposable
         foreach (var other in world.Instances) instanceSnapshot.Add(other);
         foreach (var other in instanceSnapshot)
             if (other.Id != actor.Id && other.Active && !other.Destroyed && !bounds.Empty && bounds.Overlaps(world.Bounds(other))) behavior.Collided(world.Actor(actor), world.Actor(other));
+        instanceSnapshot.Clear();
     }
     public bool TrySuppressCode(string key, GmContext context)
     {

@@ -303,7 +303,7 @@ public sealed class RopeCreature : IEntityBehavior
         foreach (RopeCreature creature in Live)
             if (creature.qte && creature.controller is { } controller && controller.Id == controllerId
                 && creature.victim is { } player && !player.Instance.Destroyed)
-                player.Write("HALFBINDED", bound || creature.constraints.Bound(player.Id) ? 1 : 0);
+                player.Write("HALFBINDED", bound ? 1 : 0);
     }
 
     private void ClearQte(ActorContext player)

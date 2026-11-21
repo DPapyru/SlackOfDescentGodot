@@ -26,6 +26,10 @@ for (const instance of room.instances) {
 expect(!room.instances.some(instance => instance.object === 292 || instance.object === 297), 'fog/dark instances removed');
 expect(spawn.length === 1 && spawn[0].y + 64 === GROUND_Y, 'player spawn stands on the ground line');
 expect(creatures.length === 3 && document.Dependencies.includes('ropebonds.creature'), 'three rope creature entities');
+const legBinder = creatures.filter(creature => creature.properties?.LegsOnly === 1);
+expect(legBinder.length === 1, 'one creature binds the leg layer only');
+expect(creatures.filter(creature => creature !== legBinder[0]).every(creature => Object.keys(creature.properties ?? {}).length === 0), 'other creatures bind hands only');
+expect(legBinder[0].y === GROUND_Y + PIT_DEPTH - 32, 'leg layer creature spawns above a pit floor');
 
 const positions = (x, y) => blocks.has(x + ',' + y);
 const gaps = [];

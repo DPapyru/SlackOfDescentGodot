@@ -28,7 +28,7 @@ public sealed class RopeCreature : IEntityBehavior
     private const double FaceInterval = .4;
     private static readonly string[] GishiFiles = ["gishi.wav", "gishi_low.wav", "gishi_high.wav"];
     private static readonly Dictionary<string, int> GishiSounds = new(StringComparer.Ordinal);
-    private readonly HandConstraint constraints;
+    private readonly ConstraintService constraints;
     private readonly VerletChain chain = new(SegmentLength, 2);
     private readonly List<GmBounds> solids = [];
     private static readonly List<RopeCreature> Live = [];
@@ -42,7 +42,7 @@ public sealed class RopeCreature : IEntityBehavior
     private bool grounded, jumping, locked, qte;
     private int jumpFrame;
 
-    public RopeCreature(HandConstraint constraints) => this.constraints = constraints;
+    public RopeCreature(ConstraintService constraints) => this.constraints = constraints;
     public string Id => "ropebonds.creature";
 
     public void Created(ActorContext entity) { Live.Add(this); entity.Write("HP", 10000); Reset(entity); }
@@ -66,7 +66,7 @@ public sealed class RopeCreature : IEntityBehavior
         {
             Release(entity);
         }
-        if (!qte && victim is not null && !constraints.IsBound(victim.Id))
+        if (!qte && victim is not null && !constraints.Bound(victim.Id))
         {
             Release(entity);
         }
@@ -144,8 +144,17 @@ public sealed class RopeCreature : IEntityBehavior
 
     private void Attach(ActorContext entity, ActorContext player)
     {
-        if (player.Read("BINDED") != 0 || player.Read("HALFBINDED") != 0 || constraints.IsBound(player.Id)) return;
+        if (player.Read("BINDED") != 0 || player.Read("HALFBINDED") != 0 || constraints.Bound(player.Id)) return;
         if (!NativeActorActions.Grounded(player)) return;
+        if (entity.Read("LegsOnly") != 0)
+        {
+            if (!constraints.Bind(player, BindLayer.Feet)) return;
+            victim = player;
+            headVelocity = 0;
+            jumping = false;
+            Console.WriteLine("ROPE_FEET_ATTACH actor=" + player.Id);
+            return;
+        }
         GmInstance? target = NativeActorActions.Controller(player);
         if (target is null || !constraints.BindQte(player)) return;
         controller = target;
@@ -252,8 +261,8 @@ public sealed class RopeCreature : IEntityBehavior
     {
         qte = false;
         double counter = controller?.Scope.ReadOr("BindCounter").Number ?? 0;
-        ClearQte(player);
         constraints.Release(player);
+        ClearQte(player);
         if (success)
         {
             victim = null;
@@ -262,7 +271,7 @@ public sealed class RopeCreature : IEntityBehavior
             Console.WriteLine("ROPE_QTE_SUCCESS actor=" + player.Id + " counter=" + counter + " time=" + qteTime.ToString("0.00"));
             return;
         }
-        if (constraints.Bind(player))
+        if (constraints.Bind(player, BindLayer.Hands))
         {
             victim = player;
             Console.WriteLine("ROPE_QTE_FAIL actor=" + player.Id + " counter=" + counter + " time=" + qteTime.ToString("0.00") + " bind=1");
@@ -281,8 +290,8 @@ public sealed class RopeCreature : IEntityBehavior
         {
             if (!player.Instance.Destroyed)
             {
-                ClearQte(player);
                 constraints.Release(player);
+                ClearQte(player);
             }
             victim = null;
         }
@@ -294,7 +303,7 @@ public sealed class RopeCreature : IEntityBehavior
         foreach (RopeCreature creature in Live)
             if (creature.qte && creature.controller is { } controller && controller.Id == controllerId
                 && creature.victim is { } player && !player.Instance.Destroyed)
-                player.Write("HALFBINDED", bound ? 1 : 0);
+                player.Write("HALFBINDED", bound || creature.constraints.Bound(player.Id) ? 1 : 0);
     }
 
     private void ClearQte(ActorContext player)
@@ -302,7 +311,7 @@ public sealed class RopeCreature : IEntityBehavior
         faceStep = -1;
         if (!player.Instance.Destroyed)
         {
-            player.Write("HALFBINDED", 0);
+            player.Write("HALFBINDED", constraints.Bound(player.Id) ? 1 : 0);
             player.Write("BINDED_BY", savedBindBy);
         }
         if (controller is { Destroyed: false } current) current.Scope.Write("BindCounter", 0);
@@ -362,9 +371,11 @@ public sealed class RopeCreature : IEntityBehavior
 
     private void Draw(ActorContext entity)
     {
-        if (victim is { } player && !player.Instance.Destroyed
-            && player.Part("HAND3_ABOVE") is { } above && player.Part("HAND3_BELOW") is { } below)
+        (ActorContext Above, ActorContext Below)? pair = null;
+        if (victim is { } player && !player.Instance.Destroyed) pair = Pair(player);
+        if (pair is { } bound)
         {
+            ActorContext above = bound.Above, below = bound.Below;
             double x = (above.X + below.X) / 2, y = (above.Y + below.Y) / 2;
             double dx = x - entity.X, dy = y - entity.Y;
             if (Math.Abs(dx) >= .01 || Math.Abs(dy) >= .01)
@@ -378,6 +389,21 @@ public sealed class RopeCreature : IEntityBehavior
         }
         Render(entity);
     }
+
+    private (ActorContext Above, ActorContext Below)? Pair(ActorContext player)
+    {
+        if (constraints.Bound(player.Id, BindLayer.Hands)) return Parts(player, "HAND3_ABOVE", "HAND3_BELOW");
+        if (constraints.Bound(player.Id, BindLayer.Feet)) return Parts(player, "FOOT3_ABOVE", "FOOT3_BELOW");
+        return null;
+    }
+
+    private static (ActorContext Above, ActorContext Below)? Parts(ActorContext player, string above, string below) =>
+        player.Part(above) is { } left && player.Part(below) is { } right
+            ? (left, right)
+            : null;
+
+    private (double X, double Y)? Anchor(ActorContext player) =>
+        constraints.BoundHands(player.Id) ?? constraints.BoundFeet(player.Id);
 
     private void RenderBound(ActorContext entity, ActorContext above, ActorContext below)
     {
@@ -393,7 +419,7 @@ public sealed class RopeCreature : IEntityBehavior
 
     private void Follow(ActorContext entity)
     {
-        (double X, double Y)? bound = constraints.BoundHands(victim!.Id);
+        (double X, double Y)? bound = Anchor(victim!);
         (entity.X, entity.Y) = bound ?? Hands(victim!);
         if (bound is not null && !locked) { locked = true; Console.WriteLine("ROPE_LOCK source=clip x=" + entity.X.ToString("0.0") + " y=" + entity.Y.ToString("0.0")); }
         headVelocity = 0;
@@ -409,8 +435,8 @@ public sealed class RopeCreature : IEntityBehavior
             qte = false;
             if (victim is { } carried && !carried.Instance.Destroyed)
             {
-                ClearQte(carried);
                 constraints.Release(carried);
+                ClearQte(carried);
             }
             victim = null;
         }

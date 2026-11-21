@@ -53,7 +53,14 @@ public partial class NativeModsAudit : Node
             var movementResult = manager.Reload(movement);
             Expect(movementResult.Success, "movement examples compile: " + movementResult.Diagnostics);
             Expect(content.Actions.Count == 3 && content.Characters.Count == 2, "movement registers three real actions and two characters");
+            string ropebonds = CopyExample(root, temporary, "ropebonds");
+            var ropebondsResult = manager.Reload(ropebonds);
+            Expect(ropebondsResult.Success, "ropebonds examples compile: " + ropebondsResult.Diagnostics);
+            Expect(content.MotionGraphs.TryGetValue("ropebonds.legs", out var legGraph) && legGraph.Clips.Count == 1 && legGraph.Clips[0].Tracks.Count == 6
+                && legGraph.Clips[0].Tracks.All(track => track.Bone.StartsWith("FOOT", StringComparison.Ordinal)), "legs clip registers six foot tracks");
             VerifyLiveGameplay(root, temporary, content);
+            var ropebondsUnload = manager.Unload("example.ropebonds");
+            Expect(ropebondsUnload.Success && manager.LoadedMods.Count == 1, "ropebonds unload releases both layers");
             string movementSource = Path.Combine(movement, "MovementMod.cs");
             File.AppendAllText(movementSource, "\nthis is not valid C# !!!\n");
             var failed = manager.Reload(movement);
@@ -212,6 +219,53 @@ public partial class NativeModsAudit : Node
         Expect(player.Scope.ReadOr("x").Number > beforeDash + 80, "live Nana dash survives deferred original MotionChange transition");
         Expect(player.Scope.ReadOr("nativeDashDistance").Number == 108, "live Nana dash writes exactly108 swept native pixels");
         bridge.UnbindCharacter(player.Id);
+        var legs = content.MotionGraphs["ropebonds.legs"].Clips[0].Sample(0);
+        var bound = content.MotionGraphs["ropebonds.bound"].Clips[0].Sample(0);
+        string[] feet = ["FOOT1_ABOVE", "FOOT2_ABOVE", "FOOT3_ABOVE", "FOOT1_BELOW", "FOOT2_BELOW", "FOOT3_BELOW"];
+        string[] hands = ["HAND1_ABOVE", "HAND2_ABOVE", "HAND3_ABOVE", "HAND1_BELOW", "HAND2_BELOW", "HAND3_BELOW"];
+        Tick();
+        double[] feetEntry = BoneState(live, player, feet), handsEntry = BoneState(live, player, hands);
+        live.Call("ropebonds_feet", [], new(player));
+        live.Events!.PrepareFrame();
+        Expect(Matches(live, player, feet, legs), "leg layer locks the ankle bone set");
+        Expect(Same(BoneState(live, player, hands), handsEntry), "leg layer leaves the hands untouched");
+        live.Call("ropebonds_hands", [], new(player));
+        live.Events!.PrepareFrame();
+        Expect(Matches(live, player, hands, bound), "hand layer locks the hand bone set");
+        Expect(Matches(live, player, feet, legs), "hand layer leaves the bound legs untouched");
+        live.Call("ropebonds_feet", [], new(player));
+        Expect(Same(BoneState(live, player, feet), feetEntry), "releasing the leg layer restores its entry pose");
+        Expect(Matches(live, player, hands, bound), "releasing a layer keeps the other layer bound");
+        live.Call("ropebonds_hands", [], new(player));
+        Expect(Same(BoneState(live, player, hands), handsEntry), "releasing the hand layer restores its entry pose");
+    }
+
+    private static double[] BoneState(GmWorld world, GmInstance actor, string[] bones)
+    {
+        double[] state = new double[bones.Length * 3];
+        for (int index = 0; index < bones.Length; index++)
+        {
+            if (NativeCharacterBones.Resolve(world, actor, bones[index]) is not { } part) continue;
+            state[index * 3] = part.Scope.ReadOr("x").Number;
+            state[index * 3 + 1] = part.Scope.ReadOr("y").Number;
+            state[index * 3 + 2] = part.Scope.ReadOr("Angle").Number;
+        }
+        return state;
+    }
+
+    private static bool Same(double[] left, double[] right) =>
+        left.Length == right.Length && !left.Where((value, index) => Math.Abs(value - right[index]) > 1e-9).Any();
+
+    private static bool Matches(GmWorld world, GmInstance actor, string[] bones, IReadOnlyDictionary<string, MotionPose> sample)
+    {
+        foreach (string bone in bones)
+        {
+            if (NativeCharacterBones.Resolve(world, actor, bone) is not { } part) return false;
+            if (!sample.TryGetValue(bone, out MotionPose pose)) return false;
+            if (Math.Abs(part.Scope.ReadOr("Angle").Number - pose.Angle) > 1e-9) return false;
+            if (part.Scope.ReadOr("PartPicture").Int != pose.Picture) return false;
+        }
+        return true;
     }
     private static GmValue SetMotion(GmWorld world, GmInstance actor, GmValue value) { world.Write(actor, "MotionNum", value); return 0; }
 }

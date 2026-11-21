@@ -61,7 +61,8 @@ public sealed class RopeCreature : IEntityBehavior
     private Phase phase;
     private bool dying;
     private double deathStart, fade = 1;
-    private BindLayer? held;
+    private bool heldHands, heldFeet;
+    private ActorContext? boundPlayer;
     private int jumpFrame;
 
     public RopeCreature(ConstraintService constraints) => this.constraints = constraints;
@@ -154,7 +155,6 @@ public sealed class RopeCreature : IEntityBehavior
         entity.Write("DAMAGE_ACTIVE", 0);
         ReleaseVictim();
         controller = null;
-        held = null;
         jumping = false;
         headVelocity = 0;
         Console.WriteLine("ROPE_DEAD actor=" + entity.Id);
@@ -260,6 +260,8 @@ public sealed class RopeCreature : IEntityBehavior
         if (preBind && !constraints.Bound(player.Id, BindLayer.Hands))
         {
             if (!constraints.Bind(player, BindLayer.Hands)) return;
+            heldHands = true;
+            boundPlayer = player;
             Console.WriteLine("ROPE_PREBIND actor=" + player.Id);
         }
         if (entity.Read("LegsOnly") != 0)
@@ -267,7 +269,8 @@ public sealed class RopeCreature : IEntityBehavior
             if (!constraints.Bind(player, BindLayer.Feet)) return;
             victim = player;
             phase = Phase.Hold;
-            held = BindLayer.Feet;
+            heldFeet = true;
+            boundPlayer = player;
             headVelocity = 0;
             jumping = false;
             Console.WriteLine("ROPE_FEET_ATTACH actor=" + player.Id);
@@ -294,7 +297,8 @@ public sealed class RopeCreature : IEntityBehavior
         frozenY = player.Y;
         frozenDirection = player.Read("Direction");
         savedBindBy = (int)player.Read("BINDED_BY");
-        held = BindLayer.Hands;
+        heldHands = true;
+        boundPlayer = player;
         qteTime = 0;
         qteStart = entity.Services.Frame.GameTime;
         nextGishi = 0;
@@ -344,6 +348,8 @@ public sealed class RopeCreature : IEntityBehavior
             AbortQte();
             return;
         }
+        heldFeet = true;
+        boundPlayer = player;
         phase = Phase.LegQte;
         qteLayer = BindLayer.Feet;
         qteWindow = LegQteWindow;
@@ -471,7 +477,8 @@ public sealed class RopeCreature : IEntityBehavior
         double counter = controller?.Scope.ReadOr("BindCounter").Number ?? 0;
         qteTime = player.Services.Frame.GameTime - qteStart;
         constraints.Release(player, layer);
-        held = null;
+        if (layer == BindLayer.Hands) heldHands = false;
+        else heldFeet = false;
         if (success)
         {
             if (layer == BindLayer.Feet) StartRoll(player);
@@ -482,12 +489,15 @@ public sealed class RopeCreature : IEntityBehavior
         else if (constraints.Bind(player, layer, layer == BindLayer.Feet ? feetEntry : null))
         {
             victim = player;
-            held = layer;
+            if (layer == BindLayer.Hands) heldHands = true;
+            else heldFeet = true;
+            boundPlayer = player;
         }
         else
         {
             victim = null;
         }
+        if (!heldHands && !heldFeet) boundPlayer = null;
         phase = victim is null ? Phase.Roam : Phase.Hold;
         EndHold(player);
         Console.WriteLine("ROPE_QTE_" + (success ? "SUCCESS" : "FAIL") + " layer=" + layer + " actor=" + player.Id + " counter=" + counter + " time=" + qteTime.ToString("0.00"));
@@ -567,7 +577,9 @@ public sealed class RopeCreature : IEntityBehavior
             victim = null;
         }
         controller = null;
-        held = null;
+        if (layer == BindLayer.Hands) heldHands = false;
+        else heldFeet = false;
+        if (!heldHands && !heldFeet) boundPlayer = null;
     }
 
     public static void BindFlag(int controllerId, bool bound)
@@ -714,18 +726,27 @@ public sealed class RopeCreature : IEntityBehavior
 
     private void ReleaseBind(ActorContext player)
     {
-        if (held is { } layer) constraints.Release(player, layer);
-        else constraints.Release(player);
-        held = null;
+        if (heldHands) constraints.Release(player, BindLayer.Hands);
+        if (heldFeet) constraints.Release(player, BindLayer.Feet);
+        if (!heldHands && !heldFeet) constraints.Release(player);
+        heldHands = false;
+        heldFeet = false;
+        boundPlayer = null;
     }
 
     private void ReleaseVictim()
     {
         bool wasQte = phase is Phase.Catch or Phase.Fall or Phase.LegQte;
         phase = Phase.Roam;
-        if (victim is not { } player) return;
+        if ((victim ?? boundPlayer) is not { } player) return;
         victim = null;
-        if (player.Instance.Destroyed) return;
+        boundPlayer = null;
+        if (player.Instance.Destroyed)
+        {
+            heldHands = false;
+            heldFeet = false;
+            return;
+        }
         ReleaseBind(player);
         if (wasQte) EndHold(player);
         else
@@ -748,7 +769,6 @@ public sealed class RopeCreature : IEntityBehavior
         ReleaseVictim();
         phase = Phase.Roam;
         controller = null;
-        held = null;
         headVelocity = 0;
         jumping = false;
         anchorSeen = false;
@@ -763,9 +783,9 @@ public sealed class RopeCreature : IEntityBehavior
     private void Reset(ActorContext entity)
     {
         AbortQte();
+        if (boundPlayer is { } bound && (heldHands || heldFeet)) ReleaseBind(bound);
         if (phase == Phase.Hold && victim is { } carried && !carried.Instance.Destroyed) constraints.Release(carried);
         phase = Phase.Roam;
-        held = null;
         startX = entity.X;
         startY = entity.Y;
         victim = null;

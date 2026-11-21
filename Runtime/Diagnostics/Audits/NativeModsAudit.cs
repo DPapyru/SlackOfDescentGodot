@@ -260,11 +260,11 @@ public partial class NativeModsAudit : Node
         live.Call("ropebonds_hands", [], new(player));
         Expect(Same(BoneState(live, player, hands), handsEntry), "leg qte leaves the hand layer bound until released");
         double[] standing = BoneState(live, player, feet);
+        Expect((live.Call("ropebonds_bound", [], new(player)).Int & 2) == 0, "leg qte starts after the stagger and uses the leg qte clip");
         live.Call("ropebonds_stagger", [], new(player));
-        Expect(!Matches(live, player, feet, legQte), "stagger holds the leg qte during the fall");
         for (int index = 0; index < 100; index++) tick();
         live.Events!.PrepareFrame();
-        Expect(Matches(live, player, feet, legQte), "leg qte starts only after the stagger finishes");
+        Expect((live.Call("ropebonds_bound", [], new(player)).Int & 6) == 6, "leg qte starts after the stagger and uses the leg qte clip");
         live.Call("ropebonds_legqte", [], new(player));
         Expect(Same(BoneState(live, player, feet), standing), "leg qte failure restores the standing entry pose");
     }

@@ -34,6 +34,7 @@ public sealed class RopeBondsMod : IMod
         context.Subscribe("ropebonds.hands.toggle", NativeEventNames.Call("ropebonds_hands"), NativeEventPhase.Before, value => Toggle(value, BindLayer.Hands));
         context.Subscribe("ropebonds.feet.toggle", NativeEventNames.Call("ropebonds_feet"), NativeEventPhase.Before, value => Toggle(value, BindLayer.Feet));
         context.Subscribe("ropebonds.legqte.toggle", NativeEventNames.Call("ropebonds_legqte"), NativeEventPhase.Before, value => ToggleLegQte(value));
+        context.Subscribe("ropebonds.bound.query", NativeEventNames.Call("ropebonds_bound"), NativeEventPhase.Before, value => QueryBound(value));
         context.Subscribe("ropebonds.stagger", NativeEventNames.Call("ropebonds_stagger"), NativeEventPhase.Before, value => StartStagger(value));
         context.Subscribe("ropebonds.stagger.step", NativeEventNames.StepEnd, NativeEventPhase.After, _ => TickStagger());
         context.Subscribe("ropebonds.creature.prepare", NativeEventNames.FramePrepare, NativeEventPhase.After, _ => RopeCreature.Prepare());
@@ -59,6 +60,18 @@ public sealed class RopeBondsMod : IMod
         if (Constraints.Bound(actor.Id, BindLayer.Feet)) Constraints.Release(actor, BindLayer.Feet);
         else Constraints.Bind(actor, BindLayer.Feet, "ropebonds.legqte", "legqte");
         Console.WriteLine("ROPE_LEG_QTE_TOGGLE actor=" + actor.Id + " bound=" + (Constraints.Bound(actor.Id, BindLayer.Feet) ? 1 : 0));
+    }
+
+    private void QueryBound(NativeGameEvent value)
+    {
+        value.Handled = true;
+        value.Result = 0;
+        if (value.Actor is not { } actor) return;
+        int mask = 0;
+        if (Constraints.Bound(actor.Id, BindLayer.Hands)) mask |= 1;
+        if (Constraints.Bound(actor.Id, BindLayer.Feet)) mask |= 2;
+        if (Constraints.Clip(actor.Id, BindLayer.Feet) == "legqte") mask |= 4;
+        value.Result = mask;
     }
 
     private void StartStagger(NativeGameEvent value)

@@ -222,11 +222,17 @@ public partial class NativeModsAudit : Node
         Expect(player.Scope.ReadOr("x").Number > beforeDash + 80, "live Nana dash survives deferred original MotionChange transition");
         Expect(player.Scope.ReadOr("nativeDashDistance").Number == 108, "live Nana dash writes exactly108 swept native pixels");
         bridge.UnbindCharacter(player.Id);
+        VerifyLegQteStagger(live, player, content, () => Tick());
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void VerifyLegQteStagger(GmWorld live, GmInstance player, ContentRegistry content, Action tick)
+    {
         var legs = content.MotionGraphs["ropebonds.legs"].Clips[0].Sample(0);
         var bound = content.MotionGraphs["ropebonds.bound"].Clips[0].Sample(0);
         string[] feet = ["FOOT1_ABOVE", "FOOT2_ABOVE", "FOOT3_ABOVE", "FOOT1_BELOW", "FOOT2_BELOW", "FOOT3_BELOW"];
         string[] hands = ["HAND1_ABOVE", "HAND2_ABOVE", "HAND3_ABOVE", "HAND1_BELOW", "HAND2_BELOW", "HAND3_BELOW"];
-        Tick();
+        tick();
         double[] feetEntry = BoneState(live, player, feet), handsEntry = BoneState(live, player, hands);
         live.Call("ropebonds_feet", [], new(player));
         live.Events!.PrepareFrame();
@@ -256,7 +262,7 @@ public partial class NativeModsAudit : Node
         double[] standing = BoneState(live, player, feet);
         live.Call("ropebonds_stagger", [], new(player));
         Expect(!Matches(live, player, feet, legQte), "stagger holds the leg qte during the fall");
-        for (int index = 0; index < 100; index++) Tick();
+        for (int index = 0; index < 100; index++) tick();
         live.Events!.PrepareFrame();
         Expect(Matches(live, player, feet, legQte), "leg qte starts only after the stagger finishes");
         live.Call("ropebonds_legqte", [], new(player));

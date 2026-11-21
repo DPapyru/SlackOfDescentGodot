@@ -14,7 +14,10 @@
       "entryType": "RopeBonds.RopeBondsMod",
       "sources": [
         "RopeBondsMod.cs",
+        "Bind/BindLayer.cs",
+        "Bind/BoneLayer.cs",
         "Bind/ConstraintService.cs",
+        "Bind/BindProbe.cs",
         "Creature/VerletChain.cs",
         "Creature/RopeCreature.cs"
       ]

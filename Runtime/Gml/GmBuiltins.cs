@@ -284,6 +284,11 @@ public sealed partial class GmWorld
             if(!addedEvents.TryGetValue(eventKey,out var events))addedEvents[eventKey]=events=new();
             events.Add(loadedCode);InvalidateEvents();return 0;
         }
+        if(name=="native_damage")
+        {
+            if(NativeServices is null)return a.Length>0?a[0]:default;
+            return NativeServices.Combat.Modify(c.Self,c.Other,a.Length>0?a[0].Number:0);
+        }
         if(Scripts.TryGetValue(name,out var key))
         {
             var call=RentContext(c.Self,c.Other,a,null);
@@ -375,7 +380,12 @@ public sealed partial class GmWorld
             case "variable_local_set":Write(Self,S(0),V(1));return 0;
             case "variable_global_array_get":return Globals.ReadOr(S(0),new GmIndices(I(1)));case "variable_global_array2_get":return Globals.ReadOr(S(0),new GmIndices(I(1),I(2)));
             case "variable_local_array_get":return Self.Scope.ReadOr(S(0),new GmIndices(I(1)));case "variable_local_array2_get":return Self.Scope.ReadOr(S(0),new GmIndices(I(1),I(2)));
-            case "instance_create":return Create(I(2),N(0),N(1)).Id;
+            case "instance_create":
+            {
+                var instance=Create(I(2),N(0),N(1));
+                if(NativeServices is not null)instance.Scope.Write("creator",Self.Id);
+                return instance.Id;
+            }
             case "instance_destroy":Event(Self,1,0);Self.Destroyed=true;return 0;
             case "instance_exists":case "instance_number":return FixedResult(name,V(0),default,c);
             case "instance_find":return Select(I(0),c).Skip(Math.Max(0,I(1))).FirstOrDefault()?.Id??-4;

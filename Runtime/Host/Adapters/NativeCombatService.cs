@@ -15,6 +15,7 @@ public sealed class NativeCombatService
         var tree = JsonNode.Parse(services.World.Code["objects/objBullet/3/1/0"].GetRawText())!;
         var body = Nodes(tree).Single(n => n[0]?.ToString() == "with" && n[1]?[0]?.ToString() == "id" && n[1]?[1]?.ToString() == "col").DeepClone();
         var amount = Nodes(body).Single(n => n[0]?.ToString() == "binary" && n[1]?.ToString() == "AssignSubtract" && n[2]?[1]?.ToString() == "HP");
+        if (amount[3] is JsonArray wrapped && wrapped[0]?.ToString() == "call" && wrapped[1]?.ToString() == "native_damage") amount[3] = wrapped[2]![0]!.DeepClone();
         amount[3]![2] = new JsonArray("id", "argument0");
         damage = JsonSerializer.SerializeToElement(body);
     }
@@ -48,6 +49,15 @@ public sealed class NativeCombatService
             { closest = near; result = new(new(world, target), x + dx * near, y + dy * near, near, wall); }
         }
         return result;
+    }
+    internal double Modify(GmInstance target, GmInstance? source, double amount)
+    {
+        var value = new NativeGameEvent("combat.damage", new(services.World, target));
+        value.Arguments["damage"] = amount;
+        value.Arguments["source"] = source?.Id ?? -4;
+        services.Dispatch(value, NativeEventPhase.Before);
+        double result = value.Handled ? value.Result.Number : value.Arguments["damage"].Number;
+        return double.IsFinite(result) && result >= 0 ? result : amount;
     }
     public bool Damage(ActorContext source, NativeRayHit hit, double amount, double angle)
     {

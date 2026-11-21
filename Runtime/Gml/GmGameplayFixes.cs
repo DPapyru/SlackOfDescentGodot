@@ -113,6 +113,12 @@ public sealed partial class GmWorld
             int end=start+1;while(statements[end]?[0]?.ToString()!="break")end++;
             statements.Insert(end,JsonNode.Parse("[\"if\",[\"call\",\"slack_secondary_fire\",[]],[\"binary\",\"Assign\",[\"id\",\"ShotCheck\"],[\"num\",2]],null]"));
         });
+        Patch("objects/objBullet/3/1/0",tree=>
+        {
+            var amount=Nodes(tree).SingleOrDefault(n=>n.Count==4&&n[0]?.ToString()=="binary"&&n[1]?.ToString()=="AssignSubtract"&&n[2]?[1]?.ToString()=="HP")
+                ??throw new InvalidOperationException("Expected one native bullet damage assignment");
+            amount[3]=new JsonArray("call","native_damage",new JsonArray(amount[3]!.DeepClone()));
+        });
         ApplyModMenu();
     }
 }

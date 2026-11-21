@@ -1,0 +1,28 @@
+{
+  "title": "Mod：绳生物受击与击杀",
+  "body": "## AI回复\n\n## Parent\n\n#128\n\n## What to build\n\n绳生物成为真正的可攻击目标：枪打中会有原版受击反馈（击退、震屏、血雾），玩家跳跃中命中伤害 ×10，血量 10000；被打死后立刻放开它持有的那一层捆绑（手层或腿层），绳身散开淡出并销毁。手绑状态下玩家可以靠击杀它脱身。\n\n## Acceptance criteria\n\n- [ ] 枪打中生物有原版受击反馈\n- [ ] 地面上命中每发 100 伤害，玩家跳跃中命中每发 1000（×10）\n- [ ] HP = 10000\n- [ ] 击杀后该生物持有的捆绑立刻解除、玩家姿态按进入前快照还原，绳身散开并消失\n- [ ] 击杀不产生原版掉落\n- [ ] 两层叠加时，击杀只解除它自己那一层\n\n## Blocked by\n\n- #129 Runtime：实体原生基对象\n- #130 Runtime：伤害修正接口\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-21T03:02:26Z",
+  "updatedAt": "2026-11-21T03:02:26Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

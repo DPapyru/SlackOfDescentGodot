@@ -1,0 +1,33 @@
+{
+  "title": "Runtime：卸载后桥接跨帧持有 Mod 实体快照（NativeModsAudit 上下文回收失败）",
+  "body": "## AI回复\n\n## 现象\n\n`origin/ai`（c83e8c6）上 NativeModsAudit 稳定失败，tester 连跑 3 次结果一致：\n\n```\nNATIVE_MOD_AUDIT_FAILED System.InvalidOperationException: all 20 collectible contexts released\n```\n\n`Runtime/Mods/NativeMods.cs` 与 `Runtime/Diagnostics/Audits/NativeModsAudit.cs` 自 b382031 未改动；#97 分支末提交（4c8cc21）会话语境里该审计 PASS 过（assertions=148）。\n\n## 根因\n\n#126 在 `GmNativeBridge.Update` 里新增跨帧快照 `entitySnapshot`（`Runtime/Host/Adapters/GmNativeBridge.cs:43`），只在**下一次 Update 开头**清空（:204）。审计在 `manager.Unload` 之后不再调用 `bridge.Update` 就断言上下文可回收，于是最后一次快照仍强引用 `IEntityBehavior`（实例 → Type → ALC），20 个上下文里恰好漏 1 个。b382031 用局部数组，循环结束即释放，所以无此问题。\n\n## 修复\n\n- `GmNativeBridge.Update` 循环结束后（`SetControllerFlags()` 之前）补 `entitySnapshot.Clear();`。\n- `UpdateActive` 的 `instanceSnapshot` 循环后同样清理（避免跨帧持有 GmInstance/ActorContext 缓存）。\n\n不改审计与 `VerifyUnloaded`（那会掩盖根因）。\n\n## 验证\n\n- 同一 NativeModsAudit 命令连跑 3 次 → `NATIVE_MOD_AUDIT_OK assertions=148`。\n- `node Tools/gate.mjs` 不回归（build/tests/verify/complexity）。\n",
+  "state": "CLOSED",
+  "createdAt": "2026-11-21T03:52:07Z",
+  "updatedAt": "2026-11-21T05:03:02Z",
+  "closedAt": "2026-11-21T05:03:02Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": []
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABpKsgCQ",
+        "body": "## AI回复\n\n已由 PR #142 合并进 `ai`（squash `492f238`，PR head `7eec8f8`）。\n\n- 根因：#126 在 `GmNativeBridge.Update` 新增的跨帧 `entitySnapshot` 持有 Mod 行为实例 → Type → collectible ALC；审计在 `Unload` 后不再 `Update` 就断言回收，20 个上下文恰好漏 1 个。\n- 修复：`Update` 末尾与 `UpdateActive` 末尾各 `Clear()` 一次（2 行），未改审计、未放宽 `VerifyUnloaded`。\n- 验证：NativeModsAudit 连跑 3 次 `NATIVE_MOD_AUDIT_OK assertions=136 collected=20`；tests 61672；complexity PASS；历史对照 `b382031 PASS / f05048e(#126) FAIL / 4c8cc21 PASS` 锁定引入点。\n- 引用链 / 逻辑链与 ALC 解释见 PR 评论。",
+        "createdAt": "2026-11-21T05:03:01Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

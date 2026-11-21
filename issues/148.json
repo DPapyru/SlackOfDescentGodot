@@ -1,0 +1,33 @@
+{
+  "title": "Mod：三坑地图实例 100202 缺少 CreationCode 快照（demo.check 红）",
+  "body": "## AI回复\n\n`ai`（`6b4d310`）上的内容自检 `demo.check` 红：#147 并入测试地图后，`demo.map.json` 里 `id=100202`（objMultiScroll）引用 `rooms/6/instances/100202`，但地图的 `CreationCode` 快照没有这条记录。\n\n## 现象\n\n```\n$ node Examples/Mods/ropebonds/maps/demo.check.mjs\nError: DEMO_MAP_CHECK FAILED: creation code present for rooms/6/instances/100202\n```\n\nbound/legs/qte 三个自检 PASS，`node Tools/gate.mjs` PASS。\n\n## 根因\n\n`demo.check.mjs` 要求地图自包含：每个实例的 `code` 必须能在文档 `CreationCode` 里找到。该实例的初始化 AST 在 `GameData/code.json` 中仍存在，只是并入地图时没有一起拷进快照。运行期 `NativeMapInstallation` 会回退到 `GameData`，所以游戏内不报错，只有自检红。\n\n## 修复\n\n把 `rooms/6/instances/100202` 的 AST 从 `GameData/code.json` 复制到 `demo.map.json.CreationCode`，保持文件 `JSON.stringify(doc, null, 2) + \"\\n\"` 的格式；不动其它实例与地图数据。\n\n## 验证\n\n- `node Examples/Mods/ropebonds/maps/demo.check.mjs` PASS。\n- `node Tools/gate.mjs` 不回归。\n- 证据以 tester 原始输出贴到 PR。\n",
+  "state": "CLOSED",
+  "createdAt": "2026-11-21T06:14:26Z",
+  "updatedAt": "2026-11-21T08:24:17Z",
+  "closedAt": "2026-11-21T08:24:17Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": []
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABpM1V0A",
+        "body": "## AI回复\n\n#148 已随 PR #149 合并进 ai（squash 51d9cfd）：demo.map.json 的 CreationCode 补入 rooms/6/instances/100202，demo.check 恢复 PASS（assertions=1228）。关闭本票。\n",
+        "createdAt": "2026-11-21T08:24:15Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

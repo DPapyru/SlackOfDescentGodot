@@ -584,28 +584,140 @@
     "number": 122,
     "title": "Runtime：增加绘制前 frame.prepare 生命周期事件",
     "state": "OPEN",
-    "updatedAt": "2026-11-15T07:41:14Z",
+    "updatedAt": "2026-11-21T06:22:57Z",
     "file": "issues/122.json"
   },
   {
     "number": 123,
     "title": "RopeBonds 收尾：原版运动、绑定姿势、QTE、禁枪及展示归属",
     "state": "OPEN",
-    "updatedAt": "2026-11-15T08:23:38Z",
+    "updatedAt": "2026-11-21T06:22:59Z",
     "file": "issues/123.json"
   },
   {
     "number": 124,
     "title": "Runtime：修复暂停菜单视口变换与背景截图单位",
     "state": "OPEN",
-    "updatedAt": "2026-11-15T07:41:16Z",
+    "updatedAt": "2026-11-21T06:23:01Z",
     "file": "issues/124.json"
   },
   {
     "number": 125,
     "title": "Runtime：允许 Mod 在碰撞前取消原版拾取处理",
     "state": "OPEN",
-    "updatedAt": "2026-11-15T07:52:53Z",
+    "updatedAt": "2026-11-21T06:23:03Z",
     "file": "issues/125.json"
+  },
+  {
+    "number": 128,
+    "title": "Mod: 改进: 对于捆绑Mod的再度扩展",
+    "state": "OPEN",
+    "updatedAt": "2026-11-21T08:01:09Z",
+    "file": "issues/128.json"
+  },
+  {
+    "number": 129,
+    "title": "Runtime：实体原生基对象",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-21T05:02:45Z",
+    "file": "issues/129.json"
+  },
+  {
+    "number": 130,
+    "title": "Runtime：伤害修正接口",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-21T05:02:49Z",
+    "file": "issues/130.json"
+  },
+  {
+    "number": 131,
+    "title": "Mod：两层捆绑（手/腿）与腿部片段",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-21T05:02:54Z",
+    "file": "issues/131.json"
+  },
+  {
+    "number": 132,
+    "title": "Mod：绳生物受击与击杀",
+    "state": "OPEN",
+    "updatedAt": "2026-11-21T03:02:26Z",
+    "file": "issues/132.json"
+  },
+  {
+    "number": 133,
+    "title": "Mod：腿部 QTE 与摔倒入场",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-21T08:31:22Z",
+    "file": "issues/133.json"
+  },
+  {
+    "number": 134,
+    "title": "Mod：腿部 QTE 半程机制",
+    "state": "OPEN",
+    "updatedAt": "2026-11-21T03:02:32Z",
+    "file": "issues/134.json"
+  },
+  {
+    "number": 135,
+    "title": "Mod：腿绑掉血与叫声",
+    "state": "OPEN",
+    "updatedAt": "2026-11-21T03:02:34Z",
+    "file": "issues/135.json"
+  },
+  {
+    "number": 136,
+    "title": "Mod：蠕动爬行",
+    "state": "OPEN",
+    "updatedAt": "2026-11-21T08:00:48Z",
+    "file": "issues/136.json"
+  },
+  {
+    "number": 137,
+    "title": "Mod：HP 归零的死亡演出",
+    "state": "OPEN",
+    "updatedAt": "2026-11-21T03:02:38Z",
+    "file": "issues/137.json"
+  },
+  {
+    "number": 138,
+    "title": "全链路验收与门禁收口",
+    "state": "OPEN",
+    "updatedAt": "2026-11-21T03:02:41Z",
+    "file": "issues/138.json"
+  },
+  {
+    "number": 139,
+    "title": "门禁：gate-expectations 行号漂移（#127 后 CS8600 位移）",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-21T05:02:58Z",
+    "file": "issues/139.json"
+  },
+  {
+    "number": 141,
+    "title": "Runtime：卸载后桥接跨帧持有 Mod 实体快照（NativeModsAudit 上下文回收失败）",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-21T05:03:02Z",
+    "file": "issues/141.json"
+  },
+  {
+    "number": 146,
+    "title": "Mod：手绑 QTE 进度条不涨，三坑地图未同步测试布局（人工验收）",
+    "state": "OPEN",
+    "updatedAt": "2026-11-21T05:57:19Z",
+    "file": "issues/146.json"
+  },
+  {
+    "number": 148,
+    "title": "Mod：三坑地图实例 100202 缺少 CreationCode 快照（demo.check 红）",
+    "state": "CLOSED",
+    "updatedAt": "2026-11-21T08:24:17Z",
+    "file": "issues/148.json"
+  },
+  {
+    "number": 152,
+    "title": "逻辑bug: 绳生物的捆绑行为与预期不一致,详情看body",
+    "state": "OPEN",
+    "updatedAt": "2026-11-21T09:07:42Z",
+    "file": "issues/152.json"
   }
 ]

@@ -1,0 +1,40 @@
+{
+  "title": "Mod：腿部 QTE 与摔倒入场",
+  "body": "## AI回复\n\n## Parent\n\n#128\n\n## What to build\n\n递增流程落地：玩家先被绑手；已绑手时第二只生物改为瞄准双脚，抓住后角色摔倒，摔倒动画结束才进入腿部 QTE（难度 ×2、时长 ×2）；成功则翻滚并退回「仅被绑手」，失败进入「手 + 腿」叠加。手部 QTE 流程保持现状，不摔倒。\n\n## Acceptance criteria\n\n- [ ] 无捆绑时仍是手部 QTE，不摔倒，流程与今天一致\n- [ ] 已绑手时第二只生物瞄准双脚并触发摔倒，摔倒结束才进入腿部 QTE\n- [ ] 腿 QTE 的计数上限为手部的 2 倍、总时长为 2 倍\n- [ ] 腿 QTE 成功：退回仅被绑手并播放翻滚；失败：进入手 + 腿叠加\n- [ ] 腿 QTE 期间手层约束保持锁定\n- [ ] 演示图的坑 1、坑 2 能分别走通成功与失败分支\n\n## Blocked by\n\n- #131 Mod：两层捆绑（手/腿）与腿部片段\n",
+  "state": "CLOSED",
+  "createdAt": "2026-11-21T03:02:29Z",
+  "updatedAt": "2026-11-21T08:31:22Z",
+  "closedAt": "2026-11-21T08:31:22Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABpM5-lA",
+        "body": "## AI回复\n\n#133 已随 PR #150 合并进 ai（squash ff8db81）：腿部 QTE、摔倒入场、两层叠层与 demo 坑 1/坑 2 分支落地。关闭本票。\n",
+        "createdAt": "2026-11-21T08:31:20Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

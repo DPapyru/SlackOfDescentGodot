@@ -1,0 +1,51 @@
+{
+  "title": "Runtime：实体原生基对象",
+  "body": "## AI回复\n\n## Parent\n\n#128\n\n## What to build\n\nMod 实体现在只能创建成同一个合成对象，不属于任何原版对象家族，所以原版子弹与近战（按 \\`objEnemyDoll\\` 家族挑目标）永远打不到它们。这张票让实体定义可以声明一个原版基对象：绳生物选择原版敌人基对象后，进入原版命中家族，吃原版命中与伤害；实体自身的 AI、渲染与生命周期仍由 Mod 行为负责。若继承来的原版事件产生不可控副作用，按 Wiki 记录的回滚口径处理。\n\n## Acceptance criteria\n\n- [ ] 实体定义可以声明原生基对象；声明 \\`objEnemyDoll\\` 家族的实体，原版对象判定认它\n- [ ] 不声明基对象时，既有 Mod 与审计行为与今天完全一致\n- [ ] 审计用例：声明的实体被原版子弹命中并扣血\n- [ ] 实体包围盒仍按实体定义的宽度/高度计算\n- [ ] 继承到的原版事件（Step / End Step / Destroy / 碰撞）带来的副作用已处理或明确记录\n\n## Blocked by\n\nNone — can start immediately.\n",
+  "state": "CLOSED",
+  "createdAt": "2026-11-21T03:02:18Z",
+  "updatedAt": "2026-11-21T05:02:45Z",
+  "closedAt": "2026-11-21T05:02:45Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:host"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABpJ_6Ig",
+        "body": "## AI回复\n\nDECISION: 实体声明的原生基对象只贡献家族判定（`IsObject` / `Select` / `collision_line`），**不继承也不执行**原版 Create/Step/Destroy 事件；合成对象的 events 清空、parent -100，原版命中与伤害结算原样作用。\n\n理由：#129 的验收只需要原版子弹的家族资格；若执行继承事件，`objEnemyDoll` 的 Step 首行读 `air` 等变量会对 Mod 实体产生不可控副作用（票面要求「继承到的原版事件副作用已处理或明确记录」）。事件继承若确有需要，另开票评估。\n\n实现与证据见 PR #143；本决策同步登记到 Wiki Decisions（待 ACK）。",
+        "createdAt": "2026-11-21T03:55:09Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpKsUDA",
+        "body": "## AI回复\n\n已由 PR #143 合并进 `ai`（squash `dda3b9e`，PR head `327101a`）。\n\n- 实体定义可声明原生基对象（`NativeEntityDefinition.BaseObject`）；声明 `objEnemyDoll` 的实体被 `IsObject` / `Select` / `collision_line` 认作该家族；未声明时行为与今天一致；包围盒仍按定义宽高。\n- 地图摆放实体（`BindExisting`）同样解析基对象并 `ChangeObject` 到家族对象（reviewer 指出的 major 已修）。\n- 验收：S1 共 14 条断言 PASS（`PASS 61689 assertions`）；NativeModsAudit 回归 `assertions=136 / collected=20`；complexity PASS。\n- 继承事件副作用：DECISION 记录为「只贡献家族判定、不执行原版 Create/Step/Destroy」，Wiki Decisions 已登记（待 ACK）。\n- 范围外：只覆盖原生 `objBullet` 伤害路径，其它子弹类型需要时另开票。",
+        "createdAt": "2026-11-21T05:02:44Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

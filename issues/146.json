@@ -1,0 +1,21 @@
+{
+  "title": "Mod：手绑 QTE 进度条不涨，三坑地图未同步测试布局（人工验收）",
+  "body": "## AI回复\n\n人工验收（三坑演示图 + 已安装 ropebonds 0.1.3）发现两处问题。\n\n## 现象\n\n1. **手绑 QTE 进度条不涨**：血条与体力条之间的 `sprBind` 进度条在 QTE 期间不增长，按方向键最多闪到 1/25 随即归零，2.5s 后 QTE 必然失败并进入手绑。\n2. **三坑地图不对**：地图列表里能选到「RopeBonds 三坑演示」，但进去后背景/布局不对。实际加载的是 c83e8c6 里的旧 `demo.map.json`（背景 9）；`dsh-41707b34-2bc5` 工作区里那份未提交的测试布局（背景 35 = backNikukabe2、Playground 多滚动初始化实例、324 实例）从未并入仓库。\n\n## 根因\n\n1. `objects/objController/3/0/28` 里，只要 `BINDED|HALFBINDED` 且 `BindCounter>0` 就走挣脱分支：`move_outside_afterBind(); BindCounter=0; HALFBINDED=0; MotionChange(STAND_0)`。Mod 的 Before 钩子本想短暂清 `HALFBINDED` 让原生步跳过该分支，但条件写成 `bound || constraints.Bound(player.Id)`；手绑 QTE 用的就是 hands 层的 `ropebonds.qte` 片段，`Bound()` 恒为 true，于是 HALFBINDED 始终为 1，每一步 +1 都被同一步的挣脱清零。\n2. 地图改动只存在于旧 worktree 的未提交文件里，仓库与已安装副本都没有。\n\n## 修复\n\n- `Examples/Mods/ropebonds/Creature/RopeCreature.cs`：`BindFlag` 改为写显式值 `bound ? 1 : 0`。原生步内为 0（跳过挣脱分支），绘制前恢复 1（`sprGacha` 摇杆提示与 `sprBind` 进度条都保留）。\n- `Examples/Mods/ropebonds/maps/demo.map.json`：并入测试布局（名称「绳Mod-测试」、背景 35、Playground 多滚动初始化实例，第三只生物保留 `LegsOnly:1`）。\n\n## 验证\n\n- 真实桌面 Godot（GTX 1650 / OpenGL 3.3）加载已安装 Mod 与地图，日志：`ROPE_QTE_START actor=196613 max=25` → `ROPE_QTE_SUCCESS actor=196613 counter=25 time=2.20`，进度条按原生计数涨满。\n- 维护者确认「目前已无问题」。\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-21T05:57:19Z",
+  "updatedAt": "2026-11-21T05:57:19Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": []
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

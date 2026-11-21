@@ -1,0 +1,51 @@
+{
+  "title": "Runtime：伤害修正接口",
+  "body": "## AI回复\n\n## Parent\n\n#128\n\n## What to build\n\n伤害结算不再写死，开放给 Mod 修正：原版子弹命中同样经过这个口子，Mod 可以按倍数或加减调整最终伤害（「玩家跳跃中命中 ×10」就用它实现，不再靠改敌人的 \\`WEAK\\` 之类变量打补丁）。\n\n## Acceptance criteria\n\n- [ ] 原生子弹命中敌人时，Mod 注册的修正处理器被调用，能拿到攻击者、目标与原始伤害\n- [ ] 处理器返回的数值就是最终扣血量（审计用例：×10 后实际扣血为原始值的 10 倍）\n- [ ] 没有处理器时，伤害与原版完全一致\n- [ ] 处理器抛错时降级为原始伤害，不中断结算\n\n## Blocked by\n\nNone — can start immediately.\n",
+  "state": "CLOSED",
+  "createdAt": "2026-11-21T03:02:20Z",
+  "updatedAt": "2026-11-21T05:02:49Z",
+  "closedAt": "2026-11-21T05:02:49Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:host"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABpKAJcQ",
+        "body": "## AI回复\n\nDECISION: 原生子弹伤害的 Mod 修正口子放在伤害结算的表达式层——宿主把 `objects/objBullet/3/1/0` 里唯一一处 `HP -= 100+WEAK*200` 的右值包成 `native_damage(...)`，运行时回调 `combat.damage` 的 Before 处理器（Actor = 目标，Arguments[\"damage\"] = 原始伤害，Arguments[\"source\"] = 子弹 id）；处理器返回值即最终扣血，无处理器或处理器抛错时原值透传。GML 资产与数值路径不改，若事件结构不再是「恰有一处 HP 减法」则启动 fail-fast。\n\nDECISION: `instance_create` 在 NativeModServices 存在时给新实例写 `creator = 创建者实例 id`（vanilla-only 运行不写该变量），用于从子弹溯源到枪部件与玩家；全库 GML 不读该变量，外部不可观察。\n\n实现与红/绿证据以 PR 与 tester 评论为准；本决策同步登记到 Wiki Decisions（待 ACK）。",
+        "createdAt": "2026-11-21T03:55:31Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpKsWgw",
+        "body": "## AI回复\n\n已由 PR #144 合并进 `ai`（squash `00fc573`，PR head `85f7b52`）。\n\n- 原生子弹命中经 `native_damage(...)` 回调 `combat.damage` Before：处理器拿到目标 / 攻击者（`Arguments[\"source\"]`）/ 原始伤害，返回值即最终扣血；无处理器或处理器抛错时原值透传，结算不中断。\n- 红证据：`7783f72` 上 `FAIL S2a ...`（exit 134）；绿：`PASS 61690 assertions`；complexity PASS。\n- 审核意见「JsonNode 每次动态解析」已按缓存处理：常量字面量改 `static readonly` 一次解析、`Patch` 结果按源文本缓存、`NativeCombatService` 伤害块与子弹补丁缓存；重复建 world 时 0 次 `JsonNode.Parse`。\n- 范围外：`objShotGunBullet` / `objEffectBullet` / `objEnemyBullet` 未接入，需要时扩 Patch 列表。\n- 合并后的全量回归纳入 #138。",
+        "createdAt": "2026-11-21T05:02:47Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

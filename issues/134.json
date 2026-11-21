@@ -1,0 +1,28 @@
+{
+  "title": "Mod：腿部 QTE 半程机制",
+  "body": "## AI回复\n\n## Parent\n\n#128\n\n## What to build\n\n腿 QTE 到总时长一半时进入第二阶段：当前进度清零、上限不变（只触发一次）；此后每次成功挣扎把剩余时间延长 0.1s。半程前填满直接判成功。\n\n## Acceptance criteria\n\n- [ ] 半程时进度清零、上限不变，且只触发一次\n- [ ] 第二阶段每次计数使剩余时间 +0.1s\n- [ ] 半程前填满判成功；第二阶段填满同样成功\n- [ ] 时间耗尽进入叠加腿绑\n\n## Blocked by\n\n- #133 Mod：腿部 QTE 与摔倒入场\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-21T03:02:32Z",
+  "updatedAt": "2026-11-21T03:02:32Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

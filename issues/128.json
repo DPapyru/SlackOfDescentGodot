@@ -1,0 +1,282 @@
+{
+  "title": "Mod: 改进: 对于捆绑Mod的再度扩展",
+  "body": "#127 关于这次PR合并后再增加内容\n\n## 说明\n\n目前这个Pr提交的只能算是一个Demo版本的\n\n经过构思,目前需要实现:\n- 捆绑腿部: 捆绑到小腿的位置,此前有提及 #97 ,但是那时候有说要三个部位,现在经我考虑,只保留两个部分: 捆绑手(保持目前不变) 和 捆绑腿(新增,废弃原本提及捆绑身体部分)\n- 游戏结束判定:\n  - 在Blood条件下,绳子(进入捆绑腿状态后)会直接扣除玩家HP,HP归零后,让玩家的关节IK失去绑定,脱离身体,同时出现Blood类粒子特效\n  - 在非Blood条件下,绳子(进入捆绑腿状态后)会先扣除玩家耐力,再缓慢扣除HP\n- 被捆绑腿之后: 角色只能在地面上蠕动爬行\n\n## 修改\n\n**可能涉及极少部分的Runtime修改**\n**Mod层修改为主**\n\n## 验收\n\n由用户验收内容,其中要求:\n- Test能够通过\n- 通过github部署的CI管线\n- 用户实际验收没有问题\n- 代码圈复杂度<15\n- 人类可读,可展开",
+  "state": "OPEN",
+  "createdAt": "2026-11-21T02:04:08Z",
+  "updatedAt": "2026-11-21T08:01:09Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "question"
+      },
+      {
+        "name": "mod"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABpI5kGg",
+        "body": "## AI回复\n\n### 位置\n\n这一轮只做需求质询，不动代码。按依赖顺序一次问一个问题，每条附建议；你回答后我落 `DECISION:`。规格与词表也写进 issue 评论——仓库只允许 `AGENTS.md` 和 `README.md` 两个 Markdown，`node Tools/verify.mjs` 会拦掉新建的 `CONTEXT.md`，所以 `/grill-with-docs` 的 CONTEXT.md 在这里改成 issue 里的 `SPEC:` 段。\n\n### 已核对的事实（读代码，不转述 #128 正文）\n\n- 捆绑目前只有一套：QTE 失败走 `RopeCreature.FinishQte(false)` → `constraints.Bind(player)` → 只绑 `HAND1~3_ABOVE/BELOW`。全部 C# 里没有 `FOOT` 约束；`bound.motion.json` 只有 6 条手部轨道，`qte.motion.json` 才是全 15 根骨骼。\n- 解除路径只有四条：生物被销毁 / 离开房间 / 玩家实例失效 / QTE 成功。生物 `Created` 里只写了 `HP=10000`，没有 `DAMAGE_ACTIVE`，也没有任何玩家可用的击杀实现——今天一次 QTE 失败就是永久捆绑、无法自救。\n- 同一玩家同一时刻只能有一套约束：`Attach` 在 `constraints.IsBound(player)`、原生 `BINDED`/`HALFBINDED` 非 0 时直接返回，生物继续巡逻。\n- 接近与判定全部对「双手中点」算：`Approach` 取 `Hands(player)`（`HAND3_ABOVE/BELOW` 中点）判 18px 贴合与跃起目标；被绑后 `Draw` 也只锁 `HAND3`。腿绑无法沿用这套几何。\n- 演示图：3 个 320 宽的坑，每坑 1 只 `ropebonds.creature`（x=470/1110/1750, y=432），坑后 10 块 `objQuicksandPit` 与地表同线。\n- 引擎原生已有「肢体离开身体」的设施：`Macro_CutHand1_Above` / `Macro_CutFoot2_Above` / `Macro_CutHead`——把部位 `image_alpha` 置 0，再生成带重力、带血的 `objCutParts`；全部被 `global.config_Blood` 门控。血液粒子是 `Fluid(x,y,COLOR_BLOOD,...)` 生成 `objFluid`：`config_Blood` 关闭时颜色自动变白，`config_Effect` 关闭时干脆不生成。\n- 玩家数值：`global.PlayerHP` / `global.PlayerST` 默认各 100，`PlayerHPMAX`/`PlayerSTMAX` 是载入时复制的副本；`isGameOver()` = `PlayerHP<=0 || GameOver`。\n- 原生伤害通道两个：`addDamage(dmg)` 扣 `HP -= dmg`、`ST -= dmg*1.5`；`addSTDamage(hp,st)` 分别扣。**两者都会把 `HALFBINDED` 置 false**，而 mod 的 QTE 正是靠 `HALFBINDED` 冻结操作——走原生伤害会抹掉自己的标记。\n- 操作门禁 `NativeActorActions.CanAct` = `BINDED==0 && HALFBINDED==0 && HP>0` 且当前动作在 STAND/WALK/RUN/JUMP/DASH/CROUCH 白名单里。这条决定「只能爬行」能怎么落地。\n\n### 后面依次要定（只是预告，现在不用一并回答）\n\n② 小腿骨骼范围与被绑姿势 → ③ 有没有反制 / 自救 → ④ 扣血数值与走哪条通道 → ⑤ HP 归零后到底发生什么（真 GameOver，还是纯表现）→ ⑥「只能蠕动爬行」怎么落地 → ⑦ 验收口径（圈复杂度 <15 与仓库门禁 8/20/25 冲突、CI 现状）。\n\n---\n\n### Q1：腿部捆绑是「另一种结局」，还是「第二层状态」？谁来选、什么时候选？\n\n#97 的原话是「随机选择捆绑玩家一个位置」，当时白名单是左右手/左右脚/躯干；现在只剩手和腿。三种读法，后面几套片段、几个计时器、死亡时切哪些肢体都挂在上面：\n\n1. **互斥 + 同一只生物随机选**（建议）：QTE 失败时 50/50 选手或腿；手绑与腿绑互斥，一次只有一种；已有捆绑的玩家对第二只生物不可绑，生物继续巡逻。演示图 3 只生物足够各测一半概率。\n2. **互斥 + 按坑固定**：1、2 号坑绑手，3 号坑绑腿；可复现，但和 #97 的「随机」冲突。\n3. **可叠加**：先手后腿（两只生物先后成功）。两套片段同帧争同一批骨骼，要合成姿态、两套计时与解除规则；#128 没提，工作量大约翻倍。\n\n选 1 时还有两个连带子问题，我按建议一并写在这里：\n\n- **选部位要在接近阶段就定**。腿绑的目标点是双脚中点，跃起与 18px 判定都得换；如果在 QTE 失败那一刻才随机，绳子会先贴到手上再突然跑到腿上。\n- **加一个确定性开关**，沿用现有环境变量风格（`ROPEBONDS_BIND_TEST`/`ROPEBONDS_TRACE`）：`ROPEBONDS_BIND_PART=hand|leg|random`，让审计与实机都能复现两种结局。\n\n➡️ 建议 1 + 两个连通带。确认后我问 Q2（小腿具体切哪几根骨骼、被绑姿势长什么样）。\n\n",
+        "createdAt": "2026-11-21T02:15:27Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpI_Vyg",
+        "body": "q1: 根据实际情况递增:\n流程\"被捆绑手\" --> \"被捆绑腿\"\n\n捆绑腿和捆绑手都会出现qte\n捆绑腿的qte比手难一倍,但是时长多一倍\n在时长的一半时候,进入下一阶段,清空捆绑腿的qte进度(不降低上限),此时每挣扎一次增加0.1s的时间\n大致流程为:\n```Mermaid\nflowchart TD\n    Start([玩家遭遇绳索生物]) --> CheckState{当前状态检测}\n\n    %% 第一阶段：无捆绑 -> 触发手部QTE\n    CheckState -->|无捆绑| HandAim[锁定双手中点并接近]\n    HandAim --> HandQTE[触发【手部 QTE】<br/>基准难度 / 基准时长 T]\n    HandQTE -->|QTE 成功| Escape1([挣脱成功，恢复自由])\n    HandQTE -->|QTE 失败| HandBound[进入【被捆绑手】状态<br/>锁定 HAND1~3 骨骼]\n\n    %% 第二阶段：已绑手 -> 遭遇下一只触发腿部QTE\n    HandBound --> NextEncounter[再次遭遇绳索生物]\n    NextEncounter --> LegAim[目标切换为双脚中点并接近]\n    LegAim --> LegQTE_P1[触发【腿部 QTE - 阶段一】<br/>难度 ×2 / 总时长 2T]\n\n    %% 腿部 QTE 的半程机制\n    LegQTE_P1 -->|在前半程 T 内完成| LegEscape1([腿部挣脱成功<br/>退回仅【被捆绑手】状态（播放角色翻滚动作）])\n    LegQTE_P1 -->|未完成且剩余时间 ≤ T<br/>到达总时长一半| HalfTrigger[触发半程机制：<br/>1. 清空当前 QTE 进度条<br/>2. 进度上限保持不变]\n\n    HalfTrigger --> LegQTE_P2[进入【腿部 QTE - 阶段二】<br/>机制变更：每次挣扎 +0.1s 剩余时间]\n    LegQTE_P2 -->|挣扎进度填满| LegEscape2([腿部挣脱成功<br/>退回仅【被捆绑手】状态（播放角色翻滚动作）])\n    LegQTE_P2 -->|时间耗尽| LegBound[进入【被捆绑腿】叠加状态<br/>后续按 Q2~Q6 规则结算]\n```",
+        "createdAt": "2026-11-21T02:22:49Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpJCJSw",
+        "body": "## AI回复\n\n### Q1 记录\n\n`DECISION:` 捆绑按状态**递增叠加**，不是互斥：无捆绑 → 手部 QTE → 失败进入「被捆绑手」；已绑手时被第二只生物抓住 → 腿部 QTE → 失败后进入「手+腿」叠加。\n\n`SPEC:` 数值按下面落地（有偏差直接改；T 取现有 `QteWindow` = 2.5s）：\n\n| 项目 | 手部 QTE（现状不变） | 腿部 QTE（新增） |\n|---|---|---|\n| 计数上限 | 25（简单 12） | 50（简单 24） |\n| 总时长 | 2.5s = T | 5s = 2T |\n| 半程机制 | 无 | t = T 时计数清 0、上限不变；此后每计数一次剩余时间 +0.1s |\n| 成功 | 挣脱，生物退后 2s | 退回「仅被捆绑手」，播放翻滚 |\n| 失败 | 被捆绑手 | 手+腿叠加 |\n\n- 「挣扎一次」= 原生 `objController.BindCounter` 加一次（一次新按下 +1，在 Selima 里 +0.5）。腿部 QTE 复用这个计数器，不新造输入通道。\n- 半程清空只触发一次；若恰在 t = T 时已经填满，判成功。\n- 腿绑成功后第三只生物不再附身（两级已满）。\n\n### 顺带记下的实现后果（不用你决策）\n\n- `Attach` 目前「有任何约束就拒绝」，要改成「手绑允许腿部 QTE，腿绑后拒绝」。\n- `HandConstraint` 是 `Dictionary<actorId, Entry>`，一人一套；叠加要拆成手/腿两套（或按部位合并集合）。\n- 腿 QTE 期间手部约束必须保留；现有 `FinishQte` 会 `Release` 掉全部约束，不能直接复用。\n- 两层各记持有者：手绑生物死亡只放开手（#97「生物死亡清除自己的捆绑」顺延）。\n\n### Q2：腿部束缚冻结哪几根骨骼？\n\n腿部三节：`FOOT1` 大腿 → `FOOT2` 小腿 → `FOOT3` 脚（左右各一套）。原生 `Macro_CutFoot2_Above` 的切割边界正好在 `FOOT1`/`FOOT2` 之间：隐藏 FOOT2+FOOT3，把这两节抛出去。\n\n1. **锁 FOOT2+FOOT3，左右共 4 根**（建议）：与「捆到小腿」字面一致、与死亡切割边界一致；大腿仍可动，蠕动时靠大腿蹬地。\n2. 锁整条腿 6 根：腿完全不能动，姿态最稳，但绳子视觉只在小腿，且与切割后的残肢对不上。\n3. 只锁 FOOT3 两根：基本等于没捆。\n\n配套姿势（跟 1 走）：两条小腿并拢、膝盖微屈、脚尖向后；绳子锚点取 `FOOT2_ABOVE`/`FOOT2_BELOW` 中点，沿用 #108 的 `RenderBound` 两端带头画法；现有手部片段 `bound` 不动，新增腿部片段 `legbound`。挣脱的翻滚表现留到 Q6 和爬行一起定资产。\n\n➡️ 建议 1。确认后我问 Q3（被绑之后还有没有反制、生物能不能被杀）。\n\n",
+        "createdAt": "2026-11-21T02:26:23Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpJHHNQ",
+        "body": "Q2:\n和手部类似,只在乎腿部部位\n\nBlood状态下: 让FOOT3和FOOT2分离,让HAND3和HAND2分离\n非Blood无这个实现\n\n可能上面没有细说: 被捆绑腿要进入在地面蠕动的状态,也是需要播放动画的,而不是一瞬间就变成爬行\nBlood和非Blood都有这个蠕动状态,此时已经算\"game over\"\n被捆绑之后没有任何qte手段反制\n生物可以被命中和击杀\n\n关于捆绑位置: Foot2和Foot3连接处\n关于肢体分离: Foot3被分离\n关于骨骼动作: 修改Foot3的位置即可,IK会自动处理(可以考虑修改一下角色身体位置,使其表现站不稳)\n\n捆绑触发后: 角色摔倒，摔倒动画结束后，进入qte\nqte状态: 操作Foot1和Foot2,模拟挣扎。两个Foot3得相互贴着,两个Foot1和Foot2有一定程度的偏移",
+        "createdAt": "2026-11-21T02:32:38Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpJJIIQ",
+        "body": "## AI回复\n\n### Q2 记录\n\n`SPEC:`（我的读法，有偏差直接改）\n\n- **腿绑部位**：`FOOT2`/`FOOT3` 连接处（脚踝）。片段里只摆 `FOOT3` 的落点，`FOOT1`/`FOOT2` 由 IK 解算后写进关键帧；两只 `FOOT3` 相贴不动，`FOOT1`/`FOOT2` 左右各带偏移地挣扎。\n- **进入腿绑**：被抓住 → 播摔倒片段 → 摔倒结束才进腿部 QTE，不是瞬间切换。手部路径按「保持现状」记：不摔倒、原地冻结后进 QTE。\n- **腿绑失败**：进入地面蠕动；Blood 与非 Blood 都有蠕动；这个状态本身就算 game over（我按「玩家已失败、无恢复手段，但死亡演出还要继续播完」记）。\n- **Blood 分离**：`FOOT3` 与 `FOOT2` 分离、`HAND3` 与 `HAND2` 分离（左右各一套）；非 Blood 不做分离。\n- **反制**：被绑后没有任何 QTE 反制；生物可以被命中与击杀。\n\n两条实现事实先写下来：\n\n1. 原生 `Macro_CutFoot2_Above`/`Macro_CutHand1_Above` 的边界在膝/肩（隐藏 FOOT2+FOOT3 / HAND1+HAND2+HAND3），与「只分离 FOOT3、HAND3」不一致，所以分离要 mod 侧自己做（隐藏末端部位 + 生成飘落物），不能直接调原生宏。\n2. 腿绑的约束集合 = `FOOT1~FOOT3` 两侧 6 根（片段里有键的都锁住），绳子视觉锚点在 `FOOT2`/`FOOT3` 连接处。\n\n### Q3：「生物可以被命中并击杀」走哪条路？\n\n先给一条会推翻这句话的事实：原生子弹的伤害只对 **`objEnemyDoll` 家族 + `DAMAGE_ACTIVE` 为真**的目标生效（`objBullet/3/1/0` 里是 `collision_line(preX,preY,x,y,objEnemyDoll,...)`，再用 `DAMAGE_ACTIVE` 挑最近的一个）。而 `ropebonds.creature` 是 mod 实体，不在 `objEnemyDoll` 家族里，`HP` 只是 `Created` 里写的一个 scope 变量——**现在子弹会直接穿过生物，只有撞墙才销毁**。SDK 的 `Combat.Raycast/Damage` 也只对 mod 自己发起的射线生效，原版枪不经过它。\n\n所以「可以被击杀」是要新做的，三条路：\n\n1. **mod 侧命中检测**（建议）：订阅 `engine.objects/objBullet/3/1/0` 的前后事件（mod 已用同样方式订阅 `objController/3/0/28`），用子弹上一帧→当前帧的线段与生物 AABB 求交，命中就扣血、播受击表现、销毁子弹；血量按武器伤害对齐（如 100 血、手枪 10/发）。\n2. **让生物变成原生 `objEnemyDoll` 派生对象**：直接吃原生子弹/近战，但要推翻现有实体 + Verlet + 贴图实现，代价大。\n3. **不做击杀**，反制改成别的（时间/环境）——与你说的「可以被击杀」冲突。\n\n➡️ 建议 1，零引擎改动，符合 #128「Mod 层为主」。确认后我问 Q4：生物的血量、受击表现、死亡表现，以及击杀后是不是立刻解除它持有的那一层。\n\n",
+        "createdAt": "2026-11-21T02:35:03Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpJKXgg",
+        "body": "q3: 选择2，走原版流程更好，这样能够更好的统一\n如果出现不可避免的情况，无需在意，可以回滚",
+        "createdAt": "2026-11-21T02:36:29Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpJM6ZA",
+        "body": "## AI回复\n\n### Q3 记录\n\n`DECISION:` 绳生物走原版敌人流程（可被原版子弹/近战命中、走原版伤害），接受为此做的少量 Runtime 改动；出现不可避免的问题按「可回滚」处理。\n\n落地形状（我按这个做，若你想换口径请直接说）：\n\n- `NativeEntityDefinition` 加一个 `BaseObject`（默认空 = 现状），`CreateNativeEntity` 按它给合成对象设父对象。\n- 绳生物声明 `BaseObject = objEnemyDollNoDeactivate`（`objEnemyDoll` 的子对象、自身零事件）。这样 `IsObject(entity, objEnemyDoll)` 成立，原版子弹的 `collision_line(...,objEnemyDoll)` 就能命中它——mod 实体的包围盒本来就由 `Entities.TryBounds` 提供，宽度/高度取 `NativeEntityDefinition`。\n- mod 在 `Created` 里补原版敌人依赖的常量：`DAMAGE_ACTIVE=1`、`INV=0`、`WEAK=0`、`PARTS_MAX=999`（让原生 `MotionChange` 直接空转，不去碰不存在的部件动作）、`HP_CONTROL=1`（让 `EnemyDead()` 跳过掉落）。\n- 继承风险提前说清：挂上父对象后，实体也会跑 `objEnemyDoll` 的 Step/End Step/Destroy（重力写、深度、流沙碰撞、`EnemyDead()`）。mod 每步都会重写 x/y，重力影响可忽略；其余若有副作用，回滚到 Q3 选项 1（mod 侧命中检测），对外行为不变。\n\n### Q4：生物几发子弹死？死亡表现与「击杀即解除」怎么定？\n\n原版子弹打敌人是固定伤害 `100 + WEAK*200`（我们设 `WEAK=0`，即每发 100），命中顺手 `Quake(3,3)`、按来向把它 `hspeed` 顶到 ±30、生成 `ef_ring` 与血雾——这些接了原版父对象就白送。HP <= 0 时原版只把 `MotionNum` 切到 `DEAD_MOTION`；掉落与清理由 Destroy 里的 `EnemyDead()` 负责。\n\n三个选项：\n\n1. **3 发（HP=300）**（建议）：手绑状态下还有操作空间，不至于被一枪秒。死亡由 mod 接管——立刻解除它持有的那一层（现有 `Release` 会按进入前快照还原玩家姿态）、绳身链点散开 + 淡出 0.3s、销毁实例。\n2. 1 发（HP=100）：一击必杀，脱身更快，但绳子生物会变成纯靶子。\n3. 5 发（HP=500）：要换弹，考验手绑状态下的走位。\n\n➡️ 建议 1。确认后我问 Q5：腿绑之后的扣血速率与「game over」到底怎么落地（是否写 `global.GameOver`、要不要重开）。\n\n",
+        "createdAt": "2026-11-21T02:40:00Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpJNllg",
+        "body": "q4的问题已经说明过血量了，在 #97 ",
+        "createdAt": "2026-11-21T02:40:57Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpJPqaQ",
+        "body": "## AI回复\n\n### 关于「血量在 #97 说明过」\n\n我把 #97、#98、#99~#125 和 PR #127 的正文与评论都过了一遍。#97 里与生物血量有关的只有这一段：\n\n> `NativeEntityDefinition` 无 health 字段，生物血量是 scope 变量 `HP`（创建时写一次 10000）；原生受击还看 `DAMAGE_ACTIVE`/`objEnemyDoll`，普通攻击未必生效——若确实不吃伤害，另开票。\n\n它在「实现约束备忘」里，不是数值定稿——写 10000 的原因是那版根本没有受击路径，要的是「打不死」。现在 Q3 改成走原版伤害后，这个数就会真的生效：原版子弹打敌人是 `HP -= 100 + WEAK*200`，`WEAK=0` 时每发 100，`HP=10000` = **100 发手枪弹**。\n\n所以只需你确认一件事：\n\n- **A. 10000 就是设定值**：生物极肉，实战基本打不死，「击杀解绑」只是名义上存在。我按 10000 写，验收口径相应变成「能打中、能扣血，但极难打死」。\n- **B. 10000 只是占位符**（建议）：实际给 **300**（3 发手枪），让「打死它 → 解除它那一层」成为手绑状态下真正可用的反制。100 / 500 也行，数字由你定。\n\n➡️ 建议 B·300。你回 A、B 或直接给数字，我落 `SPEC:` 后问 Q5（腿绑扣血速率与 game over 的落地）。\n\n",
+        "createdAt": "2026-11-21T02:43:53Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpJRPVw",
+        "body": "A，但是跳跃后伤害倍率*10\n可以问Q5了",
+        "createdAt": "2026-11-21T02:46:13Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpJSCqQ",
+        "body": "## AI回复\n\n### Q4 记录\n\n`SPEC:` 生物 `HP = 10000`（A）；玩家**跳跃中**命中时伤害 ×10（每发 1000）。\n\n实现说明一句：原版子弹伤害是内联公式 `HP -= 100 + WEAK*200`，mod 改不了公式，所以「×10」我打算这样做——玩家离地时，生物每被命中一次额外补扣 900（100 + 900 = 1000），落地后恢复原样。若你说的「跳跃后伤害倍率×10」其实指「生物跳扑对玩家的伤害 ×10」，现在说一声，我改记到 Q5。\n\n### Q5：腿绑之后的掉血速率与通道\n\n`SPEC:` 建议数值（数字可以直接改）：\n\n| 模式 | 第 1 段 | 第 2 段 | 到 0 用时 |\n|---|---|---|---|\n| Blood | 直接扣 HP：每 0.5s −5 | — | 约 10s |\n| 非 Blood | 先扣 ST：每 0.5s −5 | ST 清空后扣 HP：每 0.5s −2 | 约 10s + 25s |\n\n- **通道**：直接写 `global.PlayerHP` / `global.PlayerST`，不走原生 `addDamage` / `addSTDamage`——这两个都会把 `HALFBINDED` 置 false（会打坏 QTE 标记）、顺带播原版受击动作与掉枪，和「趴在地上蠕动」冲突。\n- 生物死亡、玩家离开房间、mod 卸载 → 立即停止掉血。\n- 难度 `EASY_QS` 只影响 QTE 计数，不改变掉血速率。\n\n❓ 这组数字可以吗？还是要更慢/更快（例如 Blood 20s、非 Blood 60s）？\n\n➡️ 建议就按上表。确认后问 Q6：game over 怎么落地（要不要置 `global.GameOver`）、HP 归零后的分离与粒子演出、以及演出结束之后发生什么。\n\n",
+        "createdAt": "2026-11-21T02:47:24Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpJT-GQ",
+        "body": "关于你的:\n> 实现说明一句：原版子弹伤害是内联公式 HP -= 100 + WEAK*200，mod 改不了公式，所以「×10」我打算这样做——玩家离地时，生物每被命中一次额外补扣 900（100 + 900 = 1000），落地后恢复原样。若你说的「跳跃后伤害倍率×10」其实指「生物跳扑对玩家的伤害 ×10」，现在说一声，我改记到 Q5。\n\n修改runtime实现，提供伤害修改的接口\n\nQ5的数字可行\n\nQ6我也给出答案: 按照常规游戏结束触发\n\n额外回答:\nBlood模式下: 角色需要发出叫声(扣血的时候)\n粒子演出: 仅限Blood模式下,在肢体关节解除绑定之后，这一部分对应关节出现粒子特效",
+        "createdAt": "2026-11-21T02:50:14Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpJVtww",
+        "body": "## AI回复\n\n### Q5 / Q6 记录\n\n`DECISION:` 伤害修改走 **Runtime 接口**，不用 `WEAK` 打补丁：在伤害结算处提供 mod 可介入的倍数/修正口子（原生子弹命中时也经过它），「跳跃中 ×10」由 mod 在这个口子上实现。这条会作为 #128 里那「极少部分 Runtime 修改」的一部分。\n\n`DECISION:` 掉血数值按 Q5 表格：Blood 直接 HP 每 0.5s −5；非 Blood 先 ST 每 0.5s −5，清空后 HP 每 0.5s −2。通道直接写 `global.PlayerHP`/`global.PlayerST`。\n\n`DECISION:` game over 按原生条件触发：`PlayerHP<=0` 时 `isGameOver()` 本来就为真，不新造标志；死亡后 `CanAct`（要求 `PlayerHP>0`）自动锁死所有操作，重开走暂停菜单 RESET（`objRespawn` → `Respawn()` → `room_restart` 回存档点）。\n\n`DECISION:` Blood 追加两条演出：\n\n- 掉血时角色出声：调原生 `DamageVoiceRandom_Low/Mid/High`，按当前 HP 档位选（<25% High、<50% Mid、否则 Low），节流交给原生 `global.voiceInterval`；非 Blood 不出声。\n- 关节分离后在该关节出粒子：HP 归零时左右手 `HAND3`、左右脚 `FOOT3` 依次脱离（间隔 0.1s），每处用关节世界坐标生成血粒子（`Fluid(x,y,COLOR_BLOOD,...)`，走原生 `objFluid`）。非 Blood 既不分离也不出粒子。\n\n蠕动在 HP 归零后继续，直到玩家自己 RESET。\n\n### Q7：腿绑之后「只能蠕动爬行」是谁在动？\n\n1. **仍可控，速度约 0.5px/帧（≈30px/s）**（建议）：方向键驱动，mod 每步直接写 x/y 并播放爬行片段；`HALFBINDED` 保持 1，让原生 `CanAct` 锁掉走/跑/跳/开枪/交互；撞墙用 `place_free` 挡住。这样演示图里能从坑里爬出来验证与流沙的交互。\n2. **完全不能动**：原地循环蠕动，位置锁死。实现最省，但「爬行」只剩动画。\n3. **自动向前漂移**：不受控，每帧前进约 0.2px，玩家只能看。\n\n➡️ 建议 1。确认后问最后一问 Q8：验收口径（圈复杂度 <15 与仓库门禁 8/20/25 冲突、CI 现状、测试归属、PR 拆分）。\n\n",
+        "createdAt": "2026-11-21T02:52:47Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpJW9ug",
+        "body": "## AI回复\n\n`SPEC:` 本 issue 涉及的 Runtime 改动已写入 Wiki 决策清单（[Decisions](https://github.com/DPapyru/SlackOfDescentGodot/wiki/Decisions)，提交 `6f87f9f`）：\n\n| 决策 | 状态 | 依据 |\n| --- | --- | --- |\n| Runtime：`NativeEntityDefinition` 增加原生基对象（`BaseObject`），Mod 实体可声明继承原版对象；绳生物挂 `objEnemyDoll` 家族，命中、伤害与死亡走原版流程（若继承的原版事件产生不可控副作用，回滚为 Mod 侧命中检测） | 已定 | 本 issue 02:36Z 评论 |\n| Runtime：在伤害结算处提供 Mod 可介入的修正接口，原生子弹命中也经过它（用于「跳跃中伤害 ×10」等规则），不在 Mod 侧用 `WEAK` 打补丁 | 已定 | 本 issue 02:50Z 评论 |\n\n其余（捆绑状态、掉血、关节分离与血粒子、蠕动爬行、QTE 分段）按 #97 的既有边界留在 Mod 层，不进 Runtime。\n\nQ7（腿绑之后还能不能控制移动）还等你一句确认。\n\n",
+        "createdAt": "2026-11-21T02:54:37Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpJYg4g",
+        "body": "Q7: 使用1,同时这个状态覆盖角色非qte状态的所有状态机\n如果这个时候被触发qte，则保持双腿双手的捆绑态，绑定到上面的肢体（不是在玩家身体之后的那个肢体）",
+        "createdAt": "2026-11-21T02:56:53Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpJZRaA",
+        "body": "## AI回复\n\n### Q7 记录\n\n`DECISION:` 腿绑后**仍可控爬行**，约 0.5px/帧（≈30px/s）：方向键驱动、mod 每步写 x/y、撞墙用 `place_free` 挡住；不能跳、不能开枪、不能交互。\n\n`DECISION:` 爬行状态**覆盖角色全部非 QTE 状态机状态**：原生状态机想播什么都被爬行片段压掉（实现上 `HALFBINDED` 保持 1 + 每步与 `frame.prepare` 写全部 15 根骨骼，和现有约束同一套时序）。\n\n`DECISION:` 爬行中若触发 QTE：保持手脚两层捆绑，绳子锚点改挂 **ABOVE 侧**肢体，不挂被身体挡住的 BELOW 侧。\n\n### Q8（最后一问）：验收口径怎么定？\n\n现成的硬事实：\n\n- `Tools/complexity.mjs` 的阈值按 diff 规模分档：≤2 文件且 ≤60 行 → **8**；≤6 文件且 ≤400 行 → **20**；否则 **25**。CI 里跑的是 `node Tools/complexity.mjs --since origin/ai`。\n- `ci.yml` 远端只跑：build → ArchitectureTests(production) → 诊断构建 → ArchitectureTests(diagnostics) → complexity-test → complexity。**`RuntimeTests` 在 #92 里被移除**（依赖本地 `GameData`，#91/#93 仍开着），`gate.mjs` 也依赖本地夹具，远端跑不了。\n- AGENTS.md：测试只由专用测试子代理串行跑（`Tools/agent-lock.mjs`）。\n\n建议口径（`SPEC:`）：\n\n1. **复杂度**：取更严者——新增/改动方法 ≤15，**且** `complexity.mjs --since origin/ai` 绿（该工具按 diff 档可能只给到 8，那就按 8 拆）。issue 里的「<15」与门禁不冲突，因为它只是上限之一。\n2. **CI 绿** = 当前 `ci.yml` 全绿；`RuntimeTests` / `gate.mjs` 无法在远端跑，作为本地证据贴进 PR，不把「恢复远端 RuntimeTests」算进本 issue（那是 #91/#93 的事）。\n3. **测试**：只由测试子代理串行跑，输出摘要贴 PR；其他人不动测试进程。\n4. **必跑**：`node Tools/gate.mjs` + `NativeModsAudit` + `map-audit`（demo 图）+ `motion-audit`（新增的腿部/爬行/摔倒片段）；`play-audit` 如果宿主 GL 允许也跑。\n5. **实机路径**：坑 1 故意让 QTE 失败 → 手绑 → 跳出坑（跳跃高度 ≈133px，64px 坑出得来）→ 坑 2 → 腿 QTE；成功/失败两条分支各验一次；失败后爬到流沙区验证交互。\n\n❓ 这组口径可以吗？特别是第 2 条（CI 绿只覆盖 build/架构/复杂度，runtime 测试算本地证据）。\n\n确认后我不再提问，会把 Q1~Q8 的 `SPEC:` 汇总成一份实现规格（含子 issue 拆分建议）贴上来给你 ACK。\n\n",
+        "createdAt": "2026-11-21T02:58:02Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpJZ6vQ",
+        "body": "同意拆分sub-issue",
+        "createdAt": "2026-11-21T02:59:02Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpJbBig",
+        "body": "## AI回复\n\n`SPEC:` 按 #128 已定的口径，拆成 10 张 tracer bullet 票（每张都能单独演示或验证，含 Runtime 两张前置）。**先过一遍再建 issue**，粒度/依赖不对我就改。\n\n| # | 票 | 依赖 | 交付什么 |\n|---|---|---|---|\n| 1 | Runtime：实体原生基对象 | 无 | Mod 实体可声明继承一个原版对象；绳生物选原版敌人基对象后，原版子弹/近战会命中它 |\n| 2 | Runtime：伤害修正接口 | 无 | 伤害结算处开放 Mod 修正口子，原生子弹命中也经过；「跳跃中 ×10」由它实现，不再靠 `WEAK` |\n| 3 | Mod：绳生物受击与击杀 | 1、2 | 枪能打中（原版受击反馈）、跳跃中命中 ×10、HP=10000；击杀后立刻放开它那一层，绳身散开淡出 |\n| 4 | Mod：两层捆绑（手/腿）与腿部片段 | 无 | 同一玩家手、腿两套独立约束（各自记持有者、各自还原）；新增腿部束缚片段；调试入口可单独挂/卸腿层 |\n| 5 | Mod：腿部 QTE 与摔倒入场 | 4 | 已绑手 → 第二只生物 → 摔倒 → 腿 QTE（难度 ×2、时长 ×2）→ 成功翻滚回手绑 / 失败叠加腿绑 |\n| 6 | Mod：腿部 QTE 半程机制 | 5 | 半程清空进度、上限不变，之后每挣扎 +0.1s；半程前填满判成功 |\n| 7 | Mod：腿绑掉血与叫声 | 5 | Blood 每 0.5s 直接 −5 HP；非 Blood 先每 0.5s −5 ST、清空后每 0.5s −2 HP；直接写全局；Blood 每次掉血角色出声 |\n| 8 | Mod：蠕动爬行 | 5 | 方向键约 0.5px/帧、撞墙停、不能跳/开枪/交互、覆盖全部非 QTE 状态；爬行中触发 QTE 时两层保持并锚 ABOVE 侧 |\n| 9 | Mod：HP 归零的死亡演出 | 7、8 | 原生 game over（HP≤0 即 `isGameOver`，可暂停 RESET）；Blood 模式四肢末端依次分离、关节出血粒子；非 Blood 无演出 |\n| 10 | 全链路验收与门禁收口 | 3、6、7、8、9 | 完整实机路径 + `gate`/`NativeModsAudit`/`map-audit`/`motion-audit`/`play-audit` 证据 |\n\n**依赖边为什么这么画**：1、2 是独立 Runtime 前置，可并行且先行；3 只是把已有的手绑生物接进原版伤害；4 是纯 Mod 的约束层重构 + 腿部资产，不依赖 Runtime；5/7/8 都只要腿层存在就能各自独立做（三张可并行）；9 必须两种掉血和爬行都落地才谈得上死亡演出；10 收口。\n\n三个问题：\n\n1. **粒度**：10 张是否过细？可以合并的候选是 5+6（半程机制并入腿 QTE）、7+8（掉血与爬行并入「腿绑状态」）、10 并入 9。\n2. **依赖边**：有没有多余或遗漏？特别是 3 是否该等 5（我判断不用——它只动生物的受击与释放）。\n3. **并行**：5、7、8 同时只依赖 4，我打算让它们并行开工（各开一个分支一个 PR）。\n\n回「可以」我就按依赖顺序建 issue、打 `ready-for-agent` + `area:host`/`area:mods`，并挂到 #128 作为 sub-issue。\n\n",
+        "createdAt": "2026-11-21T03:00:44Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpJbQbg",
+        "body": "可以",
+        "createdAt": "2026-11-21T03:01:04Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpJc5Pw",
+        "body": "## AI回复\n\n`SPEC:` 子 issue 已发布（10 张，按依赖顺序），全部作为本 issue 的 sub-issue：\n\n| # | 票 | 依赖 |\n|---|---|---|\n| #129 | Runtime：实体原生基对象 | 无 |\n| #130 | Runtime：伤害修正接口 | 无 |\n| #131 | Mod：两层捆绑（手/腿）与腿部片段 | 无 |\n| #132 | Mod：绳生物受击与击杀 | #129、#130 |\n| #133 | Mod：腿部 QTE 与摔倒入场 | #131 |\n| #134 | Mod：腿部 QTE 半程机制 | #133 |\n| #135 | Mod：腿绑掉血与叫声 | #133 |\n| #136 | Mod：蠕动爬行 | #133 |\n| #137 | Mod：HP 归零的死亡演出 | #135、#136 |\n| #138 | 全链路验收与门禁收口 | #132、#134、#135、#136、#137 |\n\n**当前前沿（无阻塞，可立即开工）**：#129、#130、#131。\n\n口径：每张票一个分支 `feat/<num>-<slug>`，PR 指向 `ai`，body 第二行写 `Closes #<num>`；测试只由测试子代理串行跑。本 issue 保持打开，作为本轮的总纲与验收入口，不另改正文。\n\n",
+        "createdAt": "2026-11-21T03:03:31Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpLesiQ",
+        "body": "## AI回复\n\n`SPEC:` 第三轮开工：剩余 #132–#138（另有前置 #148）。基线 `ai`=`6b4d310`（#147 已合并）。\n\n顺序：**#148**（demo.check 红：地图缺 100202 的 CreationCode 快照）→ **#133** → **#132** → **#134** → **#135** → **#136**（尚无任何实现，本轮新写）→ **#137** → **#138**。\n\n口径不变：一票一 PR（首行 `## AI回复`、第二行 `Closes #N`），旧分支只取票内提交重放到最新 `ai`，一次只开一个 PR；测试只由测试子代理串行执行；不 merge、不 approve、不改 Runtime（若某票必须改 Runtime 则独立 issue/PR + Wiki 决策）。#122–#125 只做只读结论评论，不并入本轮。\n",
+        "createdAt": "2026-11-21T06:14:28Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpLkh3A",
+        "body": "## AI回复\n\n`TRIAGE:` #122–#125 只读结论已分别发在各自 issue（#122 建议关闭 / #123 未完成 / #124 信息不足需实机确认 / #125 需 PR）。未改文件、未跑测试、未开分支；后续由维护者决定。\n\n本轮主线不受影响：#148 已开 PR #149，等合并后进 #133。\n",
+        "createdAt": "2026-11-21T06:23:05Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpMlnIg",
+        "body": "## AI回复\n\n第三轮进度（截至 PR #149 待合并）：\n\n- **#148**：PR #149 已开，CI 绿、reviewer 双轴 PASS、tester 证据齐全，**等待维护者合并**（本会话不自行 merge）。\n- **#133**：已 rebase 到 `ai`=`6b4d310`，tester 全套通过（RuntimeTests 61695、NativeModsAudit 156、gate PASS、复杂度 PASS；`demo.check` 仅因 #148 未合并而红），reviewer 预审无 blocker。等 #149 合并后 rebase + 补跑 demo.check 即开 PR。\n- **#132 / #134 / #135**：已在「#133 + #132 + #134 + #135」整合基线上完成本地重放与审计验证（NativeModsAudit 172 → 180 → 186 条全绿），并修掉审计里 8 个潜在的测试时序/环境问题；真实分支会在 #133 合并后按同一顺序重放并开 PR。\n- **#136**：已发 `DECISION:`（三层 Body 方案 + 原生控制器拦截 + 交互拦截待裁示），**等待 ACK** 后开工。\n- **#137**：正在本地重放演练（死亡演出，基于 #135 基线）。\n\n节奏不变：一票一 PR、一次只开一个；合并与关闭由维护者执行。\n",
+        "createdAt": "2026-11-21T08:01:09Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

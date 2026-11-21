@@ -1,0 +1,28 @@
+{
+  "title": "Mod：腿绑掉血与叫声",
+  "body": "## AI回复\n\n## Parent\n\n#128\n\n## What to build\n\n腿绑后按模式掉血：Blood 每 0.5s 直接扣 5 HP；非 Blood 先每 0.5s 扣 5 ST，耐力清空后每 0.5s 扣 2 HP。数值直接写玩家全局，不走原生伤害函数。Blood 模式每次掉血角色发出痛苦叫声，非 Blood 不播。生物死亡、玩家离开房间或 Mod 卸载时立刻停止。\n\n## Acceptance criteria\n\n- [ ] Blood：HP 每 0.5s −5，约 10s 归零\n- [ ] 非 Blood：先 ST 每 0.5s −5，清空后 HP 每 0.5s −2\n- [ ] 掉血不触发原版受击动作、不导致掉枪，QTE 标记不被抹掉\n- [ ] Blood 每次掉血有角色叫声，非 Blood 没有\n- [ ] 生物死亡或离开房间后立刻停止掉血\n- [ ] 难度设置只影响 QTE 计数，不改变掉血速率\n\n## Blocked by\n\n- #133 Mod：腿部 QTE 与摔倒入场\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-21T03:02:34Z",
+  "updatedAt": "2026-11-21T03:02:34Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

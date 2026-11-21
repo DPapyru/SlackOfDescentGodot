@@ -1,0 +1,28 @@
+{
+  "title": "Mod：HP 归零的死亡演出",
+  "body": "## AI回复\n\n## Parent\n\n#128\n\n## What to build\n\nHP 归零走原生 game over：玩家失去操作，可用暂停菜单 RESET 重开。Blood 模式下左右手、左右脚的末端部位依次分离，每处关节出现血液粒子；非 Blood 模式不分离也不出粒子，停在蠕动状态。\n\n## Acceptance criteria\n\n- [ ] HP 归零后原生 game over 生效：失去操作，可暂停 RESET\n- [ ] Blood：左右手与左右脚的末端部位依次与上一节分离，间隔约 0.1s\n- [ ] Blood：每个分离关节处出现血液粒子\n- [ ] 非 Blood：无分离、无粒子\n- [ ] HP 归零后蠕动继续，不被打断\n\n## Blocked by\n\n- #135 Mod：腿绑掉血与叫声\n- #136 Mod：蠕动爬行\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-21T03:02:38Z",
+  "updatedAt": "2026-11-21T03:02:38Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

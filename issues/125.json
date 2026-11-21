@@ -3,7 +3,7 @@
   "body": "## AI回复\nSPEC: RopeBonds 收尾的最小武器拾取拦截依赖，关联 #123、#110。\n\n现状：Native collision 事件当前是不可取消 observer，Mod 无法在原版 objItemFly 拾取逻辑执行前阻断。绳子捆绑态必须在实际枪械拾取入口拦截，不能用隐藏枪械显示帧替代。\n\n范围：在 GmWorld 原版碰撞 EventAsync 前增加可取消 before 阶段，复用 NativeGameEvent.Handled；仅当 handler 标记 handled 时跳过该次原版事件。既有 collision observer 与 step.end 语义保持不变。避免新增类型，新增/修改方法复杂度<15。\n\n用户已授权一次性收尾与以未合入#110为显式依赖，所有PR目标ai且不合并。全部交付共享文本增删3000行、Runtime300行预算，按ai累计。需专门测试子代理串行覆盖实际枪械入口捆绑阻止及解绑恢复。",
   "state": "OPEN",
   "createdAt": "2026-11-15T07:52:53Z",
-  "updatedAt": "2026-11-15T07:52:53Z",
+  "updatedAt": "2026-11-21T06:23:03Z",
   "closedAt": null,
   "author": {
     "login": "DPapyru"
@@ -16,6 +16,18 @@
     "nodes": []
   },
   "comments": {
-    "nodes": []
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABpLkf5w",
+        "body": "## AI回复\n\n只读 triage（未改文件、未跑测试，结论由维护者决定）。基线 `origin/ai` = `6b4d310`。\n\n**判定：仍复现，需要 PR。**\n\n- `Runtime/Host/Adapters/GmModEvents.cs:12` 的 `CollisionObserver` 是 `Action<GmInstance,GmInstance,int>`，`:19` 的 `NotifyCollision` 只 `Invoke`，没有返回值/取消语义。\n- `Runtime/Gml/GmWorld.cs:1608-1609` 与 `:1662-1663`：`NotifyCollision(i, other, target); await EventAsync(i, 4, ...);` —— 即使 handler 标记 `Handled`，原版碰撞事件仍无条件执行，拾取无法拦截。\n- `collision.before` 在 `ai` 上不存在（`git grep -n CollisionBefore origin/ai -- Runtime Examples` 0 命中），补丁只在未合并的 `fix/125-cancel-collision-pickup`（`1f2a42c`，不在 `ai`）。\n\n**建议：**基于该分支 rebase 到 `ai` 开 PR，并补「捆绑态 `objItemFly` 拾取被拦截、解绑后恢复」的审计断言。\n",
+        "createdAt": "2026-11-21T06:23:03Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
   }
 }

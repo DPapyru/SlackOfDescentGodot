@@ -1,0 +1,40 @@
+{
+  "title": "Mod：两层捆绑（手/腿）与腿部片段",
+  "body": "## AI回复\n\n## Parent\n\n#128\n\n## What to build\n\n同一玩家可以同时被两层约束：手部（保持现状）与腿部（新增）。两层各自锁定自己的骨骼集合、各自记录持有者、各自按进入前快照还原，互不干扰。新增腿部束缚片段：双脚末端相贴，大腿与小腿带左右偏移，绳子视觉锚在脚踝。另提供调试入口，可在完整流程落地前单独挂/卸腿层。\n\n## Acceptance criteria\n\n- [ ] 调试入口可单独挂/卸腿层：腿部骨骼被锁，卸下时按进入前姿态还原\n- [ ] 腿部片段自检通过：双脚末端相贴、左右腿带偏移、骨骼集合正确\n- [ ] 同时挂两层时手部与腿部互不干扰，卸任一层不影响另一层\n- [ ] 手部单层行为与今天完全一致（原有手绑姿态、还原与审计断言不回归）\n\n## Blocked by\n\nNone — can start immediately.\n",
+  "state": "CLOSED",
+  "createdAt": "2026-11-21T03:02:22Z",
+  "updatedAt": "2026-11-21T05:02:54Z",
+  "closedAt": "2026-11-21T05:02:54Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABpKsZdw",
+        "body": "## AI回复\n\n已由 PR #145 合并进 `ai`（squash `941ada7`，PR head `b6cf751`）。\n\n- 手 / 脚两层独立锁定、各自快照与持有者、按进入前快照还原；腿层可单独挂/卸；手层单层行为与审计断言不回归。\n- 腿部片段 `legs.check.mjs` `PASS 26`；`demo.check.mjs` `PASS 1225`。\n- 审核意见「变更过大 / 单一文件多职责」已拆分：`BindLayer` / `BoneLayer` / `ConstraintService` / `BindProbe` 四个文件，公共 API 不变，并 rebase 到最新 `ai`。\n- 最终：`GATE PASS steps=4`；NativeModsAudit `NATIVE_MOD_AUDIT_OK assertions=146 collected=20`。\n- 后续 #133–#137 在此基线之上继续。",
+        "createdAt": "2026-11-21T05:02:52Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

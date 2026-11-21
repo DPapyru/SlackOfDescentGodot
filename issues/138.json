@@ -1,0 +1,28 @@
+{
+  "title": "全链路验收与门禁收口",
+  "body": "## AI回复\n\n## Parent\n\n#128\n\n## What to build\n\n把整条链路跑一遍并留下证据：演示图里「坑 1 手绑 → 跳出 → 坑 2 腿 QTE → 失败 → 爬行 → 掉血 → 死亡」，以及全部门禁与审计。\n\n## Acceptance criteria\n\n- [ ] \\`node Tools/gate.mjs\\` PASS\n- [ ] \\`NativeModsAudit\\` PASS，且包含本轮新增断言\n- [ ] \\`map-audit\\` PASS\n- [ ] \\`motion-audit\\` PASS（腿部束缚、摔倒、爬行、翻滚片段）\n- [ ] \\`play-audit\\` 通过，或记录宿主 GL 阻塞原因\n- [ ] 远端 CI 绿\n- [ ] PR 贴测试子代理输出摘要与实机验收说明\n\n## Blocked by\n\n- #132 Mod：绳生物受击与击杀\n- #134 Mod：腿部 QTE 半程机制\n- #135 Mod：腿绑掉血与叫声\n- #136 Mod：蠕动爬行\n- #137 Mod：HP 归零的死亡演出\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-21T03:02:41Z",
+  "updatedAt": "2026-11-21T03:02:41Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": []
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "title": "Mod：蠕动爬行",
+  "body": "## AI回复\n\n## Parent\n\n#128\n\n## What to build\n\n腿绑后角色趴地蠕动爬行：方向键驱动、速度约 0.5px/帧，撞墙停下；不能跳、不能开枪、不能交互；爬行姿态覆盖角色的全部非 QTE 状态机状态。爬行中若触发 QTE，手脚两层保持捆绑，绳子锚点改挂 ABOVE 侧肢体。\n\n## Acceptance criteria\n\n- [ ] 方向键可控制爬行，速度约 30px/s；撞墙停下\n- [ ] 腿绑期间不能跳、不能开枪、不能交互\n- [ ] 原生状态切换（走、跑、跳、受击）都被爬行姿态覆盖\n- [ ] 爬行中触发 QTE 时两层保持，绳子挂在 ABOVE 侧\n- [ ] 手绑单层时仍能正常走跑跳（不回归）\n\n## Blocked by\n\n- #133 Mod：腿部 QTE 与摔倒入场\n",
+  "state": "OPEN",
+  "createdAt": "2026-11-21T03:02:36Z",
+  "updatedAt": "2026-11-21T08:00:48Z",
+  "closedAt": null,
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": [
+      {
+        "name": "ready-for-agent"
+      },
+      {
+        "name": "area:mods"
+      }
+    ]
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABpMlXxA",
+        "body": "## AI回复\n\nDECISION: #136 趴地爬行的实现边界（待 ACK）\n\n### 背景\n- 现有绑定模型只有 hands / feet 两层（Bind/BindLayer.cs:3-7；Bind/ConstraintService.cs:11-13），骨集互斥、每帧覆写（BoneLayer.cs:27-33,87-98,129-133,167-178）。\n- 全身 motion graph 在 HALFBINDED 时会被 NativeMotionService 强制挂起（Runtime/Host/Adapters/NativeMotionService.cs:228-233；GmNativeBridge.CanAct 要求 BINDED==0 && HALFBINDED==0），所以「腿绑爬行」不能靠 motion graph 接管，只能靠 BoneLayer 压姿。\n- 原生玩家代码对 BINDED/HALFBINDED 的守卫很少：移动/跳跃/攻击块 objects/objController/3/0/{13,17,18,22,23}、开枪 Begin Step 3/2/6 都不检查；交互是各物件直接 keyboard_check_pressed(ord(\"E\"))（如 objects/objControllableDoll/4/385/0、/4/390/0），SDK 目前没有输入屏蔽 API。\n\n### 方案 A（推荐）：三层叠加 + 原生控制器拦截\n1. 新增第三层 Body（BODY_BOTTOM / BODY_TOP / HEAD，与 HAND* / FOOT* 不重叠），爬行时 hands+feet+body 三层同时压姿；新增 `motions/crawl.motion.json` 与 `crawl.check.mjs`，并在 mod.json 注册。\n2. 爬行移动写在 RopeCreature.Update（已有 FrameContext.Input）：NativeActorActions.Key 读左右键，MoveHorizontal 约 0.5px/帧（约 30px/s），place_free 撞墙停，并清零 hspeed/vspeed。\n3. 原生控制器接管：订阅 engine.objects/objController/3/0/{13,17,18,22,23}（与 NativeMotionService 接管时抑制的键一致，NativeMotionService.cs:198-205），仅在「腿层已绑且非 QTE」时 Handled=true；不动 3/0/28（绑定状态机）。\n4. QTE 双层保持：允许 feet 已绑时起手层 QTE（改 Attach 的 feet 检查与手层 bound clip），Anchor / Pair / RenderBound 增加「挂 ABOVE 侧」分支。\n5. 手绑单层不做任何抑制，继续走原生控制，保证走跑跳不回归。\n\n### 方案 B（不推荐）\n改 CanAct/Forced 让 motion graph 在 HALFBINDED 下接管爬行。需要改动已交付的绑定语义，且与 BoneLayer 抢骨，回归面大。\n\n### 请一并裁示的未决问题\n1. 交互拦截（最大未知）：原生交互无统一入口、无 BINDED 守卫。可选 (a) 新增 Runtime 输入屏蔽能力；(b) 逐个抑制交互对象 key（不可穷举）；(c) 只拦统一交互脚本（现有实现不统一）。选 (a) 会超出「本轮不改 Runtime」的口径，需要单独开 issue/PR + Wiki 决策。\n2. 爬行时是否强制 MotionNum（如 CROUCH / DOWN_0）以稳定命中框与流沙/受击判定；只压骨不改 MotionNum 可能出现「外观趴地、逻辑站立」。\n3. 「ABOVE 侧」具体挂哪组肢体：FOOT3_ABOVE 还是 HAND3_ABOVE（两层都绑时）。\n\nACK 后我按方案 A 落地；若第 1 条选 (a)，请同时确认是否允许先合并不依赖 Runtime 输入屏蔽的部分、把交互拦截拆成后续 issue。\n",
+        "createdAt": "2026-11-21T08:00:48Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

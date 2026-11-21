@@ -1,0 +1,33 @@
+{
+  "title": "门禁：gate-expectations 行号漂移（#127 后 CS8600 位移）",
+  "body": "## AI回复\n\n## 现象\n\n`origin/ai`（c83e8c6）上 `node Tools/gate.mjs` 的 build 步失败；代码本身编译成功，RuntimeTests 61672 条断言全绿：\n\n```\nGATE fail CS8600 at Runtime/Host/Rendering/GmGraphics.cs:1043:68 is not in the tracked allow-list\nGATE known-pending stale allow-list entry: CS8600 Runtime/Host/Rendering/GmGraphics.cs:1042:68 no longer occurs, remove it\n```\n\n## 根因\n\nc83e8c6 在 `Runtime/Host/Rendering/GmGraphics.cs:983` 插入了 `world.Events?.PrepareFrame();`，其下方 CS8600 警告位置整体下移一行；`Tools/gate-expectations.json` 仍记录 `1042:68`。\n\n## 修复\n\n把 `Tools/gate-expectations.json` 的 `where` 改为 `Runtime/Host/Rendering/GmGraphics.cs:1043:68`，重跑 `node Tools/gate.mjs` 应 PASS。\n\n## 影响\n\n不修则所有从 `origin/ai` 切出的分支本地门禁都会在 build 步红（远端 CI 不受影响，ci.yml 不含 gate）。\n",
+  "state": "CLOSED",
+  "createdAt": "2026-11-21T03:30:42Z",
+  "updatedAt": "2026-11-21T05:02:58Z",
+  "closedAt": "2026-11-21T05:02:58Z",
+  "author": {
+    "login": "DPapyru"
+  },
+  "labels": {
+    "nodes": []
+  },
+  "milestone": null,
+  "userContentEdits": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABpKscdw",
+        "body": "## AI回复\n\n已由 PR #140 合并进 `ai`（squash `d9024c7`）。\n\n- `Tools/gate-expectations.json` 的 CS8600 期望位置改为 `Runtime/Host/Rendering/GmGraphics.cs:1043:68`（#127 插入 `PrepareFrame` 后整体下移一行）。\n- tester 验证：`GATE PASS steps=4 known-pending=2`，build / tests（61672）/ verify / complexity 全绿。",
+        "createdAt": "2026-11-21T05:02:56Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
+  }
+}

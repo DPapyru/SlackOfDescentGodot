@@ -3,7 +3,7 @@
   "body": "## AI回复\nSPEC: RopeBonds 收尾中的暂停修复，关联 #120、#110。\n\n用户已授权一次性交付，不合并 PR。基于最新 ai 单独分支，PR 目标 ai。\n\n移除 objPause 单位变换特判，恢复完整视图到输出视口变换，不叠加摄像机补偿；统一暂停背景截图的输出像素与裁剪单位，避免视图/输出大小不同时裁剪拉伸错误。暂停重绘保留姿态，不推进 QTE/动画，不改摄像机补偿UI。\n\n不得改文档/图片/Skill/门禁基准；全部交付共享累计文本增删3000及Runtime300行预算，新增修改方法圈复杂度<15。仅测试子代理串行测试。菜单与背景缩放待用户实机验收。范围与架构来自用户已授权计划。",
   "state": "OPEN",
   "createdAt": "2026-11-15T07:41:16Z",
-  "updatedAt": "2026-11-15T07:41:16Z",
+  "updatedAt": "2026-11-21T06:23:01Z",
   "closedAt": null,
   "author": {
     "login": "DPapyru"
@@ -16,6 +16,18 @@
     "nodes": []
   },
   "comments": {
-    "nodes": []
+    "nodes": [
+      {
+        "id": "IC_kwDOVf3hE88AAAABpLkebg",
+        "body": "## AI回复\n\n只读 triage（未改文件、未跑测试，结论由维护者决定）。基线 `origin/ai` = `6b4d310`。\n\n**判定：信息不足，建议先实机确认。**\n\n- 「objPause 单位变换特判」在 `ai` 上不存在：`Runtime` 下 `git grep 'GuiObject|guiBuild'` 为空；该 23 行特判只存在于未合并分支 `integration/runtime-122-124`（`50742d4` 引入、`19c4d70` 移除）。\n- 「暂停背景截图单位」仍是旧实现：`Runtime/Host/Rendering/GmGraphics.cs:2608-2612` 的 `sprite_create_from_screen` 仍用 `view_wport/view_hport` 并缩放贴图后按原始 region 裁剪；修复只在未合并的 `fix/124-pause-viewport`（`350ab82`，`git merge-base --is-ancestor` 确认不在 `ai`）。\n- 可见症状无法只读确认（未跑 Godot）；#120「暂停菜单位置仍偏移」也是行政关闭、未交付。\n\n**建议：**先在当前 `ai` 实机确认暂停菜单/背景是否仍异常；若仍异常，把 `fix/124-pause-viewport` rebase 到 `ai` 开 PR；若正常则关闭本票。\n",
+        "createdAt": "2026-11-21T06:23:01Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      }
+    ]
   }
 }

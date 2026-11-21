@@ -3,7 +3,7 @@
   "body": "## AI回复\nSPEC: 按用户授权的收尾计划交付；关联 #97、#110、#111、#115、#117、#118、#119、#121。\n\n人工授权记录：用户要求一次性完成，并明确授权以尚未合入的 #110 当前分支为基础、作为显式依赖交付；所有 PR 目标 ai，不合并、不批准。\n\n验收范围：移除普通运动接管；绑定状态按原版当前/待切换动作选择站走跑跳落及浅深流沙姿态；双腕身前、自然屈肘、双向一致；QTE 2.5 秒、普通25/简单12、新按下去重、截止先输入、暂停冻结，原版 GUI；实际拾枪入口拦截；frame.prepare 同帧动画→约束→绳子且重复绘制幂等；解绑/销毁/换房/卸载资源清理。受伤死亡和其他敌人抓取保留原生。\n\n交付依赖：frame.prepare 与暂停 UI 各立 Issue/PR。#110 不由代理合并，修复 PR 显式依赖 #110。\n\n硬约束：全部交付相对 ai b382031 的累计文本增删 <=3000，Runtime/ <=300；Mod全部类型 <15；新增/修改方法圈复杂度 <15；不修改门禁基准；不新增仓库文档。保留原有未提交修改，不加载 Skill，不读图片。\n\n验证：仅专门测试子代理串行运行现有 gate、诊断构建、motion audit；现有审计内补绘制幂等、QTE恢复、拾枪恢复三组回归。原版运动、双向绑定、浅深流沙、暂停菜单与背景缩放待用户实机验收。",
   "state": "OPEN",
   "createdAt": "2026-11-15T07:41:16Z",
-  "updatedAt": "2026-11-15T08:23:38Z",
+  "updatedAt": "2026-11-21T06:22:59Z",
   "closedAt": null,
   "author": {
     "login": "DPapyru"
@@ -54,6 +54,17 @@
         "id": "IC_kwDOVf3hE88AAAABmsYklQ",
         "body": "## AI回复\n人工验收状态更新：用户要求后台启动 Godot 实机检查，并明确表示「如果实机通过，则不用在乎相对 ai 约 7897 行超过 3000 行上限」。因此总文本行数限制仅在用户实机通过后豁免；Runtime 300 行、类型数量及复杂度等其他限制仍保留。\n\n准备由唯一专门测试子代理在隔离候选 7a196dc 启动 RopeBonds 演示；不读取图片、不合并 PR，等待用户人工结果。",
         "createdAt": "2026-11-15T08:23:37Z",
+        "author": {
+          "login": "DPapyru"
+        },
+        "userContentEdits": {
+          "nodes": []
+        }
+      },
+      {
+        "id": "IC_kwDOVf3hE88AAAABpLkdUA",
+        "body": "## AI回复\n\n只读 triage（未改文件、未跑测试，结论由维护者决定）。基线 `origin/ai` = `6b4d310`。\n\n**判定：未完成，仍开放。**\n\n已交付：\n- QTE 2.5s / 普通 25 / 简单 12（`Examples/Mods/ropebonds/Creature/RopeCreature.cs:24,26`）；帧内 `frame.prepare` 顺序（见 #122）；手/腿两层（#145 / `941ada7`）；手绑 QTE 进度（#147 / `6b4d310`）。\n- `ai` 的 ropebonds 已无运动接管代码（`git grep -n 'MotionChange|SuppressCode|MotionNum' -- Examples/Mods/ropebonds` 0 命中）。\n\n未交付：\n- 实际拾枪入口拦截：`ai` 的 ropebonds 无 weapon/pickup 代码（`git grep -n 'objItemFly|dropWeapon|weapon' -- Examples/Mods/ropebonds` 0 命中），硬依赖仍开放的 #125。\n- 按原版站/走/跑/跳/落与浅深流沙选择绑姿：`ai` 只有固定手 `bound` / 腿 `legs` / `qte` 三个 clip（`Bind/ConstraintService.cs:10`），没有按动作/沙深切换；对应子票 #119 已于 11-19 以「母票 #97 已关闭」行政关闭，非交付。\n- 暂停相关表现仍挂 #124。\n\n其他：#110 是 CLOSED 未合并的旧路线，已被 #127 取代；#146/#147 只修了手绑 QTE 进度。\n\n**建议：**保留为母票直到 #124/#125 收口，或把剩余验收项拆票后关闭。\n",
+        "createdAt": "2026-11-21T06:22:59Z",
         "author": {
           "login": "DPapyru"
         },

@@ -261,7 +261,33 @@ public partial class NativeModsAudit : Node
         live.Call("ropebonds_legqte", [], new(player));
         Expect(Same(BoneState(live, player, feet), standing), "leg qte failure restores the standing entry pose");
         VerifyDrain(live, player, tick);
+        VerifyDeath(live, player, tick);
     }
+
+    private void VerifyDeath(GmWorld live, GmInstance player, Action tick)
+    {
+        live.Globals.Write("config_Blood", 1);
+        live.Globals.Write("config_Effect", 1);
+        int cuts = Count(live, "objCutParts");
+        int fluid = Count(live, "objFluid");
+        live.Globals.Write("PlayerHP", 0);
+        tick();
+        Expect(Count(live, "objCutParts") == cuts + 2, "blood mode separates four limb ends in order");
+        for (int index = 0; index < 21; index++) tick();
+        Expect(Count(live, "objCutParts") == cuts + 8, "blood mode separates four limb ends in order");
+        Expect(Count(live, "objFluid") > fluid, "each separation spawns blood particles");
+        Expect(live.Call("isGameOver", [], new(player)).Truth, "hp reaching zero keeps the game over state native");
+        live.Globals.Write("PlayerHP", 100);
+        tick();
+        live.Globals.Write("config_Blood", 0);
+        cuts = Count(live, "objCutParts");
+        live.Globals.Write("PlayerHP", 0);
+        tick();
+        Expect(Count(live, "objCutParts") == cuts, "outside blood mode nothing separates");
+    }
+
+    private static int Count(GmWorld live, string name) =>
+        live.Constants.TryGetValue(name, out GmValue id) ? live.Instances.Count(instance => !instance.Destroyed && live.IsObject(instance.Object, id.Int)) : 0;
 
     private static bool FindCorridor(GmWorld live, GmInstance player)
     {

@@ -10,6 +10,7 @@ public sealed class RopeBondsMod : IMod
     public ConstraintService Constraints { get; } = new();
     internal static string? AssetDirectory;
     private BindProbe? bind;
+    private DeathShow? death;
     private ActorContext? staggering;
     private double staggerStart, staggerLandedAt;
     private NativePoseService.Snapshot? staggerSnapshot;
@@ -40,6 +41,8 @@ public sealed class RopeBondsMod : IMod
         context.Subscribe("ropebonds.creature.prepare", NativeEventNames.FramePrepare, NativeEventPhase.After, _ => RopeCreature.Prepare());
         bind = new BindProbe(Constraints);
         bind.Attach(context);
+        death = new DeathShow();
+        death.Attach(context);
     }
 
     private void Toggle(NativeGameEvent value, BindLayer layer)
@@ -116,6 +119,8 @@ public sealed class RopeBondsMod : IMod
 
     public void Unload()
     {
+        death?.Dispose();
+        death = null;
         bind?.Dispose();
         bind = null;
         staggering = null;
@@ -123,4 +128,149 @@ public sealed class RopeBondsMod : IMod
         Constraints.ReleaseAll();
         RopeCreature.Clear();
     }
+}
+
+internal sealed class DeathShow : IDisposable
+{
+    private const double Interval = .1;
+    private const double ParticleCount = 24;
+    private readonly record struct Limb(string Part2, string Part3, string Sprite2, string Sprite3, int Length, int Direction, string? Macro);
+    private static readonly Limb[] Limbs =
+    [
+        new("HAND2_ABOVE", "HAND3_ABOVE", "sprHand2_Above", "sprHand3_Above", 12, 270, "Macro_CutHand2_Above"),
+        new("HAND2_BELOW", "HAND3_BELOW", "sprHand2_Below", "sprHand3_Below", 12, 270, null),
+        new("FOOT2_ABOVE", "FOOT3_ABOVE", "sprFoot2_Above", "sprFoot3_Above", 25, 267, "Macro_CutFoot2_Above"),
+        new("FOOT2_BELOW", "FOOT3_BELOW", "sprFoot2_Below", "sprFoot3_Below", 25, 267, null)
+    ];
+    private GmWorld? world;
+    private ActorContext? player;
+    private double startedAt;
+    private int step;
+    private bool running, done;
+
+    public void Attach(ModContext context)
+    {
+        context.Subscribe("ropebonds.death.created", NativeEventNames.InstanceCreated, NativeEventPhase.After, Created);
+        context.Subscribe("ropebonds.death.show", NativeEventNames.StepEnd, NativeEventPhase.After, _ => Tick());
+    }
+
+    public void Dispose()
+    {
+        world = null;
+        player = null;
+        running = false;
+        done = false;
+        step = 0;
+    }
+
+    private void Created(NativeGameEvent value)
+    {
+        if (value.Actor is not { } actor) return;
+        world = actor.World;
+        if (RopeBondsMod.IsPlayer(actor)) player = actor;
+    }
+
+    private ActorContext? Actor() =>
+        player is { } current && !current.Instance.Destroyed && current.World.Instances.Contains(current.Instance)
+            ? current
+            : world is null ? null : RopeBondsMod.FindPlayer(world);
+
+    private void Tick()
+    {
+        if (done)
+        {
+            if (player is not { } current || current.Instance.Destroyed || current.World.Globals.ReadOr("PlayerHP").Number > 0)
+            {
+                done = false;
+                step = 0;
+            }
+            return;
+        }
+        if (running)
+        {
+            Advance();
+            return;
+        }
+        if (Actor() is not { } actor) return;
+        player = actor;
+        if (actor.World.Globals.ReadOr("PlayerHP").Number > 0) return;
+        if (!actor.World.Globals.ReadOr("config_Blood").Truth)
+        {
+            done = true;
+            return;
+        }
+        running = true;
+        startedAt = actor.Services.Frame.GameTime;
+        step = 0;
+        Advance();
+    }
+
+    private void Advance()
+    {
+        if (Actor() is not { } actor)
+        {
+            running = false;
+            return;
+        }
+        player = actor;
+        if (!actor.Instance.Active)
+        {
+            running = false;
+            done = false;
+            return;
+        }
+        double elapsed = actor.Services.Frame.GameTime - startedAt;
+        while (step < Limbs.Length && elapsed >= step * Interval)
+        {
+            Cut(actor, step);
+            step++;
+        }
+        if (step < Limbs.Length) return;
+        running = false;
+        done = true;
+    }
+
+    private static void Cut(ActorContext actor, int index)
+    {
+        Limb limb = Limbs[index];
+        if (actor.Part(limb.Part2) is not { } part) return;
+        if (limb.Macro is { } macro) actor.Call(macro);
+        else Separate(actor, limb, part);
+        Hide(part);
+        if (actor.Part(limb.Part3) is { } tip) Hide(tip);
+        actor.Call("Fluid", part.X, part.Y, Constant(actor, "COLOR_BLOOD"), ParticleCount, 5, 15, 0, 360, .5);
+        Console.WriteLine("ROPE_DEATH_CUT index=" + index + " part=" + limb.Part2 + " macro=" + (limb.Macro ?? "none"));
+    }
+
+    private static void Separate(ActorContext actor, Limb limb, ActorContext part)
+    {
+        ActorContext piece = actor.Services.Instances.Spawn("objCutParts", part.X, part.Y);
+        piece.Write("sprite_index", Constant(actor, limb.Sprite2));
+        piece.Write("vspeed", -8);
+        piece.Write("hspeed", Random.Shared.NextDouble() * 10 * -actor.Read("Direction"));
+        piece.Write("gravity", .9);
+        piece.Write("rotSpeed", 15);
+        piece.Write("partsLength", limb.Length);
+        piece.Write("partsDirection", limb.Direction);
+        piece.Write("width", 3);
+        piece.Write("height", 3);
+        piece.Write("offsetx", 1);
+        piece.Write("offsety", 1);
+        piece.Write("blood", 1);
+        if (actor.Part(limb.Part3) is not { } tip) return;
+        ActorContext end = actor.Services.Instances.Spawn("objCutParts", tip.X, tip.Y);
+        end.Write("sprite_index", Constant(actor, limb.Sprite3));
+        end.Write("rotSpeed", 15);
+        end.Write("minrot", -10);
+        end.Write("maxrot", 10);
+        end.Write("parent", piece.Id);
+    }
+
+    private static void Hide(ActorContext part)
+    {
+        if (!part.Instance.Destroyed) part.Instance.Scope.Write("image_alpha", 0);
+    }
+
+    private static int Constant(ActorContext actor, string name) =>
+        actor.World.Constants.TryGetValue(name, out GmValue value) ? value.Int : 0;
 }

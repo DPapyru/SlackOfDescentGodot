@@ -27,7 +27,8 @@ public static class GmEntitySdkTests
                 ["INV"] = new() { Default = "0" },
                 ["WEAK"] = new() { Default = "0" },
                 ["MotionNum"] = new() { Default = "0" },
-                ["DEAD_MOTION"] = new() { Default = "1" }
+                ["DEAD_MOTION"] = new() { Default = "1" },
+                ["DAMAGE_ACTIVE"] = new() { Default = "1" }
             }
         }, () => new Stub());
         registry.RegisterEntity(new NativeEntityDefinition

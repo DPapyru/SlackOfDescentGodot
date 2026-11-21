@@ -28,6 +28,7 @@
     "motions": {
       "ropebonds.bound": "motions/bound.motion.json",
       "ropebonds.legs": "motions/legs.motion.json",
+      "ropebonds.legqte": "motions/legqte.motion.json",
       "ropebonds.qte": "motions/qte.motion.json"
     }
   },

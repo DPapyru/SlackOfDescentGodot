@@ -67,6 +67,8 @@ public sealed class BoneLayer(string prefix)
 
     public bool Holds(int actorId) => entries.ContainsKey(actorId);
 
+    public string? ClipId(int actorId) => entries.TryGetValue(actorId, out var entry) ? entry.Clip?.Id : null;
+
     public bool Holds(int actorId, IEnumerable<string> names) =>
         entries.TryGetValue(actorId, out var entry) && entry.Bones.Any(bone => names.Contains(bone.Name, StringComparer.Ordinal));
 

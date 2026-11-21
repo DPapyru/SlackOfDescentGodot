@@ -58,6 +58,9 @@ public partial class NativeModsAudit : Node
             Expect(ropebondsResult.Success, "ropebonds examples compile: " + ropebondsResult.Diagnostics);
             Expect(content.MotionGraphs.TryGetValue("ropebonds.legs", out var legGraph) && legGraph.Clips.Count == 1 && legGraph.Clips[0].Tracks.Count == 6
                 && legGraph.Clips[0].Tracks.All(track => track.Bone.StartsWith("FOOT", StringComparison.Ordinal)), "legs clip registers six foot tracks");
+            Expect(content.MotionGraphs.TryGetValue("ropebonds.legqte", out var legQteGraph) && legQteGraph.Clips.Count == 1 && legQteGraph.Clips[0].Loop
+                && legQteGraph.Clips[0].Tracks.Count == 6
+                && legQteGraph.Clips[0].Tracks.All(track => track.Bone.StartsWith("FOOT", StringComparison.Ordinal)), "leg qte clip registers foot-only struggle tracks");
             VerifyLiveGameplay(root, temporary, content);
             var ropebondsUnload = manager.Unload("example.ropebonds");
             Expect(ropebondsUnload.Success && manager.LoadedMods.Count == 1, "ropebonds unload releases both layers");
@@ -238,6 +241,26 @@ public partial class NativeModsAudit : Node
         Expect(Matches(live, player, hands, bound), "releasing a layer keeps the other layer bound");
         live.Call("ropebonds_hands", [], new(player));
         Expect(Same(BoneState(live, player, hands), handsEntry), "releasing the hand layer restores its entry pose");
+        Expect(player.Scope.Values.ContainsKey("DOWN_0"), "stagger uses the native down motion");
+        Expect(player.Scope.Values.ContainsKey("FLYING_SPIN"), "roll uses the native spin motion");
+        var legQte = content.MotionGraphs["ropebonds.legqte"].Clips[0].Sample(0);
+        live.Call("ropebonds_hands", [], new(player));
+        live.Call("ropebonds_legqte", [], new(player));
+        live.Events!.PrepareFrame();
+        Expect(Matches(live, player, feet, legQte), "leg qte locks the foot bone set");
+        Expect(Matches(live, player, hands, bound), "leg qte keeps the hand layer locked");
+        live.Call("ropebonds_legqte", [], new(player));
+        Expect(Same(BoneState(live, player, feet), feetEntry), "leg qte releases its own layer only");
+        live.Call("ropebonds_hands", [], new(player));
+        Expect(Same(BoneState(live, player, hands), handsEntry), "leg qte leaves the hand layer bound until released");
+        double[] standing = BoneState(live, player, feet);
+        live.Call("ropebonds_stagger", [], new(player));
+        Expect(!Matches(live, player, feet, legQte), "stagger holds the leg qte during the fall");
+        for (int index = 0; index < 100; index++) Tick();
+        live.Events!.PrepareFrame();
+        Expect(Matches(live, player, feet, legQte), "leg qte starts only after the stagger finishes");
+        live.Call("ropebonds_legqte", [], new(player));
+        Expect(Same(BoneState(live, player, feet), standing), "leg qte failure restores the standing entry pose");
     }
 
     private static double[] BoneState(GmWorld world, GmInstance actor, string[] bones)

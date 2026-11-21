@@ -23,9 +23,21 @@ public sealed class RopeBondsMod : IMod
             Name = "RopeBonds creature",
             Description = "Rope creature.",
             BehaviorId = "ropebonds.creature",
+            BaseObject = "objEnemyDoll",
             Width = 10,
-            Height = 10
+            Height = 10,
+            Parameters = new()
+            {
+                ["HP"] = new() { Default = "10000" },
+                ["INV"] = new() { Default = "0" },
+                ["WEAK"] = new() { Default = "0" },
+                ["MotionNum"] = new() { Default = "0" },
+                ["DEAD_MOTION"] = new() { Default = "0" },
+                ["DAMAGE_ACTIVE"] = new() { Default = "1" },
+                ["BindTarget"] = new() { Default = "0" }
+            }
         }, () => new RopeCreature(Constraints));
+        context.Subscribe("ropebonds.creature.damage", "combat.damage", NativeEventPhase.Before, RopeCreature.ModifyDamage);
         context.Subscribe("ropebonds.creature.qte", NativeEventNames.StepEnd, NativeEventPhase.After, _ => RopeCreature.TickQte());
         string controllerStep = NativeEventNames.EnginePrefix + "objects/objController/3/0/28";
         context.Subscribe("ropebonds.qte.unbind", controllerStep, NativeEventPhase.Before, value => RopeCreature.BindFlag(value.Actor?.Id ?? -1, false));

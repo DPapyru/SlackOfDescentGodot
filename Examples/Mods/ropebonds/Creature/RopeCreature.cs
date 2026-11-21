@@ -39,6 +39,8 @@ public sealed class RopeCreature : IEntityBehavior
     private const int QtePresses = 25, QteEasyPresses = 12;
     private const double GishiInterval = .5;
     private const double FaceInterval = .4;
+    private const double FadeSeconds = .3;
+    private const double KnockbackScale = .1;
     private static readonly string[] GishiFiles = ["gishi.wav", "gishi_low.wav", "gishi_high.wav"];
     private static readonly Dictionary<string, int> GishiSounds = new(StringComparer.Ordinal);
     private readonly ConstraintService constraints;
@@ -57,12 +59,15 @@ public sealed class RopeCreature : IEntityBehavior
     private bool muguPlayed, preBind, anchorSeen;
     private bool grounded, jumping;
     private Phase phase;
+    private bool dying;
+    private double deathStart, fade = 1;
+    private BindLayer? held;
     private int jumpFrame;
 
     public RopeCreature(ConstraintService constraints) => this.constraints = constraints;
     public string Id => "ropebonds.creature";
 
-    public void Created(ActorContext entity) { Live.Add(this); entity.Write("HP", 10000); Reset(entity); }
+    public void Created(ActorContext entity) { self = entity; Live.Add(this); Reset(entity); }
     public void RoomEntered(ActorContext entity) => Reset(entity);
     public void RoomExited(ActorContext entity) => Release(entity);
     public void Destroyed(ActorContext entity) { Live.Remove(this); Release(entity); }
@@ -71,6 +76,23 @@ public sealed class RopeCreature : IEntityBehavior
     public void Update(ActorContext entity, FrameContext frame)
     {
         self = entity;
+        if (dying)
+        {
+            UpdateDying(entity, frame);
+            return;
+        }
+        if (entity.Read("HP") <= 0)
+        {
+            Die(entity);
+            UpdateDying(entity, frame);
+            return;
+        }
+        ConsumeHit(entity);
+        StepLive(entity, frame);
+    }
+
+    private void StepLive(ActorContext entity, FrameContext frame)
+    {
         if (chain.Count == 0)
         {
             Reset(entity);
@@ -108,6 +130,74 @@ public sealed class RopeCreature : IEntityBehavior
         chain.Step(entity.X, entity.Y);
         chain.Clamp(entity.X, entity.Y, 256, entity.World.Engine.Read("room_width").Number, entity.World.Engine.Read("room_height").Number);
         ResolveSolids();
+    }
+
+    private void ConsumeHit(ActorContext entity)
+    {
+        double speed = entity.HorizontalSpeed;
+        if (speed == 0) return;
+        entity.HorizontalSpeed = 0;
+        headVelocity = Math.Clamp(headVelocity + speed * KnockbackScale, -MaxFall, MaxFall);
+        for (int index = 0; index < chain.Count; index++)
+        {
+            var (x, y) = chain[index];
+            chain.Place(index, x + speed * .04 * (chain.Count - index), y);
+        }
+    }
+
+    private void Die(ActorContext entity)
+    {
+        dying = true;
+        fade = 1;
+        deathStart = entity.Services.Frame.GameTime;
+        entity.HorizontalSpeed = 0;
+        entity.Write("DAMAGE_ACTIVE", 0);
+        ReleaseVictim();
+        controller = null;
+        held = null;
+        jumping = false;
+        headVelocity = 0;
+        Console.WriteLine("ROPE_DEAD actor=" + entity.Id);
+    }
+
+    private void UpdateDying(ActorContext entity, FrameContext frame)
+    {
+        if (entity.Instance.Destroyed) return;
+        fade = Math.Clamp(1 - (frame.GameTime - deathStart) / FadeSeconds, 0, 1);
+        headVelocity = Math.Min(headVelocity + HeadGravity, MaxFall);
+        entity.Y += headVelocity * .5;
+        chain.Step(entity.X, entity.Y);
+        ResolveSolids();
+        if (fade <= 0) entity.Services.Entities.Destroy(entity.Id);
+    }
+
+    public static void ModifyDamage(NativeGameEvent value)
+    {
+        if (value.Actor is not { } target || !IsCreature(target.Id)) return;
+        if (!value.Arguments.TryGetValue("source", out GmValue source)) return;
+        if (Shooter(target, source.Int) is not { } player || NativeActorActions.Grounded(player)) return;
+        if (!value.Arguments.TryGetValue("damage", out GmValue damage)) return;
+        value.Arguments["damage"] = damage.Number * 10;
+    }
+
+    private static bool IsCreature(int id)
+    {
+        foreach (RopeCreature creature in Live)
+            if (creature.self?.Id == id) return true;
+        return false;
+    }
+
+    private static ActorContext? Shooter(ActorContext target, int id)
+    {
+        for (int hop = 0; hop < 4 && id > 0; hop++)
+        {
+            if (target.Services.Instances.Find(id) is not { } actor) break;
+            if (RopeBondsMod.IsPlayer(actor)) return actor;
+            int next = (int)actor.Read("DrawTarget");
+            if (next <= 0) next = (int)actor.Read("creator");
+            id = next;
+        }
+        return RopeBondsMod.FindPlayer(target.World);
     }
 
     private bool Approach(ActorContext entity, FrameContext frame, ActorContext? player)
@@ -177,6 +267,7 @@ public sealed class RopeCreature : IEntityBehavior
             if (!constraints.Bind(player, BindLayer.Feet)) return;
             victim = player;
             phase = Phase.Hold;
+            held = BindLayer.Feet;
             headVelocity = 0;
             jumping = false;
             Console.WriteLine("ROPE_FEET_ATTACH actor=" + player.Id);
@@ -203,6 +294,7 @@ public sealed class RopeCreature : IEntityBehavior
         frozenY = player.Y;
         frozenDirection = player.Read("Direction");
         savedBindBy = (int)player.Read("BINDED_BY");
+        held = BindLayer.Hands;
         qteTime = 0;
         qteStart = entity.Services.Frame.GameTime;
         nextGishi = 0;
@@ -379,6 +471,7 @@ public sealed class RopeCreature : IEntityBehavior
         double counter = controller?.Scope.ReadOr("BindCounter").Number ?? 0;
         qteTime = player.Services.Frame.GameTime - qteStart;
         constraints.Release(player, layer);
+        held = null;
         if (success)
         {
             if (layer == BindLayer.Feet) StartRoll(player);
@@ -389,6 +482,7 @@ public sealed class RopeCreature : IEntityBehavior
         else if (constraints.Bind(player, layer, layer == BindLayer.Feet ? feetEntry : null))
         {
             victim = player;
+            held = layer;
         }
         else
         {
@@ -473,6 +567,7 @@ public sealed class RopeCreature : IEntityBehavior
             victim = null;
         }
         controller = null;
+        held = null;
     }
 
     public static void BindFlag(int controllerId, bool bound)
@@ -617,19 +712,43 @@ public sealed class RopeCreature : IEntityBehavior
         ResolveSolids();
     }
 
+    private void ReleaseBind(ActorContext player)
+    {
+        if (held is { } layer) constraints.Release(player, layer);
+        else constraints.Release(player);
+        held = null;
+    }
+
+    private void ReleaseVictim()
+    {
+        bool wasQte = phase is Phase.Catch or Phase.Fall or Phase.LegQte;
+        phase = Phase.Roam;
+        if (victim is not { } player) return;
+        victim = null;
+        if (player.Instance.Destroyed) return;
+        ReleaseBind(player);
+        if (wasQte) EndHold(player);
+        else
+        {
+            player.Write("HALFBINDED", constraints.Bound(player.Id) ? 1 : 0);
+            player.Write("BINDED_BY", savedBindBy);
+        }
+        Console.WriteLine("ROPE_RELEASE actor=" + player.Id + " bind_by=" + savedBindBy);
+    }
+
     private void Release(ActorContext entity)
     {
-        if (victim is { } carried)
+        if (dying)
         {
-            if (!carried.Instance.Destroyed)
-            {
-                constraints.Release(carried);
-                EndHold(carried);
-            }
+            phase = Phase.Roam;
             victim = null;
+            controller = null;
+            return;
         }
+        ReleaseVictim();
         phase = Phase.Roam;
         controller = null;
+        held = null;
         headVelocity = 0;
         jumping = false;
         anchorSeen = false;
@@ -644,8 +763,9 @@ public sealed class RopeCreature : IEntityBehavior
     private void Reset(ActorContext entity)
     {
         AbortQte();
-        if (phase == Phase.Hold && victim is { } held && !held.Instance.Destroyed) constraints.Release(held);
+        if (phase == Phase.Hold && victim is { } carried && !carried.Instance.Destroyed) constraints.Release(carried);
         phase = Phase.Roam;
+        held = null;
         startX = entity.X;
         startY = entity.Y;
         victim = null;
@@ -751,17 +871,18 @@ public sealed class RopeCreature : IEntityBehavior
     private void Render(ActorContext entity)
     {
         if (chain.Count < 2) return;
+        double scale = Math.Max(.01, fade);
         var presentation = entity.Services.Presentation;
-        presentation.Sprite(entity.Id, "rope.head", "ropebonds.rope_head", chain[0].X, chain[0].Y, Angle(chain[0], chain[1]), 2, 2, 2, 2, ropeDepth);
+        presentation.Sprite(entity.Id, "rope.head", "ropebonds.rope_head", chain[0].X, chain[0].Y, Angle(chain[0], chain[1]), 2 * scale, 2 * scale, 2, 2, ropeDepth);
         int tail = chain.Count - 1;
-        presentation.Sprite(entity.Id, "rope.head.tail", "ropebonds.rope_head", chain[tail].X, chain[tail].Y, Angle(chain[tail], chain[tail - 1]), 2, 2, 2, 2, ropeDepth);
+        presentation.Sprite(entity.Id, "rope.head.tail", "ropebonds.rope_head", chain[tail].X, chain[tail].Y, Angle(chain[tail], chain[tail - 1]), 2 * scale, 2 * scale, 2, 2, ropeDepth);
         for (int index = 1; index < chain.Count; index++)
         {
             var from = chain[index - 1];
             var to = chain[index];
             double distance = Math.Sqrt((to.X - from.X) * (to.X - from.X) + (to.Y - from.Y) * (to.Y - from.Y));
             presentation.Sprite(entity.Id, "rope.body." + (index - 1), "ropebonds.rope_body",
-                (from.X + to.X) / 2, (from.Y + to.Y) / 2, Angle(from, to), Math.Max(.4, distance / 9), 2, 4.5, 2, ropeDepth);
+                (from.X + to.X) / 2, (from.Y + to.Y) / 2, Angle(from, to), Math.Max(.4, distance / 9) * scale, 2 * scale, 4.5, 2, ropeDepth);
         }
     }
 

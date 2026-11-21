@@ -1,11 +1,13 @@
 using Godot;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 
 namespace SlackOfDescent;
 
 public partial class NativeModsAudit : Node
 {
     private int assertions;
+    private double spawnX, spawnY;
     private void Expect(bool condition, string name)
     { if (!condition) throw new InvalidOperationException(name); assertions++; }
     private async Task Frames(int count = 2) { for (int i = 0; i < count; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); }
@@ -170,6 +172,8 @@ public partial class NativeModsAudit : Node
         live.LoadRoom(live.Constants["Playground_Loading"].Int);
         for (int i = 0; i < 30; i++) live.Step();
         var player = live.Instances.First(i => !i.Destroyed && live.IsObject(i.Object, live.Constants["objPlayerDoll"].Int));
+        spawnX = player.Scope.ReadOr("x").Number;
+        spawnY = player.Scope.ReadOr("y").Number;
         foreach (var instance in live.Instances)
             if (instance != player && !instance.Scope.ReadOr("solid").Truth
                 && !live.IsObject(instance.Object, live.Constants["objController"].Int)
@@ -180,15 +184,21 @@ public partial class NativeModsAudit : Node
         int jumpKey = NativeActorActions.Key(new(live, player), 5);
         var clock = new GmFixedClock();
         long tick = 0;
+        double timeOffset = 0;
         void Tick(bool jump = false, int extraKey = 0)
         {
             clock.BeginTick();
             input.Key(live, jumpKey, jump);
             var held = new HashSet<int>(); if (jump) held.Add(jumpKey); if (extraKey != 0) held.Add(extraKey);
-            bridge.Update(new(FrameContext.FixedDelta, tick / 60.0, tick,
+            bridge.Update(new(FrameContext.FixedDelta, tick / 60.0 + timeOffset, tick,
                 new InputSnapshot(held, held, new HashSet<int>())));
             if (clock.LegacyDue(live.Engine.Read("room_speed").Number)) { live.Step(); input.EndStep(); }
             tick++;
+        }
+        void Advance(double seconds)
+        {
+            timeOffset += seconds;
+            Tick();
         }
         for (int jump = 0; jump < 4; jump++)
         {
@@ -222,11 +232,11 @@ public partial class NativeModsAudit : Node
         Expect(player.Scope.ReadOr("x").Number > beforeDash + 80, "live Nana dash survives deferred original MotionChange transition");
         Expect(player.Scope.ReadOr("nativeDashDistance").Number == 108, "live Nana dash writes exactly108 swept native pixels");
         bridge.UnbindCharacter(player.Id);
-        VerifyLegQteStagger(live, player, content, () => Tick());
+        VerifyLegQteStagger(live, player, content, bridge, () => Tick(), seconds => Advance(seconds));
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private void VerifyLegQteStagger(GmWorld live, GmInstance player, ContentRegistry content, Action tick)
+    private void VerifyLegQteStagger(GmWorld live, GmInstance player, ContentRegistry content, GmNativeBridge bridge, Action tick, Action<double> advance)
     {
         var legs = content.MotionGraphs["ropebonds.legs"].Clips[0].Sample(0);
         var bound = content.MotionGraphs["ropebonds.bound"].Clips[0].Sample(0);
@@ -267,6 +277,66 @@ public partial class NativeModsAudit : Node
         Expect((live.Call("ropebonds_bound", [], new(player)).Int & 6) == 6, "leg qte starts after the stagger and uses the leg qte clip");
         live.Call("ropebonds_legqte", [], new(player));
         Expect(Same(BoneState(live, player, feet), standing), "leg qte failure restores the standing entry pose");
+        VerifyRopeCreature(live, bridge, player, hands, feet, bound, legs, tick, advance);
+    }
+
+    private void VerifyRopeCreature(GmWorld live, GmNativeBridge bridge, GmInstance player, string[] hands, string[] feet,
+        IReadOnlyDictionary<string, MotionPose> bound, IReadOnlyDictionary<string, MotionPose> legs, Action tick, Action<double> advance)
+    {
+        var creature = bridge.Services.Entities.Spawn("ropebonds.creature", player.Scope.ReadOr("x").Number + 8, player.Scope.ReadOr("y").Number);
+        Expect(live.IsObject(creature.Instance.Object, live.Constants["objEnemyDoll"].Int), "rope creature joins the objEnemyDoll family");
+        Expect(creature.Read("HP") == 10000 && creature.Read("INV") == 0 && creature.Read("WEAK") == 0 && creature.Read("MotionNum") == 0
+            && creature.Read("DEAD_MOTION") == 0 && creature.Read("DAMAGE_ACTIVE") == 1 && creature.Read("BindTarget") == 0, "rope creature initializes native damage variables");
+        foreach (string script in new[] { "Quake", "Spark" })
+            if (live.Scripts.TryGetValue(script, out var scriptKey)) live.Code[scriptKey] = JsonSerializer.SerializeToElement(new object[] { "group", Array.Empty<object>() });
+        live.Globals.Write("controllMode", live.Constants["CTRL_KEY"].Int);
+        var gun = live.Create(live.Constants["objNana_Gun"].Int, creature.X, creature.Y, run: false);
+        gun.Active = false;
+        gun.Scope.Write("DrawTarget", player.Id);
+        GmInstance Shot()
+        {
+            var bullet = live.Create(live.Constants["objBullet"].Int, creature.X, creature.Y, run: false);
+            bullet.Scope.Write("creator", gun.Id);
+            bullet.Scope.Write("preX", creature.X - 40);
+            bullet.Scope.Write("preY", creature.Y);
+            bullet.Scope.Write("fireAngle", 0.0);
+            return bullet;
+        }
+        live.Write(player, "x", spawnX);
+        live.Write(player, "y", spawnY);
+        live.Write(player, "vspeed", 0);
+        for (int settle = 0; settle < 600 && !NativeActorActions.Grounded(new(live, player)); settle++) tick();
+        Expect(NativeActorActions.Grounded(new(live, player)), "rope creature audit player stands on the ground");
+        live.Event(Shot(), 3, 1);
+        Expect(creature.Read("HP") == 9900, "native bullet subtracts exactly 100 damage on the ground");
+        creature.Write("INV", 1);
+        live.Event(Shot(), 3, 1);
+        Expect(creature.Read("HP") == 9900, "invulnerable rope creature ignores damage like the original");
+        creature.Write("INV", 0);
+        live.Write(player, "vspeed", -10);
+        live.Event(Shot(), 3, 1);
+        Expect(creature.Read("HP") == 8900, "airborne shot multiplies rope creature damage by ten");
+        live.Write(player, "vspeed", 0);
+        int drops = DropCount(live);
+        creature.X = player.Scope.ReadOr("x").Number;
+        creature.Y = player.Scope.ReadOr("y").Number;
+        for (int attach = 0; attach < 30 && player.Scope.ReadOr("HALFBINDED").Number == 0; attach++) tick();
+        Expect(player.Scope.ReadOr("HALFBINDED").Number == 1, "rope creature binds the standing player");
+        for (int frame = 0; frame < 180; frame++) tick();
+        Expect(Matches(live, player, hands, bound), "failed qte binds the hand layer");
+        live.Call("ropebonds_feet", [], new(player));
+        live.Events!.PrepareFrame();
+        Expect(Matches(live, player, feet, legs), "hand and leg layers stay stacked");
+        creature.Write("HP", 0);
+        tick();
+        Expect(player.Scope.ReadOr("HALFBINDED").Number == 1, "killing the hand binder leaves the leg layer half-bound");
+        Expect(Matches(live, player, feet, legs), "killing the hand binder keeps the leg layer locked");
+        Expect((live.Call("ropebonds_bound", [], new(player)).Int & 1) == 0, "killing the hand binder releases the hand layer");
+        Expect(creature.Read("MotionNum") == 0, "killing a rope creature never enters the vanilla death motion");
+        Expect(DropCount(live) == drops, "killing a rope creature spawns no vanilla drops");
+        for (int fade = 0; fade < 30; fade++) tick();
+        Expect(bridge.Services.Entities.Query("ropebonds.creature").All(actor => actor.Id != creature.Id), "dead rope creature is destroyed after the fade");
+        Expect(!bridge.Services.Presentation.Sprites.Any(sprite => sprite.Owner == creature.Id), "dead rope creature clears its rope visuals");
     }
 
     private static double[] BoneState(GmWorld world, GmInstance actor, string[] bones)
@@ -284,6 +354,14 @@ public partial class NativeModsAudit : Node
 
     private static bool Same(double[] left, double[] right) =>
         left.Length == right.Length && !left.Where((value, index) => Math.Abs(value - right[index]) > 1e-9).Any();
+
+    private static bool Near(double[] left, double[] right, double tolerance) =>
+        left.Length == right.Length && !left.Where((value, index) => Math.Abs(value - right[index]) > tolerance).Any();
+
+    private static int DropCount(GmWorld world) =>
+        new[] { "objHPRecover", "objItem_SMG", "objItem_AR", "objItem_HG" }
+            .Where(name => world.Constants.ContainsKey(name))
+            .Sum(name => world.Instances.Count(instance => !instance.Destroyed && world.IsObject(instance.Object, world.Constants[name].Int)));
 
     private static bool Matches(GmWorld world, GmInstance actor, string[] bones, IReadOnlyDictionary<string, MotionPose> sample)
     {

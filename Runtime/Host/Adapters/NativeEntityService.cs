@@ -16,13 +16,7 @@ public sealed class NativeEntityService(NativeModServices services) : IDisposabl
     {
         if (!services.Registry.EntityDefinitions.TryGetValue(id, out var definition)) throw new InvalidDataException("实体类型未加载：" + id);
         var world = services.World;
-        int baseObject = -1;
-        if (!string.IsNullOrEmpty(definition.BaseObject))
-        {
-            if (!world.Constants.TryGetValue(definition.BaseObject, out var resolved) || !world.Objects.ContainsKey(resolved.Int))
-                throw new InvalidDataException("原生基对象未找到：" + definition.BaseObject);
-            baseObject = resolved.Int;
-        }
+        int baseObject = ResolveBase(definition.BaseObject);
         var values = new Dictionary<string, GmValue>(StringComparer.Ordinal);
         foreach (var pair in definition.Parameters)
         {
@@ -47,12 +41,23 @@ public sealed class NativeEntityService(NativeModServices services) : IDisposabl
     {
         if (!services.Registry.EntityDefinitions.TryGetValue(definitionId, out var definition)) throw new InvalidDataException("实体类型未加载：" + definitionId);
         var actor = Find(id) ?? throw new InvalidDataException("实体实例不存在：" + id);
+        int baseObject = ResolveBase(definition.BaseObject);
+        if (baseObject >= 0)
+            services.World.ChangeObject(actor.Instance, services.World.NativeEntityObject(baseObject));
         foreach (var pair in definition.Parameters)
             if (!actor.Instance.Scope.Values.ContainsKey(pair.Key)) actor.Instance.Scope.Write(pair.Key, ParameterDefault(pair.Value));
         actor.Write("solid", definition.Solid ? 1 : 0);
         spawned[id] = new(actor.Instance, definition, 0, services.CurrentScope, actor, services.Registry.ScopeFor("entity", definition.BehaviorId, id));
         try { Attach?.Invoke(id, definition.BehaviorId); }
         catch { spawned.Remove(id); services.Presentation.ClearActor(id); throw; }
+    }
+    private int ResolveBase(string baseObject)
+    {
+        if (string.IsNullOrEmpty(baseObject))
+            return -1;
+        if (!services.World.Constants.TryGetValue(baseObject, out var resolved) || !services.World.Objects.ContainsKey(resolved.Int))
+            throw new InvalidDataException("原生基对象未找到：" + baseObject);
+        return resolved.Int;
     }
     private static GmValue ParameterDefault(NativeEntityParameter parameter) => parameter.Type switch
     {

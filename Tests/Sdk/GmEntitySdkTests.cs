@@ -48,6 +48,9 @@ public static class GmEntitySdkTests
         Expect(world.Select(enemy, new GmContext(doll.Instance)).Contains(doll.Instance), "S1a family selection includes the declared entity");
         Expect(!world.IsObject(doll.Instance.Object, player), "S1b the declared entity stays out of other families");
         Expect(!world.HasEvent(doll.Instance.Object, 3, 0), "S1b the declared entity runs no original step event");
+        Expect(!world.HasEvent(doll.Instance.Object, 1, 0), "S1b the declared entity runs no original destroy event");
+        Expect(!world.HasEvent(doll.Instance.Object, 3, 2), "S1b the declared entity runs no original end step event");
+        Expect(!world.HasEvent(doll.Instance.Object, 4, 261), "S1b the declared entity runs no original collision event");
         Expect(plain.Instance.Object == -100001, "S1c an undeclared entity keeps the synthetic native object");
         Expect(!world.IsObject(plain.Instance.Object, enemy), "S1c an undeclared entity stays out of the original family");
         Expect(doll.Instance.Object != plain.Instance.Object, "S1c declared and undeclared entities use distinct object definitions");
@@ -63,6 +66,13 @@ public static class GmEntitySdkTests
         world.Evaluator.ResetBudget();
         world.Event(bullet, 3, 1);
         Expect(doll.Read("HP") == 9900, "S1e a native bullet hit subtracts the original 100 damage");
+        int stub = world.Call("object_add", [], new GmContext(new GmInstance())).Int;
+        var mapped = world.Create(stub, 200, 200, run: false);
+        services.Entities.BindExisting(mapped.Id, "sdk.entity.doll");
+        Expect(world.IsObject(mapped.Object, enemy), "S1g a map-bound entity joins the declared family");
+        var plainMapped = world.Create(stub, 220, 200, run: false);
+        services.Entities.BindExisting(plainMapped.Id, "sdk.entity.plain");
+        Expect(plainMapped.Object == stub && !world.IsObject(plainMapped.Object, enemy), "S1g an undeclared map entity keeps its object");
         bool rejected = false;
         try
         {

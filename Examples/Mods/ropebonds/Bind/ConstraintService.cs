@@ -10,7 +10,7 @@ public sealed class ConstraintService : IDisposable
     private const string HandGraph = "ropebonds.bound", HandClip = "bound", FootGraph = "ropebonds.legs", FootClip = "legs", QteGraph = "ropebonds.qte", QteClip = "qte";
     public static readonly string[] HandBones = MotionSkeleton.Bones.Where(name => name.StartsWith("HAND", StringComparison.Ordinal)).ToArray();
     public static readonly string[] FootBones = MotionSkeleton.Bones.Where(name => name.StartsWith("FOOT", StringComparison.Ordinal)).ToArray();
-    private readonly BoneLayer hands = new("ropebonds.hand"), feet = new("ropebonds.leg");
+    private readonly BoneLayer hands = new("ropebonds.hand"), feet = new("ropebonds.leg", true);
 
     public void Attach(ModContext context)
     {

@@ -206,14 +206,7 @@ public partial class NativeModsAudit : Node
         live.Write(player, "x", 96); live.Write(player, "y", 64); live.Write(player, "hspeed", 0); live.Write(player, "vspeed", 0);
         NativeActorActions.Motion(new(live, player), "STAND_0");
         for (int i = 0; i < 4; i++) live.Step();
-        bool corridor = false;
-        for (int y = 64; y < 1200 && !corridor; y += 64)
-            for (int x = 96; x < 1500 && !corridor; x += 128)
-            {
-                corridor = Enumerable.Range(0, 109).All(dx => live.Call("place_free", [x + dx, y], new(player)).Truth && live.Call("place_free", [x + dx, y + 64], new(player)).Truth);
-                if (corridor) { live.Write(player, "x", x); live.Write(player, "y", y); }
-            }
-        Expect(corridor, "live room contains unobstructed dash corridor");
+        Expect(FindCorridor(live, player), "live room contains unobstructed dash corridor");
         bridge.BindCharacter(player, content.Characters["example.spin-nana"]);
         int rightKey = NativeActorActions.Key(new(live, player), 1);
         Tick(extraKey: rightKey); Tick(); Tick(extraKey: rightKey);
@@ -267,6 +260,47 @@ public partial class NativeModsAudit : Node
         Expect((live.Call("ropebonds_bound", [], new(player)).Int & 6) == 6, "leg qte starts after the stagger and uses the leg qte clip");
         live.Call("ropebonds_legqte", [], new(player));
         Expect(Same(BoneState(live, player, feet), standing), "leg qte failure restores the standing entry pose");
+        VerifyDrain(live, player, tick);
+    }
+
+    private static bool FindCorridor(GmWorld live, GmInstance player)
+    {
+        for (int y = 64; y < 1200; y += 64)
+            for (int x = 96; x < 1500; x += 128)
+            {
+                if (!Enumerable.Range(0, 109).All(dx => live.Call("place_free", [x + dx, y], new(player)).Truth && live.Call("place_free", [x + dx, y + 64], new(player)).Truth)) continue;
+                live.Write(player, "x", x);
+                live.Write(player, "y", y);
+                return true;
+            }
+        return false;
+    }
+
+    private void VerifyDrain(GmWorld live, GmInstance player, Action tick)
+    {
+        live.Globals.Write("config_Blood", 1); live.Globals.Write("EASY_QS", 0);
+        live.Globals.Write("PlayerHP", 100); live.Globals.Write("PlayerST", 100);
+        player.Scope.Write("HALFBINDED", 1);
+        live.Call("ropebonds_feet", [], new(player));
+        for (int index = 0; index < 32; index++) tick();
+        Expect(player.Scope.ReadOr("PlayerHP").Number == 95, "leg bound player loses five hp per half second in blood mode");
+        Expect(player.Scope.ReadOr("HALFBINDED").Number == 1 && player.Scope.ReadOr("BINDED").Number == 0, "drain preserves the qte bind flags");
+        live.Call("ropebonds_feet", [], new(player));
+        live.Globals.Write("config_Blood", 0); live.Globals.Write("PlayerHP", 100); live.Globals.Write("PlayerST", 6);
+        live.Call("ropebonds_feet", [], new(player));
+        for (int index = 0; index < 32; index++) tick();
+        Expect(player.Scope.ReadOr("PlayerST").Number == 1 && player.Scope.ReadOr("PlayerHP").Number == 100, "leg bound player drains stamina before hp outside blood mode");
+        for (int index = 0; index < 64; index++) tick();
+        Expect(player.Scope.ReadOr("PlayerST").Number == 0 && player.Scope.ReadOr("PlayerHP").Number == 98, "drain switches to hp once stamina is empty");
+        live.Call("ropebonds_feet", [], new(player));
+        live.Globals.Write("config_Blood", 1); live.Globals.Write("PlayerHP", 100); live.Globals.Write("EASY_QS", 1);
+        live.Call("ropebonds_feet", [], new(player));
+        for (int index = 0; index < 32; index++) tick();
+        Expect(player.Scope.ReadOr("PlayerHP").Number == 95, "difficulty does not change the drain rate");
+        live.Call("ropebonds_feet", [], new(player));
+        double stopped = player.Scope.ReadOr("PlayerHP").Number;
+        for (int index = 0; index < 64; index++) tick();
+        Expect(player.Scope.ReadOr("PlayerHP").Number == stopped, "drain stops when the binder dies");
     }
 
     private static double[] BoneState(GmWorld world, GmInstance actor, string[] bones)

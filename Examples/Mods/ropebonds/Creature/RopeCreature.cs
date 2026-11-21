@@ -450,7 +450,7 @@ public sealed class RopeCreature : IEntityBehavior
         player.Services.Audio.PlayBuiltin(player, "sndGishi00");
     }
 
-    private static void PlayVoice(ActorContext player, string kindName, int index)
+    internal static void PlayVoice(ActorContext player, string kindName, int index)
     {
         if (!player.World.Constants.TryGetValue(kindName, out GmValue kind)) return;
         GmValue voice = player.World.Globals.ReadOr(GmScope.Key("Voice", new[] { kind.Int, index }));

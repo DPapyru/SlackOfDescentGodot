@@ -5,13 +5,19 @@ using SlackOfDescent;
 
 namespace RopeBonds;
 
-public sealed class BoneLayer(string prefix)
+public sealed class BoneLayer(string prefix, bool drains = false)
 {
+    private const double DrainInterval = .5;
+    private const double BloodDamage = 5;
+    private const double StaminaDamage = 5;
+    private const double ExhaustedDamage = 2;
     private sealed record Bone(string Name, GmInstance Instance, GmInstance Parent);
     private sealed record Entry(ActorContext Actor, List<Bone> Bones, NativePoseService.Snapshot? Pose, MotionClip? Clip)
     {
         public double Frame;
+        public double NextDrain;
     }
+    private readonly bool drains = drains;
     private readonly Dictionary<int, Entry> entries = new();
     private readonly Dictionary<int, (double X, double Y, double Angle)> written = new();
     private readonly Dictionary<(int Actor, string Bone), (double X, double Y)> placed = new();
@@ -87,7 +93,37 @@ public sealed class BoneLayer(string prefix)
             if (entry.Actor.Instance.Destroyed) { entries.Remove(id); continue; }
             if (entry.Clip is { } clip) entry.Frame = clip.Loop ? (entry.Frame + 1) % Math.Max(1, clip.Duration) : Math.Min(entry.Frame + 1, clip.Duration);
             Restore(entry);
+            if (drains) Drain(entry);
         }
+    }
+
+    private void Drain(Entry entry)
+    {
+        ActorContext player = entry.Actor;
+        if (player.Instance.Destroyed || !player.Instance.Active) return;
+        double now = player.Services.Frame.GameTime;
+        if (entry.NextDrain <= 0)
+        {
+            entry.NextDrain = now + DrainInterval;
+            return;
+        }
+        if (now < entry.NextDrain) return;
+        entry.NextDrain = now + DrainInterval;
+        DrainOnce(player);
+    }
+
+    private static void DrainOnce(ActorContext player)
+    {
+        if (player.World.Globals.ReadOr("PlayerHP").Number <= 0) return;
+        if (player.World.Globals.ReadOr("config_Blood").Truth)
+        {
+            player.World.Globals.Write("PlayerHP", Math.Max(0, player.World.Globals.ReadOr("PlayerHP").Number - BloodDamage));
+            RopeCreature.PlayVoice(player, "V_UHI", 0);
+            return;
+        }
+        double stamina = player.World.Globals.ReadOr("PlayerST").Number;
+        if (stamina > 0) player.World.Globals.Write("PlayerST", Math.Max(0, stamina - StaminaDamage));
+        else player.World.Globals.Write("PlayerHP", Math.Max(0, player.World.Globals.ReadOr("PlayerHP").Number - ExhaustedDamage));
     }
 
     private void Prepare()

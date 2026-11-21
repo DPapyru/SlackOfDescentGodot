@@ -5,35 +5,28 @@ using SlackOfDescent;
 
 namespace RopeBonds;
 
-public sealed class HandConstraint : IDisposable
+public sealed class BoneLayer(string prefix)
 {
-    private const string Handler = "ropebonds.hand.constraint", VerifyHandler = "ropebonds.hand.verify", PrepareHandler = "ropebonds.hand.prepare";
-    private const string ClipGraph = "ropebonds.bound", ClipId = "bound", QteGraph = "ropebonds.qte", QteClipId = "qte";
-    public static readonly string[] Hands = MotionSkeleton.Bones.Where(name => name.StartsWith("HAND", StringComparison.Ordinal)).ToArray();
     private sealed record Bone(string Name, GmInstance Instance, GmInstance Parent);
     private sealed record Entry(ActorContext Actor, List<Bone> Bones, NativePoseService.Snapshot? Pose, MotionClip? Clip)
     {
         public double Frame;
     }
     private readonly Dictionary<int, Entry> entries = new();
-    private ContentRegistry? registry;
     private readonly Dictionary<int, (double X, double Y, double Angle)> written = new();
     private readonly Dictionary<(int Actor, string Bone), (double X, double Y)> placed = new();
     private readonly bool trace = Environment.GetEnvironmentVariable("ROPEBONDS_TRACE") is { Length: > 0 };
+    private ContentRegistry? registry;
 
     public void Attach(ModContext context)
     {
         registry = context.Content;
-        context.Subscribe(Handler, NativeEventNames.StepEnd, NativeEventPhase.After, _ => Tick());
-        context.Subscribe(VerifyHandler, NativeEventNames.StepBegin, NativeEventPhase.Before, _ => Verify());
-        context.Subscribe(PrepareHandler, NativeEventNames.FramePrepare, NativeEventPhase.After, _ => Prepare());
+        context.Subscribe(prefix + ".constraint", NativeEventNames.StepEnd, NativeEventPhase.After, _ => Tick());
+        context.Subscribe(prefix + ".verify", NativeEventNames.StepBegin, NativeEventPhase.Before, _ => Verify());
+        context.Subscribe(prefix + ".prepare", NativeEventNames.FramePrepare, NativeEventPhase.After, _ => Prepare());
     }
 
-    public bool Bind(ActorContext actor, IEnumerable<string>? names = null) => Bind(actor, ClipGraph, ClipId, names ?? Hands);
-
-    public bool BindQte(ActorContext actor) => Bind(actor, QteGraph, QteClipId, MotionSkeleton.Bones);
-
-    private bool Bind(ActorContext actor, string graph, string clip, IEnumerable<string> names)
+    public bool Bind(ActorContext actor, string graph, string clip, IEnumerable<string> names)
     {
         if (actor.Instance.Destroyed || entries.ContainsKey(actor.Id)) return false;
         List<Bone> bones = [];
@@ -59,7 +52,7 @@ public sealed class HandConstraint : IDisposable
     public bool Release(ActorContext actor)
     {
         if (!entries.Remove(actor.Id, out var entry)) return false;
-        Restore(entry);
+        Revert(entry);
         if (trace) foreach (Bone bone in entry.Bones) written.Remove(bone.Instance.Id);
         foreach (Bone bone in entry.Bones) placed.Remove((entry.Actor.Id, bone.Name));
         Console.WriteLine("ROPE_BIND_RELEASE actor=" + actor.Id);
@@ -68,15 +61,18 @@ public sealed class HandConstraint : IDisposable
 
     public void ReleaseAll()
     {
-        foreach (var entry in entries.Values) Restore(entry);
+        foreach (var entry in entries.Values) Revert(entry);
         entries.Clear();
     }
 
-    public bool IsBound(int actorId) => entries.ContainsKey(actorId);
+    public bool Holds(int actorId) => entries.ContainsKey(actorId);
 
-    public (double X, double Y)? BoundHands(int actorId) =>
-        placed.TryGetValue((actorId, "HAND3_ABOVE"), out var above) && placed.TryGetValue((actorId, "HAND3_BELOW"), out var below)
-            ? ((above.X + below.X) / 2, (above.Y + below.Y) / 2)
+    public bool Holds(int actorId, IEnumerable<string> names) =>
+        entries.TryGetValue(actorId, out var entry) && entry.Bones.Any(bone => names.Contains(bone.Name, StringComparer.Ordinal));
+
+    public (double X, double Y)? Center(int actorId, string above, string below) =>
+        placed.TryGetValue((actorId, above), out var left) && placed.TryGetValue((actorId, below), out var right)
+            ? ((left.X + right.X) / 2, (left.Y + right.Y) / 2)
             : null;
 
     private void Tick()
@@ -122,6 +118,13 @@ public sealed class HandConstraint : IDisposable
             }
     }
 
+    private void Revert(Entry entry)
+    {
+        if (entry.Pose is not { } snapshot) return;
+        foreach (Bone bone in entry.Bones)
+            if (!bone.Instance.Destroyed && !bone.Parent.Destroyed) entry.Actor.Services.Poses.Restore(snapshot, bone.Name);
+    }
+
     private void Restore(Entry entry)
     {
         IReadOnlyDictionary<string, MotionPose>? sample = entry.Clip?.Sample(entry.Frame);
@@ -136,61 +139,4 @@ public sealed class HandConstraint : IDisposable
     }
 
     public void Dispose() => ReleaseAll();
-}
-
-public sealed class BindProbe : IDisposable
-{
-    private const string CreatedHandler = "ropebonds.bind.created";
-    private const string StepHandler = "ropebonds.bind.step";
-    private readonly HandConstraint constraints;
-    private readonly bool enabled = Environment.GetEnvironmentVariable("ROPEBONDS_BIND_TEST") is { Length: > 0 };
-    private readonly bool loop = Environment.GetEnvironmentVariable("ROPEBONDS_BIND_LOOP") is { Length: > 0 };
-    private GmWorld? world;
-    private ActorContext? player;
-    private double waited;
-    private double boundAt;
-    private bool bound;
-    private bool done;
-
-    public BindProbe(HandConstraint constraints) => this.constraints = constraints;
-
-    public void Attach(ModContext context)
-    {
-        if (!enabled) return;
-        context.Subscribe(CreatedHandler, NativeEventNames.InstanceCreated, NativeEventPhase.After, Created);
-        context.Subscribe(StepHandler, NativeEventNames.StepEnd, NativeEventPhase.After, Step);
-    }
-
-    private void Created(NativeGameEvent value)
-    {
-        if (value.Actor is not { } actor) return;
-        world ??= actor.World;
-        if (RopeBondsMod.IsPlayer(actor)) player = actor;
-    }
-
-    private void Step(NativeGameEvent value)
-    {
-        if (world is null || done) return;
-        if (player is null || player.Instance.Destroyed || !world.Instances.Contains(player.Instance)) player = RopeBondsMod.FindPlayer(world);
-        if (player is null) return;
-        if (!bound)
-        {
-            waited += player.Services.Frame.Delta;
-            if (waited < 2) return;
-            if (constraints.Bind(player)) { bound = true; boundAt = player.Services.Frame.GameTime; }
-            return;
-        }
-        if (player.Services.Frame.GameTime - boundAt < 2) return;
-        constraints.Release(player);
-        bound = false;
-        if (!loop) { done = true; return; }
-        waited = 0;
-    }
-
-    public void Dispose()
-    {
-        if (bound && player is not null && !player.Instance.Destroyed) constraints.Release(player);
-        bound = false;
-        done = true;
-    }
 }

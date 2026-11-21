@@ -3,7 +3,7 @@
   "id": "example.ropebonds",
   "name": "RopeBonds",
   "author": "DPapyru",
-  "description": "绳索生物与手部姿态约束示例（开发中）。",
+  "description": "绳索生物与肢体姿态约束示例（开发中）。",
   "version": "0.1.3",
   "content": {
     "resources": {
@@ -14,7 +14,10 @@
       "entryType": "RopeBonds.RopeBondsMod",
       "sources": [
         "RopeBondsMod.cs",
-        "Bind/HandConstraint.cs",
+        "Bind/BindLayer.cs",
+        "Bind/BoneLayer.cs",
+        "Bind/ConstraintService.cs",
+        "Bind/BindProbe.cs",
         "Creature/VerletChain.cs",
         "Creature/RopeCreature.cs"
       ]
@@ -24,6 +27,7 @@
     },
     "motions": {
       "ropebonds.bound": "motions/bound.motion.json",
+      "ropebonds.legs": "motions/legs.motion.json",
       "ropebonds.qte": "motions/qte.motion.json"
     }
   },

@@ -264,8 +264,20 @@ public sealed partial class GmWorld
     {
         var observed=CallObserver;
         if(CallInterceptor is not null&&CallInterceptor(name,c,out var intercepted))return observed is null?intercepted:observed(name,c,intercepted);
+        if(name=="native_damage")return NativeDamage(c,a);
         if(observed is not null)return observed(name,c,CallCore(name,a,c));
         return CallCore(name,a,c);
+    }
+    private GmValue NativeDamage(GmContext c,GmValue[] a)
+    {
+        if(NativeServices is null)return a.Length>0?a[0]:default;
+        return NativeServices.Combat.Modify(c.Self,c.Other,a.Length>0?a[0].Number:0);
+    }
+    private int CreateInstance(int obj,double x,double y,int creator)
+    {
+        var instance=Create(obj,x,y);
+        if(NativeServices is not null)instance.Scope.Write("creator",creator);
+        return instance.Id;
     }
     private GmValue CallCore(string name,GmValue[] a,GmContext c)
     {
@@ -375,7 +387,7 @@ public sealed partial class GmWorld
             case "variable_local_set":Write(Self,S(0),V(1));return 0;
             case "variable_global_array_get":return Globals.ReadOr(S(0),new GmIndices(I(1)));case "variable_global_array2_get":return Globals.ReadOr(S(0),new GmIndices(I(1),I(2)));
             case "variable_local_array_get":return Self.Scope.ReadOr(S(0),new GmIndices(I(1)));case "variable_local_array2_get":return Self.Scope.ReadOr(S(0),new GmIndices(I(1),I(2)));
-            case "instance_create":return Create(I(2),N(0),N(1)).Id;
+            case "instance_create":return CreateInstance(I(2),N(0),N(1),Self.Id);
             case "instance_destroy":Event(Self,1,0);Self.Destroyed=true;return 0;
             case "instance_exists":case "instance_number":return FixedResult(name,V(0),default,c);
             case "instance_find":return Select(I(0),c).Skip(Math.Max(0,I(1))).FirstOrDefault()?.Id??-4;

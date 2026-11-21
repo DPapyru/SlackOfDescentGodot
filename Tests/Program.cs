@@ -25,6 +25,7 @@ assertions+=GmInstanceSdkTests.Run(world);
 assertions+=GmActorSdkTests.Run(world);
 assertions+=GmEventSdkTests.Run(world);
 assertions+=GmEntitySdkTests.Run(world);
+assertions+=GmCombatSdkTests.Run(world);
 assertions+=StepSnapshotTests.Run(world);
 assertions+=StepSkipTests.Run(world);
 assertions+=RegionActivationTests.Run(world);

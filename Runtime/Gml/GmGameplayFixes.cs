@@ -5,17 +5,32 @@ namespace SlackOfDescent;
 
 public sealed partial class GmWorld
 {
+    private static readonly Dictionary<string,(string Source, JsonElement Patched)> patchCache = new(StringComparer.Ordinal);
+    private static readonly JsonNode loadContextGate = JsonNode.Parse("[\"if\",[\"call\",\"instance_exists\",[[\"binary\",\"Deref\",[\"id\",\"global\"],[\"id\",\"PartCreator\"]]]],[\"binary\",\"Assign\",[\"id\",\"ctrlTarget\"],[\"binary\",\"Deref\",[\"id\",\"global\"],[\"id\",\"PartCreator\"]]],[\"binary\",\"Assign\",[\"id\",\"ctrlTarget\"],[\"id\",\"objPlayerDoll\"]]]")!;
+    private static readonly JsonArray loadContextSelect = JsonNode.Parse("[\"if\",[\"binary\",\"Or\",[\"binary\",\"Equal\",[\"id\",\"chara\"],[\"str\",\"Empty\"]],[\"binary\",\"Equal\",[\"id\",\"chara\"],[\"str\",\"Breasts\"]]],[\"binary\",\"Assign\",[\"id\",\"ctrlTarget\"],[\"binary\",\"Deref\",[\"id\",\"global\"],[\"id\",\"PartCreator\"]]],null]")!.AsArray();
+    private static readonly JsonNode alarmDelay = JsonNode.Parse("[\"binary\",\"Divide\",[\"binary\",\"Multiply\",[\"num\",7],[\"call\",\"max\",[[\"num\",30],[\"call\",\"min\",[[\"id\",\"room_speed\"],[\"num\",60]]]]]],[\"num\",30]]")!;
+    private static readonly JsonNode secondaryFireGate = JsonNode.Parse("[\"if\",[\"call\",\"slack_secondary_fire\",[]],[\"binary\",\"Assign\",[\"id\",\"ShotCheck\"],[\"num\",2]],null]")!;
+    private void ApplyPatch(string key,Action<JsonArray> edit)
+    {
+        string source=Code[key].GetRawText();
+        if(patchCache.TryGetValue(key,out var cached)&&string.Equals(cached.Source,source,StringComparison.Ordinal))
+        {
+            Code[key]=cached.Patched;
+            return;
+        }
+        var tree=JsonNode.Parse(source)!.AsArray();
+        edit(tree);
+        var patched=JsonSerializer.SerializeToElement(tree);
+        Code[key]=patched;
+        patchCache[key]=(source,patched);
+    }
     private void ApplyGameplayFixes()
     {
         double achievement=0;
         foreach(var constant in Manifest.GetProperty("constants").EnumerateArray())
             if(constant.GetProperty("name").GetString()=="DATA_ACHIEVEMENT")double.TryParse(constant.GetProperty("value").GetString(),System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out achievement);
         Globals.Write("gameData",achievement,0);
-        void Patch(string key,Action<JsonArray> edit)
-        {
-            var tree=JsonNode.Parse(Code[key].GetRawText())!.AsArray();
-            edit(tree);Code[key]=JsonSerializer.SerializeToElement(tree);
-        }
+        void Patch(string key,Action<JsonArray> edit)=>ApplyPatch(key,edit);
         static IEnumerable<JsonArray> Nodes(JsonArray node)
         {
             yield return node;
@@ -53,8 +68,8 @@ public sealed partial class GmWorld
         Patch("scripts/LoadContext",tree=>
         {
             var statements=tree[1]!.AsArray();var original=statements[0]!.DeepClone();
-            original![3]=JsonNode.Parse("[\"if\",[\"call\",\"instance_exists\",[[\"binary\",\"Deref\",[\"id\",\"global\"],[\"id\",\"PartCreator\"]]]],[\"binary\",\"Assign\",[\"id\",\"ctrlTarget\"],[\"binary\",\"Deref\",[\"id\",\"global\"],[\"id\",\"PartCreator\"]]],[\"binary\",\"Assign\",[\"id\",\"ctrlTarget\"],[\"id\",\"objPlayerDoll\"]]]");
-            var select=JsonNode.Parse("[\"if\",[\"binary\",\"Or\",[\"binary\",\"Equal\",[\"id\",\"chara\"],[\"str\",\"Empty\"]],[\"binary\",\"Equal\",[\"id\",\"chara\"],[\"str\",\"Breasts\"]]],[\"binary\",\"Assign\",[\"id\",\"ctrlTarget\"],[\"binary\",\"Deref\",[\"id\",\"global\"],[\"id\",\"PartCreator\"]]],null]")!.AsArray();
+            original![3]=loadContextGate.DeepClone();
+            var select=loadContextSelect.DeepClone().AsArray();
             select[3]=original;statements[0]=select;
         });
         Patch("scripts/LoadBody_Top_Under0",tree=>
@@ -63,12 +78,12 @@ public sealed partial class GmWorld
             foreach(var node in Nodes(setting).Where(n=>n.Count==4&&n[0]?.ToString()=="binary"&&n[1]?.ToString()=="Deref"&&n[2]?[1]?.ToString()=="other"&&n[3]?[1]?.ToString()=="chara").ToArray())
             {node.Clear();node.Add("id");node.Add("chara");}
         });
-        var demoMotions=new HashSet<string>(StringComparer.Ordinal);
-        foreach(var key in new[]{"external/Chara/Nana/motion_list.txt","external/Chara/Ryoko/motion_list.txt","external/Chara/Yuki/motion_list.txt"})
-            foreach(var call in Nodes(JsonNode.Parse(Code[key].GetRawText())!.AsArray()).Where(n=>n.Count==3&&n[0]?.ToString()=="call"&&n[1]?.ToString()=="PlayerMotionLoad"))
-                demoMotions.Add(call[2]![1]![1]!.ToString());
         Patch("objects/objDemoDoll/7/10/0",tree=>
         {
+            var demoMotions=new HashSet<string>(StringComparer.Ordinal);
+            foreach(var key in new[]{"external/Chara/Nana/motion_list.txt","external/Chara/Ryoko/motion_list.txt","external/Chara/Yuki/motion_list.txt"})
+                foreach(var call in Nodes(JsonNode.Parse(Code[key].GetRawText())!.AsArray()).Where(n=>n.Count==3&&n[0]?.ToString()=="call"&&n[1]?.ToString()=="PlayerMotionLoad"))
+                    demoMotions.Add(call[2]![1]![1]!.ToString());
             var statements=tree[1]!.AsArray();
             statements.Insert(0,new JsonArray("call","PlayerAnimationInit",new JsonArray()));
             foreach(string motion in demoMotions)statements.Insert(1,new JsonArray("binary","Assign",new JsonArray("id",motion),new JsonArray("id","null")));
@@ -104,14 +119,14 @@ public sealed partial class GmWorld
             foreach(var assignment in Nodes(tree).Where(n=>n.Count==4&&n[0]?.ToString()=="binary"&&n[1]?.ToString()=="Assign"
                 &&n[2]?[0]?.ToString()=="binary"&&n[2]?[1]?.ToString()=="Index"&&n[2]?[2]?[1]?.ToString()=="alarm"
                 &&n[3]?[0]?.ToString()=="num"&&n[3]?[1]?.GetValue<double>()==7).ToArray())
-                assignment[3]=JsonNode.Parse("[\"binary\",\"Divide\",[\"binary\",\"Multiply\",[\"num\",7],[\"call\",\"max\",[[\"num\",30],[\"call\",\"min\",[[\"id\",\"room_speed\"],[\"num\",60]]]]]],[\"num\",30]]");
+                assignment[3]=alarmDelay.DeepClone();
         });
         Patch("objects/objController/3/2/6",tree=>
         {
             var statements=Nodes(tree).Single(n=>n.Count>0&&n[0] is JsonArray&&n.OfType<JsonArray>().Any(s=>s[0]?.ToString()=="case"&&s[1]?[1]?.ToString()=="WP_NANA_AR")&&n.OfType<JsonArray>().Any(s=>s[0]?.ToString()=="binary"&&s[2]?[1]?.ToString()=="ShotCheck"));
             int start=statements.Select((n,i)=>(n,i)).Single(p=>p.n?[0]?.ToString()=="case"&&p.n?[1]?[1]?.ToString()=="WP_NANA_AR").i;
             int end=start+1;while(statements[end]?[0]?.ToString()!="break")end++;
-            statements.Insert(end,JsonNode.Parse("[\"if\",[\"call\",\"slack_secondary_fire\",[]],[\"binary\",\"Assign\",[\"id\",\"ShotCheck\"],[\"num\",2]],null]"));
+            statements.Insert(end,secondaryFireGate.DeepClone());
         });
         PatchBulletDamage();
         ApplyModMenu();

@@ -279,6 +279,7 @@ public partial class NativeModsAudit : Node
         Expect(Same(BoneState(live, player, feet), standing), "leg qte failure restores the standing entry pose");
         VerifyRopeCreature(live, bridge, player, hands, feet, bound, legs, tick, advance);
         VerifySecondBind(live, bridge, player, hands, feet, bound, legs, tick);
+        VerifyQteSuccess(live, bridge, player, tick);
     }
 
     private void VerifyRopeCreature(GmWorld live, GmNativeBridge bridge, GmInstance player, string[] hands, string[] feet,
@@ -392,6 +393,11 @@ public partial class NativeModsAudit : Node
         bridge.Services.Entities.Destroy(second.Id);
         for (int frame = 0; frame < 10; frame++) tick();
         Expect(live.Call("ropebonds_bound", [], new(player)).Int == 0, "destroying both binders releases both layers");
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void VerifyQteSuccess(GmWorld live, GmNativeBridge bridge, GmInstance player, Action tick)
+    {
         var win = bridge.Services.Entities.Spawn("ropebonds.creature", player.Scope.ReadOr("x").Number, player.Scope.ReadOr("y").Number);
         for (int frame = 0; frame < 60 && player.Scope.ReadOr("HALFBINDED").Number == 0; frame++) tick();
         Expect(player.Scope.ReadOr("HALFBINDED").Number == 1, "the success check re-enters the hand qte");
@@ -403,7 +409,7 @@ public partial class NativeModsAudit : Node
         live.Call("ropebonds_hands", [], new(player));
         live.Events!.PrepareFrame();
         var roll = bridge.Services.Entities.Spawn("ropebonds.creature", player.Scope.ReadOr("x").Number, player.Scope.ReadOr("y").Number);
-        mask = 0;
+        int mask = 0;
         for (int frame = 0; frame < 300; frame++)
         {
             tick();
@@ -414,7 +420,7 @@ public partial class NativeModsAudit : Node
         NativeActorActions.Controller(new(live, player))!.Scope.Write("BindCounter", 50);
         tick();
         mask = live.Call("ropebonds_bound", [], new(player)).Int;
-        Expect(mask == 1, "a filled leg qte leaves only the hand layer");
+        Expect(mask == 1, "a filled leg qte leaves only the hand layer mask=" + mask + " counter=" + (NativeActorActions.Controller(new(live, player))?.Scope.ReadOr("BindCounter").ToString() ?? "none") + " max=" + live.Globals.ReadOr("BindMax").Number);
         Expect(player.Scope.ReadOr("MotionNum").Number == player.Scope.ReadOr("FLYING_SPIN").Number, "a filled leg qte rolls the player out");
         bridge.Services.Entities.Destroy(roll.Id);
         live.Call("ropebonds_hands", [], new(player));

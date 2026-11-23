@@ -61,6 +61,7 @@ public sealed class RopeBondsMod : IMod
         if (value.Actor is not { } actor || !IsPlayer(actor)) return;
         if (Constraints.Bound(actor.Id, layer)) Constraints.Release(actor, layer);
         else Constraints.Bind(actor, layer);
+        actor.Write("HALFBINDED", Constraints.Bound(actor.Id) ? 1 : 0);
         Console.WriteLine("ROPE_LAYER_TOGGLE layer=" + layer + " actor=" + actor.Id + " bound=" + (Constraints.Bound(actor.Id, layer) ? 1 : 0));
     }
 
@@ -71,6 +72,7 @@ public sealed class RopeBondsMod : IMod
         if (value.Actor is not { } actor || !IsPlayer(actor)) return;
         if (Constraints.Bound(actor.Id, BindLayer.Feet)) Constraints.Release(actor, BindLayer.Feet);
         else Constraints.Bind(actor, BindLayer.Feet, "ropebonds.legqte", "legqte");
+        actor.Write("HALFBINDED", Constraints.Bound(actor.Id) ? 1 : 0);
         Console.WriteLine("ROPE_LEG_QTE_TOGGLE actor=" + actor.Id + " bound=" + (Constraints.Bound(actor.Id, BindLayer.Feet) ? 1 : 0));
     }
 

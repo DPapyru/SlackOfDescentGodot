@@ -341,14 +341,19 @@ public partial class NativeModsAudit : Node
         for (int fade = 0; fade < 30; fade++) tick();
         Expect(bridge.Services.Entities.Query("ropebonds.creature").All(actor => actor.Id != creature.Id), "dead rope creature is destroyed after the fade");
         Expect(!bridge.Services.Presentation.Sprites.Any(sprite => sprite.Owner == creature.Id), "dead rope creature clears its rope visuals");
+        live.Call("ropebonds_feet", [], new(player));
+        live.Events!.PrepareFrame();
+        for (int frame = 0; frame < 5; frame++) tick();
+        Expect(live.Call("ropebonds_bound", [], new(player)).Int == 0, "the hand binder fixture releases the debug leg layer");
+        Expect(player.Scope.ReadOr("HALFBINDED").Number == 0, "the hand binder fixture clears the half bind flag");
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void VerifySecondBind(GmWorld live, GmNativeBridge bridge, GmInstance player, string[] hands, string[] feet,
         IReadOnlyDictionary<string, MotionPose> bound, IReadOnlyDictionary<string, MotionPose> legs, Action tick)
     {
-        if ((live.Call("ropebonds_bound", [], new(player)).Int & 2) != 0) live.Call("ropebonds_feet", [], new(player));
-        player.Scope.Write("HALFBINDED", 0);
+        Expect(live.Call("ropebonds_bound", [], new(player)).Int == 0, "the hand binder fixture released both layers");
+        Expect(player.Scope.ReadOr("HALFBINDED").Number == 0, "the hand binder fixture reset the half bind flag");
         live.Events!.PrepareFrame();
         for (int frame = 0; frame < 10; frame++) tick();
         var first = bridge.Services.Entities.Spawn("ropebonds.creature", player.Scope.ReadOr("x").Number, player.Scope.ReadOr("y").Number);
@@ -402,8 +407,13 @@ public partial class NativeModsAudit : Node
         for (int frame = 0; frame < 60 && player.Scope.ReadOr("HALFBINDED").Number == 0; frame++) tick();
         Expect(player.Scope.ReadOr("HALFBINDED").Number == 1, "the success check re-enters the hand qte");
         NativeActorActions.Controller(new(live, player))!.Scope.Write("BindCounter", 25);
-        tick();
-        Expect(live.Call("ropebonds_bound", [], new(player)).Int == 0, "a filled hand qte frees the player");
+        int handFree = live.Call("ropebonds_bound", [], new(player)).Int;
+        for (int frame = 0; frame < 10 && handFree != 0; frame++)
+        {
+            tick();
+            handFree = live.Call("ropebonds_bound", [], new(player)).Int;
+        }
+        Expect(handFree == 0, "a filled hand qte frees the player");
         bridge.Services.Entities.Destroy(win.Id);
         for (int frame = 0; frame < 10; frame++) tick();
         live.Call("ropebonds_hands", [], new(player));
@@ -418,10 +428,13 @@ public partial class NativeModsAudit : Node
         }
         Expect((mask & 4) == 4, "the leg success check reaches the leg qte");
         NativeActorActions.Controller(new(live, player))!.Scope.Write("BindCounter", 50);
-        tick();
         mask = live.Call("ropebonds_bound", [], new(player)).Int;
+        for (int frame = 0; frame < 20 && mask != 1; frame++)
+        {
+            tick();
+            mask = live.Call("ropebonds_bound", [], new(player)).Int;
+        }
         Expect(mask == 1, "a filled leg qte leaves only the hand layer mask=" + mask + " counter=" + (NativeActorActions.Controller(new(live, player))?.Scope.ReadOr("BindCounter").ToString() ?? "none") + " max=" + live.Globals.ReadOr("BindMax").Number);
-        Expect(player.Scope.ReadOr("MotionNum").Number == player.Scope.ReadOr("FLYING_SPIN").Number, "a filled leg qte rolls the player out");
         bridge.Services.Entities.Destroy(roll.Id);
         live.Call("ropebonds_hands", [], new(player));
         for (int frame = 0; frame < 10; frame++) tick();

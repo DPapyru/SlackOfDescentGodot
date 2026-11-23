@@ -30,10 +30,10 @@ const legBinder = creatures.filter(creature => creature.properties?.LegsOnly ===
 expect(legBinder.length === 1, 'one creature binds the leg layer only');
 expect(legBinder[0].y === GROUND_Y + PIT_DEPTH - 32, 'leg layer creature spawns above a pit floor');
 const byX = x => creatures.find(creature => creature.x === x);
-const winner = byX(470), loser = byX(1110);
-expect(winner && winner.properties?.PreBind === 1 && winner.properties?.AutoQte === 1, 'pit one runs the leg qte success branch');
-expect(loser && loser.properties?.PreBind === 1 && loser.properties?.AutoQte === 2, 'pit two runs the leg qte fail branch');
-expect(legBinder[0].properties?.PreBind === undefined && legBinder[0].properties?.AutoQte === undefined, 'the leg layer debug creature runs no qte');
+const first = byX(470), second = byX(1110);
+expect(first && Object.keys(first.properties ?? {}).length === 0, 'pit one opens with an unbound hand encounter');
+expect(second && Object.keys(second.properties ?? {}).length === 0, 'pit two repeats the plain encounter after the hand layer is bound');
+expect(Object.keys(legBinder[0].properties).length === 1, 'only the debug creature carries a bind preset');
 
 const positions = (x, y) => blocks.has(x + ',' + y);
 const gaps = [];
